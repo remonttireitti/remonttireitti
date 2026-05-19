@@ -7,7 +7,7 @@ export function createAdminClient() {
 
   if (!url || !key) {
     throw new Error(
-      "SUPABASE_SERVICE_ROLE_KEY puuttuu .env.local-tiedostosta (Admin-toiminnot).",
+      "SUPABASE_SERVICE_ROLE_KEY puuttuu (Vercel Environment Variables tai .env.local).",
     );
   }
 

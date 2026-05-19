@@ -17,8 +17,17 @@ export async function expireEquipmentListings(): Promise<number> {
 export async function expireListingsIfNeeded() {
   try {
     const supabase = await createClient();
-    await supabase.rpc("expire_equipment_listings");
+    const { error } = await supabase.rpc("expire_equipment_listings");
+    if (!error) return;
   } catch {
+    // Anon-RPC ei onnistunut — yritä admin vain jos avain on asetettu.
+  }
+
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) return;
+
+  try {
     await expireEquipmentListings();
+  } catch (err) {
+    console.error("[expireListingsIfNeeded]", err);
   }
 }
