@@ -83,7 +83,7 @@ export default async function AccountPage({
     return (
       <div className="min-h-full bg-stone-50 text-stone-900">
         <SiteHeader />
-        <main className="mx-auto max-w-2xl px-6 py-12">
+        <main className="mx-auto max-w-2xl px-4 py-8 sm:px-6 sm:py-12">
           <h1 className="text-xl font-bold">Oma tili</h1>
           {params.virhe && (
             <p className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-800" role="alert">
@@ -122,7 +122,7 @@ export default async function AccountPage({
   return (
     <div className="min-h-full bg-stone-50 text-stone-900">
       <SiteHeader />
-      <main className="mx-auto max-w-2xl px-6 py-12">
+      <main className="mx-auto max-w-2xl px-4 py-8 sm:px-6 sm:py-12">
         <h1 className="text-2xl font-bold">Oma tili</h1>
         <p className="mt-2 text-stone-600">{user.email}</p>
 
@@ -187,11 +187,11 @@ export default async function AccountPage({
 
         {!contractor && !admin && (
           <>
-            <div className="mt-8 flex items-center justify-between">
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <h2 className="text-lg font-semibold">Lämpöpumppupyynnöt</h2>
               <Link
                 href="/remontti/uusi"
-                className="rounded-full bg-orange-600 px-4 py-2 text-sm font-medium text-white hover:bg-orange-700"
+                className="inline-flex w-full shrink-0 items-center justify-center rounded-lg bg-orange-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-orange-700 sm:w-auto sm:rounded-full"
               >
                 + Uusi tarjouspyyntö
               </Link>

@@ -31,11 +31,17 @@ export default function MarketplacePage() {
           ammattilaisille.
         </p>
 
-        <div className="mt-10 flex flex-wrap gap-4">
-          <Link href="/markkinapaikka/hinnasto" className={brand.btnPrimary}>
+        <div className={`mt-10 ${brand.actionsStack}`}>
+          <Link
+            href="/markkinapaikka/hinnasto"
+            className={`${brand.btnPrimary} ${brand.btnPrimaryBlock}`}
+          >
             Katso hinnasto
           </Link>
-          <Link href="/markkinapaikka/ilmoitukset" className={brand.btnSecondary}>
+          <Link
+            href="/markkinapaikka/ilmoitukset"
+            className={`${brand.btnSecondary} ${brand.btnSecondaryBlock}`}
+          >
             Selaa ilmoituksia
           </Link>
         </div>

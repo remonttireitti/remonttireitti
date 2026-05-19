@@ -47,8 +47,8 @@ export function HomeNotifications({
   }
 
   return (
-    <section id="ilmoitukset" className="mx-auto max-w-5xl px-6 py-10">
-      <div className="flex flex-wrap items-end justify-between gap-3">
+    <section id="ilmoitukset" className="mx-auto max-w-5xl px-4 py-10 sm:px-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h2 className="text-xl font-bold tracking-tight">Ilmoitukset</h2>
           <p className="mt-1 text-sm text-stone-600">
@@ -62,7 +62,7 @@ export function HomeNotifications({
             type="button"
             onClick={handleMarkAll}
             disabled={pending}
-            className="rounded-lg border border-stone-300 bg-white px-3 py-1.5 text-sm font-medium text-stone-700 hover:bg-stone-50 disabled:opacity-60"
+            className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm font-medium text-stone-700 hover:bg-stone-50 disabled:opacity-60 sm:w-auto sm:py-1.5"
           >
             Merkitse kaikki luetuksi
           </button>

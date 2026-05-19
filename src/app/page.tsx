@@ -19,6 +19,7 @@ import {
   countUnreadNotifications,
   fetchUserNotifications,
 } from "@/lib/notifications-server";
+import { brand } from "@/lib/brand-theme";
 import { marketplaceBrand } from "@/lib/marketplace-brand";
 import { createClient } from "@/lib/supabase/server";
 
@@ -48,7 +49,7 @@ export default async function Home() {
       <SiteHeader />
 
       <main>
-        <section className="mx-auto max-w-5xl px-6 py-20 text-center">
+        <section className="mx-auto max-w-5xl px-4 py-14 text-center sm:px-6 sm:py-20">
           <div className="mb-6 flex justify-center">
             <Logo href="/" size="lg" />
           </div>
@@ -66,16 +67,16 @@ export default async function Home() {
           <p className="mx-auto mt-3 max-w-xl text-sm text-stone-500">
             Ilmalämpö-, vesi-ilmalämpö- ja maalämpöpumput.
           </p>
-          <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
+          <div className="mx-auto mt-10 flex w-full max-w-sm flex-col gap-3 sm:max-w-none sm:flex-row sm:justify-center">
             <Link
               href="/remontti/uusi"
-              className="rounded-full bg-orange-600 px-8 py-3 font-medium text-white hover:bg-orange-700"
+              className="inline-flex w-full items-center justify-center rounded-full bg-orange-600 px-8 py-3 font-medium text-white hover:bg-orange-700 sm:w-auto"
             >
               Kilpailuta lämpöpumppu
             </Link>
             <Link
               href="/rekisteroidy?rooli=urakoitsija"
-              className="rounded-full border border-stone-300 px-8 py-3 font-medium text-stone-700 hover:bg-stone-100"
+              className="inline-flex w-full items-center justify-center rounded-full border border-stone-300 px-8 py-3 font-medium text-stone-700 hover:bg-stone-100 sm:w-auto"
             >
               Olen lämpöpumppuasentaja
             </Link>
@@ -115,9 +116,9 @@ export default async function Home() {
         </section>
 
         <section className="border-t border-stone-200 bg-gradient-to-b from-sky-50/40 to-stone-50 py-16">
-          <div className="mx-auto max-w-6xl px-6">
-            <div className="flex flex-wrap items-end justify-between gap-4">
-              <div>
+          <div className="mx-auto max-w-6xl px-4 sm:px-6">
+            <div className={brand.pageHeaderRow}>
+              <div className="min-w-0">
                 <p className="text-sm font-medium uppercase tracking-wide text-sky-700">
                   {marketplaceBrand.nameShort}
                 </p>
@@ -129,16 +130,16 @@ export default async function Home() {
                   ilmaiseksi — yrityksille hinnasto erikseen.
                 </p>
               </div>
-              <div className="flex flex-wrap gap-3">
+              <div className={brand.actionsStack}>
                 <Link
                   href="/markkinapaikka/ilmoitukset"
-                  className="rounded-lg border border-sky-200 bg-white px-4 py-2 text-sm font-medium text-sky-900 hover:bg-sky-50"
+                  className={`${brand.btnSecondary} ${brand.btnSecondaryBlock}`}
                 >
                   Kaikki ilmoitukset
                 </Link>
                 <Link
                   href="/markkinapaikka/ilmoita?tyyppi=kuluttaja"
-                  className="rounded-lg bg-orange-600 px-4 py-2 text-sm font-medium text-white hover:bg-orange-700"
+                  className={`${brand.btnPrimary} ${brand.btnPrimaryBlock}`}
                 >
                   Ilmoita myytävä
                 </Link>

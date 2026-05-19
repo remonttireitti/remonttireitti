@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { SiteHeader } from "@/components/site-header";
+import { brand } from "@/lib/brand-theme";
 import { ListingCardGrid } from "@/components/marketplace/listing-card-grid";
 import { ListingCategoryFilter } from "@/components/marketplace/listing-category-filter";
 import { fetchPublishedListings } from "@/lib/marketplace-listings-server";
@@ -38,8 +39,8 @@ export default async function MarketplaceListingsPage({
         >
           ← {marketplaceBrand.nameShort}
         </Link>
-        <div className="mt-4 flex flex-wrap items-end justify-between gap-4">
-          <div>
+        <div className={`mt-4 ${brand.pageHeaderRow}`}>
+          <div className="min-w-0">
             <h1 className="text-2xl font-bold">
               {categoryMeta ? categoryMeta.label : "Ilmoitukset"}
             </h1>
@@ -51,7 +52,7 @@ export default async function MarketplaceListingsPage({
           </div>
           <Link
             href="/markkinapaikka/ilmoita?tyyppi=kuluttaja"
-            className="rounded-lg bg-orange-600 px-4 py-2 text-sm font-medium text-white hover:bg-orange-700"
+            className={`shrink-0 ${brand.btnPrimary} ${brand.btnPrimaryBlock}`}
           >
             Lisää ilmoitus
           </Link>

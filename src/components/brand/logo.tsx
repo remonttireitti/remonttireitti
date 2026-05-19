@@ -40,10 +40,13 @@ function LogoMark({ className }: { className?: string }) {
 export function Logo({
   href = "/",
   showText = true,
+  compactOnMobile = false,
   size = "md",
 }: {
   href?: string;
   showText?: boolean;
+  /** Piilottaa tekstin alle md-näkymässä (vain ikoni) */
+  compactOnMobile?: boolean;
   size?: "sm" | "md" | "lg";
 }) {
   const icon =
@@ -59,7 +62,9 @@ export function Logo({
         <LogoMark className="h-full w-full drop-shadow-sm" />
       </span>
       {showText && (
-        <span className={`flex flex-col leading-none ${text}`}>
+        <span
+          className={`flex-col leading-none ${text} ${compactOnMobile ? "hidden sm:flex" : "flex"}`}
+        >
           <span className="bg-gradient-to-r from-slate-900 via-sky-900 to-sky-700 bg-clip-text font-semibold tracking-tight text-transparent">
             Remonttireitti
           </span>
