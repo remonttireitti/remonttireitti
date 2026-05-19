@@ -1,9 +1,26 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { siteConfig } from "@/lib/site-config";
 
 export function getSiteUrl(): string {
   const url = siteConfig.siteUrl;
   return url.endsWith("/") ? url.slice(0, -1) : url;
+}
+
+/** Pyyntökohtainen kanoninen juuri (sitemap, robots) — käyttää oikeaa hostia vaikka env olisi väärin. */
+export async function getRequestSiteUrl(): Promise<string> {
+  try {
+    const h = await headers();
+    const host = (h.get("x-forwarded-host") ?? h.get("host") ?? "")
+      .split(",")[0]
+      .trim();
+    if (host && !host.includes("localhost") && !host.includes("vercel.app")) {
+      return `https://${host}`;
+    }
+  } catch {
+    // Staattinen generointi tms.
+  }
+  return getSiteUrl();
 }
 
 const defaultTitle = `${siteConfig.name} — Kilpailuta lämpöpumppu ilmaiseksi`;

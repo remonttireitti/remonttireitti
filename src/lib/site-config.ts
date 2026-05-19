@@ -1,5 +1,13 @@
 /** Julkinen yritys- ja yhteystieto (täytä tuotannon .env / Vercel). */
 
+function resolveSiteUrl(): string {
+  const configured = (process.env.NEXT_PUBLIC_SITE_URL ?? "").trim().replace(/\/$/, "");
+  if (!configured || configured.includes("vercel.app")) {
+    return "https://remonttireitti.fi";
+  }
+  return configured;
+}
+
 export const siteConfig = {
   name: process.env.NEXT_PUBLIC_COMPANY_NAME ?? "Remonttireitti",
   legalName:
@@ -14,7 +22,6 @@ export const siteConfig = {
     process.env.NEXT_PUBLIC_PRIVACY_EMAIL ??
     process.env.NEXT_PUBLIC_COMPANY_EMAIL ??
     "info@remonttireitti.fi",
-  siteUrl:
-    process.env.NEXT_PUBLIC_SITE_URL ?? "https://remonttireitti.fi",
+  siteUrl: resolveSiteUrl(),
   gaId: process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID ?? "",
 } as const;

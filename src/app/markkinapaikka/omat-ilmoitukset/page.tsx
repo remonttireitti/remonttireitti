@@ -14,6 +14,7 @@ export const metadata: Metadata = pageMetadata({
   title: `Omat ilmoitukset — ${marketplaceBrand.nameShort}`,
   description: "Hallitse torin myynti-ilmoituksiasi.",
   path: "/markkinapaikka/omat-ilmoitukset",
+  noIndex: true,
 });
 
 function formatDate(iso: string | null) {

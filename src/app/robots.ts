@@ -1,7 +1,9 @@
 import type { MetadataRoute } from "next";
-import { getSiteUrl } from "@/lib/seo";
+import { getRequestSiteUrl } from "@/lib/seo";
 
-export default function robots(): MetadataRoute.Robots {
+export default async function robots(): Promise<MetadataRoute.Robots> {
+  const base = await getRequestSiteUrl();
+
   return {
     rules: {
       userAgent: "*",
@@ -15,8 +17,9 @@ export default function robots(): MetadataRoute.Robots {
         "/tarjoukset/",
         "/auth/",
         "/api/",
+        "/markkinapaikka/omat-ilmoitukset",
       ],
     },
-    sitemap: `${getSiteUrl()}/sitemap.xml`,
+    sitemap: `${base}/sitemap.xml`,
   };
 }

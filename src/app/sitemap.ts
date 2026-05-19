@@ -1,9 +1,9 @@
 import type { MetadataRoute } from "next";
-import { getSiteUrl } from "@/lib/seo";
+import { getRequestSiteUrl } from "@/lib/seo";
 import { fetchPublishedListingsForSitemap } from "@/lib/marketplace-listings-server";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const base = getSiteUrl();
+  const base = await getRequestSiteUrl();
   const now = new Date();
 
   const staticPages: MetadataRoute.Sitemap = [
