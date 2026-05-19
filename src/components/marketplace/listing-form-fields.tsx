@@ -1,5 +1,5 @@
+import { ListingCategoryFields } from "@/components/marketplace/listing-category-fields";
 import { formInputClass } from "@/lib/brand-theme";
-import { PUMP_TYPE_OPTIONS } from "@/lib/marketplace-listings";
 
 export function ListingFormFields({
   defaults,
@@ -29,24 +29,14 @@ export function ListingFormFields({
         />
       </Field>
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Kunto *">
-          <select name="condition" defaultValue="used" className={formInputClass}>
-            <option value="used">Käytetty</option>
-            <option value="new">Uusi / käyttämätön</option>
-          </select>
-        </Field>
-        <Field label="Laitteen tyyppi *">
-          <select name="pump_type_slug" required className={formInputClass}>
-            <option value="">Valitse…</option>
-            {PUMP_TYPE_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
-        </Field>
-      </div>
+      <ListingCategoryFields />
+
+      <Field label="Kunto *">
+        <select name="condition" defaultValue="used" className={formInputClass}>
+          <option value="used">Käytetty</option>
+          <option value="new">Uusi / käyttämätön</option>
+        </select>
+      </Field>
 
       <div className="grid gap-4 sm:grid-cols-3">
         <Field label="Valmistaja">

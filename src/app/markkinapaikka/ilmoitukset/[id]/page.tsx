@@ -12,6 +12,7 @@ import {
   fetchSellerInbox,
 } from "@/lib/listing-messages-server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { listingCategoryLabel } from "@/lib/marketplace-categories";
 import { createClient } from "@/lib/supabase/server";
 
 export async function generateMetadata({
@@ -66,7 +67,7 @@ export default async function MarketplaceListingDetailPage({
     .select(
       `
       id, title, description, price_eur, municipality, postal_code,
-      condition, manufacturer, model, year_manufactured, pump_type_slug,
+      condition, manufacturer, model, year_manufactured, pump_type_slug, product_category,
       seller_type, seller_id, published_at, expires_at,
       contact_email, contact_phone, address_line
     `,
@@ -127,7 +128,10 @@ export default async function MarketplaceListingDetailPage({
         </Link>
 
         <p className="mt-4 text-xs font-medium uppercase text-stone-500">
-          {listing.condition === "new" ? "Uusi" : "Käytetty"} ·{" "}
+          {listingCategoryLabel(
+            listing.product_category ?? "device",
+          )}{" "}
+          · {listing.condition === "new" ? "Uusi" : "Käytetty"} ·{" "}
           {listing.seller_type === "customer" ? "Yksityinen myyjä" : "Yritys"}
           {expiresLabel && ` · voimassa ${expiresLabel} asti`}
         </p>

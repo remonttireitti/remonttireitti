@@ -2,7 +2,12 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { SiteHeader } from "@/components/site-header";
 import { ListingCardGrid } from "@/components/marketplace/listing-card-grid";
+import { ListingCategoryFilter } from "@/components/marketplace/listing-category-filter";
 import { fetchPublishedListings } from "@/lib/marketplace-listings-server";
+import {
+  getListingCategory,
+  listingCategoryFromUrlParam,
+} from "@/lib/marketplace-categories";
 import { marketplaceBrand } from "@/lib/marketplace-brand";
 import { pageMetadata } from "@/lib/seo";
 
@@ -13,8 +18,15 @@ export const metadata: Metadata = pageMetadata({
   path: "/markkinapaikka/ilmoitukset",
 });
 
-export default async function MarketplaceListingsPage() {
-  const listings = await fetchPublishedListings(50);
+export default async function MarketplaceListingsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ kategoria?: string }>;
+}) {
+  const { kategoria } = await searchParams;
+  const categoryFilter = listingCategoryFromUrlParam(kategoria);
+  const listings = await fetchPublishedListings(50, categoryFilter);
+  const categoryMeta = categoryFilter ? getListingCategory(categoryFilter) : null;
 
   return (
     <div className="min-h-full bg-stone-50 text-stone-900">
@@ -28,9 +40,13 @@ export default async function MarketplaceListingsPage() {
         </Link>
         <div className="mt-4 flex flex-wrap items-end justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold">Ilmoitukset</h1>
+            <h1 className="text-2xl font-bold">
+              {categoryMeta ? categoryMeta.label : "Ilmoitukset"}
+            </h1>
             <p className="mt-1 text-stone-600">
-              Julkaistut käytetyt ja uudet laitteet — ei kirjautumista
+              {categoryMeta
+                ? categoryMeta.description
+                : "Laitteet, varaosat, tarvikkeet ja työkalut — ei kirjautumista"}
             </p>
           </div>
           <Link
@@ -42,6 +58,10 @@ export default async function MarketplaceListingsPage() {
         </div>
 
         <div className="mt-8">
+          <ListingCategoryFilter active={categoryFilter} />
+        </div>
+
+        <div className="mt-6">
           <ListingCardGrid listings={listings} />
         </div>
       </main>

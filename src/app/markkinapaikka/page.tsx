@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { SiteHeader } from "@/components/site-header";
 import { brand } from "@/lib/brand-theme";
+import { LISTING_PRODUCT_CATEGORIES } from "@/lib/marketplace-categories";
 import { marketplaceBrand } from "@/lib/marketplace-brand";
 import { pageMetadata } from "@/lib/seo";
 
@@ -37,6 +38,23 @@ export default function MarketplacePage() {
           <Link href="/markkinapaikka/ilmoitukset" className={brand.btnSecondary}>
             Selaa ilmoituksia
           </Link>
+        </div>
+
+        <div className="mt-16">
+          <h2 className="text-lg font-semibold text-stone-900">Selaa tuoteryhmittäin</h2>
+          <ul className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {LISTING_PRODUCT_CATEGORIES.map((c) => (
+              <li key={c.slug}>
+                <Link
+                  href={`/markkinapaikka/ilmoitukset?kategoria=${c.urlSlug}`}
+                  className="block rounded-xl border border-stone-200 bg-white p-4 shadow-sm transition hover:border-sky-300 hover:shadow-md"
+                >
+                  <p className="font-semibold text-stone-900">{c.label}</p>
+                  <p className="mt-1 text-sm text-stone-600">{c.description}</p>
+                </Link>
+              </li>
+            ))}
+          </ul>
         </div>
 
         <div className="mt-16 grid gap-6 sm:grid-cols-3">

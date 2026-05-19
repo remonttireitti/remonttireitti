@@ -1,4 +1,8 @@
 import Link from "next/link";
+import {
+  listingCategoryLabel,
+  type ListingProductCategory,
+} from "@/lib/marketplace-categories";
 
 export type ListingCardItem = {
   id: string;
@@ -8,6 +12,7 @@ export type ListingCardItem = {
   postal_code: string;
   condition: "used" | "new";
   seller_type: "contractor" | "customer";
+  product_category: ListingProductCategory;
 };
 
 export function ListingCardGrid({ listings }: { listings: ListingCardItem[] }) {
@@ -28,6 +33,7 @@ export function ListingCardGrid({ listings }: { listings: ListingCardItem[] }) {
             className="block h-full rounded-xl border border-stone-200 bg-white p-4 shadow-sm transition hover:border-sky-300 hover:shadow-md"
           >
             <span className="text-xs font-medium uppercase text-stone-500">
+              {listingCategoryLabel(l.product_category ?? "device")} ·{" "}
               {l.condition === "new" ? "Uusi" : "Käytetty"} ·{" "}
               {l.seller_type === "customer" ? "Yksityinen" : "Yritys"}
             </span>

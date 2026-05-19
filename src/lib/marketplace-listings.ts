@@ -1,4 +1,8 @@
 import {
+  parseListingProductCategory,
+  type ListingProductCategory,
+} from "@/lib/marketplace-categories";
+import {
   CONSUMER_FREE_MAX_ACTIVE_LISTINGS,
   LISTING_DURATION_DAYS,
 } from "@/lib/marketplace-pricing";
@@ -13,6 +17,7 @@ export const PUMP_TYPE_OPTIONS = [
 ] as const;
 
 export type ListingFormInput = {
+  product_category: ListingProductCategory;
   title: string;
   description: string;
   condition: "used" | "new";
@@ -48,7 +53,7 @@ export function validateListingForm(input: ListingFormInput): string | null {
   if (input.contact_phone.replace(/\D/g, "").length < 6) {
     return "Anna kelvollinen puhelinnumero.";
   }
-  if (!input.pump_type_slug) return "Valitse laitteen tyyppi.";
+  if (!input.product_category) return "Valitse tuoteryhmä.";
   return null;
 }
 
@@ -59,6 +64,9 @@ export function parseListingForm(formData: FormData): ListingFormInput {
   const yearRaw = String(formData.get("year_manufactured") ?? "").trim();
 
   return {
+    product_category: parseListingProductCategory(
+      formData.get("product_category"),
+    ),
     title: String(formData.get("title") ?? "").trim(),
     description: String(formData.get("description") ?? "").trim(),
     condition:
