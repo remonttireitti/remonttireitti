@@ -1,5 +1,6 @@
 import type { ListingCardItem } from "@/components/marketplace/listing-card-grid";
 import { expireListingsIfNeeded } from "@/lib/expire-listings";
+import { fetchListingCoverUrls } from "@/lib/listing-photos";
 import type { ListingProductCategory } from "@/lib/marketplace-categories";
 import { createClient } from "@/lib/supabase/server";
 
@@ -23,8 +24,13 @@ export async function fetchPublishedListings(
   }
 
   const { data } = await query;
+  const listings = (data ?? []) as ListingCardItem[];
+  const covers = await fetchListingCoverUrls(listings.map((l) => l.id));
 
-  return (data ?? []) as ListingCardItem[];
+  return listings.map((l) => ({
+    ...l,
+    thumbnail_url: covers.get(l.id) ?? null,
+  }));
 }
 
 export async function fetchPublishedListingsForSitemap(): Promise<

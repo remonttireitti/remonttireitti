@@ -13,6 +13,7 @@ export type ListingCardItem = {
   condition: "used" | "new";
   seller_type: "contractor" | "customer";
   product_category: ListingProductCategory;
+  thumbnail_url?: string | null;
 };
 
 export function ListingCardGrid({ listings }: { listings: ListingCardItem[] }) {
@@ -30,24 +31,41 @@ export function ListingCardGrid({ listings }: { listings: ListingCardItem[] }) {
         <li key={l.id} className="h-full">
           <Link
             href={`/markkinapaikka/ilmoitukset/${l.id}`}
-            className="flex h-full min-h-[11rem] flex-col rounded-xl border border-stone-200 bg-white p-4 shadow-sm transition hover:border-sky-300 hover:shadow-md"
+            className="flex h-full min-h-[14rem] flex-col overflow-hidden rounded-xl border border-stone-200 bg-white shadow-sm transition hover:border-sky-300 hover:shadow-md"
           >
-            <span className="text-xs font-medium uppercase text-stone-500">
-              {listingCategoryLabel(l.product_category ?? "device")} ·{" "}
-              {l.condition === "new" ? "Uusi" : "Käytetty"} ·{" "}
-              {l.seller_type === "customer" ? "Yksityinen" : "Yritys"}
-            </span>
-            <p className="mt-1 line-clamp-2 font-medium text-stone-900">
-              {l.title}
-            </p>
-            <p className="mt-2 text-lg font-bold text-sky-800">
-              {l.price_eur != null
-                ? `${l.price_eur.toLocaleString("fi-FI")} €`
-                : "Hinta neuvoteltavissa"}
-            </p>
-            <p className="mt-auto pt-2 text-sm text-stone-500">
-              {l.municipality}, {l.postal_code}
-            </p>
+            {l.thumbnail_url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={l.thumbnail_url}
+                alt={l.title}
+                className="aspect-[16/10] w-full shrink-0 object-cover"
+              />
+            ) : (
+              <div
+                className="flex aspect-[16/10] w-full shrink-0 items-center justify-center bg-stone-100 text-xs text-stone-400"
+                aria-hidden
+              >
+                Ei kuvaa
+              </div>
+            )}
+            <div className="flex flex-1 flex-col p-4">
+              <span className="text-xs font-medium uppercase text-stone-500">
+                {listingCategoryLabel(l.product_category ?? "device")} ·{" "}
+                {l.condition === "new" ? "Uusi" : "Käytetty"} ·{" "}
+                {l.seller_type === "customer" ? "Yksityinen" : "Yritys"}
+              </span>
+              <p className="mt-1 line-clamp-2 font-medium text-stone-900">
+                {l.title}
+              </p>
+              <p className="mt-2 text-lg font-bold text-sky-800">
+                {l.price_eur != null
+                  ? `${l.price_eur.toLocaleString("fi-FI")} €`
+                  : "Hinta neuvoteltavissa"}
+              </p>
+              <p className="mt-auto pt-2 text-sm text-stone-500">
+                {l.municipality}, {l.postal_code}
+              </p>
+            </div>
           </Link>
         </li>
       ))}

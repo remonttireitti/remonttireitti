@@ -73,6 +73,36 @@ export async function uploadListingPhotosFromFormData(
   }
 }
 
+/** Ensimmäisen kuvan URL listakorteille (julkaistut ilmoitukset). */
+export async function fetchListingCoverUrls(
+  listingIds: string[],
+): Promise<Map<string, string>> {
+  if (listingIds.length === 0) return new Map();
+
+  const admin = createAdminClient();
+  const { data: rows } = await admin
+    .from("equipment_listing_photos")
+    .select("listing_id, storage_path, sort_order")
+    .in("listing_id", listingIds)
+    .order("sort_order", { ascending: true });
+
+  const pathByListing = new Map<string, string>();
+  for (const row of rows ?? []) {
+    if (!pathByListing.has(row.listing_id)) {
+      pathByListing.set(row.listing_id, row.storage_path);
+    }
+  }
+
+  const urls = new Map<string, string>();
+  for (const [listingId, storagePath] of pathByListing) {
+    const { data: signed } = await admin.storage
+      .from(BUCKET)
+      .createSignedUrl(storagePath, 60 * 60);
+    if (signed?.signedUrl) urls.set(listingId, signed.signedUrl);
+  }
+  return urls;
+}
+
 export async function fetchListingPhotos(
   listingId: string,
 ): Promise<ListingPhotoView[]> {
