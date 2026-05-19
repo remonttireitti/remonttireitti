@@ -1,0 +1,44 @@
+import type { ProjectPhotoView } from "@/lib/project-photos";
+
+export function ProjectPhotosGallery({
+  photos,
+  title = "Kuvat",
+}: {
+  photos: ProjectPhotoView[];
+  title?: string;
+}) {
+  if (photos.length === 0) return null;
+
+  return (
+    <section className="space-y-3">
+      <h3 className="text-sm font-semibold text-stone-800">{title}</h3>
+      <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {photos.map((photo) => (
+          <li
+            key={photo.id}
+            className="overflow-hidden rounded-lg border border-stone-200 bg-stone-50"
+          >
+            <a
+              href={photo.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={photo.url}
+                alt={photo.original_name ?? "Tarjouspyynnön kuva"}
+                className="aspect-[4/3] w-full object-cover"
+              />
+            </a>
+            {photo.original_name && (
+              <p className="truncate px-2 py-1 text-xs text-stone-500">
+                {photo.original_name}
+              </p>
+            )}
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}

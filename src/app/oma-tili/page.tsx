@@ -1,0 +1,276 @@
+import Link from "next/link";
+import { redirect } from "next/navigation";
+import { ContractorActivationBanner } from "@/components/account/contractor-activation-banner";
+import {
+  defaultCompanyFromUser,
+  shouldOfferContractorActivation,
+} from "@/lib/contractor-activation";
+import { BootstrapProfileForm } from "@/components/account/bootstrap-profile-form";
+import { SiteHeader } from "@/components/site-header";
+import { isAdmin } from "@/lib/admin";
+import { getProfile, getSessionUser, isContractor } from "@/lib/auth";
+import { ContractorProfileForm } from "@/components/contractor/contractor-profile-form";
+import { fetchHeatPumpCatalog } from "@/lib/job-catalog-server";
+import { getContractorQualifications } from "@/lib/save-contractor-qualifications";
+import {
+  formatCapability,
+  formatPumpTypes,
+  formatRefrigerant,
+} from "@/lib/format-qualifications";
+import { getContractorCompanyBypass } from "@/lib/profile-read";
+import { syncContractorAccount } from "@/lib/sync-contractor";
+import { projectStatusLabels } from "@/lib/projects";
+import { createClient } from "@/lib/supabase/server";
+import type { ProjectStatus } from "@/types/database";
+
+const roleLabels = {
+  customer: "Asiakas",
+  contractor: "Urakoitsija",
+  admin: "Ylläpitäjä",
+} as const;
+
+export default async function AccountPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ viesti?: string; virhe?: string }>;
+}) {
+  const user = await getSessionUser();
+  if (!user) redirect("/kirjaudu");
+
+  const params = await searchParams;
+  const profile = await getProfile();
+  const needsContractorFix = shouldOfferContractorActivation(user, profile);
+  const contractor =
+    (profile?.role === "contractor" || (await isContractor())) &&
+    !needsContractorFix;
+  const admin = await isAdmin();
+  const supabase = await createClient();
+
+  let contractorCompany: string | null = null;
+  let contractorQuals: Awaited<ReturnType<typeof getContractorQualifications>> | null =
+    null;
+  let heatPumpJobTypes: { id: string; slug: string }[] = [];
+
+  if (contractor) {
+    contractorQuals = await getContractorQualifications(user.id);
+    contractorCompany = contractorQuals.companyName || null;
+    if (!contractorCompany) {
+      contractorCompany = await getContractorCompanyBypass(user.id);
+    }
+    const catalog = await fetchHeatPumpCatalog();
+    heatPumpJobTypes = catalog.jobTypes.map((j) => ({ id: j.id, slug: j.slug }));
+  }
+
+  type ProjectRow = {
+    id: string;
+    title: string;
+    status: ProjectStatus;
+    municipality: string;
+    created_at: string;
+    service_categories: { name_fi: string } | { name_fi: string }[] | null;
+  };
+
+  let projects: ProjectRow[] = [];
+
+  if (params.viesti === "vain-urakoitsijalle") {
+    await syncContractorAccount(user);
+    if (await isContractor()) redirect("/tarjoukset");
+
+    const meta = user.user_metadata ?? {};
+    const companyFromMeta =
+      typeof meta.company_name === "string" ? meta.company_name : "";
+
+    return (
+      <div className="min-h-full bg-stone-50 text-stone-900">
+        <SiteHeader />
+        <main className="mx-auto max-w-2xl px-6 py-12">
+          <h1 className="text-xl font-bold">Oma tili</h1>
+          {params.virhe && (
+            <p className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-800" role="alert">
+              Aktivointi epäonnistui: {decodeURIComponent(params.virhe)}
+            </p>
+          )}
+          <div className="mt-6">
+            <ContractorActivationBanner
+              defaultCompany={companyFromMeta || defaultCompanyFromUser(user)}
+            />
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  if (!contractor && !admin) {
+    const { data } = await supabase
+      .from("projects")
+      .select(
+        "id, title, status, municipality, created_at, service_categories ( name_fi )",
+      )
+      .eq("customer_id", user.id)
+      .order("created_at", { ascending: false });
+    projects = (data ?? []) as ProjectRow[];
+  }
+
+  function categoryName(
+    sc: ProjectRow["service_categories"],
+  ): string {
+    if (!sc) return "Remontti";
+    if (Array.isArray(sc)) return sc[0]?.name_fi ?? "Remontti";
+    return sc.name_fi;
+  }
+
+  return (
+    <div className="min-h-full bg-stone-50 text-stone-900">
+      <SiteHeader />
+      <main className="mx-auto max-w-2xl px-6 py-12">
+        <h1 className="text-2xl font-bold">Oma tili</h1>
+        <p className="mt-2 text-stone-600">{user.email}</p>
+
+        {needsContractorFix && (
+          <div className="mt-6">
+            <ContractorActivationBanner
+              defaultCompany={defaultCompanyFromUser(user)}
+            />
+          </div>
+        )}
+
+        {params.viesti === "ei-oikeuksia" && (
+          <p className="mt-4 rounded-lg bg-amber-50 p-4 text-sm text-amber-900">
+            Ei oikeuksia kyseiseen sivuun. Jos olet ylläpitäjä, paina Synkronoi
+            profiili alla.
+          </p>
+        )}
+
+        {!profile && (
+          <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-900">
+            <p className="font-medium">Profiilia ei löydy tälle kirjautumiselle.</p>
+            <p className="mt-2 font-mono text-xs break-all">Käyttäjä-ID: {user.id}</p>
+            <p className="mt-2">
+              Admin-rivi SQL:ssä voi olla eri ID:llä. Korjaa painamalla:
+            </p>
+            <BootstrapProfileForm />
+          </div>
+        )}
+
+        <div className="mt-8 space-y-4 rounded-2xl border border-stone-200 bg-white p-6">
+          <Row label="Nimi" value={profile?.full_name ?? "—"} />
+          <Row
+            label="Rooli"
+            value={
+              profile ? roleLabels[profile.role] : contractor ? roleLabels.contractor : "—"
+            }
+          />
+          {contractorCompany && (
+            <Row label="Yritys" value={contractorCompany} />
+          )}
+          {contractor && contractorQuals && (
+            <>
+              <Row
+                label="Lämpöpumput"
+                value={formatPumpTypes(contractorQuals.jobTypeSlugs)}
+              />
+              <Row
+                label="Kylmäainelupa"
+                value={formatRefrigerant(contractorQuals.refrigerantLicense)}
+              />
+              <Row
+                label="Sähkötyöt"
+                value={formatCapability(contractorQuals.electricalCapability)}
+              />
+              <Row
+                label="LVI-työt"
+                value={formatCapability(contractorQuals.lviCapability)}
+              />
+            </>
+          )}
+        </div>
+
+        {!contractor && !admin && (
+          <>
+            <div className="mt-8 flex items-center justify-between">
+              <h2 className="text-lg font-semibold">Lämpöpumppupyynnöt</h2>
+              <Link
+                href="/remontti/uusi"
+                className="rounded-full bg-orange-600 px-4 py-2 text-sm font-medium text-white hover:bg-orange-700"
+              >
+                + Uusi tarjouspyyntö
+              </Link>
+            </div>
+
+            {projects.length === 0 ? (
+              <p className="mt-4 text-stone-600">
+                Ei vielä tarjouspyyntöjä.{" "}
+                <Link href="/remontti/uusi" className="text-sky-700 underline">
+                  Luo ensimmäinen
+                </Link>
+              </p>
+            ) : (
+              <ul className="mt-4 space-y-3">
+                {projects.map((p) => (
+                  <li key={p.id}>
+                    <Link
+                      href={`/remontti/${p.id}`}
+                      className="block rounded-xl border border-stone-200 bg-white p-4 hover:border-sky-300"
+                    >
+                      <div className="flex justify-between gap-2">
+                        <span className="font-medium">{p.title}</span>
+                        <span className="text-xs text-stone-500">
+                          {projectStatusLabels[p.status]}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-sm text-stone-500">
+                        {categoryName(p.service_categories)} · {p.municipality}
+                      </p>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </>
+        )}
+
+        {admin && (
+          <div className="mt-8">
+            <Link
+              href="/admin"
+              className="inline-flex rounded-full bg-stone-800 px-5 py-2.5 text-sm font-medium text-white hover:bg-stone-900"
+            >
+              Hallintapaneeli
+            </Link>
+          </div>
+        )}
+
+        {contractor && heatPumpJobTypes.length > 0 && contractorQuals && (
+          <ContractorProfileForm
+            jobTypes={heatPumpJobTypes}
+            companyName={contractorQuals.companyName}
+            jobTypeIds={contractorQuals.jobTypeIds}
+            refrigerantLicense={contractorQuals.refrigerantLicense}
+            electricalCapability={contractorQuals.electricalCapability}
+            lviCapability={contractorQuals.lviCapability}
+          />
+        )}
+
+        {contractor && (
+          <div className="mt-8">
+            <Link
+              href="/tarjoukset"
+              className="inline-flex rounded-full bg-orange-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-orange-700"
+            >
+              Selaa avoimia lämpöpumppupyyntöjä
+            </Link>
+          </div>
+        )}
+      </main>
+    </div>
+  );
+}
+
+function Row({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex justify-between gap-4 border-b border-stone-100 pb-3 last:border-0 last:pb-0">
+      <span className="text-sm text-stone-500">{label}</span>
+      <span className="text-sm font-medium">{value}</span>
+    </div>
+  );
+}

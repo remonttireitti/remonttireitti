@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none" role="img" aria-label="Remonttireitti">
+  <rect width="48" height="48" rx="12" fill="#047857"/>
+  <path d="M10 22L24 11l14 11v15H10V22z" fill="#ecfdf5" stroke="#a7f3d0" stroke-width="1.2" stroke-linejoin="round"/>
+  <circle cx="24" cy="26" r="7" fill="#065f46" stroke="#6ee7b7" stroke-width="1.2"/>
+  <path d="M24 21v10M19 26h10" stroke="#a7f3d0" stroke-width="1.4" stroke-linecap="round"/>
+  <path d="M21 24c1.2-1.5 2.8-1.5 3 0s1.8 1.5 3 0" stroke="#6ee7b7" stroke-width="1" stroke-linecap="round" fill="none"/>
+</svg>

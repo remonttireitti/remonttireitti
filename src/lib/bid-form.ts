@@ -1,0 +1,147 @@
+import { parseBidTermsFromFormData } from "@/lib/bid-terms";
+
+export type BidFormFields = {
+  amount_euros: string;
+  estimated_days: string;
+  earliest_start_date: string;
+  warranty_work: string;
+  warranty_equipment: string;
+  message: string;
+  vat_included: boolean;
+  confirms_licenses: boolean;
+  confirms_building_standards: boolean;
+};
+
+export type BidFormFieldKey = keyof BidFormFields;
+
+export type BidRecordForForm = {
+  amount_cents: number;
+  estimated_days: number | null;
+  message: string;
+  vat_included: boolean;
+  warranty_work: string | null;
+  warranty_equipment: string | null;
+  earliest_start_date: string | null;
+  confirms_licenses: boolean | null;
+  confirms_building_standards: boolean | null;
+};
+
+export function bidToFormFields(bid: BidRecordForForm): BidFormFields {
+  return {
+    amount_euros: String(Math.round(bid.amount_cents / 100)),
+    estimated_days:
+      bid.estimated_days != null ? String(bid.estimated_days) : "",
+    earliest_start_date: bid.earliest_start_date ?? "",
+    warranty_work: bid.warranty_work ?? "",
+    warranty_equipment: bid.warranty_equipment ?? "",
+    message: bid.message,
+    vat_included: bid.vat_included,
+    confirms_licenses: bid.confirms_licenses ?? false,
+    confirms_building_standards: bid.confirms_building_standards ?? false,
+  };
+}
+
+export function initialBidFormFields(): BidFormFields {
+  return {
+    amount_euros: "",
+    estimated_days: "",
+    earliest_start_date: "",
+    warranty_work: "",
+    warranty_equipment: "",
+    message: "",
+    vat_included: true,
+    confirms_licenses: false,
+    confirms_building_standards: false,
+  };
+}
+
+export function extractBidFormFields(formData: FormData): BidFormFields {
+  return {
+    amount_euros: String(formData.get("amount_euros") ?? ""),
+    estimated_days: String(formData.get("estimated_days") ?? ""),
+    earliest_start_date: String(formData.get("earliest_start_date") ?? ""),
+    warranty_work: String(formData.get("warranty_work") ?? ""),
+    warranty_equipment: String(formData.get("warranty_equipment") ?? ""),
+    message: String(formData.get("message") ?? ""),
+    vat_included: formData.get("vat_included") === "on",
+    confirms_licenses: formData.get("confirms_licenses") === "on",
+    confirms_building_standards:
+      formData.get("confirms_building_standards") === "on",
+  };
+}
+
+export function bidFieldsToFormData(
+  fields: BidFormFields,
+  projectId: string,
+  requiresEquipmentWarranty: boolean,
+): FormData {
+  const fd = new FormData();
+  fd.set("project_id", projectId);
+  fd.set(
+    "requires_equipment_warranty",
+    requiresEquipmentWarranty ? "1" : "0",
+  );
+  fd.set("amount_euros", fields.amount_euros);
+  fd.set("estimated_days", fields.estimated_days);
+  fd.set("earliest_start_date", fields.earliest_start_date);
+  fd.set("warranty_work", fields.warranty_work);
+  fd.set("warranty_equipment", fields.warranty_equipment);
+  fd.set("message", fields.message);
+  if (fields.vat_included) fd.set("vat_included", "on");
+  if (fields.confirms_licenses) fd.set("confirms_licenses", "on");
+  if (fields.confirms_building_standards) {
+    fd.set("confirms_building_standards", "on");
+  }
+  return fd;
+}
+
+export type BidFormValidation =
+  | { ok: true }
+  | {
+      ok: false;
+      error: string;
+      fieldErrors: Partial<Record<BidFormFieldKey, string>>;
+    };
+
+export function validateBidFormClient(
+  fields: BidFormFields,
+  requiresEquipmentWarranty: boolean,
+): BidFormValidation {
+  const fieldErrors: Partial<Record<BidFormFieldKey, string>> = {};
+  const amount = Number(fields.amount_euros);
+
+  if (!fields.amount_euros.trim()) {
+    fieldErrors.amount_euros = "Anna hinta euroina.";
+  } else if (!Number.isFinite(amount) || amount <= 0) {
+    fieldErrors.amount_euros = "Hinnan täytyy olla suurempi kuin nolla.";
+  }
+
+  if (!fields.message.trim()) {
+    fieldErrors.message = "Kirjoita viesti asiakkaalle.";
+  }
+
+  const termsFd = bidFieldsToFormData(fields, "", requiresEquipmentWarranty);
+  const terms = parseBidTermsFromFormData(termsFd, requiresEquipmentWarranty);
+  if (!terms.ok) {
+    if (terms.error.includes("työn takuu")) {
+      fieldErrors.warranty_work = terms.error;
+    } else if (terms.error.includes("laitteen takuu")) {
+      fieldErrors.warranty_equipment = terms.error;
+    } else if (terms.error.includes("toteutuspäivä") || terms.error.includes("menneisyydessä")) {
+      fieldErrors.earliest_start_date = terms.error;
+    } else if (terms.error.includes("luvat")) {
+      fieldErrors.confirms_licenses = terms.error;
+    } else if (terms.error.includes("rakennusvaatimuksia")) {
+      fieldErrors.confirms_building_standards = terms.error;
+    } else {
+      fieldErrors.message = terms.error;
+    }
+  }
+
+  if (Object.keys(fieldErrors).length > 0) {
+    const first = Object.values(fieldErrors)[0] ?? "Tarkista lomake.";
+    return { ok: false, error: first, fieldErrors };
+  }
+
+  return { ok: true };
+}
