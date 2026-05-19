@@ -42,25 +42,27 @@ export default function MarketplacePage() {
 
         <div className="mt-16">
           <h2 className="text-lg font-semibold text-stone-900">Selaa tuoteryhmittäin</h2>
-          <ul className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <ul className="mt-4 grid auto-rows-fr gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {LISTING_PRODUCT_CATEGORIES.map((c) => (
-              <li key={c.slug}>
+              <li key={c.slug} className="h-full">
                 <Link
                   href={`/markkinapaikka/ilmoitukset?kategoria=${c.urlSlug}`}
-                  className="block rounded-xl border border-stone-200 bg-white p-4 shadow-sm transition hover:border-sky-300 hover:shadow-md"
+                  className="flex h-full min-h-[6.5rem] flex-col rounded-xl border border-stone-200 bg-white p-4 shadow-sm transition hover:border-sky-300 hover:shadow-md"
                 >
                   <p className="font-semibold text-stone-900">{c.label}</p>
-                  <p className="mt-1 text-sm text-stone-600">{c.description}</p>
+                  <p className="mt-1 flex-1 text-sm leading-snug text-stone-600">
+                    {c.description}
+                  </p>
                 </Link>
               </li>
             ))}
           </ul>
         </div>
 
-        <div className="mt-16 grid gap-6 sm:grid-cols-3">
-          <div className="rounded-xl border border-stone-200 bg-white p-5 shadow-sm">
+        <div className="mt-16 grid auto-rows-fr gap-6 sm:grid-cols-3">
+          <div className="flex h-full min-h-[11rem] flex-col rounded-xl border border-stone-200 bg-white p-5 shadow-sm">
             <h2 className="font-semibold text-stone-900">Yksityiselle</h2>
-            <p className="mt-2 text-sm text-stone-600">
+            <p className="mt-2 flex-1 text-sm text-stone-600">
               Myy käytetty laite tai varaosa helposti. Ilmoitus on maksuton
               yksityishenkilölle.
             </p>
@@ -71,9 +73,9 @@ export default function MarketplacePage() {
               Ilmoita myytävä →
             </Link>
           </div>
-          <div className="rounded-xl border border-stone-200 bg-white p-5 shadow-sm">
+          <div className="flex h-full min-h-[11rem] flex-col rounded-xl border border-stone-200 bg-white p-5 shadow-sm">
             <h2 className="font-semibold text-stone-900">Urakoitsijalle</h2>
-            <p className="mt-2 text-sm text-stone-600">
+            <p className="mt-2 flex-1 text-sm text-stone-600">
               Näkyvyys ammattimyynnille — vaihto-, varasto- ja tukkutarjontaan.
               Hinnat yrityshinnastossa.
             </p>
@@ -84,9 +86,9 @@ export default function MarketplacePage() {
               Hinnasto yrityksille →
             </Link>
           </div>
-          <div className="rounded-xl border border-stone-200 bg-white p-5 shadow-sm">
+          <div className="flex h-full min-h-[11rem] flex-col rounded-xl border border-stone-200 bg-white p-5 shadow-sm">
             <h2 className="font-semibold text-stone-900">Ostajalle</h2>
-            <p className="mt-2 text-sm text-stone-600">
+            <p className="mt-2 flex-1 text-sm text-stone-600">
               Selaa ilmoituksia alueella. Ota yhteyttä myyjään suoraan
               ilmoituksen yhteystiedoista.
             </p>

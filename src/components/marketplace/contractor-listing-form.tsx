@@ -6,8 +6,7 @@ import {
   createContractorListing,
   type ListingActionState,
 } from "@/app/actions/marketplace-listings";
-import { brand, formInputClass } from "@/lib/brand-theme";
-import { PUMP_TYPE_OPTIONS } from "@/lib/marketplace-listings";
+import { brand } from "@/lib/brand-theme";
 import { LISTING_SINGLE } from "@/lib/marketplace-pricing";
 import { ListingFormFields } from "@/components/marketplace/listing-form-fields";
 
