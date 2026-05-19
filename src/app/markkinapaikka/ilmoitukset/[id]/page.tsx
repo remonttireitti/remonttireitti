@@ -2,7 +2,14 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { pageMetadata } from "@/lib/seo";
+import { RemoveListingButton } from "@/components/marketplace/remove-listing-button";
 import { ListingSellerInbox } from "@/components/marketplace/listing-seller-inbox";
+import {
+  listingStatusLabels,
+  SELLER_REMOVABLE_STATUSES,
+  type EquipmentListingStatus,
+} from "@/lib/marketplace-listings";
+import { LISTING_DURATION_WEEKS } from "@/lib/marketplace-pricing";
 import { ProjectPhotosGallery } from "@/components/project/project-photos-gallery";
 import { ListingChat } from "@/components/messaging/listing-chat";
 import { SiteHeader } from "@/components/site-header";
@@ -63,6 +70,7 @@ export default async function MarketplaceListingDetailPage({
 
   await expireListingsIfNeeded();
 
+  const user = await getSessionUser();
   const supabase = await createClient();
   const { data: listing } = await supabase
     .from("equipment_listings")
@@ -70,18 +78,21 @@ export default async function MarketplaceListingDetailPage({
       `
       id, title, description, price_eur, municipality, postal_code,
       condition, manufacturer, model, year_manufactured, pump_type_slug, product_category,
-      seller_type, seller_id, published_at, expires_at,
+      seller_type, seller_id, status, published_at, expires_at,
       contact_email, contact_phone, address_line
     `,
     )
     .eq("id", id)
-    .eq("status", "published")
     .single();
 
   if (!listing) notFound();
 
-  const user = await getSessionUser();
   const isSeller = user?.id === listing.seller_id;
+  const status = listing.status as EquipmentListingStatus;
+
+  if (status !== "published" && !isSeller) {
+    notFound();
+  }
 
   let buyerChat: Awaited<ReturnType<typeof fetchListingInquiry>> = null;
   let sellerInbox: Awaited<ReturnType<typeof fetchSellerInbox>> = [];
@@ -118,6 +129,9 @@ export default async function MarketplaceListingDetailPage({
     ? new Date(listing.expires_at).toLocaleDateString("fi-FI")
     : null;
 
+  const canRemove = isSeller && SELLER_REMOVABLE_STATUSES.includes(status);
+  const isPublic = status === "published";
+
   const photos = await fetchListingPhotos(id);
 
   return (
@@ -137,8 +151,40 @@ export default async function MarketplaceListingDetailPage({
           )}{" "}
           · {listing.condition === "new" ? "Uusi" : "Käytetty"} ·{" "}
           {listing.seller_type === "customer" ? "Yksityinen myyjä" : "Yritys"}
-          {expiresLabel && ` · voimassa ${expiresLabel} asti`}
+          {isPublic &&
+            expiresLabel &&
+            ` · voimassa ${expiresLabel} asti (${LISTING_DURATION_WEEKS} vk)`}
+          {isSeller && !isPublic && (
+            <> · {listingStatusLabels[status]}</>
+          )}
         </p>
+
+        {isSeller && status === "expired" && (
+          <p className="mt-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-900" role="status">
+            Ilmoitus on vanhentunut ({LISTING_DURATION_WEEKS} viikon jälkeen). Se ei näy
+            torilla. Voit poistaa sen tai luoda uuden ilmoituksen.
+          </p>
+        )}
+        {isSeller && status === "removed" && (
+          <p className="mt-4 rounded-lg bg-stone-100 p-3 text-sm text-stone-700" role="status">
+            Olet poistanut tämän ilmoituksen. Se ei näy ostajille.
+          </p>
+        )}
+
+        {isSeller && (
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <Link
+              href="/markkinapaikka/omat-ilmoitukset"
+              className="text-sm font-medium text-sky-700 hover:underline"
+            >
+              Kaikki omat ilmoitukset
+            </Link>
+            {canRemove && (
+              <RemoveListingButton listingId={id} title={listing.title} />
+            )}
+          </div>
+        )}
+
         {julkaistu === "1" && (
           <p
             className="mt-4 rounded-lg bg-sky-50 p-3 text-sm text-sky-900"
@@ -191,7 +237,7 @@ export default async function MarketplaceListingDetailPage({
           </dl>
         )}
 
-        {!isSeller && (
+        {isPublic && !isSeller && (
           <section className="mt-8 rounded-xl border border-sky-200 bg-sky-50/60 p-6">
             <h2 className="font-semibold text-sky-950">Ota yhteyttä myyjään</h2>
             <dl className="mt-4 space-y-2 text-sm">
@@ -236,7 +282,7 @@ export default async function MarketplaceListingDetailPage({
           />
         )}
 
-        {!isSeller && user && buyerChat !== null && (
+        {isPublic && !isSeller && user && buyerChat !== null && (
           <ListingChat
             listingId={id}
             inquiryId={buyerChat.inquiry.id || null}
@@ -247,7 +293,7 @@ export default async function MarketplaceListingDetailPage({
           />
         )}
 
-        {!isSeller && !user && (
+        {isPublic && !isSeller && !user && (
           <p className="mt-8 rounded-xl border border-stone-200 bg-white p-6 text-sm">
             <Link
               href={`/kirjaudu?redirect=/markkinapaikka/ilmoitukset/${id}`}

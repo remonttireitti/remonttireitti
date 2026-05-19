@@ -3,7 +3,9 @@
 import {
   LISTING_DURATION_DAYS,
   parseListingForm,
+  SELLER_REMOVABLE_STATUSES,
   validateListingForm,
+  type EquipmentListingStatus,
 } from "@/lib/marketplace-listings";
 import {
   getActiveContractorSubscription,
@@ -278,4 +280,81 @@ export async function createContractorListing(
   redirect(
     `/markkinapaikka/ilmoita?lasku=1&summa=${encodeURIComponent(formatPriceFromCents(plan.price_eur_cents))}&email=${encodeURIComponent(MARKETPLACE_INVOICE_EMAIL)}`,
   );
+}
+
+export async function removeSellerListing(
+  _prev: ListingActionState,
+  formData: FormData,
+): Promise<ListingActionState> {
+  const user = await getSessionUser();
+  if (!user) return { error: "Kirjaudu sisään." };
+
+  const listingId = String(formData.get("listing_id") ?? "");
+  if (!listingId) return { error: "Ilmoitus puuttuu." };
+
+  const supabase = await createClient();
+  const { data: listing } = await supabase
+    .from("equipment_listings")
+    .select("id, seller_id, status, title")
+    .eq("id", listingId)
+    .eq("seller_id", user.id)
+    .single();
+
+  if (!listing) {
+    return { error: "Ilmoitusta ei löytynyt tai sinulla ei ole oikeutta poistaa sitä." };
+  }
+
+  const status = listing.status as EquipmentListingStatus;
+  if (!SELLER_REMOVABLE_STATUSES.includes(status)) {
+    return {
+      error:
+        status === "removed"
+          ? "Ilmoitus on jo poistettu."
+          : "Tätä ilmoitusta ei voi poistaa tässä vaiheessa.",
+    };
+  }
+
+  const { error } = await supabase
+    .from("equipment_listings")
+    .update({ status: "removed" })
+    .eq("id", listingId)
+    .eq("seller_id", user.id);
+
+  if (error) {
+    console.error("[removeSellerListing]", error.code, error.message);
+    return { error: "Ilmoituksen poisto epäonnistui." };
+  }
+
+  revalidatePath("/markkinapaikka/ilmoitukset");
+  revalidatePath("/markkinapaikka/omat-ilmoitukset");
+  revalidatePath(`/markkinapaikka/ilmoitukset/${listingId}`);
+  revalidatePath("/markkinapaikka/ilmoita");
+  return { success: "Ilmoitus poistettu." };
+}
+
+export type SellerListingRow = {
+  id: string;
+  title: string;
+  status: EquipmentListingStatus;
+  price_eur: number | null;
+  municipality: string;
+  published_at: string | null;
+  expires_at: string | null;
+  created_at: string;
+};
+
+export async function fetchSellerListings(
+  userId: string,
+): Promise<SellerListingRow[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("equipment_listings")
+    .select(
+      "id, title, status, price_eur, municipality, published_at, expires_at, created_at",
+    )
+    .eq("seller_id", userId)
+    .neq("status", "draft")
+    .order("created_at", { ascending: false });
+
+  return (data ?? []) as SellerListingRow[];
 }

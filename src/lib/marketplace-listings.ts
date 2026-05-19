@@ -85,3 +85,24 @@ export function parseListingForm(formData: FormData): ListingFormInput {
 }
 
 export const parseConsumerListingForm = parseListingForm;
+
+export type EquipmentListingStatus =
+  | "draft"
+  | "awaiting_invoice"
+  | "published"
+  | "expired"
+  | "removed";
+
+export const listingStatusLabels: Record<EquipmentListingStatus, string> = {
+  draft: "Luonnos",
+  awaiting_invoice: "Odottaa maksua",
+  published: "Julkaistu",
+  expired: "Vanhentunut",
+  removed: "Poistettu",
+};
+
+/** Tilat joissa myyjä voi poistaa ilmoituksen itse. */
+export const SELLER_REMOVABLE_STATUSES: EquipmentListingStatus[] = [
+  "published",
+  "expired",
+];

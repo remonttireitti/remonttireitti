@@ -172,7 +172,17 @@ async function ConsumerListingInfo() {
         </Link>
         <h1 className="mt-4 text-2xl font-bold">Ilmoita myytävä laite</h1>
         <p className="mt-2 text-sm text-stone-600">
-          Yksityishenkilönä ilmoitus on maksuton. Näkyy markkinapaikalla 90 päivää.
+          Yksityishenkilönä ilmoitus on maksuton. Näkyy torilla 4 viikkoa tai kunnes
+          poistat sen.
+        </p>
+
+        <p className="mt-3 text-sm">
+          <Link
+            href="/markkinapaikka/omat-ilmoitukset"
+            className="font-medium text-sky-700 hover:underline"
+          >
+            Omat ilmoitukset
+          </Link>
         </p>
 
         <ConsumerListingForm

@@ -10,6 +10,7 @@ import {
   notifyCounterOfferDeclined,
   notifyNewBid,
   notifyProjectMessage,
+  notifyProjectCancelled,
   notifyProjectUpdated,
   projectMessageLinkPath,
 } from "@/lib/email-notify";
@@ -152,6 +153,21 @@ export async function userNotifyProjectUpdated(params: {
     `/tarjoukset/${params.projectId}`,
   );
   await notifyProjectUpdated(params);
+}
+
+export async function userNotifyProjectCancelled(params: {
+  contractorId: string;
+  projectId: string;
+  projectTitle: string;
+}) {
+  inApp(
+    params.contractorId,
+    "project_updated",
+    "Tarjouspyyntö peruttu",
+    `Asiakas perui pyynnön: ${params.projectTitle}`,
+    "/tarjoukset",
+  );
+  await notifyProjectCancelled(params);
 }
 
 export async function userNotifyProjectMessage(params: {

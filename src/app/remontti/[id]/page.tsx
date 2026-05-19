@@ -4,6 +4,7 @@ import { CustomerBids, type BidWithContractor } from "@/components/bid/customer-
 import { CustomerPlatformFeeStatus } from "@/components/bid/customer-platform-fee-status";
 import { ProjectBiddingChats } from "@/components/messaging/project-bidding-chats";
 import { ProjectChat } from "@/components/messaging/project-chat";
+import { CancelProjectButton } from "@/components/project/cancel-project-button";
 import { ProjectLifecyclePanel } from "@/components/project/project-lifecycle-panel";
 import { ProjectOverviewCards } from "@/components/project/project-overview-cards";
 import { fetchProjectPhotos } from "@/lib/project-photos";
@@ -31,10 +32,11 @@ export default async function ProjectPage({
     hyvaksytty?: string;
     virhe?: string;
     paivitetty?: string;
+    peruttu?: string;
   }>;
 }) {
   const { id } = await params;
-  const { hyvaksytty, virhe, paivitetty } = await searchParams;
+  const { hyvaksytty, virhe, paivitetty, peruttu } = await searchParams;
   const user = await getSessionUser();
   if (!user) redirect(`/kirjaudu?redirect=/remontti/${id}`);
 
@@ -121,6 +123,12 @@ export default async function ProjectPage({
   const status = project.status as ProjectStatus;
   const ratingsMap = Object.fromEntries(contractorRatings);
 
+  const canCancelProject = ["draft", "published", "receiving_bids"].includes(
+    status,
+  );
+  const submittedBidCount = (bids ?? []).filter(
+    (b) => b.status === "submitted",
+  ).length;
   const biddingPhase = ["published", "receiving_bids"].includes(status);
   const chatEnabled = [
     "bid_accepted",
@@ -168,13 +176,20 @@ export default async function ProjectPage({
         <div className="mt-4 flex flex-wrap items-start justify-between gap-3">
           <h1 className="text-2xl font-bold">{project.title}</h1>
           <div className="flex flex-wrap items-center gap-2">
-            {["draft", "published", "receiving_bids"].includes(status) && (
-              <Link
-                href={`/remontti/${id}/muokkaa`}
-                className="rounded-lg border border-stone-300 bg-white px-3 py-1 text-sm font-medium text-stone-700 hover:bg-stone-50"
-              >
-                Muokkaa pyyntöä
-              </Link>
+            {canCancelProject && (
+              <>
+                <Link
+                  href={`/remontti/${id}/muokkaa`}
+                  className="rounded-lg border border-stone-300 bg-white px-3 py-1 text-sm font-medium text-stone-700 hover:bg-stone-50"
+                >
+                  Muokkaa pyyntöä
+                </Link>
+                <CancelProjectButton
+                  projectId={id}
+                  title={project.title}
+                  submittedBidCount={submittedBidCount}
+                />
+              </>
             )}
             <span className="rounded-full bg-sky-100 px-3 py-1 text-sm font-medium text-sky-800">
               {projectStatusLabels[status]}
@@ -184,6 +199,14 @@ export default async function ProjectPage({
 
         <p className="mt-1 text-stone-500">{categoryName}</p>
 
+        {peruttu === "1" && (
+          <p
+            className="mt-4 rounded-lg bg-stone-100 p-3 text-sm text-stone-800"
+            role="status"
+          >
+            Tarjouspyyntö on peruttu. Saapuneet tarjoukset poistettiin.
+          </p>
+        )}
         {hyvaksytty === "1" && (
           <p
             className="mt-4 rounded-lg bg-sky-50 p-3 text-sm text-sky-900"

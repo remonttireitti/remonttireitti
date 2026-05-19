@@ -6,9 +6,12 @@ export const MARKETPLACE_INVOICE_EMAIL = "laskutus@remonttireitti.fi";
 
 export const CONSUMER_FREE_MAX_ACTIVE_LISTINGS = 2;
 
+/** Julkaistun ilmoituksen näkyvyys (automaattinen vanhentuminen). */
+export const LISTING_DURATION_WEEKS = 4;
+
 export const LISTING_DURATION_DAYS = {
-  paid: 60,
-  consumer: 90,
+  paid: LISTING_DURATION_WEEKS * 7,
+  consumer: LISTING_DURATION_WEEKS * 7,
 } as const;
 
 export type MarketplacePlanSlug =
@@ -71,10 +74,10 @@ export const LISTING_SINGLE: PricingPlan = {
   name: "Yksittäinen ilmoitus",
   priceLabel: "29 €",
   priceEurCents: 2900,
-  period: "/ 60 pv (+ ALV)",
+  period: `/ ${LISTING_DURATION_WEEKS} vk (+ ALV)`,
   features: [
     "Yksi ilmoitus ilman kuukausitilausta",
-    "60 päivän näkyvyys",
+    `${LISTING_DURATION_WEEKS} viikon näkyvyys`,
     "Hyvä kertamyyntiin tai varastoerään",
   ],
   cta: "Julkaise yksittäisellä ilmoituksella",
@@ -90,6 +93,7 @@ export const CONSUMER_FREE_PLAN: PricingPlan = {
   features: [
     "Käytetyt lämpöpumput, osat ja tarvikkeet",
     `Enintään ${CONSUMER_FREE_MAX_ACTIVE_LISTINGS} aktiivista ilmoitusta`,
+    `${LISTING_DURATION_WEEKS} viikon näkyvyys — voit poistaa ilmoituksen milloin tahansa`,
     "Ei kuukausimaksua eikä ilmoitusmaksua",
     "Yhteystiedot näkyvät ostajille julkaisun jälkeen",
   ],
@@ -108,7 +112,11 @@ export const PRICING_FAQ = [
   },
   {
     q: "Voiko urakoitsija myydä ilman kk-tilausta?",
-    a: "Kyllä. Voit ostaa yksittäisen 60 päivän ilmoituksen (29 € + ALV) tai valita kuukausipaketin, jos julkaiset useammin.",
+    a: `Kyllä. Voit ostaa yksittäisen ${LISTING_DURATION_WEEKS} viikon ilmoituksen (29 € + ALV) tai valita kuukausipaketin, jos julkaiset useammin.`,
+  },
+  {
+    q: "Kuinka kauan ilmoitus on näkyvissä?",
+    a: `Julkaistu ilmoitus on torilla ${LISTING_DURATION_WEEKS} viikkoa, ellei poista sitä aiemmin. Vanhentuneet ilmoitukset piilotetaan automaattisesti.`,
   },
   {
     q: "Mitä saan tarjouskilpailun välitysmaksun lisäksi?",

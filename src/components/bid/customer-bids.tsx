@@ -100,6 +100,14 @@ export function CustomerBids({
 }) {
   const canAccept = ["published", "receiving_bids"].includes(projectStatus);
   const visibleBids = bids.filter((b) => b.status !== "withdrawn");
+
+  if (projectStatus === "cancelled") {
+    return (
+      <p className="mt-6 rounded-lg border border-stone-200 bg-stone-50 p-4 text-sm text-stone-600">
+        Tarjouspyyntö on peruttu. Saapuneet tarjoukset eivät ole enää voimassa.
+      </p>
+    );
+  }
   const sorted = sortBidsForComparison(visibleBids);
   const showEquipmentWarranty = sorted.some((b) => b.warranty_equipment);
   const showCounterRow = sorted.some(

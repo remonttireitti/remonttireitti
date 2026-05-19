@@ -163,6 +163,21 @@ export async function notifyProjectUpdated(params: {
   );
 }
 
+export async function notifyProjectCancelled(params: {
+  contractorId: string;
+  projectTitle: string;
+  projectId: string;
+}) {
+  await sendUserEmail(
+    params.contractorId,
+    `Tarjouspyyntö peruttu: ${params.projectTitle}`,
+    "Tarjouspyyntö peruttu",
+    `<p>Asiakas perui tarjouspyynnön <em>${escapeHtml(params.projectTitle)}</em>.</p><p>Tarjouksesi ei ole enää voimassa tähän pyyntöön.</p>`,
+    "/tarjoukset",
+    "Selaa tarjouspyyntöjä",
+  );
+}
+
 export async function notifyBidRejected(params: {
   contractorId: string;
   projectTitle: string;

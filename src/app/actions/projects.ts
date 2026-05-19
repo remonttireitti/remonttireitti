@@ -14,7 +14,10 @@ import {
 } from "@/lib/maalampopumppu-details";
 import { ensureProfile } from "@/lib/ensure-profile";
 import { uploadProjectPhotosFromFormData } from "@/lib/project-photos";
-import { userNotifyProjectUpdated } from "@/lib/user-notify";
+import {
+  userNotifyProjectCancelled,
+  userNotifyProjectUpdated,
+} from "@/lib/user-notify";
 import { formatProjectSaveError } from "@/lib/project-save-errors";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
@@ -242,6 +245,125 @@ export async function createProject(
 }
 
 const EDITABLE_PROJECT_STATUSES = ["draft", "published", "receiving_bids"] as const;
+
+const CANCELLABLE_PROJECT_STATUSES = [
+  "draft",
+  "published",
+  "receiving_bids",
+] as const;
+
+export type CancelProjectActionState = { error?: string; success?: string };
+
+function revalidateCustomerProjectPaths(projectId: string) {
+  revalidatePath("/");
+  revalidatePath("/oma-tili");
+  revalidatePath("/tarjoukset");
+  revalidatePath(`/remontti/${projectId}`);
+  revalidatePath(`/remontti/${projectId}/muokkaa`);
+  revalidatePath(`/tarjoukset/${projectId}`);
+  revalidatePath(`/tarjoukset/urakka/${projectId}`);
+}
+
+export async function cancelCustomerProject(
+  _prev: CancelProjectActionState,
+  formData: FormData,
+): Promise<CancelProjectActionState> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { error: "Kirjaudu sisään." };
+  }
+
+  const projectId = String(formData.get("project_id") ?? "");
+  if (!projectId) {
+    return { error: "Puuttuva pyyntö." };
+  }
+
+  const { data: project } = await supabase
+    .from("projects")
+    .select("id, customer_id, status, title")
+    .eq("id", projectId)
+    .eq("customer_id", user.id)
+    .single();
+
+  if (!project) {
+    return { error: "Pyyntöä ei löytynyt tai sinulla ei ole oikeutta perua sitä." };
+  }
+
+  if (project.status === "cancelled") {
+    return { success: "Tarjouspyyntö on jo peruttu." };
+  }
+
+  if (
+    !CANCELLABLE_PROJECT_STATUSES.includes(
+      project.status as (typeof CANCELLABLE_PROJECT_STATUSES)[number],
+    )
+  ) {
+    return {
+      error:
+        "Pyyntöä ei voi perua tässä vaiheessa (esim. tarjous on jo hyväksytty).",
+    };
+  }
+
+  const { data: openBids } = await supabase
+    .from("bids")
+    .select("id, contractor_id, status")
+    .eq("project_id", projectId)
+    .in("status", ["submitted", "draft"]);
+
+  const now = new Date().toISOString();
+  const rejectionMessage = "Asiakas perui tarjouspyynnön.";
+
+  if (openBids && openBids.length > 0) {
+    const { error: bidsErr } = await supabase
+      .from("bids")
+      .update({
+        status: "rejected",
+        rejection_message: rejectionMessage,
+        rejected_at: now,
+        counter_status: null,
+        counter_amount_cents: null,
+        counter_message: null,
+        counter_offered_at: null,
+      })
+      .eq("project_id", projectId)
+      .in("status", ["submitted", "draft"]);
+
+    if (bidsErr) {
+      console.error("[cancelCustomerProject] bids", bidsErr.code, bidsErr.message);
+      return { error: "Tarjousten poisto epäonnistui." };
+    }
+  }
+
+  const { error: projectErr } = await supabase
+    .from("projects")
+    .update({ status: "cancelled" })
+    .eq("id", projectId)
+    .eq("customer_id", user.id);
+
+  if (projectErr) {
+    console.error(
+      "[cancelCustomerProject] project",
+      projectErr.code,
+      projectErr.message,
+    );
+    return { error: "Tarjouspyynnön peruminen epäonnistui." };
+  }
+
+  for (const bid of openBids ?? []) {
+    void userNotifyProjectCancelled({
+      contractorId: bid.contractor_id,
+      projectTitle: project.title,
+      projectId,
+    });
+  }
+
+  revalidateCustomerProjectPaths(projectId);
+  return { success: "Tarjouspyyntö peruttu. Saapuneet tarjoukset poistettiin." };
+}
 
 export async function updateProject(
   _prev: ProjectActionState,
