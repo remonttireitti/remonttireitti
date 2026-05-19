@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { pageMetadata } from "@/lib/seo";
 import { ListingSellerInbox } from "@/components/marketplace/listing-seller-inbox";
+import { ProjectPhotosGallery } from "@/components/project/project-photos-gallery";
 import { ListingChat } from "@/components/messaging/listing-chat";
 import { SiteHeader } from "@/components/site-header";
 import { getSessionUser } from "@/lib/auth";
@@ -12,6 +13,7 @@ import {
   fetchSellerInbox,
 } from "@/lib/listing-messages-server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { fetchListingPhotos } from "@/lib/listing-photos";
 import { listingCategoryLabel } from "@/lib/marketplace-categories";
 import { createClient } from "@/lib/supabase/server";
 
@@ -116,6 +118,8 @@ export default async function MarketplaceListingDetailPage({
     ? new Date(listing.expires_at).toLocaleDateString("fi-FI")
     : null;
 
+  const photos = await fetchListingPhotos(id);
+
   return (
     <div className="min-h-full bg-stone-50 text-stone-900">
       <SiteHeader />
@@ -153,6 +157,12 @@ export default async function MarketplaceListingDetailPage({
         <p className="text-stone-500">
           {listing.municipality}, {listing.postal_code}
         </p>
+
+        {photos.length > 0 && (
+          <div className="mt-8">
+            <ProjectPhotosGallery photos={photos} title="Kuvat" />
+          </div>
+        )}
 
         <div className="mt-8 whitespace-pre-wrap rounded-xl border border-stone-200 bg-white p-6 text-sm">
           {listing.description}

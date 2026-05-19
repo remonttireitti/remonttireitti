@@ -12,6 +12,8 @@ type Props = {
   onFilesChange: (files: File[]) => void;
   /** Näytä painike ja lista (piilota muilla vaiheilla, tiedostosyöte säilyy). */
   showUi?: boolean;
+  emptyLabel?: string;
+  hint?: string;
 };
 
 export function ProjectPhotoUpload({
@@ -19,6 +21,8 @@ export function ProjectPhotoUpload({
   files,
   onFilesChange,
   showUi = true,
+  emptyLabel = "Lisää kuvia (asennuspaikka, seinät, ulkoyksikön paikka…)",
+  hint = "Kuvat liitetään tarjouspyyntöön. Enintään 8 kuvaa, 5 Mt / kuva.",
 }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
@@ -83,7 +87,7 @@ export function ProjectPhotoUpload({
             className={`${formInputClass} w-full border-dashed text-left text-sm text-stone-600`}
           >
             {files.length === 0
-              ? "Lisää kuvia (asennuspaikka, seinät, ulkoyksikön paikka…)"
+              ? emptyLabel
               : `Lisää kuvia (${files.length}/${MAX_FILES})`}
           </button>
           {error && <p className="text-xs text-red-600">{error}</p>}
@@ -106,10 +110,7 @@ export function ProjectPhotoUpload({
               ))}
             </ul>
           )}
-          <p className="text-xs text-stone-500">
-            Kuvat liitetään tarjouspyyntöön. Enintään {MAX_FILES} kuvaa, 5 Mt /
-            kuva.
-          </p>
+          <p className="text-xs text-stone-500">{hint}</p>
         </>
       )}
     </div>

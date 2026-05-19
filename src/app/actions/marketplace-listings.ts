@@ -9,6 +9,7 @@ import {
   getActiveContractorSubscription,
   subscriptionSlotsLeft,
 } from "@/lib/marketplace-subscription";
+import { uploadListingPhotosFromFormData } from "@/lib/listing-photos";
 import { createClient } from "@/lib/supabase/server";
 import { getProfile, getSessionUser, isContractor } from "@/lib/auth";
 import { shouldOfferContractorActivation } from "@/lib/contractor-activation";
@@ -114,6 +115,14 @@ export async function createConsumerListing(
 
   if (error) {
     return { error: "Ilmoituksen tallennus epäonnistui. Yritä uudelleen." };
+  }
+
+  try {
+    await uploadListingPhotosFromFormData(data.id, formData);
+  } catch (e) {
+    return {
+      error: e instanceof Error ? e.message : "Kuvien tallennus epäonnistui.",
+    };
   }
 
   revalidatePath("/markkinapaikka/ilmoitukset");
@@ -240,6 +249,14 @@ export async function createContractorListing(
 
   if (listErr || !listing) {
     return { error: "Ilmoituksen luonti epäonnistui." };
+  }
+
+  try {
+    await uploadListingPhotosFromFormData(listing.id, formData);
+  } catch (e) {
+    return {
+      error: e instanceof Error ? e.message : "Kuvien tallennus epäonnistui.",
+    };
   }
 
   const { error: billErr } = await supabase

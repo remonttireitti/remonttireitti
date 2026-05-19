@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
+import { ListingPhotoField } from "@/components/marketplace/listing-photo-field";
 import {
   createContractorListing,
   type ListingActionState,
@@ -24,6 +25,7 @@ export function ContractorListingForm({
   subscriptionSlots: number;
   subscriptionPlanName: string | null;
 }) {
+  const [photoFiles, setPhotoFiles] = useState<File[]>([]);
   const [state, action, pending] = useActionState<
     ListingActionState,
     FormData
@@ -91,6 +93,8 @@ export function ContractorListingForm({
       </fieldset>
 
       <ListingFormFields defaults={defaults} />
+
+      <ListingPhotoField files={photoFiles} onFilesChange={setPhotoFiles} />
 
       <button type="submit" disabled={pending} className={`w-full ${brand.btnPrimary}`}>
         {pending ? "Tallennetaan…" : "Lähetä ilmoitus"}
