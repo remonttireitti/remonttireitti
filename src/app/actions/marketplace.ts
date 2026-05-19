@@ -64,8 +64,8 @@ export async function requestContractorPlan(
   }
 
   const description = plan.is_monthly
-    ? `Markkinapaikka: ${plan.name_fi} (kuukausitilaus)`
-    : `Markkinapaikka: ${plan.name_fi}`;
+    ? `Tori: ${plan.name_fi} (kuukausitilaus)`
+    : `Tori: ${plan.name_fi}`;
 
   const { error: billErr } = await supabase.from("marketplace_billing_requests").insert({
     seller_id: user.id,

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { LegalPage, LegalSection } from "@/components/legal/legal-page";
+import { marketplaceBrand } from "@/lib/marketplace-brand";
 import { siteConfig } from "@/lib/site-config";
 import { pageMetadata } from "@/lib/seo";
 
@@ -59,7 +60,7 @@ export default function PrivacyPage() {
           <li>Yritystiedot (urakoitsijat)</li>
           <li>Osoite- ja kohdetiedot remonttipyynnöissä</li>
           <li>Tarjousten sisältö, viestit ja arvostelut</li>
-          <li>Markkinapaikka-ilmoitusten tiedot ja yhteystiedot</li>
+          <li>{marketplaceBrand.name}-ilmoitusten tiedot ja yhteystiedot</li>
           <li>Tek tekniset lokitiedot (IP-osoite, selain, aikaleima)</li>
         </ul>
       </LegalSection>

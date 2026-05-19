@@ -19,6 +19,7 @@ import {
   countUnreadNotifications,
   fetchUserNotifications,
 } from "@/lib/notifications-server";
+import { marketplaceBrand } from "@/lib/marketplace-brand";
 import { createClient } from "@/lib/supabase/server";
 
 function Feature({ title, body }: { title: string; body: string }) {
@@ -118,10 +119,10 @@ export default async function Home() {
             <div className="flex flex-wrap items-end justify-between gap-4">
               <div>
                 <p className="text-sm font-medium uppercase tracking-wide text-sky-700">
-                  Markkinapaikka
+                  {marketplaceBrand.nameShort}
                 </p>
                 <h2 className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl">
-                  Myytävät laitteet ja osat
+                  {marketplaceBrand.name}
                 </h2>
                 <p className="mt-2 max-w-xl text-stone-600">
                   Selaa ilmoituksia kirjautumatta. Yksityishenkilöt voivat myydä

@@ -9,6 +9,7 @@ import {
   MARKETPLACE_INVOICE_EMAIL,
 } from "@/lib/marketplace-pricing";
 import type { MarketplacePlanSlug } from "@/lib/marketplace-pricing";
+import { marketplaceBrand } from "@/lib/marketplace-brand";
 
 const ALL_SLUGS = new Set<MarketplacePlanSlug>([
   "contractor_basic",
@@ -50,7 +51,7 @@ export default async function MarketplaceOrderPage({
         >
           ← Hinnasto
         </Link>
-        <h1 className="mt-4 text-2xl font-bold">Tilaa markkinapaikka</h1>
+        <h1 className="mt-4 text-2xl font-bold">Tilaa {marketplaceBrand.nameShort.toLowerCase()}</h1>
         <p className="mt-2 text-sm text-stone-600">
           Valittu paketti: <strong>{plan.name}</strong> ({plan.priceLabel}
           {plan.period ?? ""})

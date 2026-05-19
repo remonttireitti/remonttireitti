@@ -3,7 +3,7 @@ import Link from "next/link";
 const links = [
   { href: "/admin", label: "Käyttäjät" },
   { href: "/admin/pyynnot", label: "Tarjouspyynnöt" },
-  { href: "/admin/markkinapaikka", label: "Markkinapaikka" },
+  { href: "/admin/markkinapaikka", label: "Tori" },
 ] as const;
 
 export function AdminNav({ current }: { current: (typeof links)[number]["href"] }) {

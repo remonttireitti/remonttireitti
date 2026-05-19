@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { marketplaceBrand } from "@/lib/marketplace-brand";
 import { siteConfig } from "@/lib/site-config";
 
 export function SiteFooter() {
@@ -11,7 +12,7 @@ export function SiteFooter() {
           <div>
             <p className="font-semibold text-stone-900">{siteConfig.name}</p>
             <p className="mt-2 text-sm text-stone-600">
-              Lämpöpumppujen tarjouskilpailu ja markkinapaikka.
+              Lämpöpumppujen tarjouskilpailu ja {marketplaceBrand.name.toLowerCase()}.
             </p>
           </div>
 
@@ -25,7 +26,7 @@ export function SiteFooter() {
               </li>
               <li>
                 <Link href="/markkinapaikka" className="text-stone-600 hover:text-sky-700">
-                  Markkinapaikka
+                  {marketplaceBrand.nameShort}
                 </Link>
               </li>
               <li>

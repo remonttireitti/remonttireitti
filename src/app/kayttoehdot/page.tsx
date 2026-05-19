@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { LegalPage, LegalSection } from "@/components/legal/legal-page";
+import { marketplaceBrand } from "@/lib/marketplace-brand";
 import { siteConfig } from "@/lib/site-config";
 import { pageMetadata } from "@/lib/seo";
 
@@ -36,11 +37,11 @@ export default function TermsPage() {
           </li>
           <li>
             <strong>Urakoitsija</strong> — voi jättää tarjouksia ja käyttää
-            markkinapaikkaa maksullisilla paketeilla
+            {marketplaceBrand.name.toLowerCase()}a maksullisilla paketeilla
           </li>
           <li>
             <strong>Yksityinen myyjä</strong> — voi julkaista rajoitetun määrän
-            ilmaisia markkinapaikka-ilmoituksia
+            ilmaisia tori-ilmoituksia
           </li>
         </ul>
       </LegalSection>
@@ -63,7 +64,7 @@ export default function TermsPage() {
         </ul>
       </LegalSection>
 
-      <LegalSection title="5. Markkinapaikka ja maksut">
+      <LegalSection title={`5. ${marketplaceBrand.name} ja maksut`}>
         <ul className="list-disc space-y-1 pl-5">
           <li>Yksityishenkilön ilmoitukset ovat maksuttomia (rajoitettu määrä).</li>
           <li>Urakoitsijan ilmoitukset ja kk-paketit laskutetaan erikseen.</li>

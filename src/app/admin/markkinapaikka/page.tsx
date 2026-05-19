@@ -62,7 +62,7 @@ export default async function AdminMarketplacePage() {
         <Link href="/oma-tili" className="text-sm text-sky-700 hover:underline">
           ← Oma tili
         </Link>
-        <h1 className="mt-4 text-2xl font-bold">Markkinapaikka — laskutusjono</h1>
+        <h1 className="mt-4 text-2xl font-bold">Tori — laskutusjono</h1>
         <AdminNav current="/admin/markkinapaikka" />
         <p className="mt-2 text-sm text-stone-600">
           Merkitse lasku lähetetyksi ja maksetuksi. Kk-tilaus aktivoituu maksun

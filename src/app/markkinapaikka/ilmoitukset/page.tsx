@@ -3,10 +3,11 @@ import Link from "next/link";
 import { SiteHeader } from "@/components/site-header";
 import { ListingCardGrid } from "@/components/marketplace/listing-card-grid";
 import { fetchPublishedListings } from "@/lib/marketplace-listings-server";
+import { marketplaceBrand } from "@/lib/marketplace-brand";
 import { pageMetadata } from "@/lib/seo";
 
 export const metadata: Metadata = pageMetadata({
-  title: "Ilmoitukset — lämpöpumput ja osat",
+  title: `Ilmoitukset — ${marketplaceBrand.nameShort}`,
   description:
     "Selaa julkaistuja lämpöpumppu- ja laiteilmoituksia. Käytettyjä ja uusia laitteita ympäri Suomen.",
   path: "/markkinapaikka/ilmoitukset",
@@ -23,7 +24,7 @@ export default async function MarketplaceListingsPage() {
           href="/markkinapaikka"
           className="text-sm text-sky-700 hover:underline"
         >
-          ← Markkinapaikka
+          ← {marketplaceBrand.nameShort}
         </Link>
         <div className="mt-4 flex flex-wrap items-end justify-between gap-4">
           <div>

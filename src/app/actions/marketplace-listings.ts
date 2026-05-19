@@ -53,7 +53,7 @@ export async function createConsumerListing(
   if (await isContractor()) {
     return {
       error:
-        "Urakoitsijat käyttävät maksullista markkinapaikkaa. Kirjaudu yksityishenkilön tilillä ilmaiseen myyntiin.",
+        "Urakoitsijat käyttävät maksullista toria. Kirjaudu yksityishenkilön tilillä ilmaiseen myyntiin.",
     };
   }
 
@@ -249,7 +249,7 @@ export async function createContractorListing(
       plan_id: plan.id,
       listing_id: listing.id,
       amount_eur_cents: plan.price_eur_cents,
-      description_fi: `Markkinapaikka: ${plan.name_fi} — ${input.title}`,
+      description_fi: `Tori: ${plan.name_fi} — ${input.title}`,
     });
 
   if (billErr) return { error: "Laskutuspyynnön luonti epäonnistui." };

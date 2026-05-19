@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { signOut } from "@/app/actions/auth";
+import { marketplaceBrand } from "@/lib/marketplace-brand";
 
 type NavProps = {
   loggedIn: boolean;
@@ -70,7 +71,7 @@ export function SiteHeaderNav({
   const navLinks = (
     <>
       <NavItem href="/markkinapaikka" onNavigate={close}>
-        Markkinapaikka
+        {marketplaceBrand.nameShort}
       </NavItem>
       {loggedIn ? (
         <>

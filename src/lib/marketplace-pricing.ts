@@ -1,4 +1,6 @@
-/** Markkinapaikan hinnasto ja suomenkieliset tekstit (laskutus manuaalisesti). */
+/** Torin (laitteiden ja varaosien) hinnasto — laskutus manuaalisesti. */
+
+import { marketplaceBrand } from "@/lib/marketplace-brand";
 
 export const MARKETPLACE_INVOICE_EMAIL = "laskutus@remonttireitti.fi";
 
@@ -102,7 +104,7 @@ export const PRICING_FAQ = [
   },
   {
     q: "Miksi kuluttajalle on ilmainen?",
-    a: "Haluamme lisätä tarjontaa markkinapaikalle. Ammattilaiset maksavat näkyvyydestä ja suuremmasta ilmoitusmäärästä kuukausi- tai ilmoitusmaksulla.",
+    a: `Haluamme lisätä tarjontaa ${marketplaceBrand.name.toLowerCase()}lle. Ammattilaiset maksavat näkyvyydestä ja suuremmasta ilmoitusmäärästä kuukausi- tai ilmoitusmaksulla.`,
   },
   {
     q: "Voiko urakoitsija myydä ilman kk-tilausta?",
@@ -110,7 +112,7 @@ export const PRICING_FAQ = [
   },
   {
     q: "Mitä saan tarjouskilpailun välitysmaksun lisäksi?",
-    a: "Tarjouskilpailu ja markkinapaikka ovat erillisiä palveluita. Tarjouksen hyväksynnän välitysmaksu avaa asiakkaan yhteystiedot urakalle; markkinapaikka on laitteiden myyntiin.",
+    a: `Tarjouskilpailu ja ${marketplaceBrand.name.toLowerCase()} ovat erillisiä palveluita. Tarjouksen hyväksynnän välitysmaksu avaa asiakkaan yhteystiedot urakalle; tori on laitteiden ja varaosien myyntiin.`,
   },
 ] as const;
 

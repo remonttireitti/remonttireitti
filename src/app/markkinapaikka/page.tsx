@@ -2,10 +2,11 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { SiteHeader } from "@/components/site-header";
 import { brand } from "@/lib/brand-theme";
+import { marketplaceBrand } from "@/lib/marketplace-brand";
 import { pageMetadata } from "@/lib/seo";
 
 export const metadata: Metadata = pageMetadata({
-  title: "Markkinapaikka — lämpöpumput ja osat",
+  title: `${marketplaceBrand.name} — lämpöpumput ja osat`,
   description:
     "Osta ja myy käytettyjä ja uusia lämpöpumppuja, varaosia ja laitteita. Ilmoitukset yksityisiltä myyjiltä ja urakoitsijoilta.",
   path: "/markkinapaikka",
@@ -17,14 +18,16 @@ export default function MarketplacePage() {
       <SiteHeader />
       <main className="mx-auto max-w-6xl px-4 py-12 sm:px-6 lg:px-8">
         <p className="text-sm font-medium uppercase tracking-wide text-sky-700">
-          Markkinapaikka
+          {marketplaceBrand.nameShort}
         </p>
         <h1 className="mt-2 text-3xl font-bold tracking-tight sm:text-4xl">
-          Lämpöpumput ja osat — käytettynä ja uutena
+          {marketplaceBrand.name}
         </h1>
+        <p className="mt-2 text-lg text-stone-500">{marketplaceBrand.tagline}</p>
         <p className="mt-4 max-w-2xl text-lg text-stone-600">
-          Osta ja myy lämpöpumppuja, varaosia ja laitteita. Selaa ilmoituksia
-          alueeltasi tai lisää myytävä kohde — yksityisille ja ammattilaisille.
+          Osta ja myy lämpöpumppuja, varaosia ja laitteita torilla. Selaa
+          ilmoituksia alueeltasi tai lisää myytävä kohde — yksityisille ja
+          ammattilaisille.
         </p>
 
         <div className="mt-10 flex flex-wrap gap-4">

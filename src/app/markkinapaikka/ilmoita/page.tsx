@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { marketplaceBrand } from "@/lib/marketplace-brand";
 import { pageMetadata } from "@/lib/seo";
 
 export const metadata: Metadata = pageMetadata({
   title: "Ilmoita myytävä laite",
-  description:
-    "Julkaise ilmainen ilmoitus yksityishenkilönä tai yrityksen ilmoitus markkinapaikalle.",
+  description: `Julkaise ilmainen ilmoitus yksityishenkilönä tai yrityksen ilmoitus ${marketplaceBrand.nameShort.toLowerCase()}lle.`,
   path: "/markkinapaikka/ilmoita",
 });
 import { ContractorActivationBanner } from "@/components/account/contractor-activation-banner";
@@ -61,7 +61,7 @@ export default async function MarketplaceCreateListingPage({
             href="/markkinapaikka"
             className="text-sm text-sky-700 hover:underline"
           >
-            ← Markkinapaikka
+            ← {marketplaceBrand.nameShort}
           </Link>
           <h1 className="mt-4 text-2xl font-bold">Ilmoita myytävä laite</h1>
           <div className="mt-6">
@@ -100,7 +100,7 @@ export default async function MarketplaceCreateListingPage({
           href="/markkinapaikka"
           className="text-sm text-sky-700 hover:underline"
         >
-          ← Markkinapaikka
+          ← {marketplaceBrand.nameShort}
         </Link>
         <h1 className="mt-4 text-2xl font-bold">Ilmoita myytävä laite</h1>
         <p className="mt-2 text-sm text-stone-600">
@@ -168,7 +168,7 @@ async function ConsumerListingInfo() {
           href="/markkinapaikka"
           className="text-sm text-sky-700 hover:underline"
         >
-          ← Markkinapaikka
+          ← {marketplaceBrand.nameShort}
         </Link>
         <h1 className="mt-4 text-2xl font-bold">Ilmoita myytävä laite</h1>
         <p className="mt-2 text-sm text-stone-600">

@@ -4,12 +4,13 @@ import { MarketplacePricingFaq } from "@/components/marketplace/pricing-faq";
 import { MarketplacePricingSection } from "@/components/marketplace/pricing-section";
 import { SiteHeader } from "@/components/site-header";
 import { MARKETPLACE_INVOICE_EMAIL } from "@/lib/marketplace-pricing";
+import { marketplaceBrand } from "@/lib/marketplace-brand";
 import { pageMetadata } from "@/lib/seo";
 
 export const metadata: Metadata = pageMetadata({
-  title: "Hinnasto — markkinapaikka",
+  title: `Hinnasto — ${marketplaceBrand.nameShort}`,
   description:
-    "Markkinapaikan hinnat: ilmainen myynti yksityishenkilölle, urakoitsijan kk-paketit ja yksittäiset ilmoitukset.",
+    "Torin hinnat: ilmainen myynti yksityishenkilölle, urakoitsijan kk-paketit ja yksittäiset ilmoitukset.",
   path: "/markkinapaikka/hinnasto",
 });
 
@@ -22,7 +23,7 @@ export default function MarketplacePricingPage() {
           href="/markkinapaikka"
           className="text-sm text-sky-700 hover:underline"
         >
-          ← Markkinapaikka
+          ← {marketplaceBrand.nameShort}
         </Link>
         <h1 className="mt-4 text-3xl font-bold tracking-tight">Hinnasto</h1>
         <p className="mt-3 max-w-2xl text-stone-600">
@@ -48,7 +49,8 @@ export default function MarketplacePricingPage() {
           <p className="mt-2 leading-relaxed">
             <strong>Tarjouskilpailu</strong> on asiakkaan pyyntö asennuksesta; urakoitsija
             maksaa välityspalkkion, kun tarjous hyväksytään.{" "}
-            <strong>Markkinapaikka</strong> on laitteiden ja osien myyntiin — erillinen
+            <strong>{marketplaceBrand.name}</strong> on laitteiden ja osien myyntiin —
+            erillinen
             hinnoittelu (kk tai ilmoitus). Molemmat laskutetaan samalla tavalla ilman
             verkkomaksua sovelluksessa.
           </p>
