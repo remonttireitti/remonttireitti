@@ -27,6 +27,8 @@ const defaultTitle = `${siteConfig.name} — Kilpailuta lämpöpumppu ilmaiseksi
 const defaultDescription =
   "Kilpailuta ilmalämpö-, vesi-ilmalämpö- tai maalämpöpumppu. Useita tarjouksia asentajilta — ilmainen tarjouspyyntö.";
 
+const defaultOgImage = "/logo.svg";
+
 /** Juuri-layoutin metadata (metadataBase, OG-oletukset). */
 export const rootMetadata: Metadata = {
   metadataBase: new URL(getSiteUrl()),
@@ -36,6 +38,13 @@ export const rootMetadata: Metadata = {
   },
   description: defaultDescription,
   icons: { icon: "/logo.svg", apple: "/logo.svg" },
+  ...(siteConfig.googleSiteVerification
+    ? {
+        verification: {
+          google: siteConfig.googleSiteVerification,
+        },
+      }
+    : {}),
   openGraph: {
     type: "website",
     locale: "fi_FI",
@@ -43,11 +52,13 @@ export const rootMetadata: Metadata = {
     title: defaultTitle,
     description: defaultDescription,
     url: getSiteUrl(),
+    images: [{ url: defaultOgImage, alt: siteConfig.name }],
   },
   twitter: {
-    card: "summary_large_image",
+    card: "summary",
     title: defaultTitle,
     description: defaultDescription,
+    images: [defaultOgImage],
   },
   robots: {
     index: true,
@@ -82,11 +93,13 @@ export function pageMetadata({
       siteName: siteConfig.name,
       locale: "fi_FI",
       type: "website",
+      images: [{ url: defaultOgImage, alt: siteConfig.name }],
     },
     twitter: {
       card: "summary",
       title: ogTitle,
       description,
+      images: [defaultOgImage],
     },
     robots: noIndex
       ? { index: false, follow: false, googleBot: { index: false, follow: false } }

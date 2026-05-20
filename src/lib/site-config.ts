@@ -24,4 +24,7 @@ export const siteConfig = {
     "info@remonttireitti.fi",
   siteUrl: resolveSiteUrl(),
   gaId: process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID ?? "",
+  /** Google Search Console — HTML-tag -vahvistus (aseta Vercelissä). */
+  googleSiteVerification:
+    process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION ?? "",
 } as const;

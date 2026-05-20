@@ -12,6 +12,7 @@ export const metadata: Metadata = pageMetadata({
   description:
     "Kilpailuta lämpöpumpun huolto tai korjaus. Kuvaile vika, lisää kuvia ja saa tarjouksia urakoitsijoilta.",
   path: "/huolto/uusi",
+  noIndex: true,
 });
 
 export default async function NewMaintenanceRequestPage() {

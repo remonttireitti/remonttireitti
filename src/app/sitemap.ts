@@ -1,4 +1,5 @@
 import type { MetadataRoute } from "next";
+import { LISTING_PRODUCT_CATEGORIES } from "@/lib/marketplace-categories";
 import { fetchSitemapListings } from "@/lib/sitemap-data";
 import { getSiteUrl } from "@/lib/seo";
 
@@ -44,12 +45,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "monthly",
       priority: 0.65,
     },
-    {
-      url: `${base}/markkinapaikka/ilmoita?tyyppi=kuluttaja`,
+    ...LISTING_PRODUCT_CATEGORIES.map((c) => ({
+      url: `${base}/markkinapaikka/ilmoitukset?kategoria=${c.urlSlug}`,
       lastModified: now,
-      changeFrequency: "monthly",
-      priority: 0.65,
-    },
+      changeFrequency: "daily" as const,
+      priority: 0.75,
+    })),
     {
       url: `${base}/tietosuoja`,
       lastModified: now,
