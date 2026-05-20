@@ -19,4 +19,4 @@ export const CONTRACTOR_TRUST_POINTS = [
   },
 ] as const;
 
-export const REVIEW_REMINDER_DAYS = 14;
+export const REVIEW_REMINDER_DAYS = 7;
