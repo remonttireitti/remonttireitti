@@ -35,6 +35,7 @@ export async function fetchUserNotifications(
     .from("notifications")
     .select("id, type, title, body, link_path, read_at, created_at")
     .eq("user_id", userId)
+    .is("archived_at", null)
     .order("created_at", { ascending: false })
     .limit(limit);
 
@@ -54,7 +55,8 @@ export async function countUnreadNotifications(
     .from("notifications")
     .select("id", { count: "exact", head: true })
     .eq("user_id", userId)
-    .is("read_at", null);
+    .is("read_at", null)
+    .is("archived_at", null);
 
   if (error) {
     console.error("[countUnreadNotifications]", error.code, error.message);

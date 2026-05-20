@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import {
+  archiveNotification,
+  archiveReadNotifications,
   markAllNotificationsRead,
   markNotificationRead,
 } from "@/app/actions/notifications";
@@ -31,6 +33,8 @@ export function HomeNotifications({
   const router = useRouter();
   const [pending, startTransition] = useTransition();
 
+  const readCount = notifications.filter((n) => n.read_at).length;
+
   function handleOpen(id: string, linkPath: string) {
     startTransition(async () => {
       await markNotificationRead(id);
@@ -46,6 +50,21 @@ export function HomeNotifications({
     });
   }
 
+  function handleArchiveRead() {
+    startTransition(async () => {
+      await archiveReadNotifications();
+      router.refresh();
+    });
+  }
+
+  function handleArchiveOne(e: React.MouseEvent, id: string) {
+    e.stopPropagation();
+    startTransition(async () => {
+      await archiveNotification(id);
+      router.refresh();
+    });
+  }
+
   return (
     <section id="ilmoitukset" className="mx-auto max-w-5xl px-4 py-10 sm:px-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
@@ -57,33 +76,46 @@ export function HomeNotifications({
               : "Ei uusia ilmoituksia"}
           </p>
         </div>
-        {unreadCount > 0 && (
-          <button
-            type="button"
-            onClick={handleMarkAll}
-            disabled={pending}
-            className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm font-medium text-stone-700 hover:bg-stone-50 disabled:opacity-60 sm:w-auto sm:py-1.5"
-          >
-            Merkitse kaikki luetuksi
-          </button>
-        )}
+        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:justify-end">
+          {unreadCount > 0 && (
+            <button
+              type="button"
+              onClick={handleMarkAll}
+              disabled={pending}
+              className="rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm font-medium text-stone-700 hover:bg-stone-50 disabled:opacity-60 sm:py-1.5"
+            >
+              Merkitse kaikki luetuksi
+            </button>
+          )}
+          {readCount > 0 && (
+            <button
+              type="button"
+              onClick={handleArchiveRead}
+              disabled={pending}
+              className="rounded-lg border border-stone-200 bg-stone-50 px-3 py-2 text-sm font-medium text-stone-600 hover:bg-stone-100 disabled:opacity-60 sm:py-1.5"
+            >
+              Arkistoi luetut ({readCount})
+            </button>
+          )}
+        </div>
       </div>
 
       {notifications.length === 0 ? (
         <p className="mt-6 rounded-xl border border-stone-200 bg-white p-6 text-sm text-stone-600">
-          Kun saat viestejä, tarjouksia tai vastatarjouksia, ne näkyvät tässä.
+          Ei aktiivisia ilmoituksia. Kun saat viestejä tai tarjouksia, ne näkyvät
+          tässä.
         </p>
       ) : (
         <ul className="mt-4 space-y-2">
           {notifications.map((n) => (
-            <li key={n.id}>
+            <li key={n.id} className="relative">
               <button
                 type="button"
                 onClick={() => handleOpen(n.id, n.link_path)}
                 disabled={pending}
                 className={`w-full rounded-xl border p-4 text-left transition hover:border-sky-300 hover:bg-sky-50/40 disabled:opacity-60 ${
                   n.read_at
-                    ? "border-stone-200 bg-white"
+                    ? "border-stone-200 bg-white pr-12"
                     : "border-sky-200 bg-sky-50/60"
                 }`}
               >
@@ -98,17 +130,28 @@ export function HomeNotifications({
                 <p className="mt-1 font-medium text-stone-900">{n.title}</p>
                 <p className="mt-0.5 text-sm text-stone-600">{n.body}</p>
               </button>
+              {n.read_at && (
+                <button
+                  type="button"
+                  title="Arkistoi"
+                  aria-label="Arkistoi ilmoitus"
+                  disabled={pending}
+                  onClick={(e) => handleArchiveOne(e, n.id)}
+                  className="absolute right-3 top-3 rounded-lg px-2 py-1 text-xs font-medium text-stone-500 hover:bg-stone-100 hover:text-stone-800 disabled:opacity-60"
+                >
+                  Arkistoi
+                </button>
+              )}
             </li>
           ))}
         </ul>
       )}
 
       <p className="mt-4 text-center text-sm text-stone-500">
+        Arkistoidut ilmoitukset piilotetaan listalta.{" "}
         <Link href="/oma-tili" className="text-sky-700 hover:underline">
           Oma tili
         </Link>
-        {" · "}
-        Kaikki pyyntösi ja tarjoukset
       </p>
     </section>
   );
