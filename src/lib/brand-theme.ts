@@ -16,7 +16,7 @@ export const brand = {
   sectionHeader:
     "border-b border-sky-100 bg-gradient-to-r from-sky-50 via-white to-orange-50/70 px-5 py-4",
   sectionTitle: "text-sm font-semibold tracking-tight text-sky-950",
-  sectionDesc: "mt-1 text-xs leading-relaxed text-stone-600",
+  sectionDesc: "mt-1 text-xs leading-relaxed text-stone-700",
   btnPrimary:
     "touch-target inline-flex min-h-[2.75rem] items-center justify-center rounded-2xl bg-orange-600 px-6 py-3 text-sm font-semibold text-white shadow-md shadow-orange-600/20 transition hover:bg-orange-700 active:scale-[0.98]",
   btnSecondary:
@@ -30,7 +30,7 @@ export const brand = {
     "inline-flex w-full items-center justify-center sm:w-auto",
   btnSecondaryBlock:
     "inline-flex w-full items-center justify-center sm:w-auto",
-  link: "text-sky-700 hover:text-sky-900 hover:underline",
+  link: "text-sky-800 hover:text-sky-950 hover:underline",
   estimateBox:
     "rounded-lg border border-sky-200 bg-gradient-to-br from-sky-50/90 to-orange-50/50 px-3 py-3 text-sm text-sky-950",
   infoBox:
@@ -41,10 +41,10 @@ export const brand = {
   compareBarPast: "bg-stone-400",
   stepActive: "bg-sky-700 text-white shadow-sm",
   stepDone: "bg-orange-100 text-orange-900",
-  stepTodo: "bg-stone-100 text-stone-500",
+  stepTodo: "bg-stone-100 text-stone-600",
   ctaHeader: "rounded-full bg-orange-600 px-4 py-2 text-white hover:bg-orange-700",
   badge: "rounded-full bg-sky-100 px-3 py-1 text-sm font-medium text-sky-900",
-  successText: "text-sm text-sky-700",
+  successText: "text-sm text-sky-800",
   alertBox: "rounded-lg bg-sky-50 p-3 text-sm text-sky-900",
   panel: "rounded-2xl border border-sky-200 bg-sky-50/60 p-6",
   panelTitle: "font-semibold text-sky-950",

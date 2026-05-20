@@ -14,7 +14,7 @@ export function HomeTrust() {
       <h2 className="mt-1 text-xl font-bold tracking-tight text-stone-900 sm:text-2xl">
         Tunnemme urakoitsijat — sinä näet pätevyydet ja arvostelut
       </h2>
-      <p className="mt-2 max-w-2xl text-sm leading-relaxed text-stone-600">
+      <p className="mt-2 max-w-2xl text-sm leading-relaxed text-stone-700">
         Remonttireitti on rakennettu lämpöpumppuille. Urakoitsijat eivät ole
         anonyymejä: pätevyystiedot ja aiemmat arvostelut auttavat vertailua.
       </p>
@@ -32,7 +32,7 @@ export function HomeTrust() {
             </span>
             <div>
               <h3 className="font-semibold text-stone-900">{item.title}</h3>
-              <p className="mt-1 text-sm leading-relaxed text-stone-600">
+              <p className="mt-1 text-sm leading-relaxed text-stone-700">
                 {item.body}
               </p>
             </div>

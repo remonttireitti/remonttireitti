@@ -39,7 +39,7 @@ export function HomeDifferentiators() {
           }
         >
           <h3 className="font-semibold text-stone-900">{item.title}</h3>
-          <p className="mt-2 text-sm leading-relaxed text-stone-600">
+          <p className="mt-2 text-sm leading-relaxed text-stone-700">
             {item.body}
           </p>
         </div>

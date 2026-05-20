@@ -36,7 +36,7 @@ export function ValuePromoBanner({
       role="note"
     >
       <p className="font-semibold">{title}</p>
-      <p className="mt-1 leading-relaxed opacity-90">{body}</p>
+      <p className="mt-1 leading-relaxed text-stone-800">{body}</p>
     </aside>
   );
 }

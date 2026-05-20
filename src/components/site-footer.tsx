@@ -84,7 +84,7 @@ export function SiteFooter() {
               </>
             )}
           </p>
-          <p className="mt-4 text-xs text-stone-500">
+          <p className="mt-4 text-xs text-stone-600">
             © {year} {siteConfig.legalName}. Kaikki oikeudet pidätetään.
           </p>
         </div>

@@ -48,14 +48,12 @@ export default async function Home() {
             <div className="mb-6 flex justify-center">
               <Logo href="/" size="lg" />
             </div>
-            <p className="mb-3 text-sm font-medium uppercase tracking-widest text-sky-700">
+            <p className="mb-3 text-sm font-medium uppercase tracking-widest text-sky-800">
               Lämpöpumput — asennus, huolto ja tori
             </p>
             <h1 className="text-3xl font-bold tracking-tight text-stone-900 sm:text-5xl">
               Kilpailuta lämpöpumppu{" "}
-              <span className="bg-gradient-to-r from-sky-700 to-sky-600 bg-clip-text text-transparent">
-                helposti ja ilmaiseksi
-              </span>
+              <span className="text-sky-800">helposti ja ilmaiseksi</span>
             </h1>
             <p className="mx-auto mt-5 max-w-2xl text-base leading-relaxed text-stone-600 sm:text-lg">
               Yksi selkeä pyyntö — vertailukelpoiset tarjoukset. Näet urakoitsijan
@@ -138,7 +136,7 @@ export default async function Home() {
             <div className="mt-8">
               <HomeDifferentiators />
             </div>
-            <p className="mt-8 text-center text-sm text-stone-500">
+            <p className="mt-8 text-center text-sm text-stone-700">
               <Link href="/urakoitsijaksi" className={brand.link}>
                 Urakoitsijalle: provisiot ja rekisteröityminen →
               </Link>
@@ -182,7 +180,7 @@ export default async function Home() {
           <div className="mx-auto max-w-6xl px-4 sm:px-6">
             <div className={brand.pageHeaderRow}>
               <div className="min-w-0">
-                <p className="text-sm font-medium uppercase tracking-wide text-sky-700">
+                <p className="text-sm font-medium uppercase tracking-wide text-sky-800">
                   {marketplaceBrand.nameShort}
                 </p>
                 <h2 className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl">
