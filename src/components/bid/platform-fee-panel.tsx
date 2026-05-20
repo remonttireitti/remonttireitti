@@ -120,8 +120,10 @@ export function PlatformFeePanel({
         </form>
       ) : (
         <p className="mt-4 rounded-lg bg-white/80 px-3 py-2 text-sm text-stone-700">
-          Lasku lähetetään sähköpostiisi. Ota yhteyttä tukeen, jos et saa
-          laskua 24 h kuluessa.
+          Lasku lähetetään manuaalisesti kevytyrittäjäpalvelun kautta
+          laskutustietoihisi (Oma tili → Laskutustiedot). Maksun jälkeen
+          yhteystiedot avautuvat automaattisesti. Ota yhteyttä tukeen, jos et
+          saa laskua 2 arkipäivän kuluessa.
         </p>
       )}
     </section>

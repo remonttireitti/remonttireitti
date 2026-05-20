@@ -275,6 +275,7 @@ export async function createContractorListing(
 
   if (billErr) return { error: "Laskutuspyynnön luonti epäonnistui." };
 
+  revalidatePath("/admin/laskutus");
   revalidatePath("/admin/markkinapaikka");
   revalidatePath("/markkinapaikka/ilmoita");
   redirect(

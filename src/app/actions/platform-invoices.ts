@@ -64,19 +64,23 @@ export async function createPlatformInvoiceForBid(
     contractorId: string;
     dueAt: string;
   },
-): Promise<{ error?: string }> {
-  const { error } = await supabase.from("platform_invoices").insert({
-    project_id: params.projectId,
-    bid_id: params.bidId,
-    contractor_id: params.contractorId,
-    amount_cents: PLATFORM_FEE_CENTS,
-    vat_rate: PLATFORM_FEE_VAT_RATE,
-    status: "pending",
-    due_at: params.dueAt,
-  });
+): Promise<{ error?: string; invoiceId?: string }> {
+  const { data, error } = await supabase
+    .from("platform_invoices")
+    .insert({
+      project_id: params.projectId,
+      bid_id: params.bidId,
+      contractor_id: params.contractorId,
+      amount_cents: PLATFORM_FEE_CENTS,
+      vat_rate: PLATFORM_FEE_VAT_RATE,
+      status: "pending",
+      due_at: params.dueAt,
+    })
+    .select("id")
+    .single();
 
   if (error) {
     return { error: "Välityslaskun luonti epäonnistui." };
   }
-  return {};
+  return { invoiceId: data.id };
 }

@@ -6,7 +6,8 @@ export type NotificationType =
   | "counter_offer_declined"
   | "bid_rejected"
   | "bid_accepted"
-  | "project_updated";
+  | "project_updated"
+  | "billing_pending";
 
 export type AppNotification = {
   id: string;
@@ -27,4 +28,5 @@ export const notificationTypeLabels: Record<NotificationType, string> = {
   bid_rejected: "Tarjous hylätty",
   bid_accepted: "Tarjous hyväksytty",
   project_updated: "Pyyntö päivitetty",
+  billing_pending: "Laskutus",
 };

@@ -9,6 +9,7 @@ import { BootstrapProfileForm } from "@/components/account/bootstrap-profile-for
 import { SiteHeader } from "@/components/site-header";
 import { isAdmin } from "@/lib/admin";
 import { getProfile, getSessionUser, isContractor } from "@/lib/auth";
+import { ContractorBillingForm } from "@/components/contractor/contractor-billing-form";
 import { ContractorProfileForm } from "@/components/contractor/contractor-profile-form";
 import { fetchHeatPumpCatalog } from "@/lib/job-catalog-server";
 import { getContractorQualifications } from "@/lib/save-contractor-qualifications";
@@ -50,6 +51,13 @@ export default async function AccountPage({
   let contractorQuals: Awaited<ReturnType<typeof getContractorQualifications>> | null =
     null;
   let heatPumpJobTypes: { id: string; slug: string }[] = [];
+  let billingFields = {
+    businessId: "",
+    billingEmail: "",
+    billingAddressLine: "",
+    billingPostalCode: "",
+    billingCity: "",
+  };
 
   if (contractor) {
     contractorQuals = await getContractorQualifications(user.id);
@@ -59,6 +67,23 @@ export default async function AccountPage({
     }
     const catalog = await fetchHeatPumpCatalog();
     heatPumpJobTypes = catalog.jobTypes.map((j) => ({ id: j.id, slug: j.slug }));
+
+    const { data: billingRow } = await supabase
+      .from("contractor_profiles")
+      .select(
+        "business_id, billing_email, billing_address_line, billing_postal_code, billing_city",
+      )
+      .eq("id", user.id)
+      .maybeSingle();
+    if (billingRow) {
+      billingFields = {
+        businessId: billingRow.business_id ?? "",
+        billingEmail: billingRow.billing_email ?? "",
+        billingAddressLine: billingRow.billing_address_line ?? "",
+        billingPostalCode: billingRow.billing_postal_code ?? "",
+        billingCity: billingRow.billing_city ?? "",
+      };
+    }
   }
 
   type ProjectRow = {
@@ -248,6 +273,16 @@ export default async function AccountPage({
             refrigerantLicense={contractorQuals.refrigerantLicense}
             electricalCapability={contractorQuals.electricalCapability}
             lviCapability={contractorQuals.lviCapability}
+          />
+        )}
+
+        {contractor && (
+          <ContractorBillingForm
+            businessId={billingFields.businessId}
+            billingEmail={billingFields.billingEmail}
+            billingAddressLine={billingFields.billingAddressLine}
+            billingPostalCode={billingFields.billingPostalCode}
+            billingCity={billingFields.billingCity}
           />
         )}
 

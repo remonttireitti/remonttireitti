@@ -64,6 +64,7 @@ export async function markMarketplaceBillingPaid(
       .eq("id", req.listing_id);
   }
 
+  revalidatePath("/admin/laskutus");
   revalidatePath("/admin/markkinapaikka");
   revalidatePath("/markkinapaikka/ilmoitukset");
   return { ok: "Merkattu maksetuksi." };
@@ -93,6 +94,7 @@ export async function markMarketplaceBillingInvoiced(
 
   if (error) return { error: "Päivitys epäonnistui." };
 
+  revalidatePath("/admin/laskutus");
   revalidatePath("/admin/markkinapaikka");
   return { ok: "Merkitty laskutetuksi." };
 }

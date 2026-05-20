@@ -2,6 +2,8 @@
 
 import { ensureProjectConversation } from "@/app/actions/messages";
 import { createPlatformInvoiceForBid } from "@/app/actions/platform-invoices";
+import { notifyAdminsNewPlatformInvoice } from "@/lib/billing-admin";
+import { PLATFORM_FEE_CENTS } from "@/lib/platform-fee";
 import { parseBidTermsFromFormData } from "@/lib/bid-terms";
 import {
   extractBidFormFields,
@@ -735,15 +737,26 @@ export async function acceptBid(formData: FormData): Promise<void> {
     bid.contractor_id,
   );
 
-  const invoiceErr = await createPlatformInvoiceForBid(supabase, {
+  const invoiceRes = await createPlatformInvoiceForBid(supabase, {
     projectId,
     bidId,
     contractorId: bid.contractor_id,
     dueAt: platformFeeDueAt(),
   });
 
-  if (invoiceErr.error) {
+  if (invoiceRes.error) {
     redirect(`/remontti/${projectId}?virhe=lasku`);
+  }
+
+  if (invoiceRes.invoiceId) {
+    void notifyAdminsNewPlatformInvoice({
+      invoiceId: invoiceRes.invoiceId,
+      projectId,
+      projectTitle: project.title,
+      contractorId: bid.contractor_id,
+      amountCents: PLATFORM_FEE_CENTS,
+    });
+    revalidatePath("/admin/laskutus");
   }
 
   void userNotifyBidAccepted({
