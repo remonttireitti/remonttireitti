@@ -55,7 +55,7 @@ export async function completeProject(
   revalidatePath("/oma-tili");
   return {
     success:
-      "Urakka merkitty valmiiksi. Voit arvostella urakoitsijan heti — muistutus tulee myös noin kahden viikon kuluttua, jos et ehdi.",
+      "Urakka merkitty valmiiksi. Voit arvostella urakoitsijan heti — muistutus tulee myös noin viikon kuluttua, jos et ehdi.",
   };
 }
 

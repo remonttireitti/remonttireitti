@@ -15,7 +15,7 @@ export const CONTRACTOR_TRUST_POINTS = [
   },
   {
     title: "Muistutus palautteesta",
-    body: "Kun urakka on valmis, saat muistutuksen kertoa miten asennus sujui — auttaa muita valitsemaan.",
+    body: "Kun urakka on valmis, saat noin viikon kuluttua muistutuksen kertoa miten asennus sujui.",
   },
 ] as const;
 

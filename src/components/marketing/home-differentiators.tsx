@@ -21,7 +21,7 @@ const items = [
   },
   {
     title: "Palaute valmiista urakasta",
-    body: "Kun merkitset urakan valmiiksi, voit arvostella urakoitsijan. Muistutus tulee myös noin kahden viikon kuluttua — kerro miten homma sujui.",
+    body: "Kun merkitset urakan valmiiksi, voit arvostella urakoitsijan. Muistutus tulee myös noin viikon kuluttua — kerro miten homma sujui.",
     highlight: false,
   },
 ] as const;
