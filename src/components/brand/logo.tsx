@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { NavLinkPendingContent } from "@/components/navigation/nav-link-pending";
 
 function LogoMark({ className }: { className?: string }) {
   return (
@@ -83,7 +84,7 @@ export function Logo({
       href={href}
       className="rounded-xl outline-none transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-sky-500/40 focus-visible:ring-offset-2"
     >
-      {content}
+      <NavLinkPendingContent>{content}</NavLinkPendingContent>
     </Link>
   );
 }

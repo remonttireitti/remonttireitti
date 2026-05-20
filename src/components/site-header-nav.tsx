@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "@/app/actions/auth";
+import { NavLinkPendingContent } from "@/components/navigation/nav-link-pending";
+import { SignOutButton } from "@/components/navigation/sign-out-button";
 import { marketplaceBrand } from "@/lib/marketplace-brand";
 
 type NavProps = {
@@ -37,7 +39,11 @@ function NavItem({
     pathname === href ||
     (href !== "/" && (pathname === href || pathname.startsWith(`${href}/`)));
 
-  return <Link href={href} className={navLinkClass(active)}>{children}</Link>;
+  return (
+    <Link href={href} className={navLinkClass(active)}>
+      <NavLinkPendingContent>{children}</NavLinkPendingContent>
+    </Link>
+  );
 }
 
 /** Työpöytänavigaatio — mobiilissa käytä SiteHeaderMobileNav */
@@ -63,14 +69,16 @@ export function SiteHeaderNav({
   const ctaDesktop =
     ctaHref && ctaLabel ? (
       <Link href={ctaHref} className={ctaClass}>
-        {isContractor ? (
-          <>
-            <span className="hidden lg:inline">Avoimet tarjouspyynnöt</span>
-            <span className="lg:hidden">Tarjouspyynnöt</span>
-          </>
-        ) : (
-          ctaLabel
-        )}
+        <NavLinkPendingContent>
+          {isContractor ? (
+            <>
+              <span className="hidden lg:inline">Avoimet tarjouspyynnöt</span>
+              <span className="lg:hidden">Tarjouspyynnöt</span>
+            </>
+          ) : (
+            ctaLabel
+          )}
+        </NavLinkPendingContent>
       </Link>
     ) : null;
 
@@ -103,14 +111,12 @@ export function SiteHeaderNav({
           <>
             {ctaDesktop}
             <form action={signOut} className="inline-flex">
-              <button type="submit" className={navLinkClass(false)}>
-                Kirjaudu ulos
-              </button>
+              <SignOutButton className={navLinkClass(false)} />
             </form>
           </>
         ) : (
           <Link href="/rekisteroidy" className={ctaClass}>
-            Luo tili
+            <NavLinkPendingContent>Luo tili</NavLinkPendingContent>
           </Link>
         )}
       </div>

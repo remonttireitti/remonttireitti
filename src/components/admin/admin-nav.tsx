@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { NavLinkPendingContent } from "@/components/navigation/nav-link-pending";
 
 const links = [
   { href: "/admin", label: "Käyttäjät" },
@@ -19,7 +22,7 @@ export function AdminNav({ current }: { current: (typeof links)[number]["href"] 
               : "bg-white text-stone-700 ring-1 ring-stone-200 hover:bg-stone-50"
           }`}
         >
-          {link.label}
+          <NavLinkPendingContent>{link.label}</NavLinkPendingContent>
         </Link>
       ))}
     </nav>

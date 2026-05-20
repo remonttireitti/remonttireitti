@@ -4,6 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { signOut } from "@/app/actions/auth";
+import { NavLinkPendingContent } from "@/components/navigation/nav-link-pending";
+import { SignOutButton } from "@/components/navigation/sign-out-button";
 import { marketplaceBrand } from "@/lib/marketplace-brand";
 
 type Props = {
@@ -99,8 +101,10 @@ export function SiteHeaderMobileNav({
           href={ctaHref}
           className="flex w-full items-center justify-center rounded-xl bg-orange-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-orange-700"
         >
-          <span className="sm:hidden">{ctaLabelShort}</span>
-          <span className="hidden sm:inline">{ctaLabel}</span>
+          <NavLinkPendingContent>
+            <span className="sm:hidden">{ctaLabelShort}</span>
+            <span className="hidden sm:inline">{ctaLabel}</span>
+          </NavLinkPendingContent>
         </Link>
       )}
 
@@ -129,7 +133,7 @@ export function SiteHeaderMobileNav({
             <>
               <NavChip href="/kirjaudu">Kirjaudu</NavChip>
               <Link href="/rekisteroidy" className={ctaChip}>
-                Luo tili
+                <NavLinkPendingContent>Luo tili</NavLinkPendingContent>
               </Link>
             </>
           )}
@@ -159,17 +163,11 @@ export function SiteHeaderMobileNav({
                     className="block px-4 py-2.5 text-sm text-stone-800 hover:bg-stone-50"
                     onClick={closeMore}
                   >
-                    Admin
+                    <NavLinkPendingContent>Admin</NavLinkPendingContent>
                   </Link>
                 )}
                 <form action={signOut}>
-                  <button
-                    type="submit"
-                    role="menuitem"
-                    className="block w-full px-4 py-2.5 text-left text-sm text-stone-600 hover:bg-stone-50"
-                  >
-                    Kirjaudu ulos
-                  </button>
+                  <SignOutButton className="block w-full px-4 py-2.5 text-left text-sm text-stone-600 hover:bg-stone-50 disabled:opacity-60" />
                 </form>
               </div>
             )}
