@@ -19,11 +19,16 @@ const items = [
     body: "Tarjousten jättäminen on maksutonta. Välityspalkkio veloitetaan vain, kun asiakas hyväksyy tarjouksesi — summa riippuu pumpputyypistä ja kilpailun määrästä.",
     highlight: false,
   },
+  {
+    title: "Palaute valmiista urakasta",
+    body: "Kun merkitset urakan valmiiksi, voit arvostella urakoitsijan. Muistutus tulee myös noin kahden viikon kuluttua — kerro miten homma sujui.",
+    highlight: false,
+  },
 ] as const;
 
 export function HomeDifferentiators() {
   return (
-    <div className="grid gap-6 sm:grid-cols-2">
+    <div className="grid gap-4 sm:grid-cols-2 sm:gap-6">
       {items.map((item) => (
         <div
           key={item.title}

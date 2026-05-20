@@ -225,6 +225,21 @@ export async function userNotifyProjectCancelled(params: {
   await notifyProjectCancelled(params);
 }
 
+export async function userNotifyReviewReminder(params: {
+  customerId: string;
+  projectId: string;
+  projectTitle: string;
+  contractorName: string;
+}) {
+  await inApp(
+    params.customerId,
+    "review_reminder",
+    "Miten urakka sujui?",
+    `Kerro kokemuksestasi urakoitsijasta ${params.contractorName}: ${params.projectTitle}`,
+    `/remontti/${params.projectId}`,
+  );
+}
+
 export async function userNotifyProjectMessage(params: {
   recipientId: string;
   projectId: string;

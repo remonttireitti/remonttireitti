@@ -208,7 +208,7 @@ export default async function ProjectPage({
   return (
     <div>
       <SiteHeader />
-      <main className="mx-auto max-w-2xl px-6 py-12">
+      <main className="mx-auto max-w-2xl px-4 py-8 sm:px-6 sm:py-12">
         <Link href="/oma-tili" className="text-sm text-sky-700 hover:underline">
           ← Oma tili
         </Link>

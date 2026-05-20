@@ -1,8 +1,12 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f8fafc;
+  --foreground: #1c1917;
+  --surface: #ffffff;
+  --sky-soft: #e0f2fe;
+  --orange-soft: #fff7ed;
+  --radius-card: 1.25rem;
 }
 
 @theme inline {
@@ -12,17 +16,27 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  scroll-behavior: smooth;
+  -webkit-tap-highlight-color: transparent;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), system-ui, -apple-system, "Segoe UI",
+    sans-serif;
+  line-height: 1.55;
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+
+/* Pehmeä tausta kuten kodikas palvelusivu — ei tummaa tilaa */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #f8fafc;
+    --foreground: #1c1917;
+  }
 }
 
 input[type="number"] {
@@ -42,5 +56,12 @@ input[type="number"]::-webkit-inner-spin-button {
   }
   100% {
     transform: translateX(420%);
+  }
+}
+
+/* Mobiili: isommat napin kosketusalueet */
+@media (max-width: 639px) {
+  .touch-target {
+    min-height: 2.75rem;
   }
 }

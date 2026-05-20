@@ -1,3 +1,4 @@
+import { ContractorTrustBanner } from "@/components/bid/contractor-trust-banner";
 import { CustomerBidActions } from "@/components/bid/customer-bid-actions";
 import { ValuePromoBanner } from "@/components/promo/value-promo-banner";
 import { StarRatingDisplay } from "@/components/review/star-rating-display";
@@ -140,6 +141,8 @@ export function CustomerBids({
           ? "Valittu urakoitsija viimeistelee tilausta (välitysmaksu). Muut tarjoukset säilyvät, jos valinta raukeaa määräajassa."
           : "Vertaile tarjouksia sarakkeittain. Halvin hinta ensin, hyväksytty korostettuna."}
       </p>
+
+      <ContractorTrustBanner />
 
       {canAccept && (
         <ValuePromoBanner variant="customer-negotiate" className="mt-4" />

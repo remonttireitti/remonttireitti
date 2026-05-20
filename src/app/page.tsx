@@ -10,6 +10,7 @@ export const metadata: Metadata = pageMetadata({
 });
 import { Logo } from "@/components/brand/logo";
 import { HomeDifferentiators } from "@/components/marketing/home-differentiators";
+import { HomeTrust } from "@/components/marketing/home-trust";
 import { ServiceCards } from "@/components/marketing/service-cards";
 import { HomeNotifications } from "@/components/notifications/home-notifications";
 import { ValuePromoPair } from "@/components/promo/value-promo-banner";
@@ -38,48 +39,59 @@ export default async function Home() {
   }
 
   return (
-    <div className="min-h-full bg-stone-50 text-stone-900">
+    <div className={brand.page}>
       <SiteHeader />
 
-      <main>
-        <section className="mx-auto max-w-5xl px-4 py-14 text-center sm:px-6 sm:py-20">
-          <div className="mb-6 flex justify-center">
-            <Logo href="/" size="lg" />
-          </div>
-          <p className="mb-4 text-sm font-medium uppercase tracking-widest text-sky-700">
-            Lämpöpumput — asennus, huolto ja tori
-          </p>
-          <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">
-            Kilpailuta lämpöpumppu{" "}
-            <span className="text-sky-700">helposti ja ilmaiseksi</span>
-          </h1>
-          <p className="mx-auto mt-6 max-w-2xl text-lg text-stone-600">
-            Yksi tarkka tarjouspyyntö — useita vertailukelpoisia tarjouksia.
-            Voit myös{" "}
-            <strong className="font-medium text-stone-800">
-              ehdottaa alhaisempaa hintaa
-            </strong>{" "}
-            ennen kuin valitset asentajan.
-          </p>
-          <div className="mx-auto mt-10 flex w-full max-w-sm flex-col gap-3 sm:max-w-none sm:flex-row sm:justify-center">
-            <Link
-              href="/remontti/uusi"
-              className="inline-flex w-full items-center justify-center rounded-full bg-orange-600 px-8 py-3 font-medium text-white hover:bg-orange-700 sm:w-auto"
-            >
-              Kilpailuta asennus
-            </Link>
-            <Link
-              href="/huolto/uusi"
-              className="inline-flex w-full items-center justify-center rounded-full border border-sky-300 bg-sky-50 px-8 py-3 font-medium text-sky-900 hover:bg-sky-100 sm:w-auto"
-            >
-              Huolto tai korjaus
-            </Link>
-            <Link
-              href="/urakoitsijaksi"
-              className="inline-flex w-full items-center justify-center rounded-full border border-stone-300 px-8 py-3 font-medium text-stone-700 hover:bg-stone-100 sm:w-auto"
-            >
-              Olen asentaja
-            </Link>
+      <main className="pb-16">
+        <section className="mx-auto max-w-5xl px-4 pt-6 sm:px-6 sm:pt-10">
+          <div className={`${brand.hero} text-center`}>
+            <div className="mb-6 flex justify-center">
+              <Logo href="/" size="lg" />
+            </div>
+            <p className="mb-3 text-sm font-medium uppercase tracking-widest text-sky-700">
+              Lämpöpumput — asennus, huolto ja tori
+            </p>
+            <h1 className="text-3xl font-bold tracking-tight text-stone-900 sm:text-5xl">
+              Kilpailuta lämpöpumppu{" "}
+              <span className="bg-gradient-to-r from-sky-700 to-sky-600 bg-clip-text text-transparent">
+                helposti ja ilmaiseksi
+              </span>
+            </h1>
+            <p className="mx-auto mt-5 max-w-2xl text-base leading-relaxed text-stone-600 sm:text-lg">
+              Yksi selkeä pyyntö — vertailukelpoiset tarjoukset. Näet urakoitsijan
+              pätevyydet ja arvostelut ennen valintaa.
+            </p>
+            <ul className="mx-auto mt-6 flex max-w-lg flex-wrap justify-center gap-2 text-xs font-medium text-stone-700 sm:text-sm">
+              <li className="rounded-full bg-white/90 px-3 py-1.5 shadow-sm ring-1 ring-sky-100">
+                Pätevyydet näkyvissä
+              </li>
+              <li className="rounded-full bg-white/90 px-3 py-1.5 shadow-sm ring-1 ring-sky-100">
+                Arvostelut urakoitsijoille
+              </li>
+              <li className="rounded-full bg-white/90 px-3 py-1.5 shadow-sm ring-1 ring-sky-100">
+                Asiakkaalle ilmainen
+              </li>
+            </ul>
+            <div className="mx-auto mt-8 flex w-full max-w-md flex-col gap-3 sm:max-w-none sm:flex-row sm:justify-center">
+              <Link
+                href="/remontti/uusi"
+                className={`${brand.btnPrimary} ${brand.btnPrimaryBlock} rounded-full px-8`}
+              >
+                Kilpailuta asennus
+              </Link>
+              <Link
+                href="/huolto/uusi"
+                className={`${brand.btnSecondary} ${brand.btnSecondaryBlock} rounded-full px-8`}
+              >
+                Huolto tai korjaus
+              </Link>
+              <Link
+                href="/urakoitsijaksi"
+                className={`${brand.btnSecondary} ${brand.btnSecondaryBlock} rounded-full border-stone-200 px-8 text-stone-700`}
+              >
+                Olen asentaja
+              </Link>
+            </div>
           </div>
         </section>
 
@@ -112,8 +124,14 @@ export default async function Home() {
           </div>
         </section>
 
-        <section className="border-t border-stone-200 bg-white py-16">
-          <div className="mx-auto max-w-5xl px-6">
+        <section className="border-t border-stone-200/80 bg-white py-14 sm:py-16">
+          <div className="mx-auto max-w-5xl px-4 sm:px-6">
+            <HomeTrust />
+          </div>
+        </section>
+
+        <section className="border-t border-stone-200/80 bg-stone-50/50 py-14 sm:py-16">
+          <div className="mx-auto max-w-5xl px-4 sm:px-6">
             <h2 className="text-2xl font-bold tracking-tight">
               Miksi Remonttireitti?
             </h2>

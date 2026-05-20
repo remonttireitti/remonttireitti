@@ -53,7 +53,10 @@ export async function completeProject(
 
   revalidatePath(`/remontti/${projectId}`);
   revalidatePath("/oma-tili");
-  return { success: "Urakka merkitty valmiiksi. Voit nyt arvostella urakoitsijan." };
+  return {
+    success:
+      "Urakka merkitty valmiiksi. Voit arvostella urakoitsijan heti — muistutus tulee myös noin kahden viikon kuluttua, jos et ehdi.",
+  };
 }
 
 export async function submitReview(

@@ -8,15 +8,19 @@ export const brand = {
     "border-stone-200 bg-stone-50/50 hover:border-sky-200 hover:bg-white",
   checkbox: "rounded border-stone-300 text-sky-600 focus:ring-sky-500/30",
   section:
-    "rounded-xl border border-sky-100/80 bg-white shadow-sm ring-1 ring-sky-900/5",
+    "rounded-2xl border border-sky-100/80 bg-white shadow-sm ring-1 ring-sky-900/5",
+  page:
+    "min-h-full bg-gradient-to-b from-sky-50/50 via-white to-stone-50/80 text-stone-900",
+  hero:
+    "relative overflow-hidden rounded-3xl border border-sky-100/80 bg-gradient-to-br from-sky-50/90 via-white to-orange-50/50 px-5 py-12 shadow-sm ring-1 ring-sky-900/5 sm:px-10 sm:py-16",
   sectionHeader:
     "border-b border-sky-100 bg-gradient-to-r from-sky-50 via-white to-orange-50/70 px-5 py-4",
   sectionTitle: "text-sm font-semibold tracking-tight text-sky-950",
   sectionDesc: "mt-1 text-xs leading-relaxed text-stone-600",
   btnPrimary:
-    "inline-flex items-center justify-center rounded-lg bg-orange-600 px-5 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-orange-700",
+    "touch-target inline-flex min-h-[2.75rem] items-center justify-center rounded-2xl bg-orange-600 px-6 py-3 text-sm font-semibold text-white shadow-md shadow-orange-600/20 transition hover:bg-orange-700 active:scale-[0.98]",
   btnSecondary:
-    "inline-flex items-center justify-center rounded-lg border border-sky-200 bg-white px-5 py-2.5 text-sm font-medium text-sky-900 hover:bg-sky-50",
+    "touch-target inline-flex min-h-[2.75rem] items-center justify-center rounded-2xl border border-sky-200/90 bg-white px-6 py-3 text-sm font-semibold text-sky-900 shadow-sm transition hover:border-sky-300 hover:bg-sky-50 active:scale-[0.98]",
   /** Pinottu mobiilissa, rivi tabletilla+ */
   actionsStack: "flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:flex-wrap",
   /** Otsikko + toiminto — pino mobiilissa */

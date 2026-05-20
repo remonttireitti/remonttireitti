@@ -31,11 +31,11 @@ const services = [
 
 export function ServiceCards() {
   return (
-    <div className="grid gap-5 sm:grid-cols-3">
+    <div className="grid gap-4 sm:grid-cols-3 sm:gap-5">
       {services.map((s) => (
         <article
           key={s.href}
-          className={`flex flex-col rounded-2xl border p-5 shadow-sm ${s.accent}`}
+          className={`flex flex-col rounded-3xl border p-5 shadow-sm transition hover:shadow-md ${s.accent}`}
         >
           <h3 className="text-lg font-semibold text-stone-900">{s.title}</h3>
           <p className="mt-2 flex-1 text-sm leading-relaxed text-stone-600">
