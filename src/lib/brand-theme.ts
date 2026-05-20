@@ -18,7 +18,7 @@ export const brand = {
   sectionTitle: "text-sm font-semibold tracking-tight text-sky-950",
   sectionDesc: "mt-1 text-xs leading-relaxed text-stone-700",
   btnPrimary:
-    "touch-target inline-flex min-h-[2.75rem] items-center justify-center rounded-2xl bg-orange-600 px-6 py-3 text-sm font-semibold text-white shadow-md shadow-orange-600/20 transition hover:bg-orange-700 active:scale-[0.98]",
+    "touch-target inline-flex min-h-[2.75rem] items-center justify-center rounded-2xl bg-orange-700 px-6 py-3 text-sm font-semibold text-white shadow-md shadow-orange-800/25 transition hover:bg-orange-800 active:scale-[0.98]",
   btnSecondary:
     "touch-target inline-flex min-h-[2.75rem] items-center justify-center rounded-2xl border border-sky-200/90 bg-white px-6 py-3 text-sm font-semibold text-sky-900 shadow-sm transition hover:border-sky-300 hover:bg-sky-50 active:scale-[0.98]",
   /** Pinottu mobiilissa, rivi tabletilla+ */
@@ -42,7 +42,7 @@ export const brand = {
   stepActive: "bg-sky-700 text-white shadow-sm",
   stepDone: "bg-orange-100 text-orange-900",
   stepTodo: "bg-stone-100 text-stone-600",
-  ctaHeader: "rounded-full bg-orange-600 px-4 py-2 text-white hover:bg-orange-700",
+  ctaHeader: "rounded-full bg-orange-700 px-4 py-2 text-white hover:bg-orange-800",
   badge: "rounded-full bg-sky-100 px-3 py-1 text-sm font-medium text-sky-900",
   successText: "text-sm text-sky-800",
   alertBox: "rounded-lg bg-sky-50 p-3 text-sm text-sky-900",

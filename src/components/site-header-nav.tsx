@@ -92,7 +92,7 @@ export function SiteHeaderNav({
               <span className="inline-flex items-center gap-1.5">
                 Ilmoitukset
                 {unreadNotifications > 0 && (
-                  <span className="inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-orange-600 px-1.5 py-0.5 text-[10px] font-bold text-white">
+                  <span className="inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-orange-700 px-1.5 py-0.5 text-[10px] font-bold text-white">
                     {unreadNotifications > 9 ? "9+" : unreadNotifications}
                   </span>
                 )}

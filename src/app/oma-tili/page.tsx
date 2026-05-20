@@ -226,7 +226,7 @@ export default async function AccountPage({
               <h2 className="text-lg font-semibold">Lämpöpumppupyynnöt</h2>
               <Link
                 href="/remontti/uusi"
-                className="inline-flex w-full shrink-0 items-center justify-center rounded-lg bg-orange-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-orange-700 sm:w-auto sm:rounded-full"
+                className="inline-flex w-full shrink-0 items-center justify-center rounded-lg bg-orange-700 px-4 py-2.5 text-sm font-medium text-white hover:bg-orange-800 sm:w-auto sm:rounded-full"
               >
                 + Uusi tarjouspyyntö
               </Link>
@@ -300,7 +300,7 @@ export default async function AccountPage({
           <div className="mt-8">
             <Link
               href="/tarjoukset"
-              className="inline-flex rounded-full bg-orange-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-orange-700"
+              className="inline-flex rounded-full bg-orange-700 px-5 py-2.5 text-sm font-medium text-white hover:bg-orange-800"
             >
               Selaa avoimia lämpöpumppupyyntöjä
             </Link>

@@ -26,7 +26,7 @@ function chipClass(active: boolean) {
 }
 
 const ctaChip =
-  "inline-flex shrink-0 items-center rounded-lg bg-orange-600 px-3 py-2 text-sm font-semibold text-white hover:bg-orange-700";
+  "inline-flex shrink-0 items-center rounded-lg bg-orange-700 px-3 py-2 text-sm font-semibold text-white hover:bg-orange-800";
 
 function NavChip({
   href,
@@ -99,7 +99,7 @@ export function SiteHeaderMobileNav({
       {ctaHref && ctaLabel && (
         <Link
           href={ctaHref}
-          className="flex w-full items-center justify-center rounded-xl bg-orange-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-orange-700"
+          className="flex w-full items-center justify-center rounded-xl bg-orange-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-orange-800"
         >
           <NavLinkPendingContent>
             <span className="sm:hidden">{ctaLabelShort}</span>
@@ -121,7 +121,7 @@ export function SiteHeaderMobileNav({
                 <span className="inline-flex items-center gap-1.5">
                   Ilmoitukset
                   {unreadNotifications > 0 && (
-                    <span className="inline-flex min-w-[1.1rem] items-center justify-center rounded-full bg-orange-600 px-1 py-0.5 text-[10px] font-bold leading-none text-white">
+                    <span className="inline-flex min-w-[1.1rem] items-center justify-center rounded-full bg-orange-700 px-1 py-0.5 text-[10px] font-bold leading-none text-white">
                       {unreadNotifications > 9 ? "9+" : unreadNotifications}
                     </span>
                   )}

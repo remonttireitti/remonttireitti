@@ -66,14 +66,14 @@ export default async function ContractorLandingPage() {
             {contractor ? (
               <Link
                 href="/tarjoukset"
-                className="inline-flex items-center justify-center rounded-full bg-orange-600 px-8 py-3 font-medium text-white hover:bg-orange-700"
+                className="inline-flex items-center justify-center rounded-full bg-orange-700 px-8 py-3 font-medium text-white hover:bg-orange-800"
               >
                 Avoimet tarjouspyynnöt
               </Link>
             ) : (
               <Link
                 href="/rekisteroidy?rooli=urakoitsija"
-                className="inline-flex items-center justify-center rounded-full bg-orange-600 px-8 py-3 font-medium text-white hover:bg-orange-700"
+                className="inline-flex items-center justify-center rounded-full bg-orange-700 px-8 py-3 font-medium text-white hover:bg-orange-800"
               >
                 Rekisteröidy ilmaiseksi
               </Link>

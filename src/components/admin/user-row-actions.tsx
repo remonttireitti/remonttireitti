@@ -77,7 +77,7 @@ export function UserRowActions({
         <button
           type="submit"
           disabled={fixPending}
-          className="rounded bg-orange-600 px-3 py-1 text-xs text-white disabled:opacity-50"
+          className="rounded bg-orange-700 px-3 py-1 text-xs text-white disabled:opacity-50"
         >
           Korjaa urakoitsijaksi
         </button>

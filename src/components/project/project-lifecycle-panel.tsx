@@ -120,7 +120,7 @@ function CompleteProjectForm({
       <button
         type="submit"
         disabled={pending}
-        className="rounded-lg bg-orange-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-orange-700 disabled:opacity-60"
+        className="rounded-lg bg-orange-700 px-5 py-2.5 text-sm font-medium text-white hover:bg-orange-800 disabled:opacity-60"
       >
         {pending ? "Tallennetaan…" : "Merkitse urakka valmiiksi"}
       </button>

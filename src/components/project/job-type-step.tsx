@@ -110,7 +110,7 @@ export function JobTypeStep({
                 onClick={() => setBrowseTradeId(t.id)}
                 className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
                   browseTradeId === t.id
-                    ? "bg-orange-600 text-white"
+                    ? "bg-orange-700 text-white"
                     : "bg-stone-100 text-stone-700 hover:bg-stone-200"
                 }`}
               >
@@ -210,7 +210,7 @@ function ModeButton({
       onClick={onClick}
       className={`rounded-lg px-3 py-1.5 text-sm font-medium ${
         active
-          ? "bg-orange-600 text-white"
+          ? "bg-orange-700 text-white"
           : "bg-stone-100 text-stone-600 hover:bg-stone-200"
       }`}
     >
@@ -258,7 +258,7 @@ function TradeChip({
       onClick={onToggle}
       className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
         selected
-          ? "bg-orange-600 text-white"
+          ? "bg-orange-700 text-white"
           : "border border-stone-300 bg-white text-stone-700 hover:border-sky-400"
       }`}
     >

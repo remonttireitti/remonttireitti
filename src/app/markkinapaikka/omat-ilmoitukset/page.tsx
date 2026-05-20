@@ -53,7 +53,7 @@ export default async function MyListingsPage() {
         <div className="mt-6 flex flex-wrap gap-3">
           <Link
             href={newListingHref}
-            className="rounded-lg bg-orange-600 px-4 py-2 text-sm font-medium text-white hover:bg-orange-700"
+            className="rounded-lg bg-orange-700 px-4 py-2 text-sm font-medium text-white hover:bg-orange-800"
           >
             Uusi ilmoitus
           </Link>

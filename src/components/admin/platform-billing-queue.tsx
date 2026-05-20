@@ -161,7 +161,7 @@ function PlatformBillingRowCard({ row }: { row: PlatformBillingRow }) {
             <button
               type="submit"
               disabled={paidPending}
-              className="w-full rounded-lg bg-orange-600 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-700 disabled:opacity-60 sm:w-auto"
+              className="w-full rounded-lg bg-orange-700 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-800 disabled:opacity-60 sm:w-auto"
             >
               {paidPending ? "Tallennetaan…" : "Maksettu"}
             </button>

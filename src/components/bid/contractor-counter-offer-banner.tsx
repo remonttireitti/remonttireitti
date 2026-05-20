@@ -95,7 +95,7 @@ export function ContractorCounterOfferBanner({
           type="button"
           onClick={handleAccept}
           disabled={busy !== null}
-          className="rounded-lg bg-orange-600 px-4 py-2 text-sm font-medium text-white hover:bg-orange-700 disabled:opacity-60"
+          className="rounded-lg bg-orange-700 px-4 py-2 text-sm font-medium text-white hover:bg-orange-800 disabled:opacity-60"
         >
           {busy === "accept" ? "Hyväksytään…" : "Hyväksy vastatarjous"}
         </button>
