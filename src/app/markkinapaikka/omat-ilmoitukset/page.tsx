@@ -4,7 +4,8 @@ import { redirect } from "next/navigation";
 import { fetchSellerListings } from "@/app/actions/marketplace-listings";
 import { RemoveListingButton } from "@/components/marketplace/remove-listing-button";
 import { SiteHeader } from "@/components/site-header";
-import { getSessionUser } from "@/lib/auth";
+import { getSessionUser, isContractor } from "@/lib/auth";
+import { marketplaceCreateListingPath } from "@/lib/marketplace-listing-links";
 import { listingStatusLabels } from "@/lib/marketplace-listings";
 import { LISTING_DURATION_WEEKS } from "@/lib/marketplace-pricing";
 import { marketplaceBrand } from "@/lib/marketplace-brand";
@@ -29,6 +30,8 @@ export default async function MyListingsPage() {
   }
 
   const listings = await fetchSellerListings(user.id);
+  const contractor = await isContractor();
+  const newListingHref = marketplaceCreateListingPath(contractor);
 
   return (
     <div className="min-h-full bg-stone-50 text-stone-900">
@@ -49,7 +52,7 @@ export default async function MyListingsPage() {
 
         <div className="mt-6 flex flex-wrap gap-3">
           <Link
-            href="/markkinapaikka/ilmoita?tyyppi=kuluttaja"
+            href={newListingHref}
             className="rounded-lg bg-orange-600 px-4 py-2 text-sm font-medium text-white hover:bg-orange-700"
           >
             Uusi ilmoitus
@@ -66,7 +69,7 @@ export default async function MyListingsPage() {
           <p className="mt-8 rounded-xl border border-stone-200 bg-white p-6 text-sm text-stone-600">
             Ei vielä ilmoituksia.{" "}
             <Link
-              href="/markkinapaikka/ilmoita"
+              href={newListingHref}
               className="font-medium text-sky-700 hover:underline"
             >
               Lisää ensimmäinen

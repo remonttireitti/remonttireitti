@@ -6,6 +6,7 @@ import {
   shouldOfferContractorActivation,
 } from "@/lib/contractor-activation";
 import { BootstrapProfileForm } from "@/components/account/bootstrap-profile-form";
+import { NotificationPreferencesForm } from "@/components/account/notification-preferences-form";
 import { SiteHeader } from "@/components/site-header";
 import { isAdmin } from "@/lib/admin";
 import { getProfile, getSessionUser, isContractor } from "@/lib/auth";
@@ -19,6 +20,7 @@ import {
   formatRefrigerant,
 } from "@/lib/format-qualifications";
 import { getContractorCompanyBypass } from "@/lib/profile-read";
+import { getNotificationPrefs } from "@/lib/notification-prefs";
 import { syncContractorAccount } from "@/lib/sync-contractor";
 import { projectStatusLabels } from "@/lib/projects";
 import { createClient } from "@/lib/supabase/server";
@@ -46,6 +48,7 @@ export default async function AccountPage({
     !needsContractorFix;
   const admin = await isAdmin();
   const supabase = await createClient();
+  const notificationPrefs = await getNotificationPrefs(user.id);
 
   let contractorCompany: string | null = null;
   let contractorQuals: Awaited<ReturnType<typeof getContractorQualifications>> | null =
@@ -209,6 +212,13 @@ export default async function AccountPage({
             </>
           )}
         </div>
+
+        {profile && (
+          <NotificationPreferencesForm
+            role={profile.role}
+            prefs={notificationPrefs}
+          />
+        )}
 
         {!contractor && !admin && (
           <>

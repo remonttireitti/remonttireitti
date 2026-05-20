@@ -6,7 +6,7 @@ import { pageMetadata } from "@/lib/seo";
 
 export const metadata: Metadata = pageMetadata({
   title: "Ilmoita myytävä laite",
-  description: `Julkaise ilmainen ilmoitus yksityishenkilönä tai yrityksen ilmoitus ${marketplaceBrand.nameShort.toLowerCase()}lle.`,
+  description: `Julkaise myynti-ilmoitus ${marketplaceBrand.nameShort.toLowerCase()}lle — yksityisille ilmaiseksi, yrityksille hinnaston mukaan.`,
   path: "/markkinapaikka/ilmoita",
 });
 import { ContractorActivationBanner } from "@/components/account/contractor-activation-banner";
@@ -40,6 +40,10 @@ export default async function MarketplaceCreateListingPage({
   const { tyyppi } = params;
 
   if (tyyppi === "kuluttaja") {
+    const user = await getSessionUser();
+    if (user && (await isContractor())) {
+      redirect("/markkinapaikka/ilmoita");
+    }
     return <ConsumerListingInfo />;
   }
 
@@ -70,15 +74,6 @@ export default async function MarketplaceCreateListingPage({
               compact
             />
           </div>
-          <p className="mt-6 text-center text-sm text-stone-500">
-            Myytkö yksityishenkilönä?{" "}
-            <Link
-              href="/markkinapaikka/ilmoita?tyyppi=kuluttaja"
-              className="text-sky-700 hover:underline"
-            >
-              Ilmoita ilmaiseksi
-            </Link>
-          </p>
         </main>
       </div>
     );
@@ -138,15 +133,6 @@ export default async function MarketplaceCreateListingPage({
           }}
         />
 
-        <p className="mt-8 text-center text-sm text-stone-500">
-          Yksityishenkilönä?{" "}
-          <Link
-            href="/markkinapaikka/ilmoita?tyyppi=kuluttaja"
-            className="text-sky-700 hover:underline"
-          >
-            Ilmoita ilmaiseksi
-          </Link>
-        </p>
       </main>
     </div>
   );

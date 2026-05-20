@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { getSessionUser, isContractor } from "@/lib/auth";
+import { marketplaceCreateListingPath } from "@/lib/marketplace-listing-links";
 import { SiteHeader } from "@/components/site-header";
 import { brand } from "@/lib/brand-theme";
 import { ListingCardGrid } from "@/components/marketplace/listing-card-grid";
@@ -29,6 +31,11 @@ export default async function MarketplaceListingsPage({
   const listings = await fetchPublishedListings(50, categoryFilter);
   const categoryMeta = categoryFilter ? getListingCategory(categoryFilter) : null;
 
+  const user = await getSessionUser();
+  const createListingHref = marketplaceCreateListingPath(
+    user ? await isContractor() : false,
+  );
+
   return (
     <div className="min-h-full bg-stone-50 text-stone-900">
       <SiteHeader />
@@ -51,7 +58,7 @@ export default async function MarketplaceListingsPage({
             </p>
           </div>
           <Link
-            href="/markkinapaikka/ilmoita?tyyppi=kuluttaja"
+            href={createListingHref}
             className={`shrink-0 ${brand.btnPrimary} ${brand.btnPrimaryBlock}`}
           >
             Lisää ilmoitus

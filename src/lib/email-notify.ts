@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendEmail, siteUrl } from "@/lib/email";
+import { getNotificationPrefs } from "@/lib/notification-prefs";
 
 async function userEmail(userId: string): Promise<string | null> {
   const admin = createAdminClient();
@@ -41,6 +42,9 @@ async function sendUserEmail(
   ctaPath: string,
   ctaLabel: string,
 ) {
+  const prefs = await getNotificationPrefs(userId);
+  if (!prefs.notifyEmail) return;
+
   const to = await userEmail(userId);
   if (!to) return;
   await sendEmail({

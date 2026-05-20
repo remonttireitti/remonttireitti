@@ -8,6 +8,7 @@ import {
   validateContractorQualifications,
 } from "@/lib/contractor-qualifications";
 import { saveContractorQualifications } from "@/lib/save-contractor-qualifications";
+import { notifyAdminsNewRegistration } from "@/lib/admin-user-notify";
 import { syncContractorAccount } from "@/lib/sync-contractor";
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
@@ -93,7 +94,25 @@ export async function signUp(
     }
 
     await syncContractorAccount(data.user);
+
+    void notifyAdminsNewRegistration({
+      userId: data.user.id,
+      role: "contractor",
+      fullName: fullName || null,
+      companyName,
+      email,
+    });
+
     redirect("/tarjoukset");
+  }
+
+  if (data.user) {
+    void notifyAdminsNewRegistration({
+      userId: data.user.id,
+      role: "customer",
+      fullName: fullName || null,
+      email,
+    });
   }
 
   redirect("/oma-tili");

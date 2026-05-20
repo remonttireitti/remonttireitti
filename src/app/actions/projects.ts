@@ -15,6 +15,15 @@ import {
 import { ensureProfile } from "@/lib/ensure-profile";
 import { uploadProjectPhotosFromFormData } from "@/lib/project-photos";
 import {
+  notifyContractorsNewMaintenanceProject,
+  notifyContractorsNewPublishedProject,
+} from "@/lib/contractor-project-notify";
+import type { DeviceCategory } from "@/constants/maintenance";
+import {
+  parseDeviceMaintenanceJson,
+  validateDeviceMaintenanceDetails,
+} from "@/lib/device-maintenance-details";
+import {
   userNotifyProjectCancelled,
   userNotifyProjectUpdated,
 } from "@/lib/user-notify";
@@ -71,7 +80,17 @@ export async function createProject(
   const detailsKind = String(formData.get("details_kind") ?? "").trim();
   const detailsJsonRaw = String(formData.get("details_json") ?? "").trim();
   let projectDetails: Record<string, unknown> = {};
-  if (detailsJsonRaw && detailsKind === "maalampopumppu") {
+  if (detailsJsonRaw && detailsKind === "laitteen_huolto") {
+    const parsed = parseDeviceMaintenanceJson(detailsJsonRaw);
+    if (!parsed) {
+      return {
+        error: "Huolto-/korjaustiedot ovat virheelliset. Täytä lomake uudelleen.",
+      };
+    }
+    const detailsErr = validateDeviceMaintenanceDetails(parsed);
+    if (detailsErr) return { error: detailsErr };
+    projectDetails = { laitteen_huolto: parsed };
+  } else if (detailsJsonRaw && detailsKind === "maalampopumppu") {
     const parsed = parseMaalampDetailsJson(detailsJsonRaw);
     if (!parsed) {
       return { error: "Lämpöpumpun tiedot ovat virheelliset. Täytä lomake uudelleen." };
@@ -239,8 +258,33 @@ export async function createProject(
     }
   }
 
+  if (publish) {
+    const maintenance = projectDetails.laitteen_huolto as
+      | { device_category?: string }
+      | undefined;
+    if (maintenance?.device_category) {
+      void notifyContractorsNewMaintenanceProject({
+        projectId: data.id,
+        projectTitle: title,
+        jobTypeId,
+        deviceCategory: maintenance.device_category as DeviceCategory,
+        municipality,
+        postalCode,
+      });
+    } else {
+      void notifyContractorsNewPublishedProject({
+        projectId: data.id,
+        projectTitle: title,
+        jobTypeId,
+        municipality,
+        postalCode,
+      });
+    }
+  }
+
   revalidatePath("/oma-tili");
   revalidatePath(`/remontti/${data.id}`);
+  revalidatePath("/tarjoukset");
   redirect(`/remontti/${data.id}`);
 }
 

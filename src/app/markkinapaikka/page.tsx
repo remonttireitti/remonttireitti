@@ -2,7 +2,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { SiteHeader } from "@/components/site-header";
 import { brand } from "@/lib/brand-theme";
+import { getSessionUser, isContractor } from "@/lib/auth";
 import { LISTING_PRODUCT_CATEGORIES } from "@/lib/marketplace-categories";
+import { marketplaceCreateListingPath } from "@/lib/marketplace-listing-links";
 import { marketplaceBrand } from "@/lib/marketplace-brand";
 import { pageMetadata } from "@/lib/seo";
 
@@ -13,7 +15,11 @@ export const metadata: Metadata = pageMetadata({
   path: "/markkinapaikka",
 });
 
-export default function MarketplacePage() {
+export default async function MarketplacePage() {
+  const user = await getSessionUser();
+  const contractor = user ? await isContractor() : false;
+  const createListingHref = marketplaceCreateListingPath(contractor);
+
   return (
     <div className="min-h-full bg-gradient-to-b from-sky-50/40 to-stone-50 text-stone-900">
       <SiteHeader />
@@ -27,16 +33,16 @@ export default function MarketplacePage() {
         <p className="mt-2 text-lg text-stone-500">{marketplaceBrand.tagline}</p>
         <p className="mt-4 max-w-2xl text-lg text-stone-600">
           Osta ja myy lämpöpumppuja, varaosia ja laitteita torilla. Selaa
-          ilmoituksia alueeltasi tai lisää myytävä kohde — yksityisille ja
-          ammattilaisille.
+          ilmoituksia alueeltasi tai lisää myytävä kohde
+          {contractor ? " yrityksenä" : " — yksityisille ja ammattilaisille"}.
         </p>
 
         <div className={`mt-10 ${brand.actionsStack}`}>
           <Link
-            href="/markkinapaikka/hinnasto"
+            href={contractor ? createListingHref : "/markkinapaikka/hinnasto"}
             className={`${brand.btnPrimary} ${brand.btnPrimaryBlock}`}
           >
-            Katso hinnasto
+            {contractor ? "Ilmoita myytävä" : "Katso hinnasto"}
           </Link>
           <Link
             href="/markkinapaikka/ilmoitukset"
@@ -65,20 +71,24 @@ export default function MarketplacePage() {
           </ul>
         </div>
 
-        <div className="mt-16 grid auto-rows-fr gap-6 sm:grid-cols-3">
-          <div className="flex h-full min-h-[11rem] flex-col rounded-xl border border-stone-200 bg-white p-5 shadow-sm">
-            <h2 className="font-semibold text-stone-900">Yksityiselle</h2>
-            <p className="mt-2 flex-1 text-sm text-stone-600">
-              Myy käytetty laite tai varaosa helposti. Ilmoitus on maksuton
-              yksityishenkilölle.
-            </p>
-            <Link
-              href="/markkinapaikka/ilmoita?tyyppi=kuluttaja"
-              className="mt-4 inline-block text-sm font-medium text-sky-700 hover:underline"
-            >
-              Ilmoita myytävä →
-            </Link>
-          </div>
+        <div
+          className={`mt-16 grid auto-rows-fr gap-6 ${contractor ? "sm:grid-cols-2" : "sm:grid-cols-3"}`}
+        >
+          {!contractor && (
+            <div className="flex h-full min-h-[11rem] flex-col rounded-xl border border-stone-200 bg-white p-5 shadow-sm">
+              <h2 className="font-semibold text-stone-900">Yksityiselle</h2>
+              <p className="mt-2 flex-1 text-sm text-stone-600">
+                Myy käytetty laite tai varaosa helposti. Ilmoitus on maksuton
+                yksityishenkilölle.
+              </p>
+              <Link
+                href="/markkinapaikka/ilmoita?tyyppi=kuluttaja"
+                className="mt-4 inline-block text-sm font-medium text-sky-700 hover:underline"
+              >
+                Ilmoita myytävä →
+              </Link>
+            </div>
+          )}
           <div className="flex h-full min-h-[11rem] flex-col rounded-xl border border-stone-200 bg-white p-5 shadow-sm">
             <h2 className="font-semibold text-stone-900">Urakoitsijalle</h2>
             <p className="mt-2 flex-1 text-sm text-stone-600">
@@ -86,10 +96,10 @@ export default function MarketplacePage() {
               Hinnat yrityshinnastossa.
             </p>
             <Link
-              href="/markkinapaikka/hinnasto#yritykset"
+              href={contractor ? createListingHref : "/markkinapaikka/hinnasto#yritykset"}
               className="mt-4 inline-block text-sm font-medium text-sky-700 hover:underline"
             >
-              Hinnasto yrityksille →
+              {contractor ? "Ilmoita yrityksenä →" : "Hinnasto yrityksille →"}
             </Link>
           </div>
           <div className="flex h-full min-h-[11rem] flex-col rounded-xl border border-stone-200 bg-white p-5 shadow-sm">

@@ -1,3 +1,4 @@
+import { MAINTENANCE_JOB_SLUGS } from "@/constants/maintenance";
 import { HEAT_PUMP_JOB_SLUGS } from "@/constants/heat-pumps";
 import { createClient } from "@/lib/supabase/server";
 import {
@@ -9,6 +10,15 @@ import {
 } from "@/types/job-catalog";
 
 /** Lämpöpumppu-MVP: ilma-, vesi-ilmalämpö- ja maalämpöpumppu. */
+export async function fetchMaintenanceCatalog(): Promise<JobCatalog> {
+  const catalog = await fetchJobCatalog();
+  const allowed = new Set<string>(MAINTENANCE_JOB_SLUGS);
+  return {
+    ...catalog,
+    jobTypes: catalog.jobTypes.filter((jt) => allowed.has(jt.slug)),
+  };
+}
+
 export async function fetchHeatPumpCatalog(): Promise<JobCatalog> {
   const catalog = await fetchJobCatalog();
   const allowed = new Set<string>(HEAT_PUMP_JOB_SLUGS);

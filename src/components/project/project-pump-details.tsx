@@ -3,6 +3,8 @@ import {
   DetailSection,
   DetailSectionsGrid,
 } from "@/components/project/project-detail-sections";
+import { DeviceMaintenanceDetailsView } from "@/components/project/device-maintenance-details-view";
+import { isDeviceMaintenanceDetails } from "@/lib/device-maintenance-details";
 import { isIlpDetails } from "@/lib/ilmalampopumppu-details";
 import {
   formatIvlpDetailsSummary,
@@ -17,6 +19,7 @@ type ProjectDetails = {
   ilmalampopumppu?: unknown;
   ilmavesilampopumppu?: unknown;
   maalampopumppu?: unknown;
+  laitteen_huolto?: unknown;
 };
 
 export function hasStructuredPumpDetails(
@@ -26,7 +29,8 @@ export function hasStructuredPumpDetails(
   return (
     isIlpDetails(details.ilmalampopumppu) ||
     isIvlpDetails(details.ilmavesilampopumppu) ||
-    isMaalampDetails(details.maalampopumppu)
+    isMaalampDetails(details.maalampopumppu) ||
+    isDeviceMaintenanceDetails(details.laitteen_huolto)
   );
 }
 
@@ -35,9 +39,14 @@ export function ProjectPumpDetails({
 }: {
   details: ProjectDetails | null | undefined;
 }) {
+  const maintenance = details?.laitteen_huolto;
   const ilp = details?.ilmalampopumppu;
   const ivlp = details?.ilmavesilampopumppu;
   const maalamp = details?.maalampopumppu;
+
+  if (isDeviceMaintenanceDetails(maintenance)) {
+    return <DeviceMaintenanceDetailsView details={maintenance} />;
+  }
 
   if (isIlpDetails(ilp)) {
     return <IlmalampopumppuDetailsView details={ilp} />;

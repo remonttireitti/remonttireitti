@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { setContractorBypass } from "@/lib/profile-read";
+import { notifyAdminsNewRegistration } from "@/lib/admin-user-notify";
 import { syncContractorAccount } from "@/lib/sync-contractor";
 import { redirect } from "next/navigation";
 
@@ -39,6 +40,15 @@ export async function activateContractorAccount(formData: FormData) {
   });
 
   await syncContractorAccount(user);
+
+  void notifyAdminsNewRegistration({
+    userId: user.id,
+    role: "contractor",
+    fullName,
+    companyName,
+    email: user.email ?? null,
+  });
+
   revalidatePath("/oma-tili");
   revalidatePath("/tarjoukset");
   revalidatePath("/markkinapaikka");

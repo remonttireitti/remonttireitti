@@ -75,6 +75,12 @@ export default async function Home() {
               Kilpailuta lämpöpumppu
             </Link>
             <Link
+              href="/huolto/uusi"
+              className="inline-flex w-full items-center justify-center rounded-full border border-sky-300 bg-sky-50 px-8 py-3 font-medium text-sky-900 hover:bg-sky-100 sm:w-auto"
+            >
+              Huolto tai korjaus
+            </Link>
+            <Link
               href="/rekisteroidy?rooli=urakoitsija"
               className="inline-flex w-full items-center justify-center rounded-full border border-stone-300 px-8 py-3 font-medium text-stone-700 hover:bg-stone-100 sm:w-auto"
             >

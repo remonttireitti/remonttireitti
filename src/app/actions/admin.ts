@@ -1,6 +1,7 @@
 "use server";
 
 import { requireAdmin } from "@/lib/admin";
+import { notifyAdminsNewRegistration } from "@/lib/admin-user-notify";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { revalidatePath } from "next/cache";
 import type { UserRole } from "@/types/database";
@@ -39,6 +40,15 @@ export async function setUserRole(
     });
     await admin.auth.admin.updateUserById(userId, {
       user_metadata: { role: "contractor", company_name: company },
+    });
+
+    const { data: authUser } = await admin.auth.admin.getUserById(userId);
+    void notifyAdminsNewRegistration({
+      userId,
+      role: "contractor",
+      companyName: company,
+      fullName: authUser.user?.user_metadata?.full_name as string | undefined,
+      email: authUser.user?.email ?? null,
     });
   }
 

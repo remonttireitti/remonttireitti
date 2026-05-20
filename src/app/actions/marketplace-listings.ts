@@ -48,15 +48,14 @@ export async function createConsumerListing(
   const profile = await getProfile();
   if (shouldOfferContractorActivation(user, profile)) {
     return {
-      error:
-        "Aktivoi ensin urakoitsijatili tai käytä yksityishenkilön ilmoitusta erillisellä asiakastilillä.",
+      error: "Aktivoi ensin urakoitsijatili julkaistaksesi yritysilmoituksen.",
     };
   }
 
   if (await isContractor()) {
     return {
       error:
-        "Urakoitsijat käyttävät maksullista toria. Kirjaudu yksityishenkilön tilillä ilmaiseen myyntiin.",
+        "Urakoitsijat käyttävät maksullista toria. Julkaise ilmoitus yrityksenä.",
     };
   }
 

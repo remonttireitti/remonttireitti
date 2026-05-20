@@ -15,16 +15,19 @@ import {
   projectMessageLinkPath,
 } from "@/lib/email-notify";
 import { createNotification } from "@/lib/notifications-server";
+import { getNotificationPrefs } from "@/lib/notification-prefs";
 import type { NotificationType } from "@/lib/notifications";
 
-function inApp(
+async function inApp(
   userId: string,
   type: NotificationType,
   title: string,
   body: string,
   linkPath: string,
 ) {
-  void createNotification({ userId, type, title, body, linkPath });
+  const prefs = await getNotificationPrefs(userId);
+  if (!prefs.notifyInApp) return;
+  await createNotification({ userId, type, title, body, linkPath });
 }
 
 export async function userNotifyNewBid(params: {
@@ -33,7 +36,7 @@ export async function userNotifyNewBid(params: {
   projectTitle: string;
   contractorCompany: string;
 }) {
-  inApp(
+  await inApp(
     params.customerId,
     "new_bid",
     "Uusi tarjous",
@@ -49,7 +52,7 @@ export async function userNotifyBidUpdated(params: {
   projectTitle: string;
   contractorCompany: string;
 }) {
-  inApp(
+  await inApp(
     params.customerId,
     "new_bid",
     "Tarjous päivitetty",
@@ -66,7 +69,7 @@ export async function userNotifyCounterOffer(params: {
   amountEuros: number;
 }) {
   const formatted = params.amountEuros.toLocaleString("fi-FI");
-  inApp(
+  await inApp(
     params.contractorId,
     "counter_offer",
     "Uusi vastatarjous",
@@ -82,7 +85,7 @@ export async function userNotifyCounterOfferAccepted(params: {
   projectTitle: string;
   amountEuros: number;
 }) {
-  inApp(
+  await inApp(
     params.customerId,
     "counter_offer_accepted",
     "Vastatarjous hyväksytty",
@@ -99,7 +102,7 @@ export async function userNotifyCounterOfferDeclined(params: {
   counterAmountEuros: number;
   originalAmountEuros: number;
 }) {
-  inApp(
+  await inApp(
     params.customerId,
     "counter_offer_declined",
     "Vastatarjous hylätty",
@@ -115,7 +118,7 @@ export async function userNotifyBidRejected(params: {
   projectTitle: string;
   rejectionMessage: string | null;
 }) {
-  inApp(
+  await inApp(
     params.contractorId,
     "bid_rejected",
     "Tarjous hylättiin",
@@ -130,7 +133,7 @@ export async function userNotifyBidAccepted(params: {
   projectId: string;
   projectTitle: string;
 }) {
-  inApp(
+  await inApp(
     params.contractorId,
     "bid_accepted",
     "Tarjous hyväksytty",
@@ -145,7 +148,7 @@ export async function userNotifyProjectUpdated(params: {
   projectId: string;
   projectTitle: string;
 }) {
-  inApp(
+  await inApp(
     params.contractorId,
     "project_updated",
     "Tarjouspyyntö päivitetty",
@@ -160,7 +163,7 @@ export async function userNotifyProjectCancelled(params: {
   projectId: string;
   projectTitle: string;
 }) {
-  inApp(
+  await inApp(
     params.contractorId,
     "project_updated",
     "Tarjouspyyntö peruttu",
@@ -186,7 +189,7 @@ export async function userNotifyProjectMessage(params: {
   const short =
     params.preview.length > 120 ? `${params.preview.slice(0, 117)}…` : params.preview;
 
-  inApp(
+  await inApp(
     params.recipientId,
     "new_message",
     "Uusi viesti",

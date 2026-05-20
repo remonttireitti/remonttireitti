@@ -3,6 +3,7 @@ import Link from "next/link";
 import { MarketplacePricingFaq } from "@/components/marketplace/pricing-faq";
 import { MarketplacePricingSection } from "@/components/marketplace/pricing-section";
 import { SiteHeader } from "@/components/site-header";
+import { getSessionUser, isContractor } from "@/lib/auth";
 import { MARKETPLACE_INVOICE_EMAIL } from "@/lib/marketplace-pricing";
 import { marketplaceBrand } from "@/lib/marketplace-brand";
 import { pageMetadata } from "@/lib/seo";
@@ -14,7 +15,10 @@ export const metadata: Metadata = pageMetadata({
   path: "/markkinapaikka/hinnasto",
 });
 
-export default function MarketplacePricingPage() {
+export default async function MarketplacePricingPage() {
+  const user = await getSessionUser();
+  const contractor = user ? await isContractor() : false;
+
   return (
     <div className="min-h-full bg-gradient-to-b from-sky-50/40 to-stone-50 text-stone-900">
       <SiteHeader />
@@ -39,7 +43,7 @@ export default function MarketplacePricingPage() {
         </p>
 
         <div id="yritykset" className="mt-10 scroll-mt-8">
-          <MarketplacePricingSection />
+          <MarketplacePricingSection showConsumer={!contractor} />
         </div>
 
         <MarketplacePricingFaq />
