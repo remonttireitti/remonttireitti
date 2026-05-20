@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import {
   listingCategoryLabel,
@@ -39,12 +40,16 @@ export function ListingCardGrid({ listings }: { listings: ListingCardItem[] }) {
             }`}
           >
             {l.thumbnail_url ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={l.thumbnail_url}
-                alt={l.title}
-                className="aspect-[16/10] w-full shrink-0 object-cover"
-              />
+              <div className="relative aspect-[16/10] w-full shrink-0 bg-stone-100">
+                <Image
+                  src={l.thumbnail_url}
+                  alt={l.title}
+                  fill
+                  sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                  className="object-cover"
+                  loading="lazy"
+                />
+              </div>
             ) : (
               <div
                 className="flex aspect-[16/10] w-full shrink-0 items-center justify-center bg-stone-100 text-xs text-stone-400"

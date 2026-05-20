@@ -3,6 +3,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 const BUCKET = "listing-photos";
 const MAX_FILES = 8;
 const MAX_BYTES = 5 * 1024 * 1024;
+/** Allekirjoitetut URL:t listauksessa (tunnit). */
+const SIGNED_URL_TTL_SEC = 60 * 60 * 24;
 
 export type ListingPhotoRow = {
   id: string;
@@ -97,7 +99,7 @@ export async function fetchListingCoverUrls(
   for (const [listingId, storagePath] of pathByListing) {
     const { data: signed } = await admin.storage
       .from(BUCKET)
-      .createSignedUrl(storagePath, 60 * 60);
+      .createSignedUrl(storagePath, SIGNED_URL_TTL_SEC);
     if (signed?.signedUrl) urls.set(listingId, signed.signedUrl);
   }
   return urls;
@@ -119,7 +121,7 @@ export async function fetchListingPhotos(
   for (const row of rows) {
     const { data: signed } = await admin.storage
       .from(BUCKET)
-      .createSignedUrl(row.storage_path, 60 * 60);
+      .createSignedUrl(row.storage_path, SIGNED_URL_TTL_SEC);
 
     if (!signed?.signedUrl) continue;
     views.push({ ...row, url: signed.signedUrl });
