@@ -29,22 +29,13 @@ export default async function ContractorWonProjectPage({
 
   const supabase = await createClient();
 
-  const { data: bid } = await supabase
-    .from("bids")
-    .select("id, amount_cents, message, status, estimated_days, submitted_at")
-    .eq("project_id", id)
-    .eq("contractor_id", user.id)
-    .eq("status", "accepted")
-    .maybeSingle();
-
-  if (!bid) notFound();
-
   const { data: project } = await supabase
     .from("projects")
     .select(
       `
       id, title, description, details, municipality, postal_code,
       budget_min, budget_max, desired_start, status, contact_revealed_at,
+      accepted_bid_id,
       service_categories ( name_fi )
     `,
     )
@@ -53,6 +44,21 @@ export default async function ContractorWonProjectPage({
 
   if (!project) notFound();
 
+  const { data: bid } = await supabase
+    .from("bids")
+    .select("id, amount_cents, message, status, estimated_days, submitted_at")
+    .eq("project_id", id)
+    .eq("contractor_id", user.id)
+    .maybeSingle();
+
+  const isProvisionalWinner =
+    bid &&
+    project.accepted_bid_id === bid.id &&
+    project.status === "bid_accepted";
+  const isAcceptedWinner = bid?.status === "accepted";
+
+  if (!bid || (!isProvisionalWinner && !isAcceptedWinner)) notFound();
+
   const projectPhotos = await fetchProjectPhotos(supabase, id);
 
   const { data: invoice } = await supabase
@@ -60,7 +66,7 @@ export default async function ContractorWonProjectPage({
     .select("id, status, amount_cents, due_at, paid_at")
     .eq("project_id", id)
     .eq("contractor_id", user.id)
-    .single();
+    .maybeSingle();
 
   if (!invoice) notFound();
 
@@ -121,7 +127,9 @@ export default async function ContractorWonProjectPage({
 
         <div className="mt-4 flex flex-wrap items-center gap-2">
           <span className="rounded-full bg-orange-100 px-3 py-1 text-sm font-medium text-orange-900">
-            Tarjous hyväksytty
+            {invoice.status === "paid"
+              ? "Tarjous hyväksytty"
+              : "Viimeistele diili"}
           </span>
         </div>
 

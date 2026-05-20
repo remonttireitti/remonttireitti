@@ -16,7 +16,9 @@ import {
 } from "@/lib/email-notify";
 import { createNotification } from "@/lib/notifications-server";
 import { getNotificationPrefs } from "@/lib/notification-prefs";
+import { formatDeadlineFi } from "@/lib/bid-acceptance";
 import type { NotificationType } from "@/lib/notifications";
+import { formatPlatformFee } from "@/lib/platform-fee";
 
 async function inApp(
   userId: string,
@@ -132,15 +134,65 @@ export async function userNotifyBidAccepted(params: {
   contractorId: string;
   projectId: string;
   projectTitle: string;
+  commitDeadline: string;
+  feeCents: number;
 }) {
+  const dl = formatDeadlineFi(params.commitDeadline);
+  const fee = formatPlatformFee(params.feeCents);
   await inApp(
     params.contractorId,
     "bid_accepted",
-    "Tarjous hyväksytty",
-    `Asiakas hyväksyi tarjouksesi: ${params.projectTitle}`,
+    "Tarjous hyväksytty — viimeistele diili",
+    `${params.projectTitle}: maksa välityspalkkio ${fee} veroton viimeistään ${dl}. Muuten diili raukeaa.`,
     `/tarjoukset/urakka/${params.projectId}`,
   );
   await notifyBidAccepted(params);
+}
+
+export async function userNotifyOrderFinalizing(params: {
+  customerId: string;
+  projectId: string;
+  projectTitle: string;
+  contractorName: string;
+  commitDeadline: string;
+}) {
+  const dl = formatDeadlineFi(params.commitDeadline);
+  await inApp(
+    params.customerId,
+    "order_finalizing",
+    "Tilaus viimeistellään",
+    `${params.contractorName} viimeistelee tilausta (välitysmaksu) viimeistään ${dl}. Saat ilmoituksen kun yhteystiedot avautuvat.`,
+    `/remontti/${params.projectId}`,
+  );
+}
+
+export async function userNotifyBidAcceptExpiredCustomer(params: {
+  customerId: string;
+  projectId: string;
+  projectTitle: string;
+  contractorName: string;
+}) {
+  await inApp(
+    params.customerId,
+    "bid_accept_lapsed",
+    "Voit valita toisen urakoitsijan",
+    `${params.contractorName} ei viimeistellyt tilausta määräajassa. Voit hyväksyä toisen tarjouksen: ${params.projectTitle}`,
+    `/remontti/${params.projectId}`,
+  );
+}
+
+export async function userNotifyBidAcceptExpiredContractor(params: {
+  contractorId: string;
+  projectId: string;
+  projectTitle: string;
+}) {
+  await inApp(
+    params.contractorId,
+    "bid_accept_lapsed",
+    "Diili rauennut",
+    `Et maksanut välityspalkkiota määräajassa: ${params.projectTitle}. Asiakas voi valita toisen urakoitsijan.`,
+    `/tarjoukset`,
+  );
 }
 
 export async function userNotifyProjectUpdated(params: {

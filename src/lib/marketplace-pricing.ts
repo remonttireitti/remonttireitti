@@ -39,7 +39,7 @@ export const CONTRACTOR_PLANS: PricingPlan[] = [
     name: "Perus",
     priceLabel: "49 €",
     priceEurCents: 4900,
-    period: "/ kk (+ ALV)",
+    period: "/ kk veroton + ALV",
     listingQuota: 3,
     features: [
       "3 aktiivista ilmoitusta kerrallaan",
@@ -55,7 +55,7 @@ export const CONTRACTOR_PLANS: PricingPlan[] = [
     name: "Pro",
     priceLabel: "99 €",
     priceEurCents: 9900,
-    period: "/ kk (+ ALV)",
+    period: "/ kk veroton + ALV",
     listingQuota: 10,
     features: [
       "10 aktiivista ilmoitusta kerrallaan",
@@ -74,7 +74,7 @@ export const LISTING_SINGLE: PricingPlan = {
   name: "Yksittäinen ilmoitus",
   priceLabel: "29 €",
   priceEurCents: 2900,
-  period: `/ ${LISTING_DURATION_WEEKS} vk (+ ALV)`,
+  period: `/ ${LISTING_DURATION_WEEKS} vk veroton + ALV`,
   features: [
     "Yksi ilmoitus ilman kuukausitilausta",
     `${LISTING_DURATION_WEEKS} viikon näkyvyys`,
@@ -112,7 +112,7 @@ export const PRICING_FAQ = [
   },
   {
     q: "Voiko urakoitsija myydä ilman kk-tilausta?",
-    a: `Kyllä. Voit ostaa yksittäisen ${LISTING_DURATION_WEEKS} viikon ilmoituksen (29 € + ALV) tai valita kuukausipaketin, jos julkaiset useammin.`,
+    a: `Kyllä. Voit ostaa yksittäisen ${LISTING_DURATION_WEEKS} viikon ilmoituksen (29 € veroton + ALV) tai valita kuukausipaketin, jos julkaiset useammin.`,
   },
   {
     q: "Kuinka kauan ilmoitus on näkyvissä?",

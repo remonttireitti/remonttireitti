@@ -10,6 +10,16 @@ export const projectStatusLabels: Record<ProjectStatus, string> = {
   cancelled: "Peruttu",
 };
 
+export function getProjectStatusLabel(
+  status: ProjectStatus,
+  opts?: { finalizing?: boolean },
+): string {
+  if (status === "bid_accepted" && opts?.finalizing) {
+    return "Viimeistellään";
+  }
+  return projectStatusLabels[status];
+}
+
 export function formatBudget(min: number | null, max: number | null): string {
   if (min == null && max == null) return "Ei ilmoitettu";
   if (min != null && max != null) {

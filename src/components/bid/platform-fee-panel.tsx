@@ -5,8 +5,9 @@ import {
   simulatePayPlatformInvoice,
   type PlatformInvoiceActionState,
 } from "@/app/actions/platform-invoices";
+import { formatDeadlineFi } from "@/lib/bid-acceptance";
 import { brand } from "@/lib/brand-theme";
-import { formatPlatformFee } from "@/lib/platform-fee";
+import { formatPlatformFeeInvoiceLine } from "@/lib/platform-fee";
 
 type Invoice = {
   id: string;
@@ -87,15 +88,14 @@ export function PlatformFeePanel({
     <section className="mt-8 rounded-2xl border border-orange-200 bg-orange-50/70 p-6">
       <h2 className="font-semibold text-orange-950">Välitysmaksu</h2>
       <p className="mt-2 text-sm text-orange-900">
-        Asiakas on hyväksynyt tarjouksesi. Maksa välityspalkkio{" "}
-        <strong>{formatPlatformFee(invoice.amount_cents)}</strong> (+ ALV) avataksesi
-        asiakkaan yhteystiedot ja urakan osoitteen.
+        Asiakas on hyväksynyt tarjouksesi. Maksa välityspalkkio:{" "}
+        <strong>{formatPlatformFeeInvoiceLine(invoice.amount_cents)}</strong> — sen
+        jälkeen näet asiakkaan yhteystiedot ja urakan osoitteen.
       </p>
       <p className="mt-2 text-xs text-orange-800">
-        Eräpäivä:{" "}
-        {new Date(invoice.due_at).toLocaleDateString("fi-FI", {
-          dateStyle: "long",
-        })}
+        Maksa viimeistään <strong>{formatDeadlineFi(invoice.due_at)}</strong>.
+        Jos et maksa määräajassa, diili raukeaa ja asiakas voi valita toisen
+        urakoitsijan — yhteystietoja ei avata.
       </p>
 
       {state.error && (

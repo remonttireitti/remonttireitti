@@ -75,8 +75,8 @@ function GuaranteesCell({ bid }: { bid: BidWithContractor }) {
   );
 }
 
-function columnClass(status: BidStatus): string {
-  if (status === "accepted") {
+function columnClass(status: BidStatus, pendingWinner: boolean): string {
+  if (status === "accepted" || pendingWinner) {
     return "border-sky-300 bg-sky-50/80";
   }
   if (status === "rejected" || status === "withdrawn") {
@@ -91,14 +91,20 @@ export function CustomerBids({
   contentRevision,
   bids,
   contractorRatings = {},
+  acceptedBidId = null,
 }: {
   projectId: string;
   projectStatus: ProjectStatus;
   contentRevision: number;
   bids: BidWithContractor[];
   contractorRatings?: Record<string, ContractorRatingSummary>;
+  acceptedBidId?: string | null;
 }) {
   const canAccept = ["published", "receiving_bids"].includes(projectStatus);
+  const finalizing =
+    projectStatus === "bid_accepted" && acceptedBidId != null;
+  const isPendingWinner = (bid: BidWithContractor) =>
+    finalizing && bid.id === acceptedBidId && bid.status === "submitted";
   const visibleBids = bids.filter((b) => b.status !== "withdrawn");
 
   if (projectStatus === "cancelled") {
@@ -130,8 +136,9 @@ export function CustomerBids({
     <section className="mt-8">
       <h2 className="text-lg font-semibold">Tarjoukset ({visibleBids.length})</h2>
       <p className="mt-1 text-sm text-stone-500">
-        Vertaile tarjouksia sarakkeittain. Halvin hinta ensin, hyväksytty
-        korostettuna.
+        {finalizing
+          ? "Valittu urakoitsija viimeistelee tilausta (välitysmaksu). Muut tarjoukset säilyvät, jos valinta raukeaa määräajassa."
+          : "Vertaile tarjouksia sarakkeittain. Halvin hinta ensin, hyväksytty korostettuna."}
       </p>
 
       {canAccept && (
@@ -148,11 +155,12 @@ export function CustomerBids({
               {sorted.map((bid) => {
                 const company = getBidContractorName(bid.contractor_profiles);
                 const rating = contractorRatings[bid.contractor_id];
+                const pendingWinner = isPendingWinner(bid);
                 return (
                   <th
                     key={bid.id}
                     scope="col"
-                    className={`min-w-[11rem] border-l border-stone-200 px-3 py-3 text-left ${columnClass(bid.status)}`}
+                    className={`min-w-[11rem] border-l border-stone-200 px-3 py-3 text-left ${columnClass(bid.status, pendingWinner)}`}
                   >
                     <p className="font-semibold text-stone-900">{company}</p>
                     {rating && rating.count > 0 && (
@@ -164,7 +172,9 @@ export function CustomerBids({
                       </div>
                     )}
                     <span className="mt-2 inline-block rounded-full bg-stone-100 px-2 py-0.5 text-xs font-medium text-stone-700">
-                      {bidStatusLabels[bid.status]}
+                      {pendingWinner
+                        ? "Valittu — odottaa maksua"
+                        : bidStatusLabels[bid.status]}
                     </span>
                   </th>
                 );
@@ -179,7 +189,7 @@ export function CustomerBids({
               {sorted.map((bid) => (
                 <td
                   key={bid.id}
-                  className={`${dataCell} border-l font-bold text-sky-800 ${columnClass(bid.status)}`}
+                  className={`${dataCell} border-l font-bold text-sky-800 ${columnClass(bid.status, isPendingWinner(bid))}`}
                 >
                   {formatEurosFromCents(bid.amount_cents)}
                   {bid.vat_included && (
@@ -198,7 +208,7 @@ export function CustomerBids({
               {sorted.map((bid) => (
                 <td
                   key={bid.id}
-                  className={`${dataCell} border-l ${columnClass(bid.status)}`}
+                  className={`${dataCell} border-l ${columnClass(bid.status, isPendingWinner(bid))}`}
                 >
                   {bid.earliest_start_date ? (
                     formatBidDate(bid.earliest_start_date)
@@ -216,7 +226,7 @@ export function CustomerBids({
               {sorted.map((bid) => (
                 <td
                   key={bid.id}
-                  className={`${dataCell} border-l ${columnClass(bid.status)}`}
+                  className={`${dataCell} border-l ${columnClass(bid.status, isPendingWinner(bid))}`}
                 >
                   {bid.estimated_days != null && bid.estimated_days > 0 ? (
                     `${bid.estimated_days} pv`
@@ -234,7 +244,7 @@ export function CustomerBids({
               {sorted.map((bid) => (
                 <td
                   key={bid.id}
-                  className={`${dataCell} border-l ${columnClass(bid.status)}`}
+                  className={`${dataCell} border-l ${columnClass(bid.status, isPendingWinner(bid))}`}
                 >
                   <ClampedText text={bid.warranty_work} />
                 </td>
@@ -249,7 +259,7 @@ export function CustomerBids({
                 {sorted.map((bid) => (
                   <td
                     key={bid.id}
-                    className={`${dataCell} border-l ${columnClass(bid.status)}`}
+                    className={`${dataCell} border-l ${columnClass(bid.status, isPendingWinner(bid))}`}
                   >
                     <ClampedText text={bid.warranty_equipment} />
                   </td>
@@ -264,7 +274,7 @@ export function CustomerBids({
               {sorted.map((bid) => (
                 <td
                   key={bid.id}
-                  className={`${dataCell} border-l ${columnClass(bid.status)}`}
+                  className={`${dataCell} border-l ${columnClass(bid.status, isPendingWinner(bid))}`}
                 >
                   <GuaranteesCell bid={bid} />
                 </td>
@@ -279,7 +289,7 @@ export function CustomerBids({
                 {sorted.map((bid) => (
                   <td
                     key={bid.id}
-                    className={`${dataCell} border-l ${columnClass(bid.status)}`}
+                    className={`${dataCell} border-l ${columnClass(bid.status, isPendingWinner(bid))}`}
                   >
                     {formatCounterOfferStatus(bid) ?? (
                       <span className="text-stone-400">—</span>
@@ -296,14 +306,16 @@ export function CustomerBids({
               {sorted.map((bid) => (
                 <td
                   key={bid.id}
-                  className={`${dataCell} border-l ${columnClass(bid.status)}`}
+                  className={`${dataCell} border-l ${columnClass(bid.status, isPendingWinner(bid))}`}
                 >
                   <ClampedText text={bid.message} />
                 </td>
               ))}
             </tr>
 
-            {(canAccept || sorted.some((b) => b.status === "accepted")) && (
+            {(canAccept ||
+              finalizing ||
+              sorted.some((b) => b.status === "accepted")) && (
               <tr>
                 <th className={labelCell} scope="row">
                   Toiminto
@@ -311,15 +323,23 @@ export function CustomerBids({
                 {sorted.map((bid) => (
                   <td
                     key={bid.id}
-                    className={`${dataCell} border-l ${columnClass(bid.status)}`}
+                    className={`${dataCell} border-l ${columnClass(bid.status, isPendingWinner(bid))}`}
                   >
+                    {isPendingWinner(bid) && (
+                      <p className="text-sm text-sky-800">
+                        Valittu urakoitsijaksi. Odottaa välitysmaksun maksua —
+                        yhteystiedot avautuvat sen jälkeen.
+                      </p>
+                    )}
                     {bid.status === "accepted" && (
                       <p className="text-sm text-sky-800">
                         Hyväksytty. Yhteystiedot urakoitsijalle välitysmaksun
                         jälkeen.
                       </p>
                     )}
-                    {canAccept && bid.status === "submitted" && (
+                    {canAccept &&
+                      bid.status === "submitted" &&
+                      !isPendingWinner(bid) && (
                       <CustomerBidActions
                         bidId={bid.id}
                         projectId={projectId}
@@ -338,6 +358,7 @@ export function CustomerBids({
                       </div>
                     )}
                     {!canAccept &&
+                      !isPendingWinner(bid) &&
                       bid.status !== "accepted" &&
                       bid.status !== "submitted" &&
                       bid.status !== "rejected" && (

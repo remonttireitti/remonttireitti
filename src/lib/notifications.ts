@@ -6,6 +6,8 @@ export type NotificationType =
   | "counter_offer_declined"
   | "bid_rejected"
   | "bid_accepted"
+  | "order_finalizing"
+  | "bid_accept_lapsed"
   | "project_updated"
   | "billing_pending"
   | "marketplace_billing_rejected"
@@ -30,6 +32,8 @@ export const notificationTypeLabels: Record<NotificationType, string> = {
   counter_offer_declined: "Vastatarjous",
   bid_rejected: "Tarjous hylätty",
   bid_accepted: "Tarjous hyväksytty",
+  order_finalizing: "Tilaus viimeistellään",
+  bid_accept_lapsed: "Diili rauennut",
   project_updated: "Pyyntö päivitetty",
   billing_pending: "Laskutus",
   marketplace_billing_rejected: "Tori hylätty",

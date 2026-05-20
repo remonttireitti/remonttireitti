@@ -5,10 +5,12 @@ import { pageMetadata } from "@/lib/seo";
 export const metadata: Metadata = pageMetadata({
   title: "Kilpailuta lämpöpumppu ilmaiseksi",
   description:
-    "Remonttireitti yhdistää omakotitalot ja lämpöpumppuasentajat. Yksi tarjouspyyntö — useita vertailukelpoisia tarjouksia.",
+    "Asennus, huolto ja korjaus kilpailutettuna. Tingaa tarjouksia, vertaile asentajia ja löydä laitteet torilta. Urakoitsija maksaa vain hyväksytystä diilistä.",
   path: "/",
 });
 import { Logo } from "@/components/brand/logo";
+import { HomeDifferentiators } from "@/components/marketing/home-differentiators";
+import { ServiceCards } from "@/components/marketing/service-cards";
 import { HomeNotifications } from "@/components/notifications/home-notifications";
 import { ValuePromoPair } from "@/components/promo/value-promo-banner";
 import { ListingCardGrid } from "@/components/marketplace/listing-card-grid";
@@ -22,15 +24,6 @@ import {
 import { brand } from "@/lib/brand-theme";
 import { marketplaceBrand } from "@/lib/marketplace-brand";
 import { createClient } from "@/lib/supabase/server";
-
-function Feature({ title, body }: { title: string; body: string }) {
-  return (
-    <div>
-      <h2 className="text-lg font-semibold">{title}</h2>
-      <p className="mt-2 text-stone-600">{body}</p>
-    </div>
-  );
-}
 
 export default async function Home() {
   const listings = await fetchPublishedListings(6);
@@ -54,25 +47,26 @@ export default async function Home() {
             <Logo href="/" size="lg" />
           </div>
           <p className="mb-4 text-sm font-medium uppercase tracking-widest text-sky-700">
-            Lämpöpumppujen kilpailutus
+            Lämpöpumput — asennus, huolto ja tori
           </p>
           <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">
             Kilpailuta lämpöpumppu{" "}
-            <span className="text-sky-700">helposti</span>
+            <span className="text-sky-700">helposti ja ilmaiseksi</span>
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-lg text-stone-600">
-            Remonttireitti yhdistää omakotitalot ja lämpöpumppuasentajat.
-            Yksi tarjouspyyntö — useita vertailukelpoisia tarjouksia ilmaiseksi.
-          </p>
-          <p className="mx-auto mt-3 max-w-xl text-sm text-stone-500">
-            Ilmalämpö-, vesi-ilmalämpö- ja maalämpöpumput.
+            Yksi tarkka tarjouspyyntö — useita vertailukelpoisia tarjouksia.
+            Voit myös{" "}
+            <strong className="font-medium text-stone-800">
+              ehdottaa alhaisempaa hintaa
+            </strong>{" "}
+            ennen kuin valitset asentajan.
           </p>
           <div className="mx-auto mt-10 flex w-full max-w-sm flex-col gap-3 sm:max-w-none sm:flex-row sm:justify-center">
             <Link
               href="/remontti/uusi"
               className="inline-flex w-full items-center justify-center rounded-full bg-orange-600 px-8 py-3 font-medium text-white hover:bg-orange-700 sm:w-auto"
             >
-              Kilpailuta lämpöpumppu
+              Kilpailuta asennus
             </Link>
             <Link
               href="/huolto/uusi"
@@ -81,10 +75,10 @@ export default async function Home() {
               Huolto tai korjaus
             </Link>
             <Link
-              href="/rekisteroidy?rooli=urakoitsija"
+              href="/urakoitsijaksi"
               className="inline-flex w-full items-center justify-center rounded-full border border-stone-300 px-8 py-3 font-medium text-stone-700 hover:bg-stone-100 sm:w-auto"
             >
-              Olen lämpöpumppuasentaja
+              Olen asentaja
             </Link>
           </div>
         </section>
@@ -98,26 +92,71 @@ export default async function Home() {
           </section>
         )}
 
-        <section className="border-t border-stone-200 bg-white py-12">
+        <section className="border-t border-stone-200 bg-white py-14">
+          <div className="mx-auto max-w-5xl px-6">
+            <h2 className="text-center text-2xl font-bold tracking-tight">
+              Kolme palvelua yhdessä paikassa
+            </h2>
+            <p className="mx-auto mt-2 max-w-xl text-center text-sm text-stone-600">
+              Valitse tarpeesi — kilpailutus, huolto tai osta/myy laitteita.
+            </p>
+            <div className="mt-8">
+              <ServiceCards />
+            </div>
+          </div>
+        </section>
+
+        <section className="border-t border-stone-200 bg-stone-50 py-12">
           <div className="mx-auto max-w-5xl px-6">
             <ValuePromoPair />
           </div>
         </section>
 
-        <section className="border-t border-stone-200 bg-stone-50 py-16">
-          <div className="mx-auto grid max-w-5xl gap-10 px-6 sm:grid-cols-3">
-            <Feature
-              title="1. Valitse pumpputyyppi"
-              body="Ilmalämpö, vesi-ilmalämpö tai maalämpö — ohjattu lomake kertoo asentajalle tarvittavat tiedot."
-            />
-            <Feature
-              title="2. Vertaile tarjouksia"
-              body="Saat useita tarjouksia: laite, asennus, takuu ja aikataulu samassa muodossa."
-            />
-            <Feature
-              title="3. Valitse asentaja"
-              body="Vertaile tarjouksia rauhassa ja valitse luotettava kumppani."
-            />
+        <section className="border-t border-stone-200 bg-white py-16">
+          <div className="mx-auto max-w-5xl px-6">
+            <h2 className="text-2xl font-bold tracking-tight">
+              Miksi Remonttireitti?
+            </h2>
+            <div className="mt-8">
+              <HomeDifferentiators />
+            </div>
+            <p className="mt-8 text-center text-sm text-stone-500">
+              <Link href="/urakoitsijaksi" className={brand.link}>
+                Urakoitsijalle: provisiot ja rekisteröityminen →
+              </Link>
+            </p>
+          </div>
+        </section>
+
+        <section className="border-t border-stone-200 bg-stone-50 py-14">
+          <div className="mx-auto max-w-5xl px-6">
+            <h2 className="text-center text-lg font-semibold text-stone-800">
+              Näin kilpailutus etenee
+            </h2>
+            <ol className="mx-auto mt-8 grid max-w-3xl gap-8 sm:grid-cols-3">
+              <li className="text-center">
+                <span className="text-2xl font-bold text-sky-700">1</span>
+                <p className="mt-2 font-medium">Täytä tarkka pyyntö</p>
+                <p className="mt-1 text-sm text-stone-600">
+                  Pumpputyyppi, kuvat ja kohteen tiedot — ei geneeristä lomaketta.
+                </p>
+              </li>
+              <li className="text-center">
+                <span className="text-2xl font-bold text-sky-700">2</span>
+                <p className="mt-2 font-medium">Vertaile ja tingaa</p>
+                <p className="mt-1 text-sm text-stone-600">
+                  Useita tarjouksia; voit ehdottaa omaa hintaa vastatarjouksella.
+                </p>
+              </li>
+              <li className="text-center">
+                <span className="text-2xl font-bold text-sky-700">3</span>
+                <p className="mt-2 font-medium">Valitse kumppani</p>
+                <p className="mt-1 text-sm text-stone-600">
+                  Hyväksy tarjous — yhteystiedot avautuvat, kun urakoitsija on
+                  maksanut välityspalkkion.
+                </p>
+              </li>
+            </ol>
           </div>
         </section>
 
@@ -132,8 +171,8 @@ export default async function Home() {
                   {marketplaceBrand.name}
                 </h2>
                 <p className="mt-2 max-w-xl text-stone-600">
-                  Selaa ilmoituksia kirjautumatta. Yksityishenkilöt voivat myydä
-                  ilmaiseksi — yrityksille hinnasto erikseen.
+                  Käytetyt ja uudet lämpöpumput, varaosat ja työkalut. Yksityishenkilö
+                  ilmoittaa ilmaiseksi — yrityksille erillinen hinnasto.
                 </p>
               </div>
               <div className={brand.actionsStack}>

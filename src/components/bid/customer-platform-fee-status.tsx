@@ -1,4 +1,4 @@
-import { formatPlatformFee } from "@/lib/platform-fee";
+import { formatPlatformFeeInvoiceLine } from "@/lib/platform-fee";
 
 type Invoice = {
   status: "pending" | "paid" | "cancelled";
@@ -37,8 +37,8 @@ export function CustomerPlatformFeeStatus({
       <p className="mt-1 text-amber-900">
         Hyväksyit tarjouksen urakoitsijalta{" "}
         <strong>{company ?? "—"}</strong>. Yhteystietosi (sähköposti, puhelin,
-        osoite) avautuvat vasta kun urakoitsija maksaa välityspalkkion{" "}
-        {formatPlatformFee(invoice.amount_cents)}.
+        osoite) avautuvat vasta kun urakoitsija maksaa välityspalkkion (
+        {formatPlatformFeeInvoiceLine(invoice.amount_cents)}).
       </p>
       <p className="mt-2 text-xs text-amber-800">
         Eräpäivä urakoitsijan laskulla:{" "}

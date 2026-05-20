@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { MarketplacePricingFaq } from "@/components/marketplace/pricing-faq";
 import { MarketplacePricingSection } from "@/components/marketplace/pricing-section";
+import { PlatformFeeTable } from "@/components/pricing/platform-fee-table";
 import { SiteHeader } from "@/components/site-header";
 import { getSessionUser, isContractor } from "@/lib/auth";
 import { MARKETPLACE_INVOICE_EMAIL } from "@/lib/marketplace-pricing";
@@ -31,7 +32,7 @@ export default async function MarketplacePricingPage() {
         </Link>
         <h1 className="mt-4 text-3xl font-bold tracking-tight">Hinnasto</h1>
         <p className="mt-3 max-w-2xl text-stone-600">
-          Hinnat sisältävät ALV:n lisättävän määrän laskulla. Maksut kirjataan
+          Yrityshinnat ovat verottomia; ALV lisätään laskulle. Maksut kirjataan
           manuaalisesti — lähetämme laskun osoitteeseen{" "}
           <a
             href={`mailto:${MARKETPLACE_INVOICE_EMAIL}`}
@@ -47,6 +48,21 @@ export default async function MarketplacePricingPage() {
         </div>
 
         <MarketplacePricingFaq />
+
+        <section
+          id="valityspalkkio"
+          className="mt-12 scroll-mt-8 rounded-xl border border-sky-100 bg-white p-6 shadow-sm"
+        >
+          <h2 className="text-lg font-semibold text-stone-900">
+            Tarjouskilpailun välityspalkkio (urakoitsija)
+          </h2>
+          <p className="mt-2 text-sm text-stone-600">
+            Maksat vain, kun asiakas hyväksyy tarjouksesi. Summa riippuu
+            pumpputyypistä ja siitä, montako tarjousta pyyntöön on kertynyt
+            hyväksyntähetkellä.
+          </p>
+          <PlatformFeeTable className="mt-4" />
+        </section>
 
         <section className="mt-12 rounded-xl border border-stone-200 bg-white p-6 text-sm text-stone-600">
           <h2 className="font-semibold text-stone-900">Erot tarjouskilpailuun</h2>

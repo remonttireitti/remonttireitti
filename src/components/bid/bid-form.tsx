@@ -19,6 +19,7 @@ import {
   type BidFormFields,
   validateBidFormClient,
 } from "@/lib/bid-form";
+import { BidCommitmentNotice } from "@/components/bid/bid-commitment-notice";
 import {
   bidAmountExceedsBudget,
   buildOverBudgetConfirmMessage,
@@ -380,6 +381,8 @@ export function BidForm({
         />
         Hinta sisältää ALV:n
       </label>
+
+      <BidCommitmentNotice mode={mode} />
 
       {displayError && (
         <p className="text-sm text-red-600" role="alert">

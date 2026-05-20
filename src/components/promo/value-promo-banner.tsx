@@ -11,7 +11,7 @@ const COPY: Record<
   },
   "contractor-pay-on-win": {
     title: "Maksat vain todetusta tilauksesta",
-    body: "Välitysmaksu veloitetaan vasta, kun asiakas on hyväksynyt tarjouksesi. Tarjousten jättäminen on maksuton.",
+    body: "Välityspalkkio veloitetaan vasta hyväksynnän jälkeen — summa riippuu pumpputyypistä ja tarjoajien määrästä (esim. ilmalämpö 20–30 €). Tarjousten jättäminen on maksuton.",
     accent: "sky",
   },
 };

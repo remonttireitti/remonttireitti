@@ -3,7 +3,10 @@
 import { ensureProjectConversation } from "@/app/actions/messages";
 import { createPlatformInvoiceForBid } from "@/app/actions/platform-invoices";
 import { notifyAdminsNewPlatformInvoice } from "@/lib/billing-admin";
-import { PLATFORM_FEE_CENTS } from "@/lib/platform-fee";
+import {
+  computePlatformFeeCentsForJob,
+  platformFeeDueAt,
+} from "@/lib/platform-fee";
 import { parseBidTermsFromFormData } from "@/lib/bid-terms";
 import {
   extractBidFormFields,
@@ -13,6 +16,7 @@ import {
 import { formatBidSaveError } from "@/lib/bid-save-errors";
 import {
   userNotifyBidAccepted,
+  userNotifyOrderFinalizing,
   userNotifyBidRejected,
   userNotifyBidUpdated,
   userNotifyCounterOffer,
@@ -27,7 +31,6 @@ import {
 } from "@/lib/project-budget";
 import { projectRequiresEquipmentWarranty } from "@/lib/project-equipment-supply";
 import { createClient } from "@/lib/supabase/server";
-import { platformFeeDueAt } from "@/lib/platform-fee";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
@@ -683,7 +686,9 @@ export async function acceptBid(formData: FormData): Promise<void> {
 
   const { data: project } = await supabase
     .from("projects")
-    .select("id, customer_id, status, title, content_revision")
+    .select(
+      "id, customer_id, status, title, content_revision, job_types ( slug )",
+    )
     .eq("id", projectId)
     .single();
 
@@ -710,17 +715,23 @@ export async function acceptBid(formData: FormData): Promise<void> {
     redirect(`/remontti/${projectId}?virhe=vanhentunut-tarjous`);
   }
 
-  await supabase
+  const { count: bidderCount } = await supabase
     .from("bids")
-    .update({ status: "rejected" })
+    .select("id", { count: "exact", head: true })
     .eq("project_id", projectId)
-    .neq("id", bidId)
     .eq("status", "submitted");
 
-  await supabase
-    .from("bids")
-    .update({ status: "accepted" })
-    .eq("id", bidId);
+  const jobType = Array.isArray(project.job_types)
+    ? project.job_types[0]
+    : project.job_types;
+  const jobSlug =
+    (jobType as { slug?: string } | null)?.slug ?? "ilmalampopumppu";
+  const feeCents = computePlatformFeeCentsForJob(
+    jobSlug,
+    bidderCount ?? 1,
+  );
+
+  const commitDeadline = platformFeeDueAt();
 
   await supabase
     .from("projects")
@@ -741,7 +752,8 @@ export async function acceptBid(formData: FormData): Promise<void> {
     projectId,
     bidId,
     contractorId: bid.contractor_id,
-    dueAt: platformFeeDueAt(),
+    dueAt: commitDeadline,
+    amountCents: feeCents,
   });
 
   if (invoiceRes.error) {
@@ -754,15 +766,31 @@ export async function acceptBid(formData: FormData): Promise<void> {
       projectId,
       projectTitle: project.title,
       contractorId: bid.contractor_id,
-      amountCents: PLATFORM_FEE_CENTS,
+      amountCents: feeCents,
     });
     revalidatePath("/admin/laskutus");
   }
+
+  const { data: contractorProfile } = await supabase
+    .from("contractor_profiles")
+    .select("company_name")
+    .eq("id", bid.contractor_id)
+    .maybeSingle();
+
+  void userNotifyOrderFinalizing({
+    customerId: user.id,
+    projectId,
+    projectTitle: project.title,
+    contractorName: contractorProfile?.company_name ?? "Urakoitsija",
+    commitDeadline,
+  });
 
   void userNotifyBidAccepted({
     contractorId: bid.contractor_id,
     projectTitle: project.title,
     projectId,
+    commitDeadline,
+    feeCents,
   });
 
   revalidatePath(`/remontti/${projectId}`);

@@ -69,7 +69,10 @@ export default function TermsPage() {
           <li>Yksityishenkilön ilmoitukset ovat maksuttomia (rajoitettu määrä).</li>
           <li>Urakoitsijan ilmoitukset ja kk-paketit laskutetaan erikseen.</li>
           <li>Ilmoitukset vanhenevat ilmoitetun ajan jälkeen.</li>
-          <li>Hinnat sisältävät ALV:n, jos ei toisin mainita.</li>
+          <li>
+            Yritysasiakkaiden hinnat (tori, välityspalkkio) ovat verottomia; ALV
+            lisätään laskulle.
+          </li>
         </ul>
       </LegalSection>
 

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { CustomerBids, type BidWithContractor } from "@/components/bid/customer-bids";
-import { CustomerPlatformFeeStatus } from "@/components/bid/customer-platform-fee-status";
+import { OrderFinalizationStatus } from "@/components/bid/order-finalization-status";
 import { ProjectBiddingChats } from "@/components/messaging/project-bidding-chats";
 import { ProjectChat } from "@/components/messaging/project-chat";
 import { CancelProjectButton } from "@/components/project/cancel-project-button";
@@ -12,7 +12,8 @@ import { ReviewDisplay } from "@/components/review/review-display";
 import { ReviewForm } from "@/components/review/review-form";
 import { SiteHeader } from "@/components/site-header";
 import { getSessionUser } from "@/lib/auth";
-import { projectStatusLabels } from "@/lib/projects";
+import { expirePendingAcceptanceForProject } from "@/lib/expire-pending-acceptance";
+import { getProjectStatusLabel } from "@/lib/projects";
 import { fetchCustomerProjectById } from "@/lib/projects-server";
 import { ensureProjectConversation } from "@/app/actions/messages";
 import {
@@ -41,53 +42,69 @@ export default async function ProjectPage({
   if (!user) redirect(`/kirjaudu?redirect=/remontti/${id}`);
 
   const supabase = await createClient();
-  const project = await fetchCustomerProjectById(supabase, id, user.id);
+  let project = await fetchCustomerProjectById(supabase, id, user.id);
 
   if (!project) notFound();
 
-  const { data: platformInvoice } = await supabase
-    .from("platform_invoices")
-    .select(
-      `
-      status,
-      amount_cents,
-      due_at,
-      paid_at,
-      contractor_profiles ( company_name )
-    `,
-    )
-    .eq("project_id", id)
-    .maybeSingle();
+  const expireResult = await expirePendingAcceptanceForProject(id);
+  const acceptanceExpired = expireResult === "expired";
 
-  const { data: bids } = await supabase
-    .from("bids")
-    .select(
-      `
-      id,
-      contractor_id,
-      amount_cents,
-      message,
-      status,
-      estimated_days,
-      vat_included,
-      warranty_work,
-      warranty_equipment,
-      earliest_start_date,
-      confirms_licenses,
-      confirms_building_standards,
-      counter_amount_cents,
-      counter_message,
-      counter_offered_at,
-      counter_status,
-      submitted_at,
-      confirmed_content_revision,
-      rejection_message,
-      rejected_at,
-      contractor_profiles ( company_name )
-    `,
-    )
-    .eq("project_id", id)
-    .order("submitted_at", { ascending: true });
+  async function loadBidsAndInvoice() {
+    const [invoiceRes, bidsRes] = await Promise.all([
+      supabase
+        .from("platform_invoices")
+        .select(
+          `
+          status,
+          amount_cents,
+          due_at,
+          paid_at,
+          contractor_profiles ( company_name )
+        `,
+        )
+        .eq("project_id", id)
+        .maybeSingle(),
+      supabase
+        .from("bids")
+        .select(
+          `
+          id,
+          contractor_id,
+          amount_cents,
+          message,
+          status,
+          estimated_days,
+          vat_included,
+          warranty_work,
+          warranty_equipment,
+          earliest_start_date,
+          confirms_licenses,
+          confirms_building_standards,
+          counter_amount_cents,
+          counter_message,
+          counter_offered_at,
+          counter_status,
+          submitted_at,
+          confirmed_content_revision,
+          rejection_message,
+          rejected_at,
+          contractor_profiles ( company_name )
+        `,
+        )
+        .eq("project_id", id)
+        .order("submitted_at", { ascending: true }),
+    ]);
+    return {
+      platformInvoice: invoiceRes.data,
+      bids: bidsRes.data,
+    };
+  }
+
+  if (acceptanceExpired) {
+    project = (await fetchCustomerProjectById(supabase, id, user.id)) ?? project;
+  }
+
+  const { platformInvoice, bids } = await loadBidsAndInvoice();
 
   const contractorIds = [
     ...new Set((bids ?? []).map((b) => b.contractor_id as string)),
@@ -104,13 +121,31 @@ export default async function ProjectPage({
     .eq("project_id", id)
     .maybeSingle();
 
-  const acceptedBid = (bids ?? []).find((b) => b.status === "accepted");
-  const acceptedCompany = acceptedBid
-    ? Array.isArray(acceptedBid.contractor_profiles)
-      ? acceptedBid.contractor_profiles[0]?.company_name
-      : (acceptedBid.contractor_profiles as { company_name: string } | null)
-          ?.company_name
+  const acceptedBidId = project.accepted_bid_id ?? null;
+  const acceptedBid =
+    (bids ?? []).find((b) => b.status === "accepted") ??
+    (acceptedBidId
+      ? (bids ?? []).find((b) => b.id === acceptedBidId)
+      : undefined);
+
+  const invoiceContractorName = platformInvoice
+    ? Array.isArray(platformInvoice.contractor_profiles)
+      ? platformInvoice.contractor_profiles[0]?.company_name
+      : (
+          platformInvoice.contractor_profiles as {
+            company_name: string;
+          } | null
+        )?.company_name
     : null;
+
+  const acceptedCompany =
+    invoiceContractorName ??
+    (acceptedBid
+      ? Array.isArray(acceptedBid.contractor_profiles)
+        ? acceptedBid.contractor_profiles[0]?.company_name
+        : (acceptedBid.contractor_profiles as { company_name: string } | null)
+            ?.company_name
+      : null);
 
   const sc = project.service_categories as
     | { name_fi: string }
@@ -121,6 +156,11 @@ export default async function ProjectPage({
     : (sc?.name_fi ?? "Remontti");
 
   const status = project.status as ProjectStatus;
+  const pendingFinalization =
+    status === "bid_accepted" && platformInvoice?.status === "pending";
+  const statusLabel = getProjectStatusLabel(status, {
+    finalizing: pendingFinalization,
+  });
   const ratingsMap = Object.fromEntries(contractorRatings);
 
   const canCancelProject = ["draft", "published", "receiving_bids"].includes(
@@ -192,7 +232,7 @@ export default async function ProjectPage({
               </>
             )}
             <span className="rounded-full bg-sky-100 px-3 py-1 text-sm font-medium text-sky-800">
-              {projectStatusLabels[status]}
+              {statusLabel}
             </span>
           </div>
         </div>
@@ -212,8 +252,8 @@ export default async function ProjectPage({
             className="mt-4 rounded-lg bg-sky-50 p-3 text-sm text-sky-900"
             role="status"
           >
-            Tarjous hyväksytty. Urakoitsija saa yhteystietosi, kun välitysmaksu on
-            maksettu.
+            Tarjous valittu. Tilaus viimeistellään — saat ilmoituksen, kun urakoitsija
+            on maksanut välityspalkkion ja yhteystiedot avautuvat.
           </p>
         )}
         {paivitetty === "1" && (
@@ -245,7 +285,26 @@ export default async function ProjectPage({
           </p>
         )}
 
-        <CustomerPlatformFeeStatus invoice={platformInvoice} />
+        {acceptedCompany && (
+          <OrderFinalizationStatus
+            invoice={
+              platformInvoice
+                ? {
+                    status: platformInvoice.status as
+                      | "pending"
+                      | "paid"
+                      | "cancelled",
+                    amount_cents: platformInvoice.amount_cents,
+                    due_at: platformInvoice.due_at,
+                    paid_at: platformInvoice.paid_at,
+                  }
+                : null
+            }
+            contractorName={acceptedCompany}
+            projectId={id}
+            expiredMessage={acceptanceExpired}
+          />
+        )}
 
         <div className="mt-8">
           <ProjectOverviewCards
@@ -283,6 +342,7 @@ export default async function ProjectPage({
           contentRevision={project.content_revision ?? 1}
           bids={(bids ?? []) as BidWithContractor[]}
           contractorRatings={ratingsMap}
+          acceptedBidId={acceptedBidId}
         />
 
         {biddingPhase && (

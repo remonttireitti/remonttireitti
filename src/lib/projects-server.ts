@@ -18,6 +18,7 @@ const PROJECT_DETAIL_SELECT = `
   published_at,
   bid_deadline,
   content_revision,
+  accepted_bid_id,
   service_categories ( name_fi )
 ` as const;
 
@@ -38,6 +39,7 @@ export type CustomerProjectRow = {
   published_at: string | null;
   bid_deadline: string | null;
   content_revision?: number;
+  accepted_bid_id?: string | null;
   completion_notes?: string | null;
   completed_at?: string | null;
   contact_revealed_at?: string | null;

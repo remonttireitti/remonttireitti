@@ -3,6 +3,10 @@
     {
       "path": "/api/cron/expire-listings",
       "schedule": "0 4 * * *"
+    },
+    {
+      "path": "/api/cron/expire-pending-acceptances",
+      "schedule": "0 5 * * *"
     }
   ]
 }

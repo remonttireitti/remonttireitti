@@ -64,7 +64,8 @@ function PlatformBillingRowCard({ row }: { row: PlatformBillingRow }) {
         <div>
           <p className="font-medium">{row.projectTitle}</p>
           <p className="text-sm text-stone-600">
-            {row.companyName} · {formatPlatformFee(row.amountCents)} (+ ALV)
+            {row.companyName} · {formatPlatformFee(row.amountCents)} veroton (+ ALV
+            laskulla)
           </p>
           <p className="text-xs text-stone-400">
             {new Date(row.createdAt).toLocaleString("fi-FI")}

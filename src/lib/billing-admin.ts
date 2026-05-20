@@ -2,7 +2,7 @@ import { MARKETPLACE_INVOICE_EMAIL } from "@/lib/marketplace-pricing";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createNotification } from "@/lib/notifications-server";
 import { sendEmail, siteUrl } from "@/lib/email";
-import { formatPlatformFee } from "@/lib/platform-fee";
+import { formatPlatformFee, formatPlatformFeeInvoiceLine } from "@/lib/platform-fee";
 
 /** Sähköposti johon admin-laskutusilmoitukset lähetetään. */
 export function getAdminBillingEmail(): string {
@@ -93,10 +93,10 @@ export async function notifyAdminsNewPlatformInvoice(params: {
   amountCents: number;
 }): Promise<void> {
   const billing = await fetchContractorBilling(params.contractorId);
-  const amount = formatPlatformFee(params.amountCents);
+  const amountNet = formatPlatformFee(params.amountCents);
   const linkPath = "/admin/laskutus";
   const title = "Laskutettava: välitysmaksu";
-  const body = `${billing.companyName} — ${params.projectTitle} (${amount})`;
+  const body = `${billing.companyName} — ${params.projectTitle} (${amountNet} veroton + ALV)`;
 
   const adminIds = await fetchAdminUserIds();
   await Promise.all(
@@ -117,7 +117,7 @@ export async function notifyAdminsNewPlatformInvoice(params: {
     <ul style="line-height:1.6">
       <li><strong>Urakka:</strong> ${escapeHtml(params.projectTitle)}</li>
       <li><strong>Urakoitsija:</strong> ${escapeHtml(billing.companyName)}</li>
-      <li><strong>Summa:</strong> ${escapeHtml(amount)} (+ ALV)</li>
+      <li><strong>Summa:</strong> ${escapeHtml(formatPlatformFeeInvoiceLine(params.amountCents))}</li>
     </ul>
     <p style="margin-top:16px">${billingAddressHtml(billing)}</p>
     <p style="margin-top:24px">
