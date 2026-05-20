@@ -20,12 +20,6 @@ export type MarketplacePlanSlug =
   | "contractor_pro"
   | "listing_single";
 
-export type PlanFeature = {
-  text: string;
-  /** Näytetään ilman valintamerkkiä — ominaisuus ei ole vielä käytössä. */
-  upcoming?: boolean;
-};
-
 export type PricingPlan = {
   slug: MarketplacePlanSlug;
   name: string;
@@ -33,7 +27,7 @@ export type PricingPlan = {
   priceEurCents: number;
   period?: string;
   listingQuota?: number;
-  features: PlanFeature[];
+  features: string[];
   cta: string;
   audience: "consumer" | "contractor";
   highlighted?: boolean;
@@ -48,10 +42,10 @@ export const CONTRACTOR_PLANS: PricingPlan[] = [
     period: "/ kk veroton + ALV",
     listingQuota: 3,
     features: [
-      { text: "3 aktiivista ilmoitusta kerrallaan" },
-      { text: "Käytetyt ja uudet laitteet" },
-      { text: "Näkyy markkinapaikan haussa kaikille ostajille" },
-      { text: "Lasku sähköpostiin" },
+      "3 aktiivista ilmoitusta kerrallaan",
+      "Käytetyt ja uudet laitteet",
+      "Näkyy markkinapaikan haussa kaikille ostajille",
+      "Lasku sähköpostiin",
     ],
     cta: "Tilaa Perus",
     audience: "contractor",
@@ -64,10 +58,10 @@ export const CONTRACTOR_PLANS: PricingPlan[] = [
     period: "/ kk veroton + ALV",
     listingQuota: 10,
     features: [
-      { text: "10 aktiivista ilmoitusta kerrallaan" },
-      { text: "Sopii yrityksille, joilla on paljon myytävää (vaihtourakat, varasto)" },
-      { text: "Lasku sähköpostiin kuukausittain" },
-      { text: "Korostus hakutuloksissa", upcoming: true },
+      "10 aktiivista ilmoitusta kerrallaan",
+      "Korostus hakutuloksissa (Pro-ilmoitukset ensin)",
+      "Sopii yrityksille, joilla on paljon myytävää (vaihtourakat, varasto)",
+      "Lasku sähköpostiin kuukausittain",
     ],
     cta: "Tilaa Pro",
     audience: "contractor",
@@ -82,9 +76,9 @@ export const LISTING_SINGLE: PricingPlan = {
   priceEurCents: 2900,
   period: `/ ${LISTING_DURATION_WEEKS} vk veroton + ALV`,
   features: [
-    { text: "Yksi ilmoitus ilman kuukausitilausta" },
-    { text: `${LISTING_DURATION_WEEKS} viikon näkyvyys` },
-    { text: "Hyvä kertamyyntiin tai varastoerään" },
+    "Yksi ilmoitus ilman kuukausitilausta",
+    `${LISTING_DURATION_WEEKS} viikon näkyvyys`,
+    "Hyvä kertamyyntiin tai varastoerään",
   ],
   cta: "Julkaise yksittäisellä ilmoituksella",
   audience: "contractor",
@@ -97,15 +91,11 @@ export const CONSUMER_FREE_PLAN: PricingPlan = {
   priceEurCents: 0,
   listingQuota: CONSUMER_FREE_MAX_ACTIVE_LISTINGS,
   features: [
-    { text: "Käytetyt lämpöpumput, osat ja tarvikkeet" },
-    {
-      text: `Enintään ${CONSUMER_FREE_MAX_ACTIVE_LISTINGS} aktiivista ilmoitusta`,
-    },
-    {
-      text: `${LISTING_DURATION_WEEKS} viikon näkyvyys — voit poistaa ilmoituksen milloin tahansa`,
-    },
-    { text: "Ei kuukausimaksua eikä ilmoitusmaksua" },
-    { text: "Yhteystiedot näkyvät ostajille julkaisun jälkeen" },
+    "Käytetyt lämpöpumput, osat ja tarvikkeet",
+    `Enintään ${CONSUMER_FREE_MAX_ACTIVE_LISTINGS} aktiivista ilmoitusta`,
+    `${LISTING_DURATION_WEEKS} viikon näkyvyys — voit poistaa ilmoituksen milloin tahansa`,
+    "Ei kuukausimaksua eikä ilmoitusmaksua",
+    "Yhteystiedot näkyvät ostajille julkaisun jälkeen",
   ],
   cta: "Ilmoita myytävä laite",
   audience: "consumer",

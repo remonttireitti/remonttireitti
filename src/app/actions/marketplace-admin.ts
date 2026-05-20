@@ -6,6 +6,7 @@ import {
   purgeMarketplaceBillingNotifications,
 } from "@/lib/marketplace-billing-notify";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { listingHighlightedForPlanSlug } from "@/lib/marketplace-highlight";
 import { LISTING_DURATION_DAYS } from "@/lib/marketplace-pricing";
 import { revalidatePath } from "next/cache";
 import type { AdminState } from "@/app/actions/admin";
@@ -58,12 +59,24 @@ export async function markMarketplaceBillingPaid(
     const expires = new Date();
     expires.setDate(expires.getDate() + LISTING_DURATION_DAYS.paid);
 
+    const { data: listing } = await admin
+      .from("equipment_listings")
+      .select("plan_id, marketplace_plans ( slug )")
+      .eq("id", req.listing_id)
+      .single();
+
+    const plan = Array.isArray(listing?.marketplace_plans)
+      ? listing?.marketplace_plans[0]
+      : listing?.marketplace_plans;
+    const planSlug = (plan as { slug?: string } | null)?.slug ?? null;
+
     await admin
       .from("equipment_listings")
       .update({
         status: "published",
         published_at: now,
         expires_at: expires.toISOString(),
+        highlighted_in_search: listingHighlightedForPlanSlug(planSlug),
       })
       .eq("id", req.listing_id);
   }

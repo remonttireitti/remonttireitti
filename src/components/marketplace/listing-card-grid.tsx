@@ -13,6 +13,7 @@ export type ListingCardItem = {
   condition: "used" | "new";
   seller_type: "contractor" | "customer";
   product_category: ListingProductCategory;
+  highlighted_in_search?: boolean;
   thumbnail_url?: string | null;
 };
 
@@ -31,7 +32,11 @@ export function ListingCardGrid({ listings }: { listings: ListingCardItem[] }) {
         <li key={l.id} className="h-full">
           <Link
             href={`/markkinapaikka/ilmoitukset/${l.id}`}
-            className="flex h-full min-h-[14rem] flex-col overflow-hidden rounded-xl border border-stone-200 bg-white shadow-sm transition hover:border-sky-300 hover:shadow-md"
+            className={`flex h-full min-h-[14rem] flex-col overflow-hidden rounded-xl border bg-white shadow-sm transition hover:shadow-md ${
+              l.highlighted_in_search
+                ? "border-orange-300 ring-2 ring-orange-200/80 hover:border-orange-400"
+                : "border-stone-200 hover:border-sky-300"
+            }`}
           >
             {l.thumbnail_url ? (
               // eslint-disable-next-line @next/next/no-img-element
@@ -49,6 +54,11 @@ export function ListingCardGrid({ listings }: { listings: ListingCardItem[] }) {
               </div>
             )}
             <div className="flex flex-1 flex-col p-4">
+              {l.highlighted_in_search && (
+                <span className="mb-2 w-fit rounded-full bg-orange-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-orange-900">
+                  Korostettu
+                </span>
+              )}
               <span className="text-xs font-medium uppercase text-stone-500">
                 {listingCategoryLabel(l.product_category ?? "device")} ·{" "}
                 {l.condition === "new" ? "Uusi" : "Käytetty"} ·{" "}

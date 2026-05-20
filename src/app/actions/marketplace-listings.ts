@@ -7,6 +7,7 @@ import {
   validateListingForm,
   type EquipmentListingStatus,
 } from "@/lib/marketplace-listings";
+import { listingHighlightedForPlanSlug } from "@/lib/marketplace-highlight";
 import {
   getActiveContractorSubscription,
   subscriptionSlotsLeft,
@@ -208,6 +209,7 @@ export async function createContractorListing(
         listingInsertPayload(user.id, input, {
           plan_id: sub.plan_id,
           subscription_id: sub.id,
+          highlighted_in_search: listingHighlightedForPlanSlug(sub.plan.slug),
           status: "published",
           published_at: now.toISOString(),
           expires_at: expires.toISOString(),

@@ -13,9 +13,10 @@ export async function fetchPublishedListings(
   let query = supabase
     .from("equipment_listings")
     .select(
-      "id, title, price_eur, municipality, postal_code, condition, seller_type, product_category",
+      "id, title, price_eur, municipality, postal_code, condition, seller_type, product_category, highlighted_in_search",
     )
     .eq("status", "published")
+    .order("highlighted_in_search", { ascending: false })
     .order("published_at", { ascending: false })
     .limit(limit);
 

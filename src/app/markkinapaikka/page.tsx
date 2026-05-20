@@ -92,7 +92,7 @@ export default async function MarketplacePage() {
           <div className="flex h-full min-h-[11rem] flex-col rounded-xl border border-stone-200 bg-white p-5 shadow-sm">
             <h2 className="font-semibold text-stone-900">Urakoitsijalle</h2>
             <p className="mt-2 flex-1 text-sm text-stone-600">
-              Näkyvyys ammattimyynnille — vaihto-, varasto- ja tukkutarjontaan.
+              Näkyvyys ammattimyynnille — vaihtourakat, varasto ja osamyynti.
               Hinnat yrityshinnastossa.
             </p>
             <Link

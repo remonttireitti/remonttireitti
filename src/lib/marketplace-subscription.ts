@@ -8,6 +8,7 @@ export type ActiveSubscription = {
   plan: {
     listing_quota_per_month: number | null;
     name_fi: string;
+    slug: string;
   };
 };
 
@@ -23,7 +24,7 @@ export async function getActiveContractorSubscription(
       plan_id,
       listings_published_this_period,
       period_end,
-      marketplace_plans ( name_fi, listing_quota_per_month )
+      marketplace_plans ( name_fi, listing_quota_per_month, slug )
     `,
     )
     .eq("contractor_id", contractorId)
@@ -52,6 +53,7 @@ export async function getActiveContractorSubscription(
     plan: {
       name_fi: plan.name_fi,
       listing_quota_per_month: plan.listing_quota_per_month,
+      slug: plan.slug as string,
     },
   };
 }
