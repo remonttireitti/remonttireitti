@@ -33,16 +33,10 @@ export async function fetchPublishedListings(
   }));
 }
 
+/** @deprecated Käytä fetchSitemapListings — tämä delegoi sitemap-moduuliin. */
 export async function fetchPublishedListingsForSitemap(): Promise<
   { id: string; updated_at: string }[]
 > {
-  await expireListingsIfNeeded();
-  const supabase = await createClient();
-  const { data } = await supabase
-    .from("equipment_listings")
-    .select("id, updated_at")
-    .eq("status", "published")
-    .order("published_at", { ascending: false });
-
-  return (data ?? []) as { id: string; updated_at: string }[];
+  const { fetchSitemapListings } = await import("@/lib/sitemap-data");
+  return fetchSitemapListings();
 }

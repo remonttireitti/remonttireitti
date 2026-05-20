@@ -8,6 +8,7 @@ export type NotificationType =
   | "bid_accepted"
   | "project_updated"
   | "billing_pending"
+  | "marketplace_billing_rejected"
   | "new_user_registered"
   | "new_project_published";
 
@@ -31,6 +32,7 @@ export const notificationTypeLabels: Record<NotificationType, string> = {
   bid_accepted: "Tarjous hyväksytty",
   project_updated: "Pyyntö päivitetty",
   billing_pending: "Laskutus",
+  marketplace_billing_rejected: "Tori hylätty",
   new_user_registered: "Uusi käyttäjä",
   new_project_published: "Tarjouspyyntö",
 };

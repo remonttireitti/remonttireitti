@@ -102,7 +102,8 @@ export default async function AdminBillingPage() {
       paid_at,
       created_at,
       profiles ( full_name, role ),
-      marketplace_plans ( name_fi )
+      marketplace_plans ( name_fi ),
+      equipment_listings ( title )
     `,
     )
     .in("status", ["pending", "invoiced"])
@@ -113,6 +114,9 @@ export default async function AdminBillingPage() {
     const plan = Array.isArray(r.marketplace_plans)
       ? r.marketplace_plans[0]
       : r.marketplace_plans;
+    const listing = Array.isArray(r.equipment_listings)
+      ? r.equipment_listings[0]
+      : r.equipment_listings;
     return {
       id: r.id,
       kind: r.kind,
@@ -124,6 +128,7 @@ export default async function AdminBillingPage() {
       sellerName: profile?.full_name ?? "—",
       sellerRole: profile?.role ?? "—",
       planName: plan?.name_fi,
+      listingTitle: listing?.title ?? null,
     };
   });
 

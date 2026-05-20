@@ -7,6 +7,7 @@ import {
 } from "@/app/actions/platform-invoices-admin";
 import type { AdminState } from "@/app/actions/admin";
 import { formatPlatformFee } from "@/lib/platform-fee";
+import { formInputClass } from "@/lib/brand-theme";
 
 export type PlatformBillingRow = {
   id: string;
@@ -120,50 +121,57 @@ function PlatformBillingRowCard({ row }: { row: PlatformBillingRow }) {
         </p>
       )}
 
-      <div className="mt-4 flex flex-wrap gap-3 border-t border-stone-100 pt-4">
-        <form action={invAction} className="flex flex-wrap items-end gap-2">
+      <div className="mt-4 space-y-4 border-t border-stone-100 pt-4">
+        <form
+          action={invAction}
+          className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]"
+        >
           <input type="hidden" name="invoice_id" value={row.id} />
-          <label className="text-xs text-stone-500">
+          <label className="block text-xs font-medium text-stone-500">
             Laskun viite
             <input
               name="invoice_reference"
               defaultValue={row.invoiceReference ?? ""}
-              className="mt-0.5 block rounded border border-stone-300 px-2 py-1 text-sm"
+              className={`mt-1 block w-full rounded-lg border border-stone-300 px-3 py-2 text-sm ${formInputClass}`}
               placeholder="Esim. kevytyrittäjä-viite"
             />
           </label>
-          <label className="text-xs text-stone-500">
+          <label className="block text-xs font-medium text-stone-500">
             Muistiinpano
             <input
               name="admin_notes"
               defaultValue={row.adminNotes ?? ""}
-              className="mt-0.5 block w-40 rounded border border-stone-300 px-2 py-1 text-sm"
+              className={`mt-1 block w-full rounded-lg border border-stone-300 px-3 py-2 text-sm ${formInputClass}`}
             />
           </label>
-          <button
-            type="submit"
-            disabled={invPending}
-            className="rounded-lg border border-stone-300 px-3 py-1.5 text-sm hover:bg-stone-50 disabled:opacity-60"
-          >
-            Laskutettu
-          </button>
+          <div className="flex items-end sm:col-span-2 lg:col-span-1">
+            <button
+              type="submit"
+              disabled={invPending}
+              className="w-full rounded-lg border border-stone-300 bg-white px-4 py-2 text-sm font-medium text-stone-800 hover:bg-stone-50 disabled:opacity-60 lg:w-auto"
+            >
+              {invPending ? "Tallennetaan…" : "Merkitse laskutetuksi"}
+            </button>
+          </div>
         </form>
-        <form action={paidAction}>
-          <input type="hidden" name="invoice_id" value={row.id} />
-          <button
-            type="submit"
-            disabled={paidPending}
-            className="rounded-lg bg-orange-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-orange-700 disabled:opacity-60"
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <form action={paidAction}>
+            <input type="hidden" name="invoice_id" value={row.id} />
+            <button
+              type="submit"
+              disabled={paidPending}
+              className="w-full rounded-lg bg-orange-600 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-700 disabled:opacity-60 sm:w-auto"
+            >
+              {paidPending ? "Tallennetaan…" : "Maksettu"}
+            </button>
+          </form>
+          <a
+            href={`/remontti/${row.projectId}`}
+            className="text-center text-sm text-sky-700 hover:underline sm:text-left"
           >
-            Maksettu
-          </button>
-        </form>
-        <a
-          href={`/remontti/${row.projectId}`}
-          className="self-center text-sm text-sky-700 hover:underline"
-        >
-          Avaa urakka →
-        </a>
+            Avaa urakka →
+          </a>
+        </div>
       </div>
     </li>
   );

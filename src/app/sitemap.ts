@@ -1,9 +1,10 @@
 import type { MetadataRoute } from "next";
-import { getRequestSiteUrl } from "@/lib/seo";
-import { fetchPublishedListingsForSitemap } from "@/lib/marketplace-listings-server";
+import { fetchSitemapListings } from "@/lib/sitemap-data";
+import { getSiteUrl } from "@/lib/seo";
 
+/** Julkinen sitemap — ei dynaamisia headereitä (vältetään 500 build/crawl -tilanteissa). */
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const base = await getRequestSiteUrl();
+  const base = getSiteUrl();
   const now = new Date();
 
   const staticPages: MetadataRoute.Sitemap = [
@@ -12,6 +13,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       lastModified: now,
       changeFrequency: "weekly",
       priority: 1,
+    },
+    {
+      url: `${base}/urakoitsijaksi`,
+      lastModified: now,
+      changeFrequency: "monthly",
+      priority: 0.75,
     },
     {
       url: `${base}/markkinapaikka`,
@@ -57,13 +64,18 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     },
   ];
 
-  const listings = await fetchPublishedListingsForSitemap();
-  const listingPages: MetadataRoute.Sitemap = listings.map((row) => ({
-    url: `${base}/markkinapaikka/ilmoitukset/${row.id}`,
-    lastModified: row.updated_at ? new Date(row.updated_at) : now,
-    changeFrequency: "weekly" as const,
-    priority: 0.6,
-  }));
+  let listingPages: MetadataRoute.Sitemap = [];
+  try {
+    const listings = await fetchSitemapListings();
+    listingPages = listings.map((row) => ({
+      url: `${base}/markkinapaikka/ilmoitukset/${row.id}`,
+      lastModified: row.updated_at ? new Date(row.updated_at) : now,
+      changeFrequency: "weekly" as const,
+      priority: 0.6,
+    }));
+  } catch (err) {
+    console.error("[sitemap]", err);
+  }
 
   return [...staticPages, ...listingPages];
 }

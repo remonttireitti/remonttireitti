@@ -1,6 +1,10 @@
 "use server";
 
 import { requireAdmin } from "@/lib/admin";
+import {
+  notifySellerMarketplaceBillingRejected,
+  purgeMarketplaceBillingNotifications,
+} from "@/lib/marketplace-billing-notify";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { LISTING_DURATION_DAYS } from "@/lib/marketplace-pricing";
 import { revalidatePath } from "next/cache";
@@ -97,4 +101,79 @@ export async function markMarketplaceBillingInvoiced(
   revalidatePath("/admin/laskutus");
   revalidatePath("/admin/markkinapaikka");
   return { ok: "Merkitty laskutetuksi." };
+}
+
+export async function rejectMarketplaceBillingRequest(
+  _prev: AdminState,
+  formData: FormData,
+): Promise<AdminState> {
+  await requireAdmin();
+
+  const requestId = String(formData.get("request_id") ?? "");
+  const reason = String(formData.get("reject_reason") ?? "").trim();
+
+  if (!requestId) return { error: "Pyyntö puuttuu." };
+
+  const admin = createAdminClient();
+
+  const { data: req } = await admin
+    .from("marketplace_billing_requests")
+    .select(
+      "id, seller_id, kind, status, description_fi, listing_id, subscription_id",
+    )
+    .eq("id", requestId)
+    .single();
+
+  if (!req) return { error: "Laskutuspyyntöä ei löydy." };
+  if (req.status === "paid") {
+    return { error: "Maksettua pyyntöä ei voi hylätä." };
+  }
+  if (req.status === "cancelled") {
+    return { ok: "Pyyntö on jo poistettu." };
+  }
+
+  const now = new Date().toISOString();
+
+  await admin
+    .from("marketplace_billing_requests")
+    .update({
+      status: "cancelled",
+      admin_notes: reason || "Hylätty ja poistettu administa",
+    })
+    .eq("id", requestId);
+
+  if (req.listing_id) {
+    await admin
+      .from("equipment_listings")
+      .update({ status: "removed", updated_at: now })
+      .eq("id", req.listing_id);
+  }
+
+  if (req.subscription_id) {
+    await admin
+      .from("seller_subscriptions")
+      .update({ status: "cancelled", updated_at: now })
+      .eq("id", req.subscription_id);
+  }
+
+  await purgeMarketplaceBillingNotifications({
+    sellerId: req.seller_id,
+    listingId: req.listing_id,
+    descriptionFi: req.description_fi,
+  });
+
+  await notifySellerMarketplaceBillingRejected({
+    sellerId: req.seller_id,
+    descriptionFi: req.description_fi,
+    reason: reason || null,
+    kind: req.kind,
+  });
+
+  revalidatePath("/admin/laskutus");
+  revalidatePath("/admin/markkinapaikka");
+  revalidatePath("/markkinapaikka/omat-ilmoitukset");
+  revalidatePath("/markkinapaikka/ilmoitukset");
+  revalidatePath("/");
+
+  return { ok: "Pyyntö hylätty ja poistettu. Myyjälle lähetettiin ilmoitus." };
 }
