@@ -39,11 +39,22 @@ function PlanCard({
       )}
       <ul className="mt-4 flex-1 space-y-2 text-sm text-stone-700">
         {plan.features.map((f) => (
-          <li key={f} className="flex gap-2">
-            <span className="text-sky-600" aria-hidden>
-              ✓
+          <li key={f.text} className="flex gap-2">
+            {f.upcoming ? (
+              <span
+                className="shrink-0 rounded bg-stone-200 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-stone-600"
+                aria-hidden
+              >
+                Tulossa
+              </span>
+            ) : (
+              <span className="text-sky-600" aria-hidden>
+                ✓
+              </span>
+            )}
+            <span className={f.upcoming ? "text-stone-500" : undefined}>
+              {f.text}
             </span>
-            {f}
           </li>
         ))}
       </ul>
@@ -81,9 +92,9 @@ export function MarketplacePricingSection({
           </p>
           <ul className="mt-4 grid gap-2 text-sm text-sky-950 sm:grid-cols-2">
             {CONSUMER_FREE_PLAN.features.map((f) => (
-              <li key={f} className="flex gap-2">
+              <li key={f.text} className="flex gap-2">
                 <span aria-hidden>✓</span>
-                {f}
+                {f.text}
               </li>
             ))}
           </ul>
