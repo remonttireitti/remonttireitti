@@ -35,7 +35,7 @@ const roleLabels = {
 export default async function AccountPage({
   searchParams,
 }: {
-  searchParams: Promise<{ viesti?: string; virhe?: string }>;
+  searchParams: Promise<{ viesti?: string; virhe?: string; poistettu?: string }>;
 }) {
   const user = await getSessionUser();
   if (!user) redirect("/kirjaudu");
@@ -166,6 +166,12 @@ export default async function AccountPage({
           <p className="mt-4 rounded-lg bg-amber-50 p-4 text-sm text-amber-900">
             Ei oikeuksia kyseiseen sivuun. Jos olet ylläpitäjä, paina Synkronoi
             profiili alla.
+          </p>
+        )}
+
+        {params.poistettu === "1" && (
+          <p className="mt-4 rounded-lg bg-stone-100 p-4 text-sm text-stone-800" role="status">
+            Tarjouspyyntö poistettiin pysyvästi.
           </p>
         )}
 

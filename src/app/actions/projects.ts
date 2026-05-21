@@ -371,6 +371,8 @@ const CANCELLABLE_PROJECT_STATUSES = [
 
 export type CancelProjectActionState = { error?: string; success?: string };
 
+export type DeleteProjectActionState = { error?: string };
+
 function revalidateCustomerProjectPaths(projectId: string) {
   revalidatePath("/");
   revalidatePath("/oma-tili");
@@ -480,6 +482,56 @@ export async function cancelCustomerProject(
 
   revalidateCustomerProjectPaths(projectId);
   return { success: "Tarjouspyyntö peruttu. Saapuneet tarjoukset poistettiin." };
+}
+
+export async function deleteCustomerProject(
+  _prev: DeleteProjectActionState,
+  formData: FormData,
+): Promise<DeleteProjectActionState> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { error: "Kirjaudu sisään." };
+  }
+
+  const projectId = String(formData.get("project_id") ?? "");
+  if (!projectId) {
+    return { error: "Puuttuva pyyntö." };
+  }
+
+  const { data: project } = await supabase
+    .from("projects")
+    .select("id, customer_id, status")
+    .eq("id", projectId)
+    .eq("customer_id", user.id)
+    .single();
+
+  if (!project) {
+    return { error: "Pyyntöä ei löytynyt tai sinulla ei ole oikeutta poistaa sitä." };
+  }
+
+  if (project.status !== "cancelled") {
+    return {
+      error: "Vain perutun pyynnön voi poistaa pysyvästi. Peru ensin tarjouspyyntö.",
+    };
+  }
+
+  const { error } = await supabase
+    .from("projects")
+    .delete()
+    .eq("id", projectId)
+    .eq("customer_id", user.id);
+
+  if (error) {
+    console.error("[deleteCustomerProject]", error.code, error.message);
+    return { error: "Poisto epäonnistui. Yritä uudelleen tai ota yhteyttä tukeen." };
+  }
+
+  revalidateCustomerProjectPaths(projectId);
+  redirect("/oma-tili?poistettu=1");
 }
 
 export async function updateProject(

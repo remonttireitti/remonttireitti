@@ -5,6 +5,7 @@ import { OrderFinalizationStatus } from "@/components/bid/order-finalization-sta
 import { ProjectBiddingChats } from "@/components/messaging/project-bidding-chats";
 import { ProjectChat } from "@/components/messaging/project-chat";
 import { CancelProjectButton } from "@/components/project/cancel-project-button";
+import { DeleteProjectButton } from "@/components/project/delete-project-button";
 import { ProjectDraftPublishPanel } from "@/components/project/project-draft-publish-panel";
 import { ProjectLifecyclePanel } from "@/components/project/project-lifecycle-panel";
 import { ProjectOverviewCards } from "@/components/project/project-overview-cards";
@@ -268,7 +269,8 @@ export default async function ProjectPage({
             className="mt-4 rounded-lg bg-stone-100 p-3 text-sm text-stone-800"
             role="status"
           >
-            Tarjouspyyntö on peruttu. Saapuneet tarjoukset poistettiin.
+            Tarjouspyyntö on peruttu. Saapuneet tarjoukset poistettiin. Voit poistaa
+            pyynnön pysyvästi yllä olevalla painikkeella.
           </p>
         )}
         {hyvaksytty === "1" && (
