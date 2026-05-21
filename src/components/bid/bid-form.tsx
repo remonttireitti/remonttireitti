@@ -7,6 +7,7 @@ import {
   startTransition,
   type FormEvent,
 } from "react";
+import { useRouter } from "next/navigation";
 import {
   submitBid,
   updateBid,
@@ -75,6 +76,7 @@ export function BidForm({
 
   const saveAction = mode === "edit" ? updateBid : submitBid;
 
+  const router = useRouter();
   const [state, formAction, pending] = useActionState<BidActionState, FormData>(
     saveAction,
     {},
@@ -486,7 +488,10 @@ export function BidForm({
         </p>
       )}
       {state.success && (
-        <p className="text-sm text-sky-700" role="status">
+        <p
+          className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900"
+          role="status"
+        >
           {state.success}
         </p>
       )}
@@ -497,7 +502,9 @@ export function BidForm({
         className="w-full rounded-lg bg-orange-700 py-2.5 font-medium text-white hover:bg-orange-800 disabled:opacity-60"
       >
         {pending
-          ? "Tallennetaan…"
+          ? mode === "edit"
+            ? "Tallennetaan…"
+            : "Lähetetään…"
           : mode === "edit"
             ? "Tallenna muutokset"
             : "Lähetä tarjous"}

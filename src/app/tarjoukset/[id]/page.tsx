@@ -19,10 +19,13 @@ import { createClient } from "@/lib/supabase/server";
 
 export default async function ContractorProjectPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ tarjous?: string }>;
 }) {
   const { id } = await params;
+  const { tarjous } = await searchParams;
   const user = await getSessionUser();
   if (!user) redirect(`/kirjaudu?redirect=/tarjoukset/${id}`);
 
@@ -104,6 +107,26 @@ export default async function ContractorProjectPage({
 
         <h1 className="mt-4 text-2xl font-bold">{project.title}</h1>
         <p className="text-stone-500">{categoryName}</p>
+
+        {tarjous === "lahetetty" && (
+          <p
+            className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900"
+            role="status"
+          >
+            <span className="font-semibold">Tarjous lähetetty.</span> Asiakas näkee sen
+            tarjousvertailussa. Voit muokata tarjousta alla, kunnes asiakas hyväksyy
+            jonkin tarjouksen.
+          </p>
+        )}
+        {tarjous === "paivitetty" && (
+          <p
+            className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900"
+            role="status"
+          >
+            <span className="font-semibold">Tarjous päivitetty.</span> Muutokset ovat
+            nyt näkyvissä asiakkaalle.
+          </p>
+        )}
 
         <div>
           <ProjectOverviewCards

@@ -312,7 +312,7 @@ export async function submitBid(
   }
 
   revalidateBidPaths(payload.projectId);
-  return { success: "Tarjous lähetetty!" };
+  redirect(`/tarjoukset/${payload.projectId}?tarjous=lahetetty`);
 }
 
 export async function updateBid(
@@ -375,7 +375,7 @@ export async function updateBid(
   }
 
   revalidateBidPaths(payload.projectId);
-  return { success: "Tarjous päivitetty!" };
+  redirect(`/tarjoukset/${payload.projectId}?tarjous=paivitetty`);
 }
 
 export async function withdrawBid(
