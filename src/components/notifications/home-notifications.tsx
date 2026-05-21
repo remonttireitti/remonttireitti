@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import {
@@ -23,11 +22,65 @@ function formatWhen(iso: string) {
   });
 }
 
+function NotificationCard({
+  n,
+  pending,
+  onOpen,
+  muted,
+  footer,
+}: {
+  n: AppNotification;
+  pending: boolean;
+  onOpen: (id: string, linkPath: string) => void;
+  muted?: boolean;
+  footer?: React.ReactNode;
+}) {
+  return (
+    <li
+      className={`overflow-hidden rounded-xl border transition hover:border-sky-300 ${
+        muted
+          ? "border-stone-200 bg-stone-50/80"
+          : n.read_at
+            ? "border-stone-200 bg-white"
+            : "border-sky-200 bg-sky-50/60"
+      }`}
+    >
+      <button
+        type="button"
+        onClick={() => onOpen(n.id, n.link_path)}
+        disabled={pending}
+        className="block w-full p-4 text-left hover:bg-sky-50/40 disabled:opacity-60"
+      >
+        <p
+          className={`text-xs font-medium uppercase tracking-wide ${
+            muted ? "text-stone-500" : "text-sky-800"
+          }`}
+        >
+          {notificationTypeLabels[n.type]}
+        </p>
+        <time
+          dateTime={n.created_at}
+          className="mt-0.5 block text-xs text-stone-500"
+        >
+          {formatWhen(n.created_at)}
+        </time>
+        <p className={`mt-2 font-medium ${muted ? "text-stone-700" : "text-stone-900"}`}>
+          {n.title}
+        </p>
+        <p className="mt-0.5 text-sm text-stone-600">{n.body}</p>
+      </button>
+      {footer}
+    </li>
+  );
+}
+
 export function HomeNotifications({
   notifications,
+  archivedNotifications,
   unreadCount,
 }: {
   notifications: AppNotification[];
+  archivedNotifications: AppNotification[];
   unreadCount: number;
 }) {
   const router = useRouter();
@@ -108,57 +161,79 @@ export function HomeNotifications({
       ) : (
         <ul className="mt-4 space-y-2">
           {notifications.map((n) => (
-            <li
+            <NotificationCard
               key={n.id}
-              className={`overflow-hidden rounded-xl border transition hover:border-sky-300 ${
-                n.read_at
-                  ? "border-stone-200 bg-white"
-                  : "border-sky-200 bg-sky-50/60"
-              }`}
-            >
-              <button
-                type="button"
-                onClick={() => handleOpen(n.id, n.link_path)}
-                disabled={pending}
-                className="block w-full p-4 text-left hover:bg-sky-50/40 disabled:opacity-60"
-              >
-                <p className="text-xs font-medium uppercase tracking-wide text-sky-800">
-                  {notificationTypeLabels[n.type]}
-                </p>
-                <time
-                  dateTime={n.created_at}
-                  className="mt-0.5 block text-xs text-stone-500"
-                >
-                  {formatWhen(n.created_at)}
-                </time>
-                <p className="mt-2 font-medium text-stone-900">{n.title}</p>
-                <p className="mt-0.5 text-sm text-stone-600">{n.body}</p>
-              </button>
-              {n.read_at && (
-                <div className="border-t border-stone-200 px-4 py-2">
-                  <button
-                    type="button"
-                    title="Arkistoi"
-                    aria-label="Arkistoi ilmoitus"
-                    disabled={pending}
-                    onClick={(e) => handleArchiveOne(e, n.id)}
-                    className="text-sm font-medium text-stone-500 hover:text-stone-800 disabled:opacity-60"
-                  >
-                    Arkistoi
-                  </button>
-                </div>
-              )}
-            </li>
+              n={n}
+              pending={pending}
+              onOpen={handleOpen}
+              footer={
+                n.read_at ? (
+                  <div className="border-t border-stone-200 px-4 py-2">
+                    <button
+                      type="button"
+                      title="Arkistoi"
+                      aria-label="Arkistoi ilmoitus"
+                      disabled={pending}
+                      onClick={(e) => handleArchiveOne(e, n.id)}
+                      className="text-sm font-medium text-stone-500 hover:text-stone-800 disabled:opacity-60"
+                    >
+                      Arkistoi
+                    </button>
+                  </div>
+                ) : undefined
+              }
+            />
           ))}
         </ul>
       )}
 
-      <p className="mt-4 text-center text-sm text-stone-500">
-        Arkistoidut ilmoitukset piilotetaan listalta.{" "}
-        <Link href="/oma-tili" className="text-sky-700 hover:underline">
-          Oma tili
-        </Link>
-      </p>
+      {archivedNotifications.length > 0 && (
+        <details className="group mt-6 rounded-xl border border-stone-200 bg-white">
+          <summary className="cursor-pointer list-none px-4 py-3 text-sm font-medium text-stone-700 marker:content-none [&::-webkit-details-marker]:hidden">
+            <span className="flex items-center justify-between gap-2">
+              <span>
+                Arkisto ({archivedNotifications.length})
+              </span>
+              <span
+                className="text-xs font-normal text-stone-500 group-open:hidden"
+                aria-hidden
+              >
+                Näytä
+              </span>
+              <span
+                className="hidden text-xs font-normal text-stone-500 group-open:inline"
+                aria-hidden
+              >
+                Piilota
+              </span>
+            </span>
+          </summary>
+          <ul className="space-y-2 border-t border-stone-100 px-2 pb-2 pt-2">
+            {archivedNotifications.map((n) => (
+              <NotificationCard
+                key={n.id}
+                n={n}
+                pending={pending}
+                onOpen={handleOpen}
+                muted
+                footer={
+                  n.archived_at ? (
+                    <p className="border-t border-stone-200 px-4 py-2 text-xs text-stone-500">
+                      Arkistoitu {formatWhen(n.archived_at)}
+                    </p>
+                  ) : undefined
+                }
+              />
+            ))}
+          </ul>
+        </details>
+      )}
+
+      {archivedNotifications.length === 0 && notifications.length > 0 && (
+        <p className="mt-4 text-center text-sm text-stone-500">
+          Arkistoidut ilmoitukset näkyvät tässä, kun arkistoit luetut.
+        </p>
+      )}
     </section>
   );
 }

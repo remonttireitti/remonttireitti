@@ -23,6 +23,7 @@ export type AppNotification = {
   link_path: string;
   read_at: string | null;
   created_at: string;
+  archived_at?: string | null;
 };
 
 export const notificationTypeLabels: Record<NotificationType, string> = {

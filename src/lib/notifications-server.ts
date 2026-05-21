@@ -65,3 +65,24 @@ export async function countUnreadNotifications(
 
   return count ?? 0;
 }
+
+export async function fetchArchivedUserNotifications(
+  supabase: SupabaseClient,
+  userId: string,
+  limit = 50,
+): Promise<AppNotification[]> {
+  const { data, error } = await supabase
+    .from("notifications")
+    .select("id, type, title, body, link_path, read_at, created_at, archived_at")
+    .eq("user_id", userId)
+    .not("archived_at", "is", null)
+    .order("archived_at", { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    console.error("[fetchArchivedUserNotifications]", error.code, error.message);
+    return [];
+  }
+
+  return (data ?? []) as AppNotification[];
+}

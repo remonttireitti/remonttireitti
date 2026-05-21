@@ -20,6 +20,7 @@ import { getSessionUser } from "@/lib/auth";
 import { fetchPublishedListings } from "@/lib/marketplace-listings-server";
 import {
   countUnreadNotifications,
+  fetchArchivedUserNotifications,
   fetchUserNotifications,
 } from "@/lib/notifications-server";
 import { brand } from "@/lib/brand-theme";
@@ -30,12 +31,21 @@ export default async function Home() {
   const listings = await fetchPublishedListings(6);
   const user = await getSessionUser();
   let notifications: Awaited<ReturnType<typeof fetchUserNotifications>> = [];
+  let archivedNotifications: Awaited<
+    ReturnType<typeof fetchArchivedUserNotifications>
+  > = [];
   let unreadCount = 0;
 
   if (user) {
     const supabase = await createClient();
-    notifications = await fetchUserNotifications(supabase, user.id, 12);
-    unreadCount = await countUnreadNotifications(supabase, user.id);
+    const [active, archived, unread] = await Promise.all([
+      fetchUserNotifications(supabase, user.id, 12),
+      fetchArchivedUserNotifications(supabase, user.id, 50),
+      countUnreadNotifications(supabase, user.id),
+    ]);
+    notifications = active;
+    archivedNotifications = archived;
+    unreadCount = unread;
   }
 
   return (
@@ -97,6 +107,7 @@ export default async function Home() {
           <section className="border-t border-stone-200 bg-gradient-to-b from-sky-50/30 to-white">
             <HomeNotifications
               notifications={notifications}
+              archivedNotifications={archivedNotifications}
               unreadCount={unreadCount}
             />
           </section>
