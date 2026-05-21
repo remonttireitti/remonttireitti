@@ -34,8 +34,7 @@ export async function fetchAdminProjectsList(options?: {
       created_at,
       published_at,
       customer_id,
-      service_categories ( name_fi ),
-      bids ( id )
+      service_categories ( name_fi )
     `,
     )
     .order("created_at", { ascending: false });
@@ -58,6 +57,26 @@ export async function fetchAdminProjectsList(options?: {
   if (error) {
     console.error("[fetchAdminProjectsList]", error.code, error.message);
     return { rows: [], error: error.message };
+  }
+
+  const projectIds = (projects ?? []).map((p) => p.id as string);
+  const bidCountByProject = new Map<string, number>();
+
+  if (projectIds.length > 0) {
+    const { data: bidRows, error: bidsError } = await admin
+      .from("bids")
+      .select("project_id")
+      .in("project_id", projectIds);
+
+    if (bidsError) {
+      console.error("[fetchAdminProjectsList] bids", bidsError.code, bidsError.message);
+      return { rows: [], error: bidsError.message };
+    }
+
+    for (const row of bidRows ?? []) {
+      const pid = row.project_id as string;
+      bidCountByProject.set(pid, (bidCountByProject.get(pid) ?? 0) + 1);
+    }
   }
 
   const customerIds = [
@@ -87,8 +106,6 @@ export async function fetchAdminProjectsList(options?: {
     const categoryName = Array.isArray(sc)
       ? (sc[0]?.name_fi ?? "—")
       : (sc?.name_fi ?? "—");
-    const bids = p.bids as { id: string }[] | null;
-
     return {
       id: p.id as string,
       title: p.title as string,
@@ -101,7 +118,7 @@ export async function fetchAdminProjectsList(options?: {
       customerEmail: emailById.get(p.customer_id as string) ?? "—",
       customerName: nameById.get(p.customer_id as string) ?? null,
       categoryName,
-      bidCount: bids?.length ?? 0,
+      bidCount: bidCountByProject.get(p.id as string) ?? 0,
     };
   });
 

@@ -52,8 +52,10 @@ export default async function AdminProjectsPage({
             className="mt-4 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-900"
             role="alert"
           >
-            Pyyntöjen haku epäonnistui: {error}. Tarkista Vercelissä{" "}
-            <code className="text-xs">SUPABASE_SERVICE_ROLE_KEY</code>.
+            Pyyntöjen haku epäonnistui: {error}
+            {error.includes("SERVICE_ROLE") || error.includes("API key")
+              ? " — tarkista Vercelissä SUPABASE_SERVICE_ROLE_KEY."
+              : null}
           </p>
         )}
 
