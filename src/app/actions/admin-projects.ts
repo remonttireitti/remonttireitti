@@ -7,6 +7,8 @@ import type { AdminState } from "@/app/actions/admin";
 
 function revalidateProjectPaths(projectId: string) {
   revalidatePath("/admin/pyynnot");
+  revalidatePath("/admin");
+  revalidatePath(`/admin/pyynnot/${projectId}`);
   revalidatePath("/tarjoukset");
   revalidatePath("/oma-tili");
   revalidatePath(`/remontti/${projectId}`);

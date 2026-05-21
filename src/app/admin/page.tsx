@@ -8,14 +8,19 @@ import {
   formatCapability,
   formatRefrigerant,
 } from "@/lib/format-qualifications";
+import { fetchAdminProjectsList } from "@/lib/admin-projects-server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getSessionUser } from "@/lib/auth";
+import { projectStatusLabels } from "@/lib/projects";
 
 export default async function AdminPage() {
   const user = await getSessionUser();
   if (!user) redirect("/kirjaudu?redirect=/admin");
 
   await requireAdmin();
+
+  const { rows: recentProjects, error: projectsError } =
+    await fetchAdminProjectsList({ statusFilter: "all" });
 
   const admin = createAdminClient();
 
@@ -59,6 +64,47 @@ export default async function AdminPage() {
           ympäristössä.
         </p>
         <AdminNav current="/admin" />
+
+        <section className="mt-6 rounded-xl border border-sky-200 bg-sky-50/50 p-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="font-semibold text-stone-900">Tarjouspyynnöt</h2>
+            <Link
+              href="/admin/pyynnot"
+              className="text-sm font-medium text-sky-800 hover:underline"
+            >
+              Avaa kaikki ({recentProjects.length}) →
+            </Link>
+          </div>
+          {projectsError ? (
+            <p className="mt-2 text-sm text-red-800">
+              Pyyntöjen haku epäonnistui. Tarkista SUPABASE_SERVICE_ROLE_KEY.
+            </p>
+          ) : recentProjects.length === 0 ? (
+            <p className="mt-2 text-sm text-stone-600">
+              Ei vielä pyyntöjä tietokannassa.
+            </p>
+          ) : (
+            <ul className="mt-3 space-y-2">
+              {recentProjects.slice(0, 5).map((p) => (
+                <li key={p.id}>
+                  <Link
+                    href={`/admin/pyynnot/${p.id}`}
+                    className="block rounded-lg bg-white px-3 py-2 text-sm ring-1 ring-stone-200 hover:ring-sky-300"
+                  >
+                    <span className="font-medium">{p.title}</span>
+                    <span className="ml-2 text-xs text-stone-500">
+                      {projectStatusLabels[p.status]} · {p.bidCount} tarj.
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+          <p className="mt-3 text-xs text-stone-500">
+            Tarjouspyynnöt ja tarjoukset hallitaan välilehdellä Tarjouspyynnöt, ei
+            tällä käyttäjäsivulla.
+          </p>
+        </section>
 
         <div className="mt-8 space-y-4">
           {rows.length === 0 ? (

@@ -265,12 +265,18 @@ export default async function AccountPage({
         )}
 
         {admin && (
-          <div className="mt-8">
+          <div className="mt-8 flex flex-wrap gap-2">
             <Link
-              href="/admin"
+              href="/admin/pyynnot"
               className="inline-flex rounded-full bg-stone-800 px-5 py-2.5 text-sm font-medium text-white hover:bg-stone-900"
             >
-              Hallintapaneeli
+              Tarjouspyynnöt
+            </Link>
+            <Link
+              href="/admin"
+              className="inline-flex rounded-full border border-stone-300 bg-white px-5 py-2.5 text-sm font-medium text-stone-800 hover:bg-stone-50"
+            >
+              Käyttäjät
             </Link>
           </div>
         )}
