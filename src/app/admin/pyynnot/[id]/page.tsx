@@ -1,11 +1,15 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { AdminNav } from "@/components/admin/admin-nav";
+import { AdminContractorReminderPanel } from "@/components/admin/admin-contractor-reminder-panel";
 import { AdminProjectBidsList } from "@/components/admin/admin-project-bids-list";
 import { ProjectRowActions } from "@/components/admin/project-row-actions";
 import { SiteHeader } from "@/components/site-header";
 import { requireAdmin } from "@/lib/admin";
-import { fetchAdminProjectById } from "@/lib/admin-projects-server";
+import {
+  fetchAdminProjectById,
+  fetchEligibleContractorsForProject,
+} from "@/lib/admin-projects-server";
 import { getSessionUser } from "@/lib/auth";
 import { projectStatusLabels } from "@/lib/projects";
 
@@ -20,8 +24,15 @@ export default async function AdminProjectDetailPage({
   await requireAdmin();
 
   const { id } = await params;
-  const project = await fetchAdminProjectById(id);
+  const [project, eligible] = await Promise.all([
+    fetchAdminProjectById(id),
+    fetchEligibleContractorsForProject(id),
+  ]);
   if (!project) notFound();
+
+  const countableBids = project.bids.filter((b) =>
+    ["submitted", "accepted", "rejected", "withdrawn"].includes(b.status),
+  ).length;
 
   return (
     <div className="min-h-full bg-stone-50 text-stone-900">
@@ -92,9 +103,19 @@ export default async function AdminProjectDetailPage({
           />
         </div>
 
+        {countableBids === 0 && eligible.canRemind && (
+          <div id="muistutus">
+            <AdminContractorReminderPanel
+              projectId={project.id}
+              contractors={eligible.contractors}
+              canRemind={eligible.canRemind}
+            />
+          </div>
+        )}
+
         <section className="mt-6">
           <h2 className="text-lg font-semibold">
-            Tarjoukset ({project.bids.length})
+            Tarjoukset ({countableBids})
           </h2>
           <div className="mt-3">
             <AdminProjectBidsList bids={project.bids} />

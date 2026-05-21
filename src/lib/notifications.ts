@@ -13,6 +13,7 @@ export type NotificationType =
   | "marketplace_billing_rejected"
   | "new_user_registered"
   | "new_project_published"
+  | "bid_request_reminder"
   | "review_reminder";
 
 export type AppNotification = {
@@ -41,5 +42,6 @@ export const notificationTypeLabels: Record<NotificationType, string> = {
   marketplace_billing_rejected: "Tori hylätty",
   new_user_registered: "Uusi käyttäjä",
   new_project_published: "Tarjouspyyntö",
+  bid_request_reminder: "Muistutus",
   review_reminder: "Arvostelu",
 };

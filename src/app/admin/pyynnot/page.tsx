@@ -16,6 +16,7 @@ const STATUS_FILTERS: { value: string; label: string }[] = [
   { value: "active", label: "Aktiiviset" },
   { value: "published", label: "Julkaistu" },
   { value: "has_bids", label: "Tarjouksia saatu" },
+  { value: "no_bids", label: "Ei tarjouksia" },
   { value: "bid_accepted", label: "Hyväksytty" },
   { value: "cancelled", label: "Peruttu" },
 ];
@@ -91,7 +92,9 @@ export default async function AdminProjectsPage({
                   ? "Ei luonnoksia. Asiakas on voinut julkaista pyynnön suoraan."
                   : tila === "has_bids"
                     ? "Ei julkaistuja pyyntöjä, joilla olisi vielä tarjouksia. Tarkista suodatin Kaikki tai Julkaistu."
-                    : "Ei pyyntöjä tällä suodattimella. Kokeile suodatinta Kaikki."}
+                    : tila === "no_bids"
+                      ? "Kaikilla avoimilla pyynnöillä on jo vähintään yksi tarjous."
+                      : "Ei pyyntöjä tällä suodattimella. Kokeile suodatinta Kaikki."}
             </p>
           ) : (
             rows.map((row) => (
@@ -154,6 +157,15 @@ export default async function AdminProjectsPage({
                   <div className="mt-2">
                     <AdminProjectBidsList bids={row.bids} compact />
                   </div>
+                  {row.bidCount === 0 &&
+                    ["published", "receiving_bids"].includes(row.status) && (
+                      <Link
+                        href={`/admin/pyynnot/${row.id}#muistutus`}
+                        className="mt-3 inline-block text-sm font-medium text-amber-800 hover:underline"
+                      >
+                        Muistuta urakoitsijoita →
+                      </Link>
+                    )}
                 </div>
 
                 <ProjectRowActions

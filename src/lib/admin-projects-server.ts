@@ -84,9 +84,9 @@ export async function fetchAdminProjectsList(options?: {
     ]);
   } else if (tila === "draft") {
     query = query.eq("status", "draft");
-  } else if (tila === "has_bids") {
+  } else if (tila === "has_bids" || tila === "no_bids") {
     query = query.in("status", ["published", "receiving_bids"]);
-  } else if (tila !== "all" && tila !== "has_bids") {
+  } else if (tila !== "all") {
     query = query.eq("status", tila);
   }
 
@@ -209,9 +209,118 @@ export async function fetchAdminProjectsList(options?: {
 
   if (tila === "has_bids") {
     rows = rows.filter((r) => r.bidCount > 0);
+  } else if (tila === "no_bids") {
+    rows = rows.filter((r) => r.bidCount === 0);
   }
 
   return { rows, error: null };
+}
+
+export type AdminEligibleContractor = {
+  id: string;
+  company_name: string | null;
+  email: string | null;
+  /** Jo aktiivinen tarjous (lähetetty tai hyväksytty). */
+  hasActiveBid: boolean;
+};
+
+export async function fetchEligibleContractorsForProject(
+  projectId: string,
+): Promise<{
+  contractors: AdminEligibleContractor[];
+  projectTitle: string;
+  canRemind: boolean;
+  error: string | null;
+}> {
+  const admin = createAdminClient();
+
+  const { data: project, error: projectErr } = await admin
+    .from("projects")
+    .select("id, title, status, job_type_id, municipality, postal_code")
+    .eq("id", projectId)
+    .maybeSingle();
+
+  if (projectErr || !project) {
+    return {
+      contractors: [],
+      projectTitle: "",
+      canRemind: false,
+      error: projectErr?.message ?? "Pyyntöä ei löydy.",
+    };
+  }
+
+  const canRemind = ["published", "receiving_bids"].includes(
+    project.status as string,
+  );
+
+  const { data: jobMatches } = await admin
+    .from("contractor_job_types")
+    .select("contractor_id")
+    .eq("job_type_id", project.job_type_id as string);
+
+  const contractorIds = [
+    ...new Set((jobMatches ?? []).map((r) => r.contractor_id as string)),
+  ];
+
+  if (contractorIds.length === 0) {
+    return {
+      contractors: [],
+      projectTitle: project.title as string,
+      canRemind,
+      error: null,
+    };
+  }
+
+  const [{ data: profiles }, { data: companies }, { data: bids }] =
+    await Promise.all([
+      admin
+        .from("profiles")
+        .select("id, role")
+        .in("id", contractorIds)
+        .eq("role", "contractor"),
+      admin
+        .from("contractor_profiles")
+        .select("id, company_name")
+        .in("id", contractorIds),
+      admin
+        .from("bids")
+        .select("contractor_id, status")
+        .eq("project_id", projectId)
+        .in("contractor_id", contractorIds),
+    ]);
+
+  const activeBidByContractor = new Set(
+    (bids ?? [])
+      .filter((b) => ["submitted", "accepted"].includes(b.status as string))
+      .map((b) => b.contractor_id as string),
+  );
+
+  const companyById = new Map(
+    (companies ?? []).map((c) => [c.id as string, c.company_name as string | null]),
+  );
+  const emailById = await loadAuthEmails(admin, contractorIds);
+
+  const contractors = (profiles ?? []).map((p) => ({
+    id: p.id as string,
+    company_name: companyById.get(p.id as string) ?? null,
+    email: emailById.get(p.id as string) ?? null,
+    hasActiveBid: activeBidByContractor.has(p.id as string),
+  }));
+
+  contractors.sort((a, b) => {
+    if (a.hasActiveBid !== b.hasActiveBid) return a.hasActiveBid ? 1 : -1;
+    return (a.company_name ?? a.email ?? "").localeCompare(
+      b.company_name ?? b.email ?? "",
+      "fi",
+    );
+  });
+
+  return {
+    contractors,
+    projectTitle: project.title as string,
+    canRemind,
+    error: null,
+  };
 }
 
 export type AdminProjectDetail = {
