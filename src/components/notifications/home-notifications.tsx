@@ -108,39 +108,45 @@ export function HomeNotifications({
       ) : (
         <ul className="mt-4 space-y-2">
           {notifications.map((n) => (
-            <li key={n.id} className="relative">
+            <li
+              key={n.id}
+              className={`overflow-hidden rounded-xl border transition hover:border-sky-300 ${
+                n.read_at
+                  ? "border-stone-200 bg-white"
+                  : "border-sky-200 bg-sky-50/60"
+              }`}
+            >
               <button
                 type="button"
                 onClick={() => handleOpen(n.id, n.link_path)}
                 disabled={pending}
-                className={`w-full rounded-xl border p-4 text-left transition hover:border-sky-300 hover:bg-sky-50/40 disabled:opacity-60 ${
-                  n.read_at
-                    ? "border-stone-200 bg-white pr-12"
-                    : "border-sky-200 bg-sky-50/60"
-                }`}
+                className="block w-full p-4 text-left hover:bg-sky-50/40 disabled:opacity-60"
               >
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="text-xs font-medium uppercase tracking-wide text-sky-800">
-                    {notificationTypeLabels[n.type]}
-                  </span>
-                  <time className="text-xs text-stone-500">
-                    {formatWhen(n.created_at)}
-                  </time>
-                </div>
-                <p className="mt-1 font-medium text-stone-900">{n.title}</p>
+                <p className="text-xs font-medium uppercase tracking-wide text-sky-800">
+                  {notificationTypeLabels[n.type]}
+                </p>
+                <time
+                  dateTime={n.created_at}
+                  className="mt-0.5 block text-xs text-stone-500"
+                >
+                  {formatWhen(n.created_at)}
+                </time>
+                <p className="mt-2 font-medium text-stone-900">{n.title}</p>
                 <p className="mt-0.5 text-sm text-stone-600">{n.body}</p>
               </button>
               {n.read_at && (
-                <button
-                  type="button"
-                  title="Arkistoi"
-                  aria-label="Arkistoi ilmoitus"
-                  disabled={pending}
-                  onClick={(e) => handleArchiveOne(e, n.id)}
-                  className="absolute right-3 top-3 rounded-lg px-2 py-1 text-xs font-medium text-stone-500 hover:bg-stone-100 hover:text-stone-800 disabled:opacity-60"
-                >
-                  Arkistoi
-                </button>
+                <div className="border-t border-stone-200 px-4 py-2">
+                  <button
+                    type="button"
+                    title="Arkistoi"
+                    aria-label="Arkistoi ilmoitus"
+                    disabled={pending}
+                    onClick={(e) => handleArchiveOne(e, n.id)}
+                    className="text-sm font-medium text-stone-500 hover:text-stone-800 disabled:opacity-60"
+                  >
+                    Arkistoi
+                  </button>
+                </div>
               )}
             </li>
           ))}
