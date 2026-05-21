@@ -15,7 +15,7 @@ const STATUS_FILTERS: { value: string; label: string }[] = [
   { value: "draft", label: "Luonnokset" },
   { value: "active", label: "Aktiiviset" },
   { value: "published", label: "Julkaistu" },
-  { value: "receiving_bids", label: "Tarjouksia" },
+  { value: "has_bids", label: "Tarjouksia saatu" },
   { value: "bid_accepted", label: "Hyväksytty" },
   { value: "cancelled", label: "Peruttu" },
 ];
@@ -89,7 +89,9 @@ export default async function AdminProjectsPage({
                 ? "Ei näytettäviä pyyntöjä haun virheen takia."
                 : tila === "draft"
                   ? "Ei luonnoksia. Asiakas on voinut julkaista pyynnön suoraan."
-                  : "Ei pyyntöjä tällä suodattimella. Kokeile suodatinta Kaikki."}
+                  : tila === "has_bids"
+                    ? "Ei julkaistuja pyyntöjä, joilla olisi vielä tarjouksia. Tarkista suodatin Kaikki tai Julkaistu."
+                    : "Ei pyyntöjä tällä suodattimella. Kokeile suodatinta Kaikki."}
             </p>
           ) : (
             rows.map((row) => (

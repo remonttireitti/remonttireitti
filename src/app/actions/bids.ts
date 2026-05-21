@@ -311,6 +311,13 @@ export async function submitBid(
     void userNotifyNewBid(notifyPayload);
   }
 
+  if (payload.project.status === "published") {
+    await supabase
+      .from("projects")
+      .update({ status: "receiving_bids" })
+      .eq("id", payload.projectId);
+  }
+
   revalidateBidPaths(payload.projectId);
   redirect(`/tarjoukset/${payload.projectId}?tarjous=lahetetty`);
 }

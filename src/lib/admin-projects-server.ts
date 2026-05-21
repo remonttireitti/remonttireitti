@@ -84,7 +84,9 @@ export async function fetchAdminProjectsList(options?: {
     ]);
   } else if (tila === "draft") {
     query = query.eq("status", "draft");
-  } else if (tila !== "all") {
+  } else if (tila === "has_bids") {
+    query = query.in("status", ["published", "receiving_bids"]);
+  } else if (tila !== "all" && tila !== "has_bids") {
     query = query.eq("status", tila);
   }
 
@@ -171,7 +173,14 @@ export async function fetchAdminProjectsList(options?: {
     (authList?.users ?? []).map((u) => [u.id, u.email ?? "—"]),
   );
 
-  const rows = (projects ?? []).map((p) => {
+  const COUNTABLE_BID_STATUSES = new Set([
+    "submitted",
+    "accepted",
+    "rejected",
+    "withdrawn",
+  ]);
+
+  let rows = (projects ?? []).map((p) => {
     const sc = p.service_categories as
       | { name_fi: string }
       | { name_fi: string }[]
@@ -192,9 +201,15 @@ export async function fetchAdminProjectsList(options?: {
       customerName: nameById.get(p.customer_id as string) ?? null,
       categoryName,
       bids: bidsByProject.get(p.id as string) ?? [],
-      bidCount: (bidsByProject.get(p.id as string) ?? []).length,
+      bidCount: (bidsByProject.get(p.id as string) ?? []).filter((b) =>
+        COUNTABLE_BID_STATUSES.has(b.status),
+      ).length,
     };
   });
+
+  if (tila === "has_bids") {
+    rows = rows.filter((r) => r.bidCount > 0);
+  }
 
   return { rows, error: null };
 }

@@ -3,7 +3,7 @@ import type { ProjectStatus } from "@/types/database";
 export const projectStatusLabels: Record<ProjectStatus, string> = {
   draft: "Luonnos",
   published: "Julkaistu",
-  receiving_bids: "Tarjouksia tulossa",
+  receiving_bids: "Tarjouksia saatu",
   bid_accepted: "Tarjous hyväksytty",
   in_progress: "Käynnissä",
   completed: "Valmis",
