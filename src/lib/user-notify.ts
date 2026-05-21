@@ -136,14 +136,24 @@ export async function userNotifyBidAccepted(params: {
   projectTitle: string;
   commitDeadline: string;
   feeCents: number;
+  acceptedAmountCents: number;
+  acceptedIncludesEquipment: boolean;
 }) {
   const dl = formatDeadlineFi(params.commitDeadline);
   const fee = formatPlatformFee(params.feeCents);
+  const amount = new Intl.NumberFormat("fi-FI", {
+    style: "currency",
+    currency: "EUR",
+    maximumFractionDigits: 0,
+  }).format(params.acceptedAmountCents / 100);
+  const scope = params.acceptedIncludesEquipment
+    ? "asennus + laite"
+    : "vain asennus";
   await inApp(
     params.contractorId,
     "bid_accepted",
     "Tarjous hyväksytty — viimeistele diili",
-    `${params.projectTitle}: maksa välityspalkkio ${fee} veroton viimeistään ${dl}. Muuten diili raukeaa.`,
+    `${params.projectTitle}: asiakas hyväksyi ${scope} (${amount}). Maksa välityspalkkio ${fee} veroton viimeistään ${dl}.`,
     `/tarjoukset/urakka/${params.projectId}`,
   );
   await notifyBidAccepted(params);

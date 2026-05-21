@@ -9,6 +9,7 @@ import { BidForm } from "@/components/bid/bid-form";
 import type { BidCounterFields } from "@/lib/bid-counter-offer";
 import { bidToFormFields, type BidRecordForForm } from "@/lib/bid-form";
 import { STALE_BID_CONTRACTOR_MESSAGE } from "@/lib/bid-staleness";
+import { bidTotalAmountCents } from "@/lib/bid-amounts";
 import { bidStatusLabels, formatEurosFromCents } from "@/lib/bids";
 import type { ProjectBudgetInfo } from "@/lib/project-budget";
 import type { BidStatus } from "@/types/database";
@@ -24,16 +25,24 @@ type BidView = BidRecordForForm &
 export function ContractorBidPanel({
   projectId,
   bid,
-  requiresEquipmentWarranty,
+  requiresDeviceAndInstallation,
+  allowOptionalEquipmentOffer,
   budgetInfo,
   bidStale = false,
 }: {
   projectId: string;
   bid: BidView | null;
-  requiresEquipmentWarranty: boolean;
+  requiresDeviceAndInstallation: boolean;
+  allowOptionalEquipmentOffer: boolean;
   budgetInfo: ProjectBudgetInfo;
   bidStale?: boolean;
 }) {
+  const bidFormProps = {
+    projectId,
+    requiresDeviceAndInstallation,
+    allowOptionalEquipmentOffer,
+    budgetInfo,
+  };
   const router = useRouter();
   const [withdrawError, setWithdrawError] = useState<string | null>(null);
   const [withdrawing, setWithdrawing] = useState(false);
@@ -43,12 +52,7 @@ export function ContractorBidPanel({
       <div className="mt-8">
         <h2 className="text-lg font-semibold">Jätä tarjous</h2>
         <div className="mt-4">
-          <BidForm
-            projectId={projectId}
-            requiresEquipmentWarranty={requiresEquipmentWarranty}
-            budgetInfo={budgetInfo}
-            mode="create"
-          />
+          <BidForm {...bidFormProps} mode="create" />
         </div>
       </div>
     );
@@ -69,9 +73,7 @@ export function ContractorBidPanel({
           </p>
         </div>
         <BidForm
-          projectId={projectId}
-          requiresEquipmentWarranty={requiresEquipmentWarranty}
-          budgetInfo={budgetInfo}
+          {...bidFormProps}
           mode="edit"
           bidId={bid.id}
           initialFields={bidToFormFields(bid)}
@@ -92,12 +94,7 @@ export function ContractorBidPanel({
         <div>
           <h2 className="text-lg font-semibold">Uusi tarjous</h2>
           <div className="mt-4">
-            <BidForm
-              projectId={projectId}
-              requiresEquipmentWarranty={requiresEquipmentWarranty}
-              budgetInfo={budgetInfo}
-              mode="create"
-            />
+            <BidForm {...bidFormProps} mode="create" />
           </div>
         </div>
       </div>
@@ -112,8 +109,14 @@ export function ContractorBidPanel({
           Tila: {bidStatusLabels[bid.status]}
         </p>
         <p className="mt-2 text-2xl font-bold text-sky-800">
-          {formatEurosFromCents(bid.amount_cents)}
+          {formatEurosFromCents(bidTotalAmountCents(bid))}
         </p>
+        {bid.offers_equipment && bid.equipment_amount_cents != null && (
+          <p className="mt-1 text-sm text-stone-600">
+            Asennus {formatEurosFromCents(bid.amount_cents)} + laite{" "}
+            {formatEurosFromCents(bid.equipment_amount_cents)}
+          </p>
+        )}
         <BidDetailsDisplay bid={bid} />
         <p className="mt-3 text-sm whitespace-pre-wrap text-stone-700">
           {bid.message}
@@ -191,9 +194,7 @@ export function ContractorBidPanel({
       </p>
 
       <BidForm
-        projectId={projectId}
-        requiresEquipmentWarranty={requiresEquipmentWarranty}
-        budgetInfo={budgetInfo}
+        {...bidFormProps}
         mode="edit"
         bidId={bid.id}
         initialFields={bidToFormFields(bid)}

@@ -129,6 +129,9 @@ export function parseHeatingSystemJson(
       climate_zone: parseClimateZone(p.climate_zone),
       accept_offers_over_budget: parseAcceptOffersOverBudget(p),
       equipment_supply: parseEquipmentSupply(p.equipment_supply),
+      allow_optional_equipment_offer:
+        parseEquipmentSupply(p.equipment_supply) === "installation_only" &&
+        p.allow_optional_equipment_offer !== false,
       current_heating_type,
       current_heating_other: String(p.current_heating_other ?? "").trim(),
       alongside_heating_type,
@@ -279,7 +282,10 @@ export function buildHeatingSystemDescription(
   });
 
   const lines = [
-    formatEquipmentSupplyLine(d.equipment_supply),
+    formatEquipmentSupplyLine(
+      d.equipment_supply,
+      d.allow_optional_equipment_offer,
+    ),
     `Kiinteistö: ${d.property_type}`,
     `Laatutaso: ${HEATING_LABELS.quality_tier[d.quality_tier]}`,
     `Asennus: ${installLine}`,

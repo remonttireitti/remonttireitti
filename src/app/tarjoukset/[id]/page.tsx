@@ -5,7 +5,10 @@ import { SiteHeader } from "@/components/site-header";
 import { ContractorBidPanel } from "@/components/bid/contractor-bid-panel";
 import { isBidStale } from "@/lib/bid-staleness";
 import { getProjectBudgetInfo } from "@/lib/project-budget";
-import { projectRequiresEquipmentWarranty } from "@/lib/project-equipment-supply";
+import {
+  getProjectEquipmentSupply,
+  projectAllowsOptionalEquipmentOffer,
+} from "@/lib/project-equipment-supply";
 import { getSessionUser, isContractor } from "@/lib/auth";
 import { ProjectChat } from "@/components/messaging/project-chat";
 import { ProjectOverviewCards } from "@/components/project/project-overview-cards";
@@ -49,7 +52,7 @@ export default async function ContractorProjectPage({
   const { data: existingBid } = await supabase
     .from("bids")
     .select(
-      "id, amount_cents, message, status, estimated_days, vat_included, submitted_at, warranty_work, warranty_equipment, earliest_start_date, confirms_licenses, confirms_building_standards, counter_amount_cents, counter_message, counter_offered_at, counter_status, confirmed_content_revision, rejection_message, rejected_at",
+      "id, amount_cents, offers_equipment, equipment_amount_cents, equipment_description, message, status, estimated_days, vat_included, submitted_at, warranty_work, warranty_equipment, earliest_start_date, confirms_licenses, confirms_building_standards, counter_amount_cents, counter_message, counter_offered_at, counter_status, confirmed_content_revision, rejection_message, rejected_at",
     )
     .eq("project_id", id)
     .eq("contractor_id", user.id)
@@ -63,9 +66,13 @@ export default async function ContractorProjectPage({
     ? (sc[0]?.name_fi ?? "Remontti")
     : (sc?.name_fi ?? "Remontti");
 
-  const requiresEquipmentWarranty = projectRequiresEquipmentWarranty(
-    project.details as Parameters<typeof projectRequiresEquipmentWarranty>[0],
-  );
+  const projectDetails = project.details as Parameters<
+    typeof getProjectEquipmentSupply
+  >[0];
+  const requiresDeviceAndInstallation =
+    getProjectEquipmentSupply(projectDetails) === "device_and_installation";
+  const allowOptionalEquipmentOffer =
+    projectAllowsOptionalEquipmentOffer(projectDetails);
   const budgetInfo = getProjectBudgetInfo(project);
   const contentRevision =
     (project as { content_revision?: number }).content_revision ?? 1;
@@ -139,7 +146,8 @@ export default async function ContractorProjectPage({
         <ContractorBidPanel
           projectId={id}
           bid={existingBid}
-          requiresEquipmentWarranty={requiresEquipmentWarranty}
+          requiresDeviceAndInstallation={requiresDeviceAndInstallation}
+          allowOptionalEquipmentOffer={allowOptionalEquipmentOffer}
           budgetInfo={budgetInfo}
           bidStale={bidStale}
         />

@@ -74,52 +74,138 @@ export function IlmalampopumppuDetailsStep({ details: d, onChange }: Props) {
 
   return (
     <FormPage intro="Täytä kohdekortit — urakoitsijat käyttävät tietoja tarjouksen pohjana.">
-      <FormGrid>
+      <FormGrid className="lg:grid-cols-1">
         <FormSection
           span="full"
-          title="Kohde ja järjestelmä"
-          description="Tarjouksen laajuus, asennus, käyttö ja laatutaso"
+          title="1. Tarjouksen laajuus"
+          description="Pyydätkö laitteen ja asennuksen vai vain asennuksen"
         >
           <EquipmentSupplyField
             name="ilp_equipment_supply"
             value={d.equipment_supply}
-            onChange={(v) => set("equipment_supply", v)}
+            onChange={(v) =>
+              onChange({
+                ...d,
+                equipment_supply: v,
+                allow_optional_equipment_offer:
+                  v === "installation_only"
+                    ? d.allow_optional_equipment_offer !== false
+                    : false,
+              })
+            }
+            allowOptionalEquipmentOffer={d.allow_optional_equipment_offer}
+            onAllowOptionalEquipmentOfferChange={(v) =>
+              set("allow_optional_equipment_offer", v)
+            }
           />
-          <div className="grid gap-6 lg:grid-cols-2">
-            <div className="space-y-4">
-              <FieldGroup label="Asennus">
+        </FormSection>
+
+        <FormSection
+          span="full"
+          title="2. Asennus ja laatu"
+          description="Uusi vaihto, käyttötarkoitus ja laatutaso"
+        >
+          <FieldGrid cols={3}>
+            <FieldGroup label="Asennus">
+              <RadioCards
+                name="ilp_installation_type"
+                value={d.installation_type}
+                onChange={(v) =>
+                  set(
+                    "installation_type",
+                    v as IlmalampopumppuDetails["installation_type"],
+                  )
+                }
+                columns={1}
+                options={[
+                  { value: "new", label: "Uusi asennus" },
+                  { value: "replacement", label: "Pumpun vaihto" },
+                ]}
+              />
+            </FieldGroup>
+            <FieldGroup label="Käyttötarkoitus">
+              <RadioCards
+                name="ilp_usage"
+                value={d.usage}
+                onChange={(v) =>
+                  set("usage", v as IlmalampopumppuDetails["usage"])
+                }
+                columns={1}
+                options={[
+                  { value: "cooling_only", label: "Vain viilennys" },
+                  {
+                    value: "heating_and_cooling",
+                    label: "Lämmitys ja viilennys",
+                  },
+                ]}
+              />
+            </FieldGroup>
+            <FieldGroup label="Laatutaso">
+              <RadioCards
+                name="ilp_quality_tier"
+                value={d.quality_tier}
+                onChange={(v) =>
+                  set(
+                    "quality_tier",
+                    v as IlmalampopumppuDetails["quality_tier"],
+                  )
+                }
+                columns={1}
+                options={[
+                  { value: "budget", label: "Budjetti" },
+                  { value: "standard", label: "Perus" },
+                  { value: "premium", label: "Paras" },
+                ]}
+              />
+            </FieldGroup>
+          </FieldGrid>
+        </FormSection>
+
+        {!isDual && (
+          <FormSection
+            span="full"
+            title="3. Järjestelmä"
+            description="Split, multisplit ja jäähdytystarve"
+          >
+            <div className="grid gap-6 lg:grid-cols-2">
+              <FieldGroup
+                label="Järjestelmätyyppi"
+                hint="Sisä- ja ulkoyksiköt samassa kokonaisuudessa"
+              >
                 <RadioCards
-                  name="ilp_installation_type"
-                  value={d.installation_type}
-                  onChange={(v) =>
-                    set(
-                      "installation_type",
-                      v as IlmalampopumppuDetails["installation_type"],
-                    )
-                  }
-                  columns={2}
+                  name="ilp_system_type"
+                  value={d.system_type}
+                  onChange={(v) => {
+                    if (v === "split_1_1") {
+                      onChange({
+                        ...d,
+                        system_type: "split_1_1",
+                        indoor_unit_count: 1,
+                      });
+                    } else {
+                      set("system_type", "multi_split");
+                    }
+                  }}
+                  columns={1}
                   options={[
-                    { value: "new", label: "Uusi asennus" },
-                    { value: "replacement", label: "Pumpun vaihto" },
+                    { value: "split_1_1", label: "1 sisä + 1 ulkoyksikkö" },
+                    { value: "multi_split", label: "Multisplit" },
                   ]}
                 />
-              </FieldGroup>
-              <FieldGroup label="Käyttötarkoitus">
-                <RadioCards
-                  name="ilp_usage"
-                  value={d.usage}
-                  onChange={(v) =>
-                    set("usage", v as IlmalampopumppuDetails["usage"])
-                  }
-                  columns={2}
-                  options={[
-                    { value: "cooling_only", label: "Vain viilennys" },
-                    {
-                      value: "heating_and_cooling",
-                      label: "Lämmitys ja viilennys",
-                    },
-                  ]}
-                />
+                {d.system_type === "multi_split" && (
+                  <FieldGroup label="Sisäyksiköiden määrä" className="mt-3">
+                    <input
+                      type="number"
+                      min={2}
+                      max={8}
+                      value={d.indoor_unit_count}
+                      onChange={(e) =>
+                        set("indoor_unit_count", Number(e.target.value) || 2)
+                      }
+                      className={`${formInputClass} max-w-[8rem]`}
+                    />
+                  </FieldGroup>
+                )}
               </FieldGroup>
               <FieldGroup
                 label="Jäähdytystarve"
@@ -144,71 +230,12 @@ export function IlmalampopumppuDetailsStep({ details: d, onChange }: Props) {
                 />
               </FieldGroup>
             </div>
-            <div className="space-y-4">
-              <FieldGroup label="Laatutaso">
-                <RadioCards
-                  name="ilp_quality_tier"
-                  value={d.quality_tier}
-                  onChange={(v) =>
-                    set(
-                      "quality_tier",
-                      v as IlmalampopumppuDetails["quality_tier"],
-                    )
-                  }
-                  columns={3}
-                  options={[
-                    { value: "budget", label: "Budjetti" },
-                    { value: "standard", label: "Perus" },
-                    { value: "premium", label: "Paras" },
-                  ]}
-                />
-              </FieldGroup>
-              {!isDual && (
-                <FieldGroup
-                  label="Järjestelmä"
-                  hint="Sisä- ja ulkoyksiköt samassa kokonaisuudessa"
-                >
-                  <RadioCards
-                    name="ilp_system_type"
-                    value={d.system_type}
-                    onChange={(v) => {
-                      if (v === "split_1_1") {
-                        onChange({
-                          ...d,
-                          system_type: "split_1_1",
-                          indoor_unit_count: 1,
-                        });
-                      } else {
-                        set("system_type", "multi_split");
-                      }
-                    }}
-                    options={[
-                      { value: "split_1_1", label: "1 sisä + 1 ulkoyksikkö" },
-                      { value: "multi_split", label: "Multisplit" },
-                    ]}
-                  />
-                  {d.system_type === "multi_split" && (
-                    <input
-                      type="number"
-                      min={2}
-                      max={8}
-                      value={d.indoor_unit_count}
-                      onChange={(e) =>
-                        set("indoor_unit_count", Number(e.target.value) || 2)
-                      }
-                      className={`${formInputClass} mt-3 max-w-[8rem]`}
-                      aria-label="Sisäyksiköiden määrä"
-                    />
-                  )}
-                </FieldGroup>
-              )}
-            </div>
-          </div>
-        </FormSection>
+          </FormSection>
+        )}
 
         <FormSection
           span="full"
-          title="Kiinteistö ja energia"
+          title={isDual ? "3. Kiinteistö ja energia" : "4. Kiinteistö ja energia"}
           description="Vaikutusalue teholaskentaa varten — ei koko rakennuksen pinta-alaa"
         >
           <div className="grid gap-6 xl:grid-cols-2">
@@ -438,9 +465,9 @@ export function IlmalampopumppuDetailsStep({ details: d, onChange }: Props) {
           </>
         ) : (
           <FormSection
-            title="Asennustekniset"
+            title="5. Asennustekniset"
             description="Seinä, ulkoyksikkö ja korkeudet"
-            span="half"
+            span="full"
           >
             <SharedInstallationFields d={d} set={set} />
             <div className="grid gap-4 sm:grid-cols-2">
@@ -500,9 +527,9 @@ export function IlmalampopumppuDetailsStep({ details: d, onChange }: Props) {
         )}
 
         <FormSection
-          title="Aikataulu ja budjetti"
+          title="6. Aikataulu ja budjetti"
           description="Toivottu ajoitus ja hintaraja"
-          span="half"
+          span="full"
         >
           <RadioCards
             name="ilp_schedule"
@@ -552,7 +579,7 @@ export function IlmalampopumppuDetailsStep({ details: d, onChange }: Props) {
           />
         </FormSection>
 
-        <FormSection title="Lisätiedot" span="full">
+        <FormSection title="7. Lisätiedot" span="full">
           <FieldGroup label="Erikoistoiveet">
             <textarea
               rows={3}

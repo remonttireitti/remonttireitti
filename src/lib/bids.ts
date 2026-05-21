@@ -1,3 +1,4 @@
+import { bidComparisonAmountCents } from "@/lib/bid-accept-scope";
 import type { BidStatus } from "@/types/database";
 
 export const bidStatusLabels: Record<BidStatus, string> = {
@@ -28,13 +29,18 @@ const STATUS_SORT: Record<BidStatus, number> = {
   withdrawn: 4,
 };
 
-/** Hyväksytty ensin, sitten halvin hinta. */
-export function sortBidsForComparison<T extends { status: BidStatus; amount_cents: number }>(
-  bids: T[],
-): T[] {
+type BidForSort = {
+  status: BidStatus;
+  amount_cents: number;
+  offers_equipment?: boolean | null;
+  equipment_amount_cents?: number | null;
+};
+
+/** Hyväksytty ensin, sitten halvin kokonaishinta (työ + valinnainen laite). */
+export function sortBidsForComparison<T extends BidForSort>(bids: T[]): T[] {
   return [...bids].sort((a, b) => {
     const sd = STATUS_SORT[a.status] - STATUS_SORT[b.status];
     if (sd !== 0) return sd;
-    return a.amount_cents - b.amount_cents;
+    return bidComparisonAmountCents(a) - bidComparisonAmountCents(b);
   });
 }

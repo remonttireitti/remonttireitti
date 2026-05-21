@@ -31,6 +31,14 @@ export function parseEquipmentSupply(value: unknown): EquipmentSupplyScope {
 
 export function formatEquipmentSupplyLine(
   scope: EquipmentSupplyScope,
+  allowOptionalEquipmentOffer?: boolean,
 ): string {
-  return `Tarjouksen laajuus: ${EQUIPMENT_SUPPLY_LABELS[scope]}`;
+  const base = `Tarjouksen laajuus: ${EQUIPMENT_SUPPLY_LABELS[scope]}`;
+  if (scope === "installation_only" && allowOptionalEquipmentOffer) {
+    return `${base}. Urakoitsija saa tarjota myös laitetta erillisellä hinnalla.`;
+  }
+  return base;
 }
+
+export const OPTIONAL_EQUIPMENT_OFFER_HINT =
+  "Valinnainen: urakoitsijat voivat tarjota laitetta erillisellä rivillä (asennus/työ erikseen).";

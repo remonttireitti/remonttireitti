@@ -149,7 +149,20 @@ export function HeatingSystemDetailsStep({
         >
           <EquipmentSupplyField
             value={d.equipment_supply}
-            onChange={(v) => set("equipment_supply", v)}
+            onChange={(v) =>
+              onChange({
+                ...d,
+                equipment_supply: v,
+                allow_optional_equipment_offer:
+                  v === "installation_only"
+                    ? d.allow_optional_equipment_offer || true
+                    : false,
+              })
+            }
+            allowOptionalEquipmentOffer={d.allow_optional_equipment_offer}
+            onAllowOptionalEquipmentOfferChange={(v) =>
+              set("allow_optional_equipment_offer", v)
+            }
           />
           <div className="grid gap-6 lg:grid-cols-2">
           <FieldGrid>

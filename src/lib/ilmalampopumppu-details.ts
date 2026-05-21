@@ -155,6 +155,9 @@ export function parseIlpDetailsJson(raw: string): IlmalampopumppuDetails | null 
       climate_zone: parseClimateZone(p.climate_zone),
       accept_offers_over_budget: parseAcceptOffersOverBudget(p),
       equipment_supply: parseEquipmentSupply(p.equipment_supply),
+      allow_optional_equipment_offer:
+        parseEquipmentSupply(p.equipment_supply) === "installation_only" &&
+        p.allow_optional_equipment_offer !== false,
     };
   } catch {
     return null;
@@ -226,6 +229,10 @@ export function parseIlpDetailsFromFormData(
     equipment_supply: parseEquipmentSupply(
       formData.get("ilp_equipment_supply"),
     ),
+    allow_optional_equipment_offer:
+      parseEquipmentSupply(formData.get("ilp_equipment_supply")) ===
+        "installation_only" &&
+      formData.get("ilp_allow_optional_equipment_offer") !== "no",
     special_notes: String(formData.get("ilp_special_notes") ?? "").trim(),
   };
 }
@@ -279,7 +286,10 @@ function buildUnitInstallationLines(unit: IlpUnitInstallation): string[] {
 export function buildIlpDescription(d: IlmalampopumppuDetails): string {
   const coverageTotal = totalIlpCoverageM2(d);
   const lines = [
-    formatEquipmentSupplyLine(d.equipment_supply),
+    formatEquipmentSupplyLine(
+      d.equipment_supply,
+      d.allow_optional_equipment_offer,
+    ),
     `Asennus: ${LABELS.installation_type[d.installation_type]}`,
     `Käyttötarkoitus: ${LABELS.usage[d.usage]}${
       d.usage === "cooling_only" || d.usage === "heating_and_cooling"

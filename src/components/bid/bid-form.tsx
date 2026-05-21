@@ -13,6 +13,7 @@ import {
   type BidActionState,
 } from "@/app/actions/bids";
 import {
+  bidFormTotalEuros,
   extractBidFormFields,
   initialBidFormFields,
   type BidFormFieldKey,
@@ -47,14 +48,18 @@ function fieldClass(hasError: boolean): string {
 
 export function BidForm({
   projectId,
-  requiresEquipmentWarranty,
+  requiresDeviceAndInstallation,
+  allowOptionalEquipmentOffer,
   mode = "create",
   bidId,
   initialFields,
   budgetInfo,
 }: {
   projectId: string;
-  requiresEquipmentWarranty: boolean;
+  /** Urakoitsija toimittaa laitteet (pakollinen laitetakuu). */
+  requiresDeviceAndInstallation: boolean;
+  /** Asiakas hankkii itse, mutta sallii valinnaisen laitetarjouksen. */
+  allowOptionalEquipmentOffer: boolean;
   mode?: "create" | "edit";
   bidId?: string;
   initialFields?: BidFormFields;
@@ -107,17 +112,18 @@ export function BidForm({
     const extracted = extractBidFormFields(fd);
     setFields(extracted);
 
-    const validation = validateBidFormClient(
-      extracted,
-      requiresEquipmentWarranty,
-    );
+    const validation = validateBidFormClient(extracted, {
+      requiresEquipmentWarranty: false,
+      allowOptionalEquipmentOffer,
+      requiresDeviceAndInstallation,
+    });
     if (!validation.ok) {
       setClientError(validation.error);
       setFieldErrors(validation.fieldErrors);
       return;
     }
 
-    const amountEuros = Number(extracted.amount_euros);
+    const amountEuros = bidFormTotalEuros(extracted);
     const blockError = getOverBudgetBlockError(amountEuros, budgetInfo);
     if (blockError) {
       setClientError(blockError);
@@ -137,7 +143,12 @@ export function BidForm({
     });
   }
 
-  const amountEuros = Number(fields.amount_euros);
+  const workEuros = Number(fields.amount_euros) || 0;
+  const equipEuros =
+    fields.offers_equipment && fields.equipment_amount_euros
+      ? Number(fields.equipment_amount_euros) || 0
+      : 0;
+  const amountEuros = bidFormTotalEuros(fields);
   const overBudget =
     budgetInfo.budgetMaxEur != null &&
     bidAmountExceedsBudget(amountEuros, budgetInfo);
@@ -152,13 +163,17 @@ export function BidForm({
       <input
         type="hidden"
         name="requires_equipment_warranty"
-        value={requiresEquipmentWarranty ? "1" : "0"}
+        value={
+          requiresDeviceAndInstallation || fields.offers_equipment ? "1" : "0"
+        }
       />
       {bidId && <input type="hidden" name="bid_id" value={bidId} />}
 
       <div>
         <label htmlFor="amount_euros" className="block text-sm font-medium">
-          Hintasi (€, sis. ALV) *
+          {allowOptionalEquipmentOffer && !requiresDeviceAndInstallation
+            ? "Asennus ja työ (€, sis. ALV) *"
+            : "Hintasi (€, sis. ALV) *"}
         </label>
         <input
           id="amount_euros"
@@ -268,7 +283,87 @@ export function BidForm({
         )}
       </div>
 
-      {requiresEquipmentWarranty ? (
+      {allowOptionalEquipmentOffer && !requiresDeviceAndInstallation && (
+        <div className="space-y-3 rounded-xl border border-sky-100 bg-sky-50/50 p-4">
+          <label className="flex items-start gap-2 text-sm font-medium text-stone-900">
+            <input
+              type="checkbox"
+              name="offers_equipment"
+              checked={fields.offers_equipment}
+              onChange={(e) => update("offers_equipment", e.target.checked)}
+              className="mt-1"
+            />
+            Tarjoan myös laitetta (erillinen hinta)
+          </label>
+          <p className="text-xs text-stone-600">
+            Asiakas suunnittelee hankkivansa laitteen itse, mutta voi valita
+            tarjouksesi, jos sisältää laitteen.
+          </p>
+          {fields.offers_equipment && (
+            <>
+              <p className="rounded-lg bg-white px-3 py-2 text-sm text-stone-700">
+                <span className="font-medium">Yhteensä tarjouksessa:</span>{" "}
+                {(workEuros + equipEuros).toLocaleString("fi-FI")} € (asennus{" "}
+                {workEuros.toLocaleString("fi-FI")} € + laite{" "}
+                {equipEuros.toLocaleString("fi-FI")} €)
+              </p>
+              <div>
+                <label
+                  htmlFor="equipment_amount_euros"
+                  className="block text-sm font-medium"
+                >
+                  Laitteen hinta (€, sis. ALV) *
+                </label>
+                <input
+                  id="equipment_amount_euros"
+                  name="equipment_amount_euros"
+                  type="number"
+                  min={1}
+                  step={1}
+                  value={fields.equipment_amount_euros}
+                  onChange={(e) =>
+                    update("equipment_amount_euros", e.target.value)
+                  }
+                  className={fieldClass(!!fieldErrors.equipment_amount_euros)}
+                  placeholder="8000"
+                />
+                {fieldErrors.equipment_amount_euros && (
+                  <p className="mt-1 text-sm text-red-600">
+                    {fieldErrors.equipment_amount_euros}
+                  </p>
+                )}
+              </div>
+              <div>
+                <label
+                  htmlFor="equipment_description"
+                  className="block text-sm font-medium"
+                >
+                  Laite / toimitus *
+                </label>
+                <input
+                  id="equipment_description"
+                  name="equipment_description"
+                  type="text"
+                  value={fields.equipment_description}
+                  onChange={(e) =>
+                    update("equipment_description", e.target.value)
+                  }
+                  className={fieldClass(!!fieldErrors.equipment_description)}
+                  placeholder="Esim. Mitsubishi Zubadan 5 kW, toimitus kohteeseen"
+                />
+                {fieldErrors.equipment_description && (
+                  <p className="mt-1 text-sm text-red-600">
+                    {fieldErrors.equipment_description}
+                  </p>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {requiresDeviceAndInstallation ||
+      (allowOptionalEquipmentOffer && fields.offers_equipment) ? (
         <div>
           <label
             htmlFor="warranty_equipment"
@@ -302,7 +397,8 @@ export function BidForm({
         </div>
       ) : (
         <p className="rounded-lg bg-stone-100 px-3 py-2 text-sm text-stone-600">
-          Asiakas hankkii laitteet itse — laitetakuuta ei tarvitse ilmoittaa.
+          Asiakas hankkii laitteet itse — laitetakuuta ei tarvitse ilmoittaa, ellei
+          tarjoa laitetta yllä.
         </p>
       )}
 

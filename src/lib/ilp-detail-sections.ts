@@ -118,7 +118,12 @@ export function getIlpDetailSections(d: IlmalampopumppuDetails): IlpDetailSectio
       rows: [
         {
           label: "Laajuus",
-          value: EQUIPMENT_SUPPLY_LABELS[d.equipment_supply],
+          value:
+            EQUIPMENT_SUPPLY_LABELS[d.equipment_supply] +
+            (d.equipment_supply === "installation_only" &&
+            d.allow_optional_equipment_offer
+              ? " — urakoitsija voi tarjota laitetta erikseen"
+              : ""),
         },
         {
           label: "Tarjousrakenne",

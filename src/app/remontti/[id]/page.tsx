@@ -71,6 +71,10 @@ export default async function ProjectPage({
           id,
           contractor_id,
           amount_cents,
+          offers_equipment,
+          equipment_amount_cents,
+          equipment_description,
+          accepted_includes_equipment,
           message,
           status,
           estimated_days,
@@ -276,6 +280,11 @@ export default async function ProjectPage({
         {virhe === "vastatarjous-odottaa" && (
           <p className="mt-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-900" role="alert">
             Tarjousta ei voi hyväksyä, kun vastatarjous odottaa urakoitsijan vastausta.
+          </p>
+        )}
+        {virhe === "valitse-laite" && (
+          <p className="mt-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-900" role="alert">
+            Valitse hyväksytkö vain asennuksen vai asennuksen ja laitteen.
           </p>
         )}
         {virhe === "lasku" && (

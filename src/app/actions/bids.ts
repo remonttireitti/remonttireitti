@@ -29,7 +29,11 @@ import {
   getOverBudgetBlockError,
   getProjectBudgetInfo,
 } from "@/lib/project-budget";
-import { projectRequiresEquipmentWarranty } from "@/lib/project-equipment-supply";
+import {
+  projectAllowsOptionalEquipmentOffer,
+  projectRequiresEquipmentWarranty,
+} from "@/lib/project-equipment-supply";
+import { bidFormTotalEuros } from "@/lib/bid-form";
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -57,6 +61,9 @@ type ParsedBidPayload = {
   projectId: string;
   message: string;
   amountCents: number;
+  offersEquipment: boolean;
+  equipmentAmountCents: number | null;
+  equipmentDescription: string | null;
   estimatedDays: number | null;
   vatIncluded: boolean;
   terms: Extract<
@@ -80,21 +87,30 @@ async function parseBidSubmission(
 ): Promise<ParsedBidPayload | BidActionState> {
   const projectId = String(formData.get("project_id") ?? "");
   const message = String(formData.get("message") ?? "").trim();
-  const amountEuros = Number(formData.get("amount_euros"));
+  const fields = extractBidFormFields(formData);
+  const workEuros = Number(fields.amount_euros);
+  const offersEquipment = fields.offers_equipment;
+  const equipmentEuros = offersEquipment
+    ? Number(fields.equipment_amount_euros)
+    : 0;
+  const equipmentDescription = offersEquipment
+    ? fields.equipment_description.trim()
+    : "";
+  const totalEuros = bidFormTotalEuros(fields);
   const estimatedDaysRaw = String(formData.get("estimated_days") ?? "");
   const vatIncluded = formData.get("vat_included") === "on";
 
   if (!projectId || !message) {
     return bidError(formData, "Täytä viesti ja hinta.", {
       ...(!message.trim() ? { message: "Kirjoita viesti asiakkaalle." } : {}),
-      ...(!amountEuros || amountEuros <= 0
+      ...(!workEuros || workEuros <= 0
         ? { amount_euros: "Anna kelvollinen hinta euroina." }
         : {}),
     });
   }
 
-  if (!amountEuros || amountEuros <= 0) {
-    return bidError(formData, "Anna kelvollinen hinta euroina.", {
+  if (!workEuros || workEuros <= 0) {
+    return bidError(formData, "Anna kelvollinen asennuksen / työn hinta.", {
       amount_euros: "Hinnan täytyy olla suurempi kuin nolla.",
     });
   }
@@ -124,8 +140,35 @@ async function parseBidSubmission(
     return bidError(formData, "Tähän pyyntöön ei voi enää jättää tarjouksia.");
   }
 
+  const projectDetails =
+    project.details as Parameters<typeof projectAllowsOptionalEquipmentOffer>[0];
+  const allowOptionalEquipmentOffer =
+    projectAllowsOptionalEquipmentOffer(projectDetails);
+
+  if (offersEquipment && !allowOptionalEquipmentOffer) {
+    return bidError(
+      formData,
+      "Asiakas ei ole sallinut laitetarjousta tähän pyyntöön.",
+      { offers_equipment: "Laitetarjous ei ole sallittu." },
+    );
+  }
+
+  if (offersEquipment) {
+    if (!equipmentEuros || equipmentEuros <= 0) {
+      return bidError(formData, "Anna laitteen hinta.", {
+        equipment_amount_euros:
+          "Laitteen hinnan täytyy olla suurempi kuin nolla.",
+      });
+    }
+    if (!equipmentDescription) {
+      return bidError(formData, "Kuvaile tarjoamasi laite.", {
+        equipment_description: "Kuvaile lyhyesti laite / toimitus.",
+      });
+    }
+  }
+
   const budgetInfo = getProjectBudgetInfo(project);
-  const overBudgetError = getOverBudgetBlockError(amountEuros, budgetInfo);
+  const overBudgetError = getOverBudgetBlockError(totalEuros, budgetInfo);
   if (overBudgetError) {
     return bidError(formData, overBudgetError, {
       amount_euros: overBudgetError,
@@ -133,7 +176,8 @@ async function parseBidSubmission(
   }
 
   const requiresEquipmentWarranty = projectRequiresEquipmentWarranty(
-    project.details as Parameters<typeof projectRequiresEquipmentWarranty>[0],
+    projectDetails,
+    offersEquipment,
   );
   const terms = parseBidTermsFromFormData(formData, requiresEquipmentWarranty);
   if (!terms.ok) return bidError(formData, terms.error);
@@ -141,7 +185,12 @@ async function parseBidSubmission(
   return {
     projectId,
     message,
-    amountCents: Math.round(amountEuros * 100),
+    amountCents: Math.round(workEuros * 100),
+    offersEquipment,
+    equipmentAmountCents: offersEquipment
+      ? Math.round(equipmentEuros * 100)
+      : null,
+    equipmentDescription: offersEquipment ? equipmentDescription : null,
     estimatedDays: estimatedDaysRaw ? Number(estimatedDaysRaw) : null,
     vatIncluded,
     terms: terms.data,
@@ -156,6 +205,9 @@ function bidRowFromPayload(
   return {
     status,
     amount_cents: payload.amountCents,
+    offers_equipment: payload.offersEquipment,
+    equipment_amount_cents: payload.equipmentAmountCents,
+    equipment_description: payload.equipmentDescription,
     vat_included: payload.vatIncluded,
     estimated_days: payload.estimatedDays,
     message: payload.message,
@@ -696,10 +748,12 @@ export async function acceptBid(formData: FormData): Promise<void> {
 
   if (!["published", "receiving_bids"].includes(project.status)) return;
 
+  const includeEquipmentRaw = String(formData.get("include_equipment") ?? "");
+
   const { data: bid } = await supabase
     .from("bids")
     .select(
-      "id, project_id, contractor_id, status, confirmed_content_revision, counter_status",
+      "id, project_id, contractor_id, status, amount_cents, offers_equipment, equipment_amount_cents, confirmed_content_revision, counter_status",
     )
     .eq("id", bidId)
     .eq("project_id", projectId)
@@ -713,6 +767,21 @@ export async function acceptBid(formData: FormData): Promise<void> {
 
   if (isBidStale(bid, project.content_revision)) {
     redirect(`/remontti/${projectId}?virhe=vanhentunut-tarjous`);
+  }
+
+  const splitEquipmentOffer =
+    Boolean(bid.offers_equipment) &&
+    bid.equipment_amount_cents != null &&
+    bid.equipment_amount_cents > 0;
+
+  let acceptedIncludesEquipment: boolean | null = null;
+  if (splitEquipmentOffer) {
+    if (includeEquipmentRaw !== "1" && includeEquipmentRaw !== "0") {
+      redirect(`/remontti/${projectId}?virhe=valitse-laite`);
+    }
+    acceptedIncludesEquipment = includeEquipmentRaw === "1";
+  } else {
+    acceptedIncludesEquipment = Boolean(bid.offers_equipment);
   }
 
   const { count: bidderCount } = await supabase
@@ -740,6 +809,11 @@ export async function acceptBid(formData: FormData): Promise<void> {
       accepted_bid_id: bidId,
     })
     .eq("id", projectId);
+
+  await supabase
+    .from("bids")
+    .update({ accepted_includes_equipment: acceptedIncludesEquipment })
+    .eq("id", bidId);
 
   await ensureProjectConversation(
     supabase,
@@ -785,12 +859,19 @@ export async function acceptBid(formData: FormData): Promise<void> {
     commitDeadline,
   });
 
+  const acceptedAmountCents =
+    acceptedIncludesEquipment && bid.equipment_amount_cents
+      ? bid.amount_cents + bid.equipment_amount_cents
+      : bid.amount_cents;
+
   void userNotifyBidAccepted({
     contractorId: bid.contractor_id,
     projectTitle: project.title,
     projectId,
     commitDeadline,
     feeCents,
+    acceptedAmountCents,
+    acceptedIncludesEquipment: acceptedIncludesEquipment ?? false,
   });
 
   revalidatePath(`/remontti/${projectId}`);

@@ -6,6 +6,12 @@ import { ProjectChat } from "@/components/messaging/project-chat";
 import { SiteHeader } from "@/components/site-header";
 import { ProjectOverviewCards } from "@/components/project/project-overview-cards";
 import { fetchProjectPhotos } from "@/lib/project-photos";
+import {
+  bidHasSplitEquipmentOffer,
+  bidResolvedAmountCents,
+  formatBidAcceptScopeShort,
+} from "@/lib/bid-accept-scope";
+import { bidTotalAmountCents, bidWorkAmountCents } from "@/lib/bid-amounts";
 import { formatEurosFromCents } from "@/lib/bids";
 import { getSessionUser, isContractor } from "@/lib/auth";
 import { fetchContractorProjectConversation } from "@/lib/messages-server";
@@ -46,7 +52,9 @@ export default async function ContractorWonProjectPage({
 
   const { data: bid } = await supabase
     .from("bids")
-    .select("id, amount_cents, message, status, estimated_days, submitted_at")
+    .select(
+      "id, amount_cents, offers_equipment, equipment_amount_cents, equipment_description, accepted_includes_equipment, message, status, estimated_days, submitted_at",
+    )
     .eq("project_id", id)
     .eq("contractor_id", user.id)
     .maybeSingle();
@@ -137,9 +145,45 @@ export default async function ContractorWonProjectPage({
         <p className="text-stone-500">{categoryName}</p>
 
         <div className="mt-6 rounded-xl border border-stone-200 bg-white p-5">
-          <p className="text-2xl font-bold text-sky-800">
-            {formatEurosFromCents(bid.amount_cents)}
-          </p>
+          {bidHasSplitEquipmentOffer(bid) &&
+          bid.accepted_includes_equipment != null ? (
+            <>
+              <p className="text-sm font-medium text-stone-600">
+                Asiakas hyväksyi:{" "}
+                {formatBidAcceptScopeShort(bid.accepted_includes_equipment)}
+              </p>
+              <p className="mt-1 text-2xl font-bold text-sky-800">
+                {formatEurosFromCents(bidResolvedAmountCents(bid))}
+              </p>
+              <p className="mt-1 text-sm text-stone-600">
+                Asennus {formatEurosFromCents(bidWorkAmountCents(bid))}
+                {bid.accepted_includes_equipment &&
+                  bid.equipment_amount_cents != null && (
+                    <>
+                      {" "}
+                      + laite {formatEurosFromCents(bid.equipment_amount_cents)}
+                    </>
+                  )}
+              </p>
+              {bid.equipment_description && bid.accepted_includes_equipment && (
+                <p className="mt-1 text-sm text-stone-600">
+                  {bid.equipment_description}
+                </p>
+              )}
+            </>
+          ) : (
+            <p className="text-2xl font-bold text-sky-800">
+              {formatEurosFromCents(bidResolvedAmountCents(bid))}
+            </p>
+          )}
+          {bidHasSplitEquipmentOffer(bid) &&
+            bid.accepted_includes_equipment == null && (
+              <p className="mt-1 text-sm text-stone-500">
+                Tarjous: asennus {formatEurosFromCents(bidWorkAmountCents(bid))}{" "}
+                tai yhteensä {formatEurosFromCents(bidTotalAmountCents(bid))}{" "}
+                laitteen kanssa
+              </p>
+            )}
           <p className="mt-2 text-sm whitespace-pre-wrap text-stone-700">
             {bid.message}
           </p>

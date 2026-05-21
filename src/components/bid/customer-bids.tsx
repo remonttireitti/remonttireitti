@@ -6,6 +6,12 @@ import { isBidStale } from "@/lib/bid-staleness";
 import { formatCounterOfferStatus } from "@/lib/bid-counter-offer";
 import { formatBidDate } from "@/lib/bid-terms";
 import {
+  bidHasSplitEquipmentOffer,
+  bidResolvedAmountCents,
+  formatBidAcceptScopeShort,
+} from "@/lib/bid-accept-scope";
+import { bidTotalAmountCents } from "@/lib/bid-amounts";
+import {
   bidStatusLabels,
   formatEurosFromCents,
   getBidContractorName,
@@ -18,6 +24,10 @@ export type BidWithContractor = {
   id: string;
   contractor_id: string;
   amount_cents: number;
+  offers_equipment?: boolean | null;
+  equipment_amount_cents?: number | null;
+  equipment_description?: string | null;
+  accepted_includes_equipment?: boolean | null;
   message: string;
   status: BidStatus;
   estimated_days: number | null;
@@ -116,6 +126,9 @@ export function CustomerBids({
     );
   }
   const sorted = sortBidsForComparison(visibleBids);
+  const showEquipmentBreakdown = sorted.some(
+    (b) => b.offers_equipment && b.equipment_amount_cents,
+  );
   const showEquipmentWarranty = sorted.some((b) => b.warranty_equipment);
   const showCounterRow = sorted.some(
     (b) => b.counter_status && b.counter_amount_cents,
@@ -139,7 +152,9 @@ export function CustomerBids({
       <p className="mt-1 text-sm text-stone-500">
         {finalizing
           ? "Valittu urakoitsija viimeistelee tilausta (välitysmaksu). Muut tarjoukset säilyvät, jos valinta raukeaa määräajassa."
-          : "Vertaile tarjouksia sarakkeittain. Halvin hinta ensin, hyväksytty korostettuna."}
+          : showEquipmentBreakdown
+            ? "Vertaile tarjouksia sarakkeittain. Järjestys: halvin asennus ensin (laite valinnainen hyväksynnässä)."
+            : "Vertaile tarjouksia sarakkeittain. Halvin hinta ensin, hyväksytty korostettuna."}
       </p>
 
       <ContractorTrustBanner />
@@ -185,24 +200,86 @@ export function CustomerBids({
             </tr>
           </thead>
           <tbody>
-            <tr className="border-b border-stone-100">
-              <th className={labelCell} scope="row">
-                Hinta
-              </th>
-              {sorted.map((bid) => (
-                <td
-                  key={bid.id}
-                  className={`${dataCell} border-l font-bold text-sky-800 ${columnClass(bid.status, isPendingWinner(bid))}`}
-                >
-                  {formatEurosFromCents(bid.amount_cents)}
-                  {bid.vat_included && (
-                    <span className="mt-0.5 block text-xs font-normal text-stone-500">
-                      sis. ALV
-                    </span>
-                  )}
-                </td>
-              ))}
-            </tr>
+            {showEquipmentBreakdown ? (
+              <>
+                <tr className="border-b border-stone-100">
+                  <th className={labelCell} scope="row">
+                    Asennus ja työ
+                  </th>
+                  {sorted.map((bid) => (
+                    <td
+                      key={bid.id}
+                      className={`${dataCell} border-l ${columnClass(bid.status, isPendingWinner(bid))}`}
+                    >
+                      {formatEurosFromCents(bid.amount_cents)}
+                    </td>
+                  ))}
+                </tr>
+                <tr className="border-b border-stone-100 bg-stone-50/50">
+                  <th className={labelCell} scope="row">
+                    Laite
+                  </th>
+                  {sorted.map((bid) => (
+                    <td
+                      key={bid.id}
+                      className={`${dataCell} border-l ${columnClass(bid.status, isPendingWinner(bid))}`}
+                    >
+                      {bid.offers_equipment && bid.equipment_amount_cents ? (
+                        <div>
+                          <p className="font-medium text-stone-900">
+                            {formatEurosFromCents(bid.equipment_amount_cents)}
+                          </p>
+                          {bid.equipment_description && (
+                            <p className="mt-1 text-xs text-stone-600">
+                              {bid.equipment_description}
+                            </p>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-stone-400">—</span>
+                      )}
+                    </td>
+                  ))}
+                </tr>
+                <tr className="border-b border-stone-100">
+                  <th className={labelCell} scope="row">
+                    Yhteensä
+                  </th>
+                  {sorted.map((bid) => (
+                    <td
+                      key={bid.id}
+                      className={`${dataCell} border-l font-bold text-sky-800 ${columnClass(bid.status, isPendingWinner(bid))}`}
+                    >
+                      {formatEurosFromCents(bidTotalAmountCents(bid))}
+                      {bid.vat_included && (
+                        <span className="mt-0.5 block text-xs font-normal text-stone-500">
+                          sis. ALV
+                        </span>
+                      )}
+                    </td>
+                  ))}
+                </tr>
+              </>
+            ) : (
+              <tr className="border-b border-stone-100">
+                <th className={labelCell} scope="row">
+                  Hinta
+                </th>
+                {sorted.map((bid) => (
+                  <td
+                    key={bid.id}
+                    className={`${dataCell} border-l font-bold text-sky-800 ${columnClass(bid.status, isPendingWinner(bid))}`}
+                  >
+                    {formatEurosFromCents(bidTotalAmountCents(bid))}
+                    {bid.vat_included && (
+                      <span className="mt-0.5 block text-xs font-normal text-stone-500">
+                        sis. ALV
+                      </span>
+                    )}
+                  </td>
+                ))}
+              </tr>
+            )}
 
             <tr className="border-b border-stone-100 bg-stone-50/50">
               <th className={labelCell} scope="row">
@@ -330,8 +407,22 @@ export function CustomerBids({
                   >
                     {isPendingWinner(bid) && (
                       <p className="text-sm text-sky-800">
-                        Valittu urakoitsijaksi. Odottaa välitysmaksun maksua —
-                        yhteystiedot avautuvat sen jälkeen.
+                        Valittu urakoitsijaksi
+                        {bidHasSplitEquipmentOffer(bid) &&
+                          bid.accepted_includes_equipment != null && (
+                            <>
+                              {" "}
+                              ({formatBidAcceptScopeShort(
+                                bid.accepted_includes_equipment,
+                              )}
+                              , {formatEurosFromCents(
+                                bidResolvedAmountCents(bid),
+                              )}
+                              )
+                            </>
+                          )}
+                        . Odottaa välitysmaksun maksua — yhteystiedot avautuvat
+                        sen jälkeen.
                       </p>
                     )}
                     {bid.status === "accepted" && (

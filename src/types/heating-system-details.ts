@@ -21,6 +21,7 @@ export type HeatingSystemDetails = {
   property_type: string;
   quality_tier: "budget" | "standard" | "premium";
   equipment_supply: EquipmentSupplyScope;
+  allow_optional_equipment_offer: boolean;
   installation_scenario: "new" | "replacement" | "alongside";
   /** @deprecated Käytä current_heating_type */
   current_heating: string;
@@ -57,6 +58,7 @@ export const INITIAL_HEATING_SYSTEM_DETAILS: HeatingSystemDetails = {
   property_type: "omakotitalo",
   quality_tier: "standard",
   equipment_supply: DEFAULT_EQUIPMENT_SUPPLY,
+  allow_optional_equipment_offer: false,
   installation_scenario: "new",
   current_heating: "",
   alongside_heating: "",

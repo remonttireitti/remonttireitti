@@ -208,16 +208,21 @@ export async function notifyBidAccepted(params: {
   projectId: string;
   commitDeadline: string;
   feeCents: number;
+  acceptedAmountCents: number;
+  acceptedIncludesEquipment: boolean;
 }) {
   const { formatDeadlineFi } = await import("@/lib/bid-acceptance");
   const { formatPlatformFeeInvoiceLine } = await import("@/lib/platform-fee");
   const dl = formatDeadlineFi(params.commitDeadline);
   const feeLine = formatPlatformFeeInvoiceLine(params.feeCents);
+  const scope = params.acceptedIncludesEquipment
+    ? "asennus ja laite"
+    : "vain asennus";
   await sendUserEmail(
     params.contractorId,
     `Tarjouksesi hyväksyttiin: ${params.projectTitle}`,
     "Viimeistele diili määräajassa",
-    `<p>Asiakas hyväksyi tarjouksesi urakkaan <em>${escapeHtml(params.projectTitle)}</em>.</p>
+    `<p>Asiakas hyväksyi tarjouksesi urakkaan <em>${escapeHtml(params.projectTitle)}</em> (${scope}, ${formatEuros(params.acceptedAmountCents / 100)} €).</p>
      <p><strong>Maksa välityspalkkio viimeistään ${escapeHtml(dl)}:</strong> ${escapeHtml(feeLine)}.</p>
      <p style="color:#b45309">Jos et maksa määräajassa, diili raukeaa ja asiakas voi valita toisen urakoitsijan.</p>`,
     `/tarjoukset/urakka/${params.projectId}`,

@@ -25,6 +25,8 @@ export type IlmalampopumppuDetails = {
   cooling_need: IlpCoolingNeed;
   quality_tier: "budget" | "standard" | "premium";
   equipment_supply: EquipmentSupplyScope;
+  /** Kun equipment_supply === installation_only: urakoitsija voi tarjota laitetta erillisellä summalla. */
+  allow_optional_equipment_offer: boolean;
   system_type: "split_1_1" | "multi_split";
   indoor_unit_count: number;
   /** Yksi järjestelmä tai kaksi erillistä split-tarjousta samassa pyynnössä. */
@@ -83,6 +85,7 @@ export const INITIAL_ILP_DETAILS: IlmalampopumppuDetails = {
   cooling_need: "normal",
   quality_tier: "standard",
   equipment_supply: DEFAULT_EQUIPMENT_SUPPLY,
+  allow_optional_equipment_offer: true,
   system_type: "split_1_1",
   indoor_unit_count: 1,
   quote_layout: "single",

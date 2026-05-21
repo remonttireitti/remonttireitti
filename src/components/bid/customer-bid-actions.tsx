@@ -13,6 +13,11 @@ import {
   hasPendingCounterOffer,
   type BidCounterFields,
 } from "@/lib/bid-counter-offer";
+import {
+  bidHasSplitEquipmentOffer,
+  formatBidAcceptScopeShort,
+} from "@/lib/bid-accept-scope";
+import { bidTotalAmountCents, bidWorkAmountCents } from "@/lib/bid-amounts";
 import { STALE_BID_CUSTOMER_MESSAGE } from "@/lib/bid-staleness";
 import { formatEurosFromCents } from "@/lib/bids";
 
@@ -27,7 +32,12 @@ export function CustomerBidActions({
 }: {
   bidId: string;
   projectId: string;
-  bid: BidCounterFields & { amount_cents: number };
+  bid: BidCounterFields & {
+    amount_cents: number;
+    offers_equipment?: boolean | null;
+    equipment_amount_cents?: number | null;
+    equipment_description?: string | null;
+  };
   stale?: boolean;
 }) {
   const [showCounterForm, setShowCounterForm] = useState(false);
@@ -46,6 +56,7 @@ export function CustomerBidActions({
   const counterAccepted = bid.counter_status === "accepted";
   const counterDeclined = bid.counter_status === "declined";
   const canAcceptFinal = !stale && !counterPending;
+  const splitOffer = bidHasSplitEquipmentOffer(bid);
 
   return (
     <div className="space-y-2">
@@ -94,7 +105,49 @@ export function CustomerBidActions({
         </p>
       )}
 
-      {canAcceptFinal && (
+      {canAcceptFinal && splitOffer && (
+        <div className="space-y-2 rounded-lg border border-sky-100 bg-sky-50/50 p-3">
+          <p className="text-xs font-medium text-stone-800">
+            Urakoitsija tarjoaa asennusta ja laitetta erillisillä hinnoilla.
+            Valitse mitä hyväksyt:
+          </p>
+          {bid.equipment_description && (
+            <p className="text-xs text-stone-600">
+              Laite: {bid.equipment_description}
+            </p>
+          )}
+          <form action={acceptBid}>
+            <input type="hidden" name="bid_id" value={bidId} />
+            <input type="hidden" name="project_id" value={projectId} />
+            <input type="hidden" name="include_equipment" value="0" />
+            <button
+              type="submit"
+              className="w-full rounded-lg bg-orange-700 px-3 py-2 text-sm font-medium text-white hover:bg-orange-800"
+            >
+              Hyväksy vain asennus —{" "}
+              {formatEurosFromCents(bidWorkAmountCents(bid))}
+            </button>
+          </form>
+          <form action={acceptBid}>
+            <input type="hidden" name="bid_id" value={bidId} />
+            <input type="hidden" name="project_id" value={projectId} />
+            <input type="hidden" name="include_equipment" value="1" />
+            <button
+              type="submit"
+              className="w-full rounded-lg border-2 border-orange-700 bg-white px-3 py-2 text-sm font-medium text-orange-800 hover:bg-orange-50"
+            >
+              Hyväksy {formatBidAcceptScopeShort(true)} —{" "}
+              {formatEurosFromCents(bidTotalAmountCents(bid))}
+              <span className="mt-0.5 block text-xs font-normal text-stone-600">
+                ({formatEurosFromCents(bidWorkAmountCents(bid))} + laite{" "}
+                {formatEurosFromCents(bid.equipment_amount_cents!)})
+              </span>
+            </button>
+          </form>
+        </div>
+      )}
+
+      {canAcceptFinal && !splitOffer && (
         <form action={acceptBid}>
           <input type="hidden" name="bid_id" value={bidId} />
           <input type="hidden" name="project_id" value={projectId} />
@@ -128,6 +181,7 @@ export function CustomerBidActions({
           <input type="hidden" name="project_id" value={projectId} />
           <p className="text-xs font-medium text-stone-700">
             Ehdota uutta hintaa (€, sis. ALV)
+            {splitOffer && " — koskee asennusta"}
           </p>
           <input
             name="counter_amount_euros"
