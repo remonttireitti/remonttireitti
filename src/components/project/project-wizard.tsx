@@ -24,7 +24,7 @@ import {
   buildMaalampDescription,
   validateMaalampDetails,
 } from "@/lib/maalampopumppu-details";
-import { EQUIPMENT_SUPPLY_LABELS } from "@/lib/equipment-supply";
+import { ProjectSummaryReview } from "@/components/project/project-summary-review";
 import {
   INITIAL_ILP_DETAILS,
   type IlmalampopumppuDetails,
@@ -280,7 +280,16 @@ export function ProjectWizard({
         ? JSON.stringify(ilpDetails)
         : "";
 
-  const displayDescription = submitDescription;
+  const summaryBudgetMax =
+    isIlp && ilpDetails.budget_max_eur
+      ? `n. ${ilpDetails.budget_max_eur} €`
+      : isIvlp && ivlpDetails.budget_max_eur
+        ? `n. ${ivlpDetails.budget_max_eur} €`
+        : isMaalamp && maalampDetails.budget_max_eur
+          ? `n. ${maalampDetails.budget_max_eur} €`
+          : !hasStructuredForm && form.budget_max
+            ? `${form.budget_max} €`
+            : null;
 
   return (
     <WizardShell step={step} steps={STEPS}>
@@ -550,58 +559,25 @@ export function ProjectWizard({
         )}
 
         {step === 3 && (
-          <dl className="space-y-3 text-sm">
-            <SummaryRow
-              label="Lämpöpumppu"
-              value={selectedJobType?.name_fi ?? "—"}
-            />
-            <SummaryRow
-              label="Otsikko"
-              value={form.title || (selectedJobType?.name_fi ?? "—")}
-            />
-            <SummaryRow label="Kuvaus" value={displayDescription} />
-            {hasStructuredForm && (
-              <SummaryRow
-                label="Tarjouksen laajuus"
-                value={
-                  EQUIPMENT_SUPPLY_LABELS[
-                    isIlp
-                      ? ilpDetails.equipment_supply
-                      : isIvlp
-                        ? ivlpDetails.equipment_supply
-                        : maalampDetails.equipment_supply
-                  ]
-                }
-              />
-            )}
-            {isIlp && ilpDetails.budget_max_eur && (
-              <SummaryRow
-                label="Budjetin yläraja"
-                value={`n. ${ilpDetails.budget_max_eur} €`}
-              />
-            )}
-            {isIvlp && ivlpDetails.budget_max_eur && (
-              <SummaryRow
-                label="Budjetin yläraja"
-                value={`n. ${ivlpDetails.budget_max_eur} €`}
-              />
-            )}
-            {isMaalamp && maalampDetails.budget_max_eur && (
-              <SummaryRow
-                label="Budjetin yläraja"
-                value={`n. ${maalampDetails.budget_max_eur} €`}
-              />
-            )}
-            {!hasStructuredForm && form.budget_max && (
-              <SummaryRow label="Budjetti max" value={`${form.budget_max} €`} />
-            )}
-            <SummaryRow label="Sähköposti" value={form.contact_email} />
-            <SummaryRow label="Puhelin" value={form.contact_phone} />
-            <SummaryRow
-              label="Urakan osoite"
-              value={`${form.address_line}, ${form.postal_code} ${form.municipality}`}
-            />
-          </dl>
+          <ProjectSummaryReview
+            jobTypeName={selectedJobType?.name_fi ?? "—"}
+            title={form.title || (selectedJobType?.name_fi ?? "—")}
+            description={submitDescription}
+            isIlp={isIlp}
+            ilpDetails={ilpDetails}
+            isIvlp={isIvlp}
+            ivlpDetails={ivlpDetails}
+            isMaalamp={isMaalamp}
+            maalampDetails={maalampDetails}
+            hasStructuredForm={hasStructuredForm}
+            contactEmail={form.contact_email}
+            contactPhone={form.contact_phone}
+            addressLine={form.address_line}
+            postalCode={form.postal_code}
+            municipality={form.municipality}
+            budgetMaxLabel={summaryBudgetMax}
+            photoCount={photoFiles.length}
+          />
         )}
 
         {state.error && (
@@ -696,11 +672,3 @@ function WizardShell({
   );
 }
 
-function SummaryRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <dt className="text-stone-500">{label}</dt>
-      <dd className="mt-0.5 font-medium whitespace-pre-wrap">{value}</dd>
-    </div>
-  );
-}
