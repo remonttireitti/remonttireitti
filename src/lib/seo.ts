@@ -37,7 +37,13 @@ export const rootMetadata: Metadata = {
     template: `%s | ${siteConfig.name}`,
   },
   description: defaultDescription,
-  icons: { icon: "/logo.svg", apple: "/logo.svg" },
+  icons: {
+    icon: [
+      { url: "/logo.svg", type: "image/svg+xml" },
+      { url: "/icon.png", sizes: "32x32", type: "image/png" },
+    ],
+    apple: [{ url: "/apple-icon.png", sizes: "180x180", type: "image/png" }],
+  },
   ...(siteConfig.googleSiteVerification
     ? {
         verification: {

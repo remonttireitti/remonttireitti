@@ -1,7 +1,16 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none" role="img" aria-label="Remonttireitti">
-  <rect width="48" height="48" rx="12" fill="#047857"/>
-  <path d="M10 22L24 11l14 11v15H10V22z" fill="#ecfdf5" stroke="#a7f3d0" stroke-width="1.2" stroke-linejoin="round"/>
-  <circle cx="24" cy="26" r="7" fill="#065f46" stroke="#6ee7b7" stroke-width="1.2"/>
-  <path d="M24 21v10M19 26h10" stroke="#a7f3d0" stroke-width="1.4" stroke-linecap="round"/>
-  <path d="M21 24c1.2-1.5 2.8-1.5 3 0s1.8 1.5 3 0" stroke="#6ee7b7" stroke-width="1" stroke-linecap="round" fill="none"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" fill="none" role="img" aria-label="Remonttireitti">
+  <defs>
+    <linearGradient id="logo-grad" x1="4" y1="4" x2="36" y2="36">
+      <stop stop-color="#0284c7"/>
+      <stop offset="1" stop-color="#0369a1"/>
+    </linearGradient>
+    <linearGradient id="route-grad" x1="8" y1="28" x2="32" y2="12">
+      <stop stop-color="#fb923c"/>
+      <stop offset="1" stop-color="#ea580c"/>
+    </linearGradient>
+  </defs>
+  <rect width="40" height="40" rx="11" fill="url(#logo-grad)"/>
+  <path d="M10 19.5 20 11l10 8.5V29H10v-9.5Z" fill="#fff" fill-opacity="0.95"/>
+  <path d="M14 26.5c3-4 9-4 12 0" stroke="url(#route-grad)" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+  <circle cx="20" cy="24" r="2" fill="#ea580c"/>
 </svg>
