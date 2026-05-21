@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { AdminNav } from "@/components/admin/admin-nav";
+import { AdminProjectBidsList } from "@/components/admin/admin-project-bids-list";
 import { ProjectRowActions } from "@/components/admin/project-row-actions";
 import { SiteHeader } from "@/components/site-header";
 import { requireAdmin } from "@/lib/admin";
@@ -92,34 +93,12 @@ export default async function AdminProjectDetailPage({
         </div>
 
         <section className="mt-6">
-          <h2 className="text-lg font-semibold">Tarjoukset</h2>
-          {project.bids.length === 0 ? (
-            <p className="mt-2 rounded-xl border border-stone-200 bg-white p-4 text-sm text-stone-600">
-              Ei vielä tarjouksia. Urakoitsijat näkevät julkaistun pyynnön
-              sivulla /tarjoukset.
-            </p>
-          ) : (
-            <ul className="mt-3 space-y-3">
-              {project.bids.map((b) => (
-                <li
-                  key={b.id}
-                  className="rounded-xl border border-stone-200 bg-white p-4 text-sm"
-                >
-                  <div className="flex flex-wrap justify-between gap-2">
-                    <span className="font-medium">
-                      {b.company_name ?? "Urakoitsija"}
-                    </span>
-                    <span className="text-xs text-stone-500">{b.status}</span>
-                  </div>
-                  <p className="mt-1 text-stone-600">
-                    {(b.amount_cents / 100).toLocaleString("fi-FI")} €
-                    {" · "}
-                    {new Date(b.created_at).toLocaleString("fi-FI")}
-                  </p>
-                </li>
-              ))}
-            </ul>
-          )}
+          <h2 className="text-lg font-semibold">
+            Tarjoukset ({project.bids.length})
+          </h2>
+          <div className="mt-3">
+            <AdminProjectBidsList bids={project.bids} />
+          </div>
         </section>
       </main>
     </div>

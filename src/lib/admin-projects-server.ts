@@ -1,5 +1,18 @@
+import { bidTotalAmountCents } from "@/lib/bid-amounts";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { ProjectStatus } from "@/types/database";
+
+export type AdminBidSummary = {
+  id: string;
+  project_id: string;
+  status: string;
+  amount_cents: number;
+  offers_equipment: boolean | null;
+  equipment_amount_cents: number | null;
+  company_name: string | null;
+  contractorEmail: string | null;
+  submitted_at: string | null;
+};
 
 export type AdminProjectListRow = {
   id: string;
@@ -14,7 +27,30 @@ export type AdminProjectListRow = {
   customerName: string | null;
   categoryName: string;
   bidCount: number;
+  bids: AdminBidSummary[];
 };
+
+function contractorCompanyFromRow(
+  cp: { company_name: string | null } | { company_name: string | null }[] | null,
+): string | null {
+  if (!cp) return null;
+  if (Array.isArray(cp)) return cp[0]?.company_name ?? null;
+  return cp.company_name;
+}
+
+async function loadAuthEmails(
+  admin: ReturnType<typeof createAdminClient>,
+  userIds: string[],
+): Promise<Map<string, string>> {
+  if (userIds.length === 0) return new Map();
+  const { data: authList } = await admin.auth.admin.listUsers({ perPage: 200 });
+  const wanted = new Set(userIds);
+  return new Map(
+    (authList?.users ?? [])
+      .filter((u) => wanted.has(u.id))
+      .map((u) => [u.id, u.email ?? "—"]),
+  );
+}
 
 export async function fetchAdminProjectsList(options?: {
   statusFilter?: string;
@@ -60,22 +96,59 @@ export async function fetchAdminProjectsList(options?: {
   }
 
   const projectIds = (projects ?? []).map((p) => p.id as string);
-  const bidCountByProject = new Map<string, number>();
+  const bidsByProject = new Map<string, AdminBidSummary[]>();
 
   if (projectIds.length > 0) {
     const { data: bidRows, error: bidsError } = await admin
       .from("bids")
-      .select("project_id")
-      .in("project_id", projectIds);
+      .select(
+        `
+        id,
+        project_id,
+        status,
+        amount_cents,
+        offers_equipment,
+        equipment_amount_cents,
+        submitted_at,
+        contractor_id,
+        contractor_profiles ( company_name )
+      `,
+      )
+      .in("project_id", projectIds)
+      .order("submitted_at", { ascending: false, nullsFirst: false });
 
     if (bidsError) {
       console.error("[fetchAdminProjectsList] bids", bidsError.code, bidsError.message);
       return { rows: [], error: bidsError.message };
     }
 
+    const contractorIds = [
+      ...new Set((bidRows ?? []).map((b) => b.contractor_id as string)),
+    ];
+    const contractorEmailById = await loadAuthEmails(admin, contractorIds);
+
     for (const row of bidRows ?? []) {
       const pid = row.project_id as string;
-      bidCountByProject.set(pid, (bidCountByProject.get(pid) ?? 0) + 1);
+      const summary: AdminBidSummary = {
+        id: row.id as string,
+        project_id: pid,
+        status: row.status as string,
+        amount_cents: row.amount_cents as number,
+        offers_equipment: row.offers_equipment as boolean | null,
+        equipment_amount_cents: row.equipment_amount_cents as number | null,
+        company_name: contractorCompanyFromRow(
+          row.contractor_profiles as
+            | { company_name: string | null }
+            | { company_name: string | null }[]
+            | null,
+        ),
+        contractorEmail:
+          contractorEmailById.get(row.contractor_id as string) ?? null,
+        submitted_at: row.submitted_at as string | null,
+      };
+      const list = bidsByProject.get(pid) ?? [];
+      list.push(summary);
+      bidsByProject.set(pid, list);
     }
   }
 
@@ -118,7 +191,8 @@ export async function fetchAdminProjectsList(options?: {
       customerEmail: emailById.get(p.customer_id as string) ?? "—",
       customerName: nameById.get(p.customer_id as string) ?? null,
       categoryName,
-      bidCount: bidCountByProject.get(p.id as string) ?? 0,
+      bids: bidsByProject.get(p.id as string) ?? [],
+      bidCount: (bidsByProject.get(p.id as string) ?? []).length,
     };
   });
 
@@ -137,13 +211,7 @@ export type AdminProjectDetail = {
   customerEmail: string;
   customerName: string | null;
   categoryName: string;
-  bids: {
-    id: string;
-    status: string;
-    amount_cents: number;
-    company_name: string | null;
-    created_at: string;
-  }[];
+  bids: AdminBidSummary[];
 };
 
 export async function fetchAdminProjectById(
@@ -182,14 +250,23 @@ export async function fetchAdminProjectById(
     .select(
       `
       id,
+      project_id,
       status,
       amount_cents,
-      created_at,
+      offers_equipment,
+      equipment_amount_cents,
+      submitted_at,
+      contractor_id,
       contractor_profiles ( company_name )
     `,
     )
     .eq("project_id", projectId)
-    .order("created_at", { ascending: false });
+    .order("submitted_at", { ascending: false, nullsFirst: false });
+
+  const contractorIds = [
+    ...new Set((bids ?? []).map((b) => b.contractor_id as string)),
+  ];
+  const contractorEmailById = await loadAuthEmails(admin, contractorIds);
 
   const { data: profile } = await admin
     .from("profiles")
@@ -220,21 +297,22 @@ export async function fetchAdminProjectById(
     categoryName: Array.isArray(sc)
       ? (sc[0]?.name_fi ?? "—")
       : (sc?.name_fi ?? "—"),
-    bids: (bids ?? []).map((b) => {
-      const cp = b.contractor_profiles as
-        | { company_name: string | null }
-        | { company_name: string | null }[]
-        | null;
-      const company = Array.isArray(cp)
-        ? (cp[0]?.company_name ?? null)
-        : (cp?.company_name ?? null);
-      return {
-        id: b.id as string,
-        status: b.status as string,
-        amount_cents: b.amount_cents as number,
-        company_name: company,
-        created_at: b.created_at as string,
-      };
-    }),
+    bids: (bids ?? []).map((b) => ({
+      id: b.id as string,
+      project_id: b.project_id as string,
+      status: b.status as string,
+      amount_cents: b.amount_cents as number,
+      offers_equipment: b.offers_equipment as boolean | null,
+      equipment_amount_cents: b.equipment_amount_cents as number | null,
+      company_name: contractorCompanyFromRow(
+        b.contractor_profiles as
+          | { company_name: string | null }
+          | { company_name: string | null }[]
+          | null,
+      ),
+      contractorEmail:
+        contractorEmailById.get(b.contractor_id as string) ?? null,
+      submitted_at: b.submitted_at as string | null,
+    })),
   };
 }

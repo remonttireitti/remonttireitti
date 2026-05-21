@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AdminNav } from "@/components/admin/admin-nav";
+import { AdminProjectBidsList } from "@/components/admin/admin-project-bids-list";
 import { ProjectRowActions } from "@/components/admin/project-row-actions";
 import { SiteHeader } from "@/components/site-header";
 import { requireAdmin } from "@/lib/admin";
@@ -104,7 +105,6 @@ export default async function AdminProjectsPage({
                     >
                       {row.title}
                     </Link>
-                    <p className="mt-0.5 text-xs text-stone-500">{row.id}</p>
                   </div>
                   <span className="shrink-0 rounded-full bg-stone-100 px-2.5 py-1 text-xs font-medium">
                     {projectStatusLabels[row.status as ProjectStatus]}
@@ -130,10 +130,6 @@ export default async function AdminProjectsPage({
                     <dd>{row.categoryName}</dd>
                   </div>
                   <div>
-                    <dt className="text-stone-400">Tarjoukset</dt>
-                    <dd>{row.bidCount}</dd>
-                  </div>
-                  <div>
                     <dt className="text-stone-400">Luotu</dt>
                     <dd>
                       {new Date(row.created_at).toLocaleString("fi-FI")}
@@ -148,6 +144,15 @@ export default async function AdminProjectsPage({
                     </div>
                   )}
                 </dl>
+
+                <div className="mt-4 border-t border-stone-100 pt-4">
+                  <h3 className="text-xs font-medium uppercase tracking-wide text-stone-500">
+                    Tarjoukset ({row.bidCount})
+                  </h3>
+                  <div className="mt-2">
+                    <AdminProjectBidsList bids={row.bids} compact />
+                  </div>
+                </div>
 
                 <ProjectRowActions
                   projectId={row.id}

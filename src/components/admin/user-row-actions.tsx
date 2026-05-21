@@ -7,6 +7,7 @@ import {
   setUserRole,
   type AdminState,
 } from "@/app/actions/admin";
+import { profileRoleLabels } from "@/lib/profile-role-labels";
 
 export function UserRowActions({
   userId,
@@ -46,9 +47,9 @@ export function UserRowActions({
             defaultValue={currentRole}
             className="ml-1 rounded border border-stone-300 px-2 py-1 text-sm"
           >
-            <option value="customer">customer</option>
-            <option value="contractor">contractor</option>
-            <option value="admin">admin</option>
+            <option value="customer">{profileRoleLabels.customer}</option>
+            <option value="contractor">{profileRoleLabels.contractor}</option>
+            <option value="admin">{profileRoleLabels.admin}</option>
           </select>
         </label>
         <input
