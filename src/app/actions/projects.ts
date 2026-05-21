@@ -285,7 +285,80 @@ export async function createProject(
   revalidatePath("/oma-tili");
   revalidatePath(`/remontti/${data.id}`);
   revalidatePath("/tarjoukset");
-  redirect(`/remontti/${data.id}`);
+  redirect(publish ? `/remontti/${data.id}?julkaistu=1` : `/remontti/${data.id}?luonnos=1`);
+}
+
+export async function publishProject(
+  _prev: ProjectActionState,
+  formData: FormData,
+): Promise<ProjectActionState> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return { error: "Kirjaudu sisään." };
+
+  const projectId = String(formData.get("project_id") ?? "");
+  if (!projectId) return { error: "Puuttuva pyyntö." };
+
+  const { data: project } = await supabase
+    .from("projects")
+    .select(
+      "id, customer_id, status, title, job_type_id, municipality, postal_code, details",
+    )
+    .eq("id", projectId)
+    .single();
+
+  if (!project || project.customer_id !== user.id) {
+    return { error: "Ei oikeutta." };
+  }
+
+  if (project.status !== "draft") {
+    return { error: "Vain luonnosta voi julkaista." };
+  }
+
+  const now = new Date();
+  const bidDeadline = new Date(now);
+  bidDeadline.setDate(bidDeadline.getDate() + 14);
+
+  const { error } = await supabase
+    .from("projects")
+    .update({
+      status: "published",
+      published_at: now.toISOString(),
+      bid_deadline: bidDeadline.toISOString(),
+    })
+    .eq("id", projectId);
+
+  if (error) {
+    console.error("[publishProject]", error.code, error.message);
+    return { error: formatProjectSaveError(error) };
+  }
+
+  const maintenance = (project.details as { laitteen_huolto?: { device_category?: string } })
+    ?.laitteen_huolto;
+  if (maintenance?.device_category) {
+    void notifyContractorsNewMaintenanceProject({
+      projectId,
+      projectTitle: project.title,
+      jobTypeId: project.job_type_id,
+      deviceCategory: maintenance.device_category as DeviceCategory,
+      municipality: project.municipality,
+      postalCode: project.postal_code,
+    });
+  } else {
+    void notifyContractorsNewPublishedProject({
+      projectId,
+      projectTitle: project.title,
+      jobTypeId: project.job_type_id,
+      municipality: project.municipality,
+      postalCode: project.postal_code,
+    });
+  }
+
+  revalidateCustomerProjectPaths(projectId);
+  redirect(`/remontti/${projectId}?julkaistu=1`);
 }
 
 const EDITABLE_PROJECT_STATUSES = ["draft", "published", "receiving_bids"] as const;

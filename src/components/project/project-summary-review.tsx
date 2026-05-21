@@ -138,8 +138,8 @@ export function ProjectSummaryReview({
           Haluatko varmistaa tarjouspyynnön tiedot?
         </h2>
         <p className="mt-1 text-sm leading-relaxed text-stone-600">
-          Tarkista valinnat ennen julkaisua. Avaa osiot nuolesta — urakoitsijat
-          näkevät saman sisällön strukturoituna tarjouspyynnössä.
+          Tarkista valinnat ennen julkaisua. Avaa osiot nuolesta. Julkaisun jälkeen
+          urakoitsijat näkevät saman sisällön tarjouspyynnössä.
         </p>
       </div>
 

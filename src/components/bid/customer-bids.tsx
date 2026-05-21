@@ -118,6 +118,18 @@ export function CustomerBids({
     finalizing && bid.id === acceptedBidId && bid.status === "submitted";
   const visibleBids = bids.filter((b) => b.status !== "withdrawn");
 
+  if (projectStatus === "draft") {
+    return (
+      <section className="mt-8">
+        <h2 className="text-lg font-semibold">Tarjoukset</h2>
+        <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50/80 p-4 text-sm text-amber-950">
+          Pyyntö on luonnos — urakoitsijat eivät näe sitä ennen julkaisua. Julkaise
+          pyyntö sivun yläosasta, jotta tarjoukset voivat saapua.
+        </p>
+      </section>
+    );
+  }
+
   if (projectStatus === "cancelled") {
     return (
       <p className="mt-6 rounded-lg border border-stone-200 bg-stone-50 p-4 text-sm text-stone-600">

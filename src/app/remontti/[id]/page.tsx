@@ -5,6 +5,7 @@ import { OrderFinalizationStatus } from "@/components/bid/order-finalization-sta
 import { ProjectBiddingChats } from "@/components/messaging/project-bidding-chats";
 import { ProjectChat } from "@/components/messaging/project-chat";
 import { CancelProjectButton } from "@/components/project/cancel-project-button";
+import { ProjectDraftPublishPanel } from "@/components/project/project-draft-publish-panel";
 import { ProjectLifecyclePanel } from "@/components/project/project-lifecycle-panel";
 import { ProjectOverviewCards } from "@/components/project/project-overview-cards";
 import { fetchProjectPhotos } from "@/lib/project-photos";
@@ -34,10 +35,13 @@ export default async function ProjectPage({
     virhe?: string;
     paivitetty?: string;
     peruttu?: string;
+    luonnos?: string;
+    julkaistu?: string;
   }>;
 }) {
   const { id } = await params;
-  const { hyvaksytty, virhe, paivitetty, peruttu } = await searchParams;
+  const { hyvaksytty, virhe, paivitetty, peruttu, luonnos, julkaistu } =
+    await searchParams;
   const user = await getSessionUser();
   if (!user) redirect(`/kirjaudu?redirect=/remontti/${id}`);
 
@@ -243,6 +247,22 @@ export default async function ProjectPage({
 
         <p className="mt-1 text-stone-500">{categoryName}</p>
 
+        {luonnos === "1" && status === "draft" && (
+          <p
+            className="mt-4 rounded-lg border border-stone-200 bg-stone-100 p-3 text-sm text-stone-800"
+            role="status"
+          >
+            Luonnos tallennettu. Urakoitsijat eivät näe pyyntöä ennen julkaisua.
+          </p>
+        )}
+        {julkaistu === "1" && (
+          <p
+            className="mt-4 rounded-lg bg-sky-50 p-3 text-sm text-sky-900"
+            role="status"
+          >
+            Tarjouspyyntö julkaistu — urakoitsijat voivat nyt jättää tarjouksia.
+          </p>
+        )}
         {peruttu === "1" && (
           <p
             className="mt-4 rounded-lg bg-stone-100 p-3 text-sm text-stone-800"
@@ -293,6 +313,8 @@ export default async function ProjectPage({
             tukeen.
           </p>
         )}
+
+        {status === "draft" && <ProjectDraftPublishPanel projectId={id} />}
 
         {acceptedCompany && (
           <OrderFinalizationStatus

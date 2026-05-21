@@ -29,7 +29,7 @@ export function EquipmentSupplyField({
     <div className="space-y-5">
       <FieldGroup
         label="Mitä tarjousta pyydät?"
-        hint="Urakoitsijat näkevät valinnan tarjouspyynnössä"
+        hint="Näkyy urakoitsijoille, kun julkaiset pyynnön"
       >
         <RadioCards
           name={name}

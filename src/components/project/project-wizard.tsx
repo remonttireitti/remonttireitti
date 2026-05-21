@@ -123,6 +123,9 @@ export function ProjectWizard({
       : { ...INITIAL_MAALAMP_DETAILS },
   );
   const [photoFiles, setPhotoFiles] = useState<File[]>([]);
+  const [submitIntent, setSubmitIntent] = useState<"draft" | "publish" | null>(
+    null,
+  );
   const [state, action, pending] = useActionState<ProjectActionState, FormData>(
     isEdit ? updateProject : createProject,
     {},
@@ -619,18 +622,24 @@ export function ProjectWizard({
                 name="publish"
                 value="false"
                 disabled={pending}
+                onClick={() => setSubmitIntent("draft")}
                 className="rounded-lg border border-stone-300 px-5 py-2.5 text-sm font-medium hover:bg-stone-50 disabled:opacity-60"
               >
-                Tallenna luonnos
+                {pending && submitIntent === "draft"
+                  ? "Tallennetaan…"
+                  : "Tallenna luonnos"}
               </button>
               <button
                 type="submit"
                 name="publish"
                 value="true"
                 disabled={pending}
+                onClick={() => setSubmitIntent("publish")}
                 className={`${brand.btnPrimary} disabled:opacity-60`}
               >
-                {pending ? "Julkaistaan…" : "Julkaise tarjouspyyntö"}
+                {pending && submitIntent === "publish"
+                  ? "Julkaistaan…"
+                  : "Julkaise tarjouspyyntö"}
               </button>
             </>
           )}
