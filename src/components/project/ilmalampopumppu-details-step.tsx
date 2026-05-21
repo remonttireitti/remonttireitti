@@ -238,9 +238,9 @@ export function IlmalampopumppuDetailsStep({ details: d, onChange }: Props) {
           title={isDual ? "3. Kiinteistö ja energia" : "4. Kiinteistö ja energia"}
           description="Vaikutusalue teholaskentaa varten — ei koko rakennuksen pinta-alaa"
         >
-          <div className="grid gap-6 xl:grid-cols-2">
-            <div className="space-y-4">
-              <FieldGrid>
+          <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_17rem] lg:items-start">
+            <div className="min-w-0 space-y-6">
+              <FieldGrid cols={2}>
                 <FieldGroup label="Kiinteistön tyyppi">
                   <select
                     value={d.property_type}
@@ -254,29 +254,6 @@ export function IlmalampopumppuDetailsStep({ details: d, onChange }: Props) {
                     <option value="muu">Muu</option>
                   </select>
                 </FieldGroup>
-
-                {!isDual && (
-                  <FieldGroup
-                    label="Arvioitu vaikutusalue (m²) *"
-                    hint={ILP_COVERAGE_AREA_HINT}
-                  >
-                    <input
-                      type="number"
-                      min={10}
-                      placeholder="esim. 45"
-                      value={d.heated_area_m2 > 0 ? d.heated_area_m2 : ""}
-                      onChange={(e) =>
-                        set("heated_area_m2", Number(e.target.value) || 0)
-                      }
-                      className={formInputClass}
-                    />
-                    {d.heated_area_m2 < 10 && (
-                      <p className="mt-1 text-xs text-stone-500">
-                        Tehoarvio ilmestyy oikealle, kun syötät vaikutusalueen.
-                      </p>
-                    )}
-                  </FieldGroup>
-                )}
 
                 <FieldGroup label="Rakennusvuosi">
                   <input
@@ -294,6 +271,56 @@ export function IlmalampopumppuDetailsStep({ details: d, onChange }: Props) {
                     className={formInputClass}
                   />
                 </FieldGroup>
+
+                {!isDual && (
+                  <>
+                    <FieldGroup
+                      label="Vaikutusalue (m²) *"
+                      hint={ILP_COVERAGE_AREA_HINT}
+                    >
+                      <input
+                        type="number"
+                        min={10}
+                        placeholder="esim. 45"
+                        value={d.heated_area_m2 > 0 ? d.heated_area_m2 : ""}
+                        onChange={(e) =>
+                          set("heated_area_m2", Number(e.target.value) || 0)
+                        }
+                        className={formInputClass}
+                      />
+                    </FieldGroup>
+
+                    <FieldGroup
+                      label="Putkimatka ulko–sisä (m)"
+                      hint={
+                        d.system_type === "multi_split"
+                          ? "Arvio per sisäyksikkö, jos putket eroavat."
+                          : "Reittietäisyys yksiköiden välillä."
+                      }
+                    >
+                      <input
+                        type="number"
+                        min={0}
+                        placeholder="esim. 5"
+                        value={d.pipe_distance_m_per_unit ?? ""}
+                        onChange={(e) =>
+                          set(
+                            "pipe_distance_m_per_unit",
+                            e.target.value ? Number(e.target.value) : null,
+                          )
+                        }
+                        className={formInputClass}
+                      />
+                    </FieldGroup>
+                  </>
+                )}
+
+                <div className="sm:col-span-2">
+                  <ClimateZoneField
+                    value={d.climate_zone}
+                    onChange={(z) => set("climate_zone", z)}
+                  />
+                </div>
               </FieldGrid>
 
               {showLargeAreaHint && (
@@ -310,72 +337,60 @@ export function IlmalampopumppuDetailsStep({ details: d, onChange }: Props) {
                 />
               )}
 
-              {!isDual && (
+              <div className="rounded-xl border border-stone-200 bg-stone-50/60 p-4">
                 <FieldGroup
-                  label="Arvioitu putkimatka ulko- ja sisäyksikön välillä (m)"
-                  hint={
-                    d.system_type === "multi_split"
-                      ? "Arvio kullekin sisäyksikölle erikseen, jos putket eroavat."
-                      : "Reittietäisyys ulko- ja sisäyksikön välillä (ei koko talon läpi)."
-                  }
+                  label="Tarjouspyynnön rakenne"
+                  hint="Suurella alueella voit pyytää kaksi erillistä split-laitetta yhdellä pyynnöllä."
                 >
-                  <input
-                    type="number"
-                    min={0}
-                    placeholder="esim. 5"
-                    value={d.pipe_distance_m_per_unit ?? ""}
-                    onChange={(e) =>
-                      set(
-                        "pipe_distance_m_per_unit",
-                        e.target.value ? Number(e.target.value) : null,
+                  <RadioCards
+                    name="ilp_quote_layout"
+                    value={d.quote_layout}
+                    onChange={(v) =>
+                      setQuoteLayout(
+                        v as IlmalampopumppuDetails["quote_layout"],
                       )
                     }
-                    className={formInputClass}
+                    columns={2}
+                    options={[
+                      {
+                        value: "single",
+                        label: "Yksi järjestelmä",
+                        hint: "Split tai multisplit",
+                      },
+                      {
+                        value: "two_independent_splits",
+                        label: "Kaksi split-laitetta",
+                        hint: "Yksi tarjouspyyntö, laitteet erikseen",
+                      },
+                    ]}
                   />
                 </FieldGroup>
-              )}
-
-              <ClimateZoneField
-                value={d.climate_zone}
-                onChange={(z) => set("climate_zone", z)}
-              />
-
-              <FieldGroup
-                label="Tarjouspyynnön rakenne"
-                hint="Suurella alueella voit pyytää tarjouksen kahdesta erillisestä split-laitteesta yhdellä lomakkeella."
-              >
-                <RadioCards
-                  name="ilp_quote_layout"
-                  value={d.quote_layout}
-                  onChange={(v) =>
-                    setQuoteLayout(
-                      v as IlmalampopumppuDetails["quote_layout"],
-                    )
-                  }
-                  columns={1}
-                  options={[
-                    {
-                      value: "single",
-                      label: "Yksi järjestelmä (split tai multisplit)",
-                    },
-                    {
-                      value: "two_independent_splits",
-                      label: "Kaksi erillistä split-laitetta (yksi tarjouspyyntö)",
-                      hint: "Yhteinen ulkoseinän materiaali ja ulkoyksikön kiinnitys; putkimatka ja korkeudet laitteittain.",
-                    },
-                  ]}
-                />
-              </FieldGroup>
+              </div>
             </div>
 
-            <HeatPumpEstimates
-              variant="air"
-              heatedAreaM2={estimateArea || d.heated_area_m2}
-              climateZone={d.climate_zone}
-              buildYear={d.build_year}
-              usage={d.usage}
-              coolingNeed={d.cooling_need}
-            />
+            <aside className="lg:sticky lg:top-4">
+              {(estimateArea || d.heated_area_m2) >= 10 ? (
+                <HeatPumpEstimates
+                  variant="air"
+                  heatedAreaM2={estimateArea || d.heated_area_m2}
+                  climateZone={d.climate_zone}
+                  buildYear={d.build_year}
+                  usage={d.usage}
+                  coolingNeed={d.cooling_need}
+                />
+              ) : (
+                <div
+                  className="rounded-xl border border-dashed border-stone-200 bg-stone-50 px-4 py-5 text-sm text-stone-600"
+                  role="status"
+                >
+                  <p className="font-medium text-stone-800">Tehoarvio</p>
+                  <p className="mt-2 leading-relaxed">
+                    Syötä vaikutusalue (vähintään 10 m²), niin suuntaa-antoinen
+                    tehoarvio näkyy tässä.
+                  </p>
+                </div>
+              )}
+            </aside>
           </div>
         </FormSection>
 
