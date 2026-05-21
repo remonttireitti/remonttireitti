@@ -209,7 +209,7 @@ export function IlmalampopumppuDetailsStep({ details: d, onChange }: Props) {
         <FormSection
           span="full"
           title="Kiinteistö ja energia"
-          description="Vaikutusalue, vuosi ja tehoarvio"
+          description="Vaikutusalue teholaskentaa varten — ei koko rakennuksen pinta-alaa"
         >
           <div className="grid gap-6 xl:grid-cols-2">
             <div className="space-y-4">
@@ -236,12 +236,18 @@ export function IlmalampopumppuDetailsStep({ details: d, onChange }: Props) {
                     <input
                       type="number"
                       min={10}
-                      value={d.heated_area_m2 || ""}
+                      placeholder="esim. 45"
+                      value={d.heated_area_m2 > 0 ? d.heated_area_m2 : ""}
                       onChange={(e) =>
                         set("heated_area_m2", Number(e.target.value) || 0)
                       }
                       className={formInputClass}
                     />
+                    {d.heated_area_m2 < 10 && (
+                      <p className="mt-1 text-xs text-stone-500">
+                        Tehoarvio ilmestyy oikealle, kun syötät vaikutusalueen.
+                      </p>
+                    )}
                   </FieldGroup>
                 )}
 
@@ -363,7 +369,12 @@ export function IlmalampopumppuDetailsStep({ details: d, onChange }: Props) {
                     <input
                       type="number"
                       min={10}
-                      value={unit.coverage_area_m2 ?? ""}
+                      placeholder="esim. 45"
+                      value={
+                        unit.coverage_area_m2 != null && unit.coverage_area_m2 > 0
+                          ? unit.coverage_area_m2
+                          : ""
+                      }
                       onChange={(e) =>
                         updateUnit(index, {
                           coverage_area_m2: e.target.value

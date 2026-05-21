@@ -87,7 +87,7 @@ export const INITIAL_ILP_DETAILS: IlmalampopumppuDetails = {
   indoor_unit_count: 1,
   quote_layout: "single",
   property_type: "omakotitalo",
-  heated_area_m2: 120,
+  heated_area_m2: 0,
   climate_zone: "2",
   build_year: null,
   pipe_distance_m_per_unit: null,

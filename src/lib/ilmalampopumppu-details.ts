@@ -234,11 +234,11 @@ export function validateIlpDetails(d: IlmalampopumppuDetails): string | null {
   if (d.quote_layout === "two_independent_splits") {
     for (const unit of d.unit_installations) {
       if ((unit.coverage_area_m2 ?? 0) < 10) {
-        return `Anna ${unit.label.toLowerCase()}lle arvioitu vaikutusalue (m²).`;
+        return `Anna ${unit.label.toLowerCase()}lle vaikutusalue (m²) teholaskentaa varten.`;
       }
     }
   } else if (d.heated_area_m2 < 10) {
-    return "Anna arvioitu vaikutusalue (m²).";
+    return "Anna laitteen vaikutusalue (m²) — tarvitaan tehoarviota varten. Älä käytä koko talon pinta-alaa, ellei laite lämmitä koko taloa.";
   }
 
   if (d.system_type === "multi_split" && d.indoor_unit_count < 2) {
