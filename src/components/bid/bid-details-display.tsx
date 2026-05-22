@@ -1,6 +1,8 @@
 import { formatBidDate } from "@/lib/bid-terms";
 
 export type BidDetailsView = {
+  scope_terms?: string | null;
+  contract_terms?: string | null;
   warranty_work?: string | null;
   warranty_equipment?: string | null;
   earliest_start_date?: string | null;
@@ -35,6 +37,22 @@ export function BidDetailsDisplay({ bid }: { bid: BidDetailsView }) {
         <div>
           <dt className="font-medium text-stone-600">Arvioitu kesto</dt>
           <dd className="mt-0.5 text-stone-800">{bid.estimated_days} päivää</dd>
+        </div>
+      )}
+      {bid.scope_terms && (
+        <div>
+          <dt className="font-medium text-stone-600">Asennuksen laajuus</dt>
+          <dd className="mt-0.5 whitespace-pre-wrap text-stone-800">
+            {bid.scope_terms}
+          </dd>
+        </div>
+      )}
+      {bid.contract_terms && (
+        <div>
+          <dt className="font-medium text-stone-600">Sopimusehdot</dt>
+          <dd className="mt-0.5 whitespace-pre-wrap text-stone-800">
+            {bid.contract_terms}
+          </dd>
         </div>
       )}
       {bid.warranty_work && (

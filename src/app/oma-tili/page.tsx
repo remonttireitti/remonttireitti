@@ -11,7 +11,9 @@ import { SiteHeader } from "@/components/site-header";
 import { isAdmin } from "@/lib/admin";
 import { getProfile, getSessionUser, isContractor } from "@/lib/auth";
 import { ContractorBillingForm } from "@/components/contractor/contractor-billing-form";
+import { ContractorBidDefaultsForm } from "@/components/contractor/contractor-bid-defaults-form";
 import { ContractorProfileForm } from "@/components/contractor/contractor-profile-form";
+import { fetchContractorBidDefaults } from "@/lib/contractor-bid-defaults-server";
 import { fetchHeatPumpCatalog } from "@/lib/job-catalog-server";
 import { getContractorQualifications } from "@/lib/save-contractor-qualifications";
 import {
@@ -285,6 +287,12 @@ export default async function AccountPage({
               Käyttäjät
             </Link>
           </div>
+        )}
+
+        {contractor && (
+          <ContractorBidDefaultsForm
+            defaults={await fetchContractorBidDefaults(user.id)}
+          />
         )}
 
         {contractor && heatPumpJobTypes.length > 0 && contractorQuals && (

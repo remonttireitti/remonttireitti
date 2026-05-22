@@ -84,6 +84,8 @@ export default async function ProjectPage({
           status,
           estimated_days,
           vat_included,
+          scope_terms,
+          contract_terms,
           warranty_work,
           warranty_equipment,
           earliest_start_date,

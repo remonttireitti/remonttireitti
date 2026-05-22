@@ -11,6 +11,7 @@ import { bidToFormFields, type BidRecordForForm } from "@/lib/bid-form";
 import { STALE_BID_CONTRACTOR_MESSAGE } from "@/lib/bid-staleness";
 import { bidTotalAmountCents } from "@/lib/bid-amounts";
 import { bidStatusLabels, formatEurosFromCents } from "@/lib/bids";
+import type { ContractorBidDefaults } from "@/lib/contractor-bid-defaults-shared";
 import type { ProjectBudgetInfo } from "@/lib/project-budget";
 import type { BidStatus } from "@/types/database";
 
@@ -29,6 +30,7 @@ export function ContractorBidPanel({
   allowOptionalEquipmentOffer,
   budgetInfo,
   bidStale = false,
+  defaultBidTerms,
 }: {
   projectId: string;
   bid: BidView | null;
@@ -36,12 +38,14 @@ export function ContractorBidPanel({
   allowOptionalEquipmentOffer: boolean;
   budgetInfo: ProjectBudgetInfo;
   bidStale?: boolean;
+  defaultBidTerms?: ContractorBidDefaults;
 }) {
   const bidFormProps = {
     projectId,
     requiresDeviceAndInstallation,
     allowOptionalEquipmentOffer,
     budgetInfo,
+    defaultBidTerms,
   };
   const router = useRouter();
   const [withdrawError, setWithdrawError] = useState<string | null>(null);

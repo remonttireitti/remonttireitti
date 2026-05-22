@@ -8,6 +8,8 @@ export type BidFormFields = {
   equipment_description: string;
   estimated_days: string;
   earliest_start_date: string;
+  scope_terms: string;
+  contract_terms: string;
   warranty_work: string;
   warranty_equipment: string;
   message: string;
@@ -26,6 +28,8 @@ export type BidRecordForForm = {
   estimated_days: number | null;
   message: string;
   vat_included: boolean;
+  scope_terms?: string | null;
+  contract_terms?: string | null;
   warranty_work: string | null;
   warranty_equipment: string | null;
   earliest_start_date: string | null;
@@ -45,6 +49,8 @@ export function bidToFormFields(bid: BidRecordForForm): BidFormFields {
     estimated_days:
       bid.estimated_days != null ? String(bid.estimated_days) : "",
     earliest_start_date: bid.earliest_start_date ?? "",
+    scope_terms: bid.scope_terms ?? "",
+    contract_terms: bid.contract_terms ?? "",
     warranty_work: bid.warranty_work ?? "",
     warranty_equipment: bid.warranty_equipment ?? "",
     message: bid.message,
@@ -62,6 +68,8 @@ export function initialBidFormFields(): BidFormFields {
     equipment_description: "",
     estimated_days: "",
     earliest_start_date: "",
+    scope_terms: "",
+    contract_terms: "",
     warranty_work: "",
     warranty_equipment: "",
     message: "",
@@ -79,6 +87,8 @@ export function extractBidFormFields(formData: FormData): BidFormFields {
     equipment_description: String(formData.get("equipment_description") ?? ""),
     estimated_days: String(formData.get("estimated_days") ?? ""),
     earliest_start_date: String(formData.get("earliest_start_date") ?? ""),
+    scope_terms: String(formData.get("scope_terms") ?? ""),
+    contract_terms: String(formData.get("contract_terms") ?? ""),
     warranty_work: String(formData.get("warranty_work") ?? ""),
     warranty_equipment: String(formData.get("warranty_equipment") ?? ""),
     message: String(formData.get("message") ?? ""),
@@ -106,6 +116,8 @@ export function bidFieldsToFormData(
   fd.set("equipment_description", fields.equipment_description);
   fd.set("estimated_days", fields.estimated_days);
   fd.set("earliest_start_date", fields.earliest_start_date);
+  fd.set("scope_terms", fields.scope_terms);
+  fd.set("contract_terms", fields.contract_terms);
   fd.set("warranty_work", fields.warranty_work);
   fd.set("warranty_equipment", fields.warranty_equipment);
   fd.set("message", fields.message);

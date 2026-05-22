@@ -22,6 +22,12 @@ import {
   validateBidFormClient,
 } from "@/lib/bid-form";
 import { BidCommitmentNotice } from "@/components/bid/bid-commitment-notice";
+import { BidTermsTemplatePicker } from "@/components/bid/bid-terms-template-picker";
+import {
+  applyBidDefaultsToFields,
+  type ContractorBidDefaults,
+} from "@/lib/contractor-bid-defaults-shared";
+import type { BidTermTemplateTarget } from "@/lib/bid-term-templates";
 import {
   bidAmountExceedsBudget,
   buildOverBudgetConfirmMessage,
@@ -55,6 +61,7 @@ export function BidForm({
   bidId,
   initialFields,
   budgetInfo,
+  defaultBidTerms,
 }: {
   projectId: string;
   /** Urakoitsija toimittaa laitteet (pakollinen laitetakuu). */
@@ -65,10 +72,14 @@ export function BidForm({
   bidId?: string;
   initialFields?: BidFormFields;
   budgetInfo: ProjectBudgetInfo;
+  /** Oma tili -sivulla tallennetut oletukset (vain uusi tarjous). */
+  defaultBidTerms?: ContractorBidDefaults;
 }) {
-  const [fields, setFields] = useState<BidFormFields>(
-    () => initialFields ?? initialBidFormFields(),
-  );
+  const [fields, setFields] = useState<BidFormFields>(() => {
+    const base = initialFields ?? initialBidFormFields();
+    if (initialFields || !defaultBidTerms) return base;
+    return applyBidDefaultsToFields(base, defaultBidTerms);
+  });
   const [fieldErrors, setFieldErrors] = useState<
     Partial<Record<BidFormFieldKey, string>>
   >({});
@@ -96,6 +107,23 @@ export function BidForm({
       setFieldErrors(state.fieldErrors);
     }
   }, [state.fields, state.fieldErrors]);
+
+  function applyTemplate(
+    key: BidTermTemplateTarget,
+    text: string,
+    mode: "append" | "replace",
+  ) {
+    setFields((prev) => {
+      const current = prev[key];
+      const next =
+        mode === "replace"
+          ? text
+          : current.trim()
+            ? `${current.trim()}\n\n${text}`
+            : text;
+      return { ...prev, [key]: next };
+    });
+  }
 
   function update<K extends BidFormFieldKey>(key: K, value: BidFormFields[K]) {
     setFields((prev) => ({ ...prev, [key]: value }));
@@ -261,29 +289,83 @@ export function BidForm({
         )}
       </div>
 
-      <div>
-        <label htmlFor="warranty_work" className="block text-sm font-medium">
-          Takuuehdot työlle *
-        </label>
-        <textarea
-          id="warranty_work"
-          name="warranty_work"
-          rows={3}
-          value={fields.warranty_work}
-          onChange={(e) => update("warranty_work", e.target.value)}
-          className={fieldClass(!!fieldErrors.warranty_work)}
-          placeholder="Esim. asennustyölle 2 vuoden takuu…"
-          aria-invalid={!!fieldErrors.warranty_work}
-          aria-describedby={
-            fieldErrors.warranty_work ? "warranty_work-error" : undefined
-          }
-        />
-        {fieldErrors.warranty_work && (
-          <p id="warranty_work-error" className="mt-1 text-sm text-red-600">
-            {fieldErrors.warranty_work}
-          </p>
-        )}
-      </div>
+      <fieldset className="space-y-4 rounded-xl border border-stone-200 bg-stone-50/80 p-4">
+        <legend className="px-1 text-sm font-semibold text-stone-800">
+          Ehdot ja laajuus
+        </legend>
+        <p className="text-xs text-stone-600">
+          Selkeät ehdot auttavat asiakasta vertailemaan tarjouksia. Käytä valmiita
+          malleja tai omaa tekstiä — voit tallentaa oletukset Oma tili -sivulla.
+        </p>
+
+        <div>
+          <label htmlFor="scope_terms" className="block text-sm font-medium">
+            Asennuksen laajuus (mitä hinta sisältää)
+          </label>
+          <textarea
+            id="scope_terms"
+            name="scope_terms"
+            rows={5}
+            value={fields.scope_terms}
+            onChange={(e) => update("scope_terms", e.target.value)}
+            className={inputClass}
+            placeholder="Esim. perusasennus, putket, käyttöönotto, mitä ei sisälly…"
+          />
+          <BidTermsTemplatePicker
+            target="scope_terms"
+            onApply={(text, mode) => applyTemplate("scope_terms", text, mode)}
+          />
+        </div>
+
+        <div>
+          <label htmlFor="contract_terms" className="block text-sm font-medium">
+            Sopimusehdot (maksu, peruutus, viivästykset)
+          </label>
+          <textarea
+            id="contract_terms"
+            name="contract_terms"
+            rows={4}
+            value={fields.contract_terms}
+            onChange={(e) => update("contract_terms", e.target.value)}
+            className={inputClass}
+            placeholder="Esim. ennakkomaksu, laskuehto, peruutus…"
+          />
+          <BidTermsTemplatePicker
+            target="contract_terms"
+            onApply={(text, mode) =>
+              applyTemplate("contract_terms", text, mode)
+            }
+          />
+        </div>
+
+        <div>
+          <label htmlFor="warranty_work" className="block text-sm font-medium">
+            Takuuehdot työlle *
+          </label>
+          <textarea
+            id="warranty_work"
+            name="warranty_work"
+            rows={3}
+            value={fields.warranty_work}
+            onChange={(e) => update("warranty_work", e.target.value)}
+            className={fieldClass(!!fieldErrors.warranty_work)}
+            placeholder="Esim. asennustyölle 2 vuoden takuu…"
+            aria-invalid={!!fieldErrors.warranty_work}
+            aria-describedby={
+              fieldErrors.warranty_work ? "warranty_work-error" : undefined
+            }
+          />
+          <BidTermsTemplatePicker
+            target="warranty_work"
+            onApply={(text, mode) => applyTemplate("warranty_work", text, mode)}
+          />
+          {fieldErrors.warranty_work && (
+            <p id="warranty_work-error" className="mt-1 text-sm text-red-600">
+              {fieldErrors.warranty_work}
+            </p>
+          )}
+        </div>
+      </fieldset>
 
       {allowOptionalEquipmentOffer && !requiresDeviceAndInstallation && (
         <div className="space-y-3 rounded-xl border border-sky-100 bg-sky-50/50 p-4">
@@ -386,6 +468,12 @@ export function BidForm({
               fieldErrors.warranty_equipment
                 ? "warranty_equipment-error"
                 : undefined
+            }
+          />
+          <BidTermsTemplatePicker
+            target="warranty_equipment"
+            onApply={(text, mode) =>
+              applyTemplate("warranty_equipment", text, mode)
             }
           />
           {fieldErrors.warranty_equipment && (

@@ -14,7 +14,7 @@ export function formatBidSaveError(error: {
     code === "42703" ||
     (msg.includes("column") && msg.includes("does not exist"))
   ) {
-    return "Tietokannassa puuttuu päivitys. Ylläpitäjän tulee ajaa migraatio 20260520150000_bid_warranty_terms.sql Supabasessa.";
+    return "Tietokannassa puuttuu päivitys. Ylläpitäjän tulee ajaa migraatiot Supabasessa (bid_warranty_terms / bid_scope_contract_terms).";
   }
 
   if (code === "42501" || msg.toLowerCase().includes("row-level security")) {

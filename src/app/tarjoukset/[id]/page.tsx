@@ -15,6 +15,7 @@ import { ProjectOverviewCards } from "@/components/project/project-overview-card
 import { ensureProjectConversation } from "@/app/actions/messages";
 import { fetchContractorProjectConversation } from "@/lib/messages-server";
 import { fetchProjectPhotos } from "@/lib/project-photos";
+import { fetchContractorBidDefaults } from "@/lib/contractor-bid-defaults-server";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function ContractorProjectPage({
@@ -55,7 +56,7 @@ export default async function ContractorProjectPage({
   const { data: existingBid } = await supabase
     .from("bids")
     .select(
-      "id, amount_cents, offers_equipment, equipment_amount_cents, equipment_description, message, status, estimated_days, vat_included, submitted_at, warranty_work, warranty_equipment, earliest_start_date, confirms_licenses, confirms_building_standards, counter_amount_cents, counter_message, counter_offered_at, counter_status, confirmed_content_revision, rejection_message, rejected_at",
+      "id, amount_cents, offers_equipment, equipment_amount_cents, equipment_description, message, status, estimated_days, vat_included, submitted_at, scope_terms, contract_terms, warranty_work, warranty_equipment, earliest_start_date, confirms_licenses, confirms_building_standards, counter_amount_cents, counter_message, counter_offered_at, counter_status, confirmed_content_revision, rejection_message, rejected_at",
     )
     .eq("project_id", id)
     .eq("contractor_id", user.id)
@@ -89,6 +90,8 @@ export default async function ContractorProjectPage({
     project.customer_id,
     user.id,
   );
+
+  const defaultBidTerms = await fetchContractorBidDefaults(user.id);
 
   const chatData = await fetchContractorProjectConversation(
     supabase,
@@ -173,6 +176,7 @@ export default async function ContractorProjectPage({
           allowOptionalEquipmentOffer={allowOptionalEquipmentOffer}
           budgetInfo={budgetInfo}
           bidStale={bidStale}
+          defaultBidTerms={defaultBidTerms}
         />
       </main>
     </div>

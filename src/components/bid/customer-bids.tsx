@@ -32,6 +32,8 @@ export type BidWithContractor = {
   status: BidStatus;
   estimated_days: number | null;
   vat_included: boolean;
+  scope_terms: string | null;
+  contract_terms: string | null;
   warranty_work: string | null;
   warranty_equipment: string | null;
   earliest_start_date: string | null;
@@ -141,6 +143,8 @@ export function CustomerBids({
   const showEquipmentBreakdown = sorted.some(
     (b) => b.offers_equipment && b.equipment_amount_cents,
   );
+  const showScopeTerms = sorted.some((b) => b.scope_terms);
+  const showContractTerms = sorted.some((b) => b.contract_terms);
   const showEquipmentWarranty = sorted.some((b) => b.warranty_equipment);
   const showCounterRow = sorted.some(
     (b) => b.counter_status && b.counter_amount_cents,
@@ -328,6 +332,38 @@ export function CustomerBids({
                 </td>
               ))}
             </tr>
+
+            {showScopeTerms && (
+              <tr className="border-b border-stone-100">
+                <th className={labelCell} scope="row">
+                  Laajuus
+                </th>
+                {sorted.map((bid) => (
+                  <td
+                    key={bid.id}
+                    className={`${dataCell} border-l ${columnClass(bid.status, isPendingWinner(bid))}`}
+                  >
+                    <ClampedText text={bid.scope_terms} />
+                  </td>
+                ))}
+              </tr>
+            )}
+
+            {showContractTerms && (
+              <tr className="border-b border-stone-100 bg-stone-50/50">
+                <th className={labelCell} scope="row">
+                  Sopimusehdot
+                </th>
+                {sorted.map((bid) => (
+                  <td
+                    key={bid.id}
+                    className={`${dataCell} border-l ${columnClass(bid.status, isPendingWinner(bid))}`}
+                  >
+                    <ClampedText text={bid.contract_terms} />
+                  </td>
+                ))}
+              </tr>
+            )}
 
             <tr className="border-b border-stone-100 bg-stone-50/50">
               <th className={labelCell} scope="row">

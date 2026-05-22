@@ -45,5 +45,41 @@ export async function updateContractorQualifications(
   if (saveRes.error) return { error: saveRes.error };
 
   revalidatePath("/oma-tili");
+  revalidatePath("/tarjoukset");
   return { ok: "Pätevyydet tallennettu." };
+}
+
+export async function updateContractorBidDefaults(
+  _prev: ContractorProfileState,
+  formData: FormData,
+): Promise<ContractorProfileState> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) redirect("/kirjaudu");
+
+  const trim = (key: string) => String(formData.get(key) ?? "").trim();
+
+  const { error } = await supabase
+    .from("contractor_profiles")
+    .update({
+      default_bid_scope_terms: trim("default_scope_terms") || null,
+      default_bid_contract_terms: trim("default_contract_terms") || null,
+      default_bid_warranty_work: trim("default_warranty_work") || null,
+      default_bid_warranty_equipment: trim("default_warranty_equipment") || null,
+    })
+    .eq("id", user.id);
+
+  if (error) {
+    const msg = error.message.includes("default_bid")
+      ? "Aja Supabase-migraatio 20260522120000_bid_scope_contract_terms.sql"
+      : error.message;
+    return { error: msg };
+  }
+
+  revalidatePath("/oma-tili");
+  revalidatePath("/tarjoukset");
+  return { ok: "Tarjouksen oletusehdot tallennettu." };
 }

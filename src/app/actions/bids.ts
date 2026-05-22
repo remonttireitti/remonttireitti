@@ -211,6 +211,8 @@ function bidRowFromPayload(
     vat_included: payload.vatIncluded,
     estimated_days: payload.estimatedDays,
     message: payload.message,
+    scope_terms: payload.terms.scope_terms,
+    contract_terms: payload.terms.contract_terms,
     warranty_work: payload.terms.warranty_work,
     warranty_equipment: payload.terms.warranty_equipment,
     earliest_start_date: payload.terms.earliest_start_date,

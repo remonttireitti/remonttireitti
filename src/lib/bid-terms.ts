@@ -1,4 +1,6 @@
 export type BidTermsFields = {
+  scope_terms: string | null;
+  contract_terms: string | null;
   warranty_work: string;
   warranty_equipment: string | null;
   earliest_start_date: string;
@@ -24,6 +26,8 @@ export function parseBidTermsFromFormData(
   formData: FormData,
   requiresEquipmentWarranty: boolean,
 ): ParsedBidTerms {
+  const scopeTerms = String(formData.get("scope_terms") ?? "").trim();
+  const contractTerms = String(formData.get("contract_terms") ?? "").trim();
   const warrantyWork = String(formData.get("warranty_work") ?? "").trim();
   const warrantyEquipment = String(
     formData.get("warranty_equipment") ?? "",
@@ -78,6 +82,8 @@ export function parseBidTermsFromFormData(
   return {
     ok: true,
     data: {
+      scope_terms: scopeTerms || null,
+      contract_terms: contractTerms || null,
       warranty_work: warrantyWork,
       warranty_equipment: requiresEquipmentWarranty ? warrantyEquipment : null,
       earliest_start_date: earliestStart,
