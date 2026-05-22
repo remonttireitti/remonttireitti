@@ -93,7 +93,6 @@ export default async function ContractorProjectPage({
     user.id,
   );
 
-  const defaultBidTerms = await fetchContractorBidDefaults(user.id);
   let jobTypeSlug = resolveProjectJobTypeSlug({
     job_type_id: project.job_type_id,
     job_types: project.job_types as
@@ -110,6 +109,11 @@ export default async function ContractorProjectPage({
       .maybeSingle();
     if (jt?.slug) jobTypeSlug = jt.slug;
   }
+
+  const defaultBidTerms = await fetchContractorBidDefaults(
+    user.id,
+    jobTypeSlug,
+  );
 
   const chatData = await fetchContractorProjectConversation(
     supabase,

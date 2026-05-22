@@ -1,24 +1,95 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useMemo, useState } from "react";
 import {
   updateContractorBidDefaults,
   type ContractorProfileState,
 } from "@/app/actions/contractor-profile";
-import type { ContractorBidDefaults } from "@/lib/contractor-bid-defaults-shared";
+import { BidTermsTemplatePicker } from "@/components/bid/bid-terms-template-picker";
+import {
+  HEAT_PUMP_JOB_SLUGS,
+  HEAT_PUMP_MARKETING,
+  type HeatPumpSlug,
+} from "@/constants/heat-pumps";
+import {
+  resolveBidDefaultsForJobType,
+  type ContractorBidDefaults,
+  type ContractorBidDefaultsByJobType,
+} from "@/lib/contractor-bid-defaults-shared";
+import type { BidTermTemplateTarget } from "@/lib/bid-term-templates";
 
 const inputClass =
   "mt-1 w-full rounded-lg border border-stone-300 px-3 py-2 text-sm text-stone-900 focus:border-sky-600 focus:outline-none focus:ring-1 focus:ring-sky-600";
 
+function mergeDefaultsForSlug(
+  slug: HeatPumpSlug,
+  byJob: ContractorBidDefaultsByJobType,
+  legacy: ContractorBidDefaults,
+): ContractorBidDefaults {
+  return resolveBidDefaultsForJobType(byJob, legacy, slug);
+}
+
+function buildInitialByJob(
+  legacy: ContractorBidDefaults,
+  byJob: ContractorBidDefaultsByJobType,
+): Record<HeatPumpSlug, ContractorBidDefaults> {
+  const out = {} as Record<HeatPumpSlug, ContractorBidDefaults>;
+  for (const slug of HEAT_PUMP_JOB_SLUGS) {
+    out[slug] = mergeDefaultsForSlug(slug, byJob, legacy);
+  }
+  return out;
+}
+
 export function ContractorBidDefaultsForm({
-  defaults,
+  legacy,
+  byJobType,
 }: {
-  defaults: ContractorBidDefaults;
+  legacy: ContractorBidDefaults;
+  byJobType: ContractorBidDefaultsByJobType;
 }) {
+  const [activeSlug, setActiveSlug] = useState<HeatPumpSlug>("ilmalampopumppu");
+  const [byJob, setByJob] = useState(() => buildInitialByJob(legacy, byJobType));
+
   const [state, action, pending] = useActionState<
     ContractorProfileState,
     FormData
   >(updateContractorBidDefaults, {});
+
+  const active = byJob[activeSlug];
+
+  const jsonPayload = useMemo(() => JSON.stringify(byJob), [byJob]);
+
+  function updateField(
+    slug: HeatPumpSlug,
+    key: keyof ContractorBidDefaults,
+    value: string,
+  ) {
+    setByJob((prev) => ({
+      ...prev,
+      [slug]: { ...prev[slug], [key]: value },
+    }));
+  }
+
+  function applyTemplate(
+    slug: HeatPumpSlug,
+    target: BidTermTemplateTarget,
+    text: string,
+    mode: "append" | "replace",
+  ) {
+    setByJob((prev) => {
+      const current = prev[slug][target];
+      const next =
+        mode === "replace"
+          ? text
+          : current.trim()
+            ? `${current.trim()}\n\n${text}`
+            : text;
+      return {
+        ...prev,
+        [slug]: { ...prev[slug], [target]: next },
+      };
+    });
+  }
 
   return (
     <form
@@ -27,69 +98,125 @@ export function ContractorBidDefaultsForm({
     >
       <h2 className="text-lg font-semibold">Tarjouksen oletusehdot</h2>
       <p className="text-sm text-stone-600">
-        Nämä täyttyvät automaattisesti uuteen tarjoukseen. Voit muokata niitä
-        jokaisella tarjouspyynnöllä.
+        Määritä erilliset oletukset kullekin lämpöpumpputyypille. Ne täyttyvät
+        automaattisesti uuteen tarjoukseen, kun pyynnön tyyppi vastaa valintaa.
+        Käytä valmiita malleja tai kirjoita oma teksti.
       </p>
 
-      <div>
-        <label htmlFor="default_scope_terms" className="block text-sm font-medium">
-          Asennuksen laajuus
-        </label>
-        <textarea
-          id="default_scope_terms"
-          name="default_scope_terms"
-          rows={4}
-          defaultValue={defaults.scope_terms}
-          className={inputClass}
-        />
+      <div
+        className="flex flex-wrap gap-2"
+        role="tablist"
+        aria-label="Lämpöpumpputyypit"
+      >
+        {HEAT_PUMP_JOB_SLUGS.map((slug) => (
+          <button
+            key={slug}
+            type="button"
+            role="tab"
+            aria-selected={activeSlug === slug}
+            onClick={() => setActiveSlug(slug)}
+            className={`rounded-full px-3 py-1.5 text-sm font-medium ${
+              activeSlug === slug
+                ? "bg-stone-800 text-white"
+                : "bg-stone-100 text-stone-700 hover:bg-stone-200"
+            }`}
+          >
+            {HEAT_PUMP_MARKETING[slug].title}
+          </button>
+        ))}
       </div>
 
-      <div>
-        <label
-          htmlFor="default_contract_terms"
-          className="block text-sm font-medium"
-        >
-          Sopimusehdot
-        </label>
-        <textarea
-          id="default_contract_terms"
-          name="default_contract_terms"
-          rows={4}
-          defaultValue={defaults.contract_terms}
-          className={inputClass}
-        />
-      </div>
+      <input
+        type="hidden"
+        name="defaults_by_job_type_json"
+        value={jsonPayload}
+        readOnly
+      />
 
-      <div>
-        <label
-          htmlFor="default_warranty_work"
-          className="block text-sm font-medium"
-        >
-          Takuu työlle
-        </label>
-        <textarea
-          id="default_warranty_work"
-          name="default_warranty_work"
-          rows={2}
-          defaultValue={defaults.warranty_work}
-          className={inputClass}
-        />
-      </div>
+      <div
+        key={activeSlug}
+        className="space-y-4 border-t border-stone-100 pt-4"
+        role="tabpanel"
+      >
+        <p className="text-xs text-stone-500">
+          Oletukset: {HEAT_PUMP_MARKETING[activeSlug].title}
+        </p>
 
-      <div>
-        <label
-          htmlFor="default_warranty_equipment"
-          className="block text-sm font-medium"
-        >
-          Takuu laitteelle
-        </label>
-        <textarea
-          id="default_warranty_equipment"
-          name="default_warranty_equipment"
-          rows={2}
-          defaultValue={defaults.warranty_equipment}
-          className={inputClass}
-        />
+        <div>
+          <label className="block text-sm font-medium">Asennuksen laajuus</label>
+          <textarea
+            rows={4}
+            value={active.scope_terms}
+            onChange={(e) =>
+              updateField(activeSlug, "scope_terms", e.target.value)
+            }
+            className={inputClass}
+          />
+          <BidTermsTemplatePicker
+            target="scope_terms"
+            jobTypeSlug={activeSlug}
+            onApply={(text, mode) =>
+              applyTemplate(activeSlug, "scope_terms", text, mode)
+            }
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium">Sopimusehdot</label>
+          <textarea
+            rows={4}
+            value={active.contract_terms}
+            onChange={(e) =>
+              updateField(activeSlug, "contract_terms", e.target.value)
+            }
+            className={inputClass}
+          />
+          <BidTermsTemplatePicker
+            target="contract_terms"
+            jobTypeSlug={activeSlug}
+            onApply={(text, mode) =>
+              applyTemplate(activeSlug, "contract_terms", text, mode)
+            }
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium">Takuu työlle</label>
+          <textarea
+            rows={2}
+            value={active.warranty_work}
+            onChange={(e) =>
+              updateField(activeSlug, "warranty_work", e.target.value)
+            }
+            className={inputClass}
+          />
+          <BidTermsTemplatePicker
+            target="warranty_work"
+            jobTypeSlug={activeSlug}
+            onApply={(text, mode) =>
+              applyTemplate(activeSlug, "warranty_work", text, mode)
+            }
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium">Takuu laitteelle</label>
+          <textarea
+            rows={2}
+            value={active.warranty_equipment}
+            onChange={(e) =>
+              updateField(activeSlug, "warranty_equipment", e.target.value)
+            }
+            className={inputClass}
+          />
+          <BidTermsTemplatePicker
+            target="warranty_equipment"
+            jobTypeSlug={activeSlug}
+            onApply={(text, mode) =>
+              applyTemplate(activeSlug, "warranty_equipment", text, mode)
+            }
+          />
+        </div>
       </div>
 
       {state.error && (

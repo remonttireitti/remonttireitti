@@ -13,7 +13,7 @@ import { getProfile, getSessionUser, isContractor } from "@/lib/auth";
 import { ContractorBillingForm } from "@/components/contractor/contractor-billing-form";
 import { ContractorBidDefaultsForm } from "@/components/contractor/contractor-bid-defaults-form";
 import { ContractorProfileForm } from "@/components/contractor/contractor-profile-form";
-import { fetchContractorBidDefaults } from "@/lib/contractor-bid-defaults-server";
+import { fetchContractorBidDefaultsBundle } from "@/lib/contractor-bid-defaults-server";
 import { fetchHeatPumpCatalog } from "@/lib/job-catalog-server";
 import { getContractorQualifications } from "@/lib/save-contractor-qualifications";
 import {
@@ -291,7 +291,7 @@ export default async function AccountPage({
 
         {contractor && (
           <ContractorBidDefaultsForm
-            defaults={await fetchContractorBidDefaults(user.id)}
+            {...(await fetchContractorBidDefaultsBundle(user.id))}
           />
         )}
 

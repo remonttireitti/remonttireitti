@@ -8,6 +8,7 @@ import {
   parseWorkCapability,
   validateContractorQualifications,
 } from "@/lib/contractor-qualifications";
+import { parseBidDefaultsByJobType } from "@/lib/contractor-bid-defaults-shared";
 import { saveContractorQualifications } from "@/lib/save-contractor-qualifications";
 import { createClient } from "@/lib/supabase/server";
 
@@ -60,21 +61,26 @@ export async function updateContractorBidDefaults(
 
   if (!user) redirect("/kirjaudu");
 
-  const trim = (key: string) => String(formData.get(key) ?? "").trim();
+  const jsonRaw = String(formData.get("defaults_by_job_type_json") ?? "");
+  let byJob = {};
+  try {
+    byJob = parseBidDefaultsByJobType(
+      jsonRaw ? (JSON.parse(jsonRaw) as unknown) : {},
+    );
+  } catch {
+    return { error: "Oletusehtojen tallennus epäonnistui (virheellinen data)." };
+  }
 
   const { error } = await supabase
     .from("contractor_profiles")
     .update({
-      default_bid_scope_terms: trim("default_scope_terms") || null,
-      default_bid_contract_terms: trim("default_contract_terms") || null,
-      default_bid_warranty_work: trim("default_warranty_work") || null,
-      default_bid_warranty_equipment: trim("default_warranty_equipment") || null,
+      default_bid_terms_by_job_type: byJob,
     })
     .eq("id", user.id);
 
   if (error) {
     const msg = error.message.includes("default_bid")
-      ? "Aja Supabase-migraatio 20260522120000_bid_scope_contract_terms.sql"
+      ? "Aja Supabase-migraatio 20260522200000_contractor_bid_defaults_by_job_type.sql"
       : error.message;
     return { error: msg };
   }
