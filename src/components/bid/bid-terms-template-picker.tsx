@@ -22,9 +22,11 @@ export function BidTermsTemplatePicker({
   if (templates.length === 0) {
     return (
       <p className="mt-2 text-xs text-stone-500">
-        {pumpLabel
-          ? `Ei valmiita malleja työlajille ${pumpLabel} — kirjoita ehdot itse.`
-          : "Kirjoita ehdot itse."}
+        {target === "scope_terms" && !jobTypeSlug
+          ? "Valmiit asennusmallit näkyvät, kun pyynnöllä on tunnistettu lämpöpumpputyypi (ILP / VILP / maalämpö). Kirjoita ehdot itse tai päivitä sivu."
+          : pumpLabel
+            ? `Ei valmiita malleja työlajille ${pumpLabel} — kirjoita ehdot itse.`
+            : "Kirjoita ehdot itse."}
       </p>
     );
   }

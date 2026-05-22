@@ -42,7 +42,7 @@ export default async function ContractorProjectPage({
       `
       id, title, description, details, municipality, postal_code,
       budget_min, budget_max, desired_start, flexibility_weeks,
-      status, bid_deadline, customer_id,
+      status, bid_deadline, customer_id, job_type_id,
       job_types ( slug ),
       service_categories ( name_fi )
     `,
@@ -94,13 +94,22 @@ export default async function ContractorProjectPage({
   );
 
   const defaultBidTerms = await fetchContractorBidDefaults(user.id);
-  const jobTypeSlug = resolveProjectJobTypeSlug({
+  let jobTypeSlug = resolveProjectJobTypeSlug({
+    job_type_id: project.job_type_id,
     job_types: project.job_types as
       | { slug: string }
       | { slug: string }[]
       | null,
     details: project.details as Record<string, unknown> | null,
   });
+  if (!jobTypeSlug && project.job_type_id) {
+    const { data: jt } = await supabase
+      .from("job_types")
+      .select("slug")
+      .eq("id", project.job_type_id)
+      .maybeSingle();
+    if (jt?.slug) jobTypeSlug = jt.slug;
+  }
 
   const chatData = await fetchContractorProjectConversation(
     supabase,

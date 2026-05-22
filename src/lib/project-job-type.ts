@@ -1,21 +1,48 @@
 import { HEAT_PUMP_JOB_SLUGS, type HeatPumpSlug } from "@/constants/heat-pumps";
+import { isHeatingSystemDetails } from "@/lib/heating-system-details";
+import { isIlpDetails } from "@/lib/ilmalampopumppu-details";
 
-/** Palauttaa projektin lämpöpumppu-työlajin slug (job_types tai details). */
+/** Tunnistaa lämpöpumpputyypin projektin details-jsonista. */
+export function resolveProjectDetailsKind(
+  details: Record<string, unknown> | null | undefined,
+): HeatPumpSlug | null {
+  if (!details || typeof details !== "object") return null;
+
+  if (details.ilmalampopumppu && isIlpDetails(details.ilmalampopumppu)) {
+    return "ilmalampopumppu";
+  }
+  if (
+    details.ilmavesilampopumppu &&
+    isHeatingSystemDetails(details.ilmavesilampopumppu)
+  ) {
+    return "ilmavesilampopumppu";
+  }
+  if (
+    details.maalampopumppu &&
+    isHeatingSystemDetails(details.maalampopumppu)
+  ) {
+    return "maalampopumppu";
+  }
+
+  return null;
+}
+
+/** Palauttaa projektin lämpöpumpu-työlajin slug (job_types, job_type_id tai details). */
 export function resolveProjectJobTypeSlug(project: {
+  job_type_id?: string | null;
   job_types?: { slug: string } | { slug: string }[] | null;
   details?: Record<string, unknown> | null;
 }): string | null {
   const jt = Array.isArray(project.job_types)
     ? project.job_types[0]
     : project.job_types;
-  if (jt?.slug) return jt.slug;
-
-  const d = project.details;
-  if (!d || typeof d !== "object") return null;
-
-  for (const slug of HEAT_PUMP_JOB_SLUGS) {
-    if (slug in d && d[slug]) return slug;
+  const slugFromJoin = jt?.slug?.trim();
+  if (slugFromJoin && isHeatPumpJobSlug(slugFromJoin)) {
+    return slugFromJoin;
   }
+
+  const fromDetails = resolveProjectDetailsKind(project.details);
+  if (fromDetails) return fromDetails;
 
   return null;
 }
