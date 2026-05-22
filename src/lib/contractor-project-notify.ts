@@ -75,7 +75,7 @@ export async function notifyContractorsNewPublishedProject(params: {
       if (prefs.notifyEmail) {
         const to = await contractorEmail(c.id);
         if (!to) return;
-        await sendEmail({
+        const sent = await sendEmail({
           to,
           subject: `${title}: ${params.projectTitle}`,
           html: `<div style="font-family:system-ui,sans-serif;max-width:560px">
@@ -88,6 +88,9 @@ export async function notifyContractorsNewPublishedProject(params: {
             <p style="margin-top:24px"><a href="${siteUrl(linkPath)}" style="background:#ea580c;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:600">Avaa pyyntö</a></p>
           </div>`,
         });
+        if (!sent.ok && !sent.skipped) {
+          console.error("[notify new project]", to, sent.error);
+        }
       }
     }),
   );
@@ -174,10 +177,10 @@ export async function notifyContractorsNewMaintenanceProject(params: {
       if (prefs.notifyEmail) {
         const to = await contractorEmail(c.id);
         if (!to) return;
-        await sendEmail({
+        const sent = await sendEmail({
           to,
           subject: `${title}: ${params.projectTitle}`,
-          html: `<motionlessdiv style="font-family:system-ui,sans-serif;max-width:560px">
+          html: `<div style="font-family:system-ui,sans-serif;max-width:560px">
             <h1 style="font-size:18px">${escapeHtml(title)}</h1>
             <p>Uusi huolto- tai korjauspyyntö (${escapeHtml(kindLabel)}) sopii valitsemillesi lämpöpumpputyypeille.</p>
             <ul style="line-height:1.6">
@@ -185,8 +188,11 @@ export async function notifyContractorsNewMaintenanceProject(params: {
               <li>${escapeHtml(location)}</li>
             </ul>
             <p style="margin-top:24px"><a href="${siteUrl(linkPath)}" style="background:#ea580c;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:600">Avaa pyyntö</a></p>
-          </motionlessdiv>`.replace(/motionlessdiv/g, "div"),
+          </div>`,
         });
+        if (!sent.ok && !sent.skipped) {
+          console.error("[notify maintenance project]", to, sent.error);
+        }
       }
     }),
   );
@@ -232,7 +238,7 @@ export async function notifyContractorsBidReminder(params: {
       if (prefs.notifyEmail) {
         const to = await contractorEmail(contractorId);
         if (to) {
-          await sendEmail({
+          const sent = await sendEmail({
             to,
             subject: `${title}: ${params.projectTitle}`,
             html: `<div style="font-family:system-ui,sans-serif;max-width:560px">
@@ -245,7 +251,8 @@ export async function notifyContractorsBidReminder(params: {
               <p style="margin-top:24px"><a href="${siteUrl(linkPath)}" style="background:#ea580c;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:600">Avaa tarjouspyyntö</a></p>
             </div>`,
           });
-          delivered = true;
+          if (sent.ok || sent.skipped) delivered = true;
+          else console.error("[bid reminder email]", to, sent.error);
         }
       }
 

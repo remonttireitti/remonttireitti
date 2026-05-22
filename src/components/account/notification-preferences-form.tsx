@@ -12,10 +12,13 @@ export function NotificationPreferencesForm({
   role,
   prefs,
   className = "",
+  emailConfigured = true,
 }: {
   role: UserRole;
   prefs: NotificationPrefs;
   className?: string;
+  /** Tuotannossa: onko Resend (RESEND_API_KEY) asetettu. */
+  emailConfigured?: boolean;
 }) {
   const [state, action, pending] = useActionState<
     NotificationPrefsState,
@@ -32,6 +35,24 @@ export function NotificationPreferencesForm({
         Valitse miten haluat vastaanottaa ilmoituksia. Voit poistaa ne käytöstä
         milloin tahansa.
       </p>
+
+      {!emailConfigured && role === "admin" && (
+        <p
+          className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900"
+          role="status"
+        >
+          Sähköpostilähetys ei ole käytössä palvelimella: aseta Vercelissä{" "}
+          <strong>RESEND_API_KEY</strong> ja vahvista lähettäjädomain Resendissä
+          (<code className="text-xs">EMAIL_FROM</code>).
+        </p>
+      )}
+
+      {emailConfigured && !prefs.notifyEmail && (
+        <p className="text-sm text-stone-500">
+          Sähköposti-ilmoitukset ovat pois päältä — et saa sähköpostia, vaikka
+          tapahtuma tapahtuisi.
+        </p>
+      )}
 
       <label className="flex items-start gap-3 text-sm">
         <input

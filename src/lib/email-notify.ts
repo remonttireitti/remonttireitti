@@ -46,12 +46,18 @@ async function sendUserEmail(
   if (!prefs.notifyEmail) return;
 
   const to = await userEmail(userId);
-  if (!to) return;
-  await sendEmail({
+  if (!to) {
+    console.warn("[email-notify] no email for user", userId, subject);
+    return;
+  }
+  const result = await sendEmail({
     to,
     subject,
     html: emailLayout(title, bodyHtml, siteUrl(ctaPath), ctaLabel),
   });
+  if (!result.ok && !result.skipped) {
+    console.error("[email-notify]", subject, "→", to, result.error);
+  }
 }
 
 function formatEuros(amountEuros: number) {
@@ -199,6 +205,25 @@ export async function notifyBidRejected(params: {
     `<p>Asiakas hylkäsi tarjouksesi urakkaan <em>${escapeHtml(params.projectTitle)}</em>.</p>${comment}<p>Voit päivittää ja lähettää tarjouksen uudelleen.</p>`,
     `/tarjoukset/${params.projectId}`,
     "Avaa tarjous",
+  );
+}
+
+export async function notifyOrderFinalizing(params: {
+  customerId: string;
+  projectTitle: string;
+  projectId: string;
+  contractorName: string;
+  commitDeadline: string;
+}) {
+  const { formatDeadlineFi } = await import("@/lib/bid-acceptance");
+  const dl = formatDeadlineFi(params.commitDeadline);
+  await sendUserEmail(
+    params.customerId,
+    `Tilaus viimeistellään: ${params.projectTitle}`,
+    "Urakoitsija viimeistelee tilausta",
+    `<p><strong>${escapeHtml(params.contractorName)}</strong> hyväksyi diilin urakkaan <em>${escapeHtml(params.projectTitle)}</em> ja maksaa välityspalkkion viimeistään <strong>${escapeHtml(dl)}</strong>.</p><p>Saat ilmoituksen, kun yhteystiedot avautuvat.</p>`,
+    `/remontti/${params.projectId}`,
+    "Seuraa tilannetta",
   );
 }
 

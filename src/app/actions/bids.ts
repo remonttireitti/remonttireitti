@@ -24,6 +24,7 @@ import {
   userNotifyCounterOfferDeclined,
   userNotifyNewBid,
 } from "@/lib/user-notify";
+import { scheduleNotification } from "@/lib/schedule-notification";
 import { isBidStale, STALE_BID_CUSTOMER_MESSAGE } from "@/lib/bid-staleness";
 import {
   getOverBudgetBlockError,
@@ -308,9 +309,9 @@ export async function submitBid(
   };
 
   if (isResubmission && existing?.status === "rejected") {
-    void userNotifyBidUpdated(notifyPayload);
+    scheduleNotification(() => userNotifyBidUpdated(notifyPayload));
   } else {
-    void userNotifyNewBid(notifyPayload);
+    scheduleNotification(() => userNotifyNewBid(notifyPayload));
   }
 
   if (payload.project.status === "published") {
@@ -375,12 +376,14 @@ export async function updateBid(
       .eq("id", user.id)
       .single();
 
-    void userNotifyBidUpdated({
-      customerId: payload.project.customer_id,
-      projectTitle: payload.project.title,
-      projectId: payload.projectId,
-      contractorCompany: contractor?.company_name ?? "Urakoitsija",
-    });
+    scheduleNotification(() =>
+      userNotifyBidUpdated({
+        customerId: payload.project.customer_id,
+        projectTitle: payload.project.title,
+        projectId: payload.projectId,
+        contractorCompany: contractor?.company_name ?? "Urakoitsija",
+      }),
+    );
   }
 
   revalidateBidPaths(payload.projectId);
@@ -513,12 +516,14 @@ export async function submitCounterOffer(
     return { error: "Vastatarjouksen tallennus epäonnistui." };
   }
 
-  void userNotifyCounterOffer({
-    contractorId: bid.contractor_id,
-    projectTitle: project.title,
-    projectId,
-    amountEuros,
-  });
+  scheduleNotification(() =>
+    userNotifyCounterOffer({
+      contractorId: bid.contractor_id,
+      projectTitle: project.title,
+      projectId,
+      amountEuros,
+    }),
+  );
 
   revalidateBidPaths(projectId);
   return { success: "Vastatarjous lähetetty urakoitsijalle." };
@@ -576,12 +581,14 @@ export async function acceptCounterOffer(
 
   if (error) return { error: "Vastatarjouksen hyväksyntä epäonnistui." };
 
-  void userNotifyCounterOfferAccepted({
-    customerId: project.customer_id,
-    projectTitle: project.title,
-    projectId,
-    amountEuros: bid.counter_amount_cents / 100,
-  });
+  scheduleNotification(() =>
+    userNotifyCounterOfferAccepted({
+      customerId: project.customer_id,
+      projectTitle: project.title,
+      projectId,
+      amountEuros: bid.counter_amount_cents / 100,
+    }),
+  );
 
   revalidateBidPaths(projectId);
   return {};
@@ -635,13 +642,15 @@ export async function declineCounterOffer(
     bid.counter_amount_cents != null &&
     bid.amount_cents != null
   ) {
-    void userNotifyCounterOfferDeclined({
-      customerId: project.customer_id,
-      projectTitle: project.title,
-      projectId,
-      counterAmountEuros: bid.counter_amount_cents / 100,
-      originalAmountEuros: bid.amount_cents / 100,
-    });
+    scheduleNotification(() =>
+      userNotifyCounterOfferDeclined({
+        customerId: project.customer_id,
+        projectTitle: project.title,
+        projectId,
+        counterAmountEuros: bid.counter_amount_cents / 100,
+        originalAmountEuros: bid.amount_cents / 100,
+      }),
+    );
   }
 
   revalidateBidPaths(projectId);
@@ -721,12 +730,14 @@ export async function rejectBid(
     return { error: "Tarjouksen hylkäys epäonnistui." };
   }
 
-  void userNotifyBidRejected({
-    contractorId: bid.contractor_id,
-    projectTitle: project.title,
-    projectId,
-    rejectionMessage,
-  });
+  scheduleNotification(() =>
+    userNotifyBidRejected({
+      contractorId: bid.contractor_id,
+      projectTitle: project.title,
+      projectId,
+      rejectionMessage,
+    }),
+  );
 
   revalidateBidPaths(projectId);
   return { success: "Tarjous hylätty." };
@@ -860,28 +871,32 @@ export async function acceptBid(formData: FormData): Promise<void> {
     .eq("id", bid.contractor_id)
     .maybeSingle();
 
-  void userNotifyOrderFinalizing({
-    customerId: user.id,
-    projectId,
-    projectTitle: project.title,
-    contractorName: contractorProfile?.company_name ?? "Urakoitsija",
-    commitDeadline,
-  });
+  scheduleNotification(() =>
+    userNotifyOrderFinalizing({
+      customerId: user.id,
+      projectId,
+      projectTitle: project.title,
+      contractorName: contractorProfile?.company_name ?? "Urakoitsija",
+      commitDeadline,
+    }),
+  );
 
   const acceptedAmountCents =
     acceptedIncludesEquipment && bid.equipment_amount_cents
       ? bid.amount_cents + bid.equipment_amount_cents
       : bid.amount_cents;
 
-  void userNotifyBidAccepted({
-    contractorId: bid.contractor_id,
-    projectTitle: project.title,
-    projectId,
-    commitDeadline,
-    feeCents,
-    acceptedAmountCents,
-    acceptedIncludesEquipment: acceptedIncludesEquipment ?? false,
-  });
+  scheduleNotification(() =>
+    userNotifyBidAccepted({
+      contractorId: bid.contractor_id,
+      projectTitle: project.title,
+      projectId,
+      commitDeadline,
+      feeCents,
+      acceptedAmountCents,
+      acceptedIncludesEquipment: acceptedIncludesEquipment ?? false,
+    }),
+  );
 
   revalidatePath(`/remontti/${projectId}`);
   revalidatePath(`/tarjoukset/urakka/${projectId}`);

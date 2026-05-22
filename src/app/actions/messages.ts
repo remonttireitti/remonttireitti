@@ -1,6 +1,7 @@
 "use server";
 
 import { userNotifyProjectMessage } from "@/lib/user-notify";
+import { scheduleNotification } from "@/lib/schedule-notification";
 import {
   isContactRestrictedProjectStatus,
   validateMessageContactRules,
@@ -106,14 +107,16 @@ export async function sendProjectMessage(
       ? conversation.contractor_id
       : conversation.customer_id;
 
-  void userNotifyProjectMessage({
-    recipientId,
-    projectTitle: project.title ?? "Urakka",
-    projectId: conversation.project_id,
-    projectStatus: project.status,
-    preview: body,
-    recipientIsContractor: recipientId === conversation.contractor_id,
-  });
+  scheduleNotification(() =>
+    userNotifyProjectMessage({
+      recipientId,
+      projectTitle: project.title ?? "Urakka",
+      projectId: conversation.project_id,
+      projectStatus: project.status,
+      preview: body,
+      recipientIsContractor: recipientId === conversation.contractor_id,
+    }),
+  );
 
   for (const path of revalidatePaths) {
     revalidatePath(path);

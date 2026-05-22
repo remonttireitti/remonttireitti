@@ -25,6 +25,7 @@ import { getContractorCompanyBypass } from "@/lib/profile-read";
 import { getNotificationPrefs } from "@/lib/notification-prefs";
 import { syncContractorAccount } from "@/lib/sync-contractor";
 import { projectStatusLabels } from "@/lib/projects";
+import { isEmailConfigured } from "@/lib/email";
 import { createClient } from "@/lib/supabase/server";
 import type { ProjectStatus } from "@/types/database";
 
@@ -236,6 +237,7 @@ export default async function AccountPage({
               className="mt-0 h-fit lg:mt-0"
               role={profile.role}
               prefs={notificationPrefs}
+              emailConfigured={isEmailConfigured()}
             />
           )}
         </div>

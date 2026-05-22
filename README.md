@@ -29,6 +29,20 @@ copy .env.example .env.local
 
 Täytä `.env.local` dashboardin API-arvoilla.
 
+### Sähköposti-ilmoitukset (Resend)
+
+Ilmoitukset lähetetään [Resend](https://resend.com)-palvelulla. Ilman avainta vain sovellusilmoitukset toimivat.
+
+**Vercel → Environment Variables:**
+
+| Muuttuja | Esimerkki |
+|----------|-----------|
+| `RESEND_API_KEY` | `re_…` (Resend API Keys) |
+| `EMAIL_FROM` | `Remonttireitti <noreply@remonttireitti.fi>` |
+| `NEXT_PUBLIC_SITE_URL` | `https://remonttireitti.fi` |
+
+Vahvista lähettäjädomain Resendissä (DNS-tietueet). Kehityksessä Resend voi lähettää vain vahvistettuihin osoitteisiin.
+
 ### 3. Aja tietokantamigraatio
 
 **Vaihtoehto A — Supabase Dashboard**

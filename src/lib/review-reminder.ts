@@ -49,7 +49,7 @@ export async function sendDueReviewReminders(): Promise<number> {
       ? cp[0]?.company_name
       : cp?.company_name;
 
-    void userNotifyReviewReminder({
+    await userNotifyReviewReminder({
       customerId: project.customer_id,
       projectId: project.id,
       projectTitle: project.title,

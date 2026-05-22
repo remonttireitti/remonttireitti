@@ -11,18 +11,33 @@ export type SendEmailParams = {
   text?: string;
 };
 
+export type SendEmailResult = {
+  ok: boolean;
+  skipped?: boolean;
+  error?: string;
+  resendId?: string;
+};
+
+export function isEmailConfigured(): boolean {
+  return Boolean(RESEND_API_KEY?.trim());
+}
+
 export async function sendEmail(
   params: SendEmailParams,
-): Promise<{ ok: boolean; skipped?: boolean; error?: string }> {
+): Promise<SendEmailResult> {
   if (!params.to?.includes("@")) {
+    console.warn("[email] invalid recipient:", params.to);
     return { ok: false, error: "Invalid recipient" };
   }
 
-  if (!RESEND_API_KEY) {
-    if (process.env.NODE_ENV === "development") {
-      console.log("[email dev]", params.subject, "→", params.to);
-    }
-    return { ok: true, skipped: true };
+  if (!isEmailConfigured()) {
+    console.warn(
+      "[email] skipped (RESEND_API_KEY missing):",
+      params.subject,
+      "→",
+      params.to,
+    );
+    return { ok: false, skipped: true, error: "RESEND_API_KEY not configured" };
   }
 
   const res = await fetch("https://api.resend.com/emails", {
@@ -42,11 +57,26 @@ export async function sendEmail(
 
   if (!res.ok) {
     const body = await res.text();
-    console.error("[email]", res.status, body);
-    return { ok: false, error: "Send failed" };
+    console.error("[email] Resend error", res.status, body, "→", params.to);
+    let message = "Send failed";
+    try {
+      const parsed = JSON.parse(body) as { message?: string };
+      if (parsed.message) message = parsed.message;
+    } catch {
+      if (body) message = body.slice(0, 200);
+    }
+    return { ok: false, error: message };
   }
 
-  return { ok: true };
+  let resendId: string | undefined;
+  try {
+    const data = (await res.json()) as { id?: string };
+    resendId = data.id;
+  } catch {
+    /* ignore */
+  }
+
+  return { ok: true, resendId };
 }
 
 export function siteUrl(path: string) {

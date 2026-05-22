@@ -9,6 +9,7 @@ import {
   notifyCounterOfferAccepted,
   notifyCounterOfferDeclined,
   notifyNewBid,
+  notifyOrderFinalizing,
   notifyProjectMessage,
   notifyProjectCancelled,
   notifyProjectUpdated,
@@ -174,6 +175,7 @@ export async function userNotifyOrderFinalizing(params: {
     `${params.contractorName} viimeistelee tilausta (välitysmaksu) viimeistään ${dl}. Saat ilmoituksen kun yhteystiedot avautuvat.`,
     `/remontti/${params.projectId}`,
   );
+  await notifyOrderFinalizing(params);
 }
 
 export async function userNotifyBidAcceptExpiredCustomer(params: {

@@ -79,14 +79,14 @@ export async function expirePendingAcceptanceForProject(
     .eq("id", invoice.contractor_id)
     .maybeSingle();
 
-  void userNotifyBidAcceptExpiredCustomer({
+  await userNotifyBidAcceptExpiredCustomer({
     customerId: project.customer_id,
     projectId: project.id,
     projectTitle: project.title,
     contractorName: contractor?.company_name ?? "Urakoitsija",
   });
 
-  void userNotifyBidAcceptExpiredContractor({
+  await userNotifyBidAcceptExpiredContractor({
     contractorId: invoice.contractor_id,
     projectId: project.id,
     projectTitle: project.title,

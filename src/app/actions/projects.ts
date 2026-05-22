@@ -18,6 +18,7 @@ import {
   notifyContractorsNewMaintenanceProject,
   notifyContractorsNewPublishedProject,
 } from "@/lib/contractor-project-notify";
+import { scheduleNotification } from "@/lib/schedule-notification";
 import type { DeviceCategory } from "@/constants/maintenance";
 import {
   parseDeviceMaintenanceJson,
@@ -263,22 +264,26 @@ export async function createProject(
       | { device_category?: string }
       | undefined;
     if (maintenance?.device_category) {
-      void notifyContractorsNewMaintenanceProject({
-        projectId: data.id,
-        projectTitle: title,
-        jobTypeId,
-        deviceCategory: maintenance.device_category as DeviceCategory,
-        municipality,
-        postalCode,
-      });
+      scheduleNotification(() =>
+        notifyContractorsNewMaintenanceProject({
+          projectId: data.id,
+          projectTitle: title,
+          jobTypeId,
+          deviceCategory: maintenance.device_category as DeviceCategory,
+          municipality,
+          postalCode,
+        }),
+      );
     } else {
-      void notifyContractorsNewPublishedProject({
-        projectId: data.id,
-        projectTitle: title,
-        jobTypeId,
-        municipality,
-        postalCode,
-      });
+      scheduleNotification(() =>
+        notifyContractorsNewPublishedProject({
+          projectId: data.id,
+          projectTitle: title,
+          jobTypeId,
+          municipality,
+          postalCode,
+        }),
+      );
     }
   }
 
@@ -339,22 +344,26 @@ export async function publishProject(
   const maintenance = (project.details as { laitteen_huolto?: { device_category?: string } })
     ?.laitteen_huolto;
   if (maintenance?.device_category) {
-    void notifyContractorsNewMaintenanceProject({
-      projectId,
-      projectTitle: project.title,
-      jobTypeId: project.job_type_id,
-      deviceCategory: maintenance.device_category as DeviceCategory,
-      municipality: project.municipality,
-      postalCode: project.postal_code,
-    });
+    scheduleNotification(() =>
+      notifyContractorsNewMaintenanceProject({
+        projectId,
+        projectTitle: project.title,
+        jobTypeId: project.job_type_id,
+        deviceCategory: maintenance.device_category as DeviceCategory,
+        municipality: project.municipality,
+        postalCode: project.postal_code,
+      }),
+    );
   } else {
-    void notifyContractorsNewPublishedProject({
-      projectId,
-      projectTitle: project.title,
-      jobTypeId: project.job_type_id,
-      municipality: project.municipality,
-      postalCode: project.postal_code,
-    });
+    scheduleNotification(() =>
+      notifyContractorsNewPublishedProject({
+        projectId,
+        projectTitle: project.title,
+        jobTypeId: project.job_type_id,
+        municipality: project.municipality,
+        postalCode: project.postal_code,
+      }),
+    );
   }
 
   revalidateCustomerProjectPaths(projectId);
@@ -473,11 +482,13 @@ export async function cancelCustomerProject(
   }
 
   for (const bid of openBids ?? []) {
-    void userNotifyProjectCancelled({
-      contractorId: bid.contractor_id,
-      projectTitle: project.title,
-      projectId,
-    });
+    scheduleNotification(() =>
+      userNotifyProjectCancelled({
+        contractorId: bid.contractor_id,
+        projectTitle: project.title,
+        projectId,
+      }),
+    );
   }
 
   revalidateCustomerProjectPaths(projectId);
@@ -769,11 +780,13 @@ export async function updateProject(
       .eq("status", "submitted");
 
     for (const row of bidders ?? []) {
-      void userNotifyProjectUpdated({
-        contractorId: row.contractor_id,
-        projectTitle: title,
-        projectId,
-      });
+      scheduleNotification(() =>
+        userNotifyProjectUpdated({
+          contractorId: row.contractor_id,
+          projectTitle: title,
+          projectId,
+        }),
+      );
     }
   }
 
