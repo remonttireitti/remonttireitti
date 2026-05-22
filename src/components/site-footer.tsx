@@ -65,6 +65,30 @@ export function SiteFooter() {
             <p className="mt-1">Y-tunnus: {siteConfig.businessId}</p>
           )}
           {siteConfig.address && <p className="mt-1">{siteConfig.address}</p>}
+          {(siteConfig.instagramUrl || siteConfig.facebookUrl) && (
+            <p className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-sm">
+              {siteConfig.instagramUrl && (
+                <a
+                  href={siteConfig.instagramUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-medium text-sky-700 hover:underline"
+                >
+                  Instagram
+                </a>
+              )}
+              {siteConfig.facebookUrl && (
+                <a
+                  href={siteConfig.facebookUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-medium text-sky-700 hover:underline"
+                >
+                  Facebook
+                </a>
+              )}
+            </p>
+          )}
           <p className="mt-2">
             <a
               href={`mailto:${siteConfig.email}`}

@@ -16,6 +16,12 @@ export function JsonLd() {
         email: siteConfig.email,
         ...(siteConfig.phone ? { telephone: siteConfig.phone } : {}),
         ...(siteConfig.address ? { address: siteConfig.address } : {}),
+        ...(() => {
+          const sameAs = [siteConfig.instagramUrl, siteConfig.facebookUrl].filter(
+            Boolean,
+          );
+          return sameAs.length > 0 ? { sameAs } : {};
+        })(),
       },
       {
         "@type": "WebSite",

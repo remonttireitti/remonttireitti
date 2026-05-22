@@ -27,4 +27,7 @@ export const siteConfig = {
   /** Google Search Console — HTML-tag -vahvistus (aseta Vercelissä). */
   googleSiteVerification:
     process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION ?? "",
+  /** Esim. https://www.instagram.com/remonttireitti */
+  instagramUrl: (process.env.NEXT_PUBLIC_INSTAGRAM_URL ?? "").trim(),
+  facebookUrl: (process.env.NEXT_PUBLIC_FACEBOOK_URL ?? "").trim(),
 } as const;
