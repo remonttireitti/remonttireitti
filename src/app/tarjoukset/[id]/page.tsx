@@ -16,6 +16,7 @@ import { ensureProjectConversation } from "@/app/actions/messages";
 import { fetchContractorProjectConversation } from "@/lib/messages-server";
 import { fetchProjectPhotos } from "@/lib/project-photos";
 import { fetchContractorBidDefaults } from "@/lib/contractor-bid-defaults-server";
+import { resolveProjectJobTypeSlug } from "@/lib/project-job-type";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function ContractorProjectPage({
@@ -42,6 +43,7 @@ export default async function ContractorProjectPage({
       id, title, description, details, municipality, postal_code,
       budget_min, budget_max, desired_start, flexibility_weeks,
       status, bid_deadline, customer_id,
+      job_types ( slug ),
       service_categories ( name_fi )
     `,
     )
@@ -92,6 +94,13 @@ export default async function ContractorProjectPage({
   );
 
   const defaultBidTerms = await fetchContractorBidDefaults(user.id);
+  const jobTypeSlug = resolveProjectJobTypeSlug({
+    job_types: project.job_types as
+      | { slug: string }
+      | { slug: string }[]
+      | null,
+    details: project.details as Record<string, unknown> | null,
+  });
 
   const chatData = await fetchContractorProjectConversation(
     supabase,
@@ -177,6 +186,7 @@ export default async function ContractorProjectPage({
           budgetInfo={budgetInfo}
           bidStale={bidStale}
           defaultBidTerms={defaultBidTerms}
+          jobTypeSlug={jobTypeSlug}
         />
       </main>
     </div>

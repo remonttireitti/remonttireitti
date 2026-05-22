@@ -31,6 +31,7 @@ export function ContractorBidPanel({
   budgetInfo,
   bidStale = false,
   defaultBidTerms,
+  jobTypeSlug,
 }: {
   projectId: string;
   bid: BidView | null;
@@ -39,6 +40,7 @@ export function ContractorBidPanel({
   budgetInfo: ProjectBudgetInfo;
   bidStale?: boolean;
   defaultBidTerms?: ContractorBidDefaults;
+  jobTypeSlug?: string | null;
 }) {
   const bidFormProps = {
     projectId,
@@ -46,6 +48,7 @@ export function ContractorBidPanel({
     allowOptionalEquipmentOffer,
     budgetInfo,
     defaultBidTerms,
+    jobTypeSlug,
   };
   const router = useRouter();
   const [withdrawError, setWithdrawError] = useState<string | null>(null);

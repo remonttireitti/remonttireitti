@@ -62,6 +62,7 @@ export function BidForm({
   initialFields,
   budgetInfo,
   defaultBidTerms,
+  jobTypeSlug,
 }: {
   projectId: string;
   /** Urakoitsija toimittaa laitteet (pakollinen laitetakuu). */
@@ -74,6 +75,8 @@ export function BidForm({
   budgetInfo: ProjectBudgetInfo;
   /** Oma tili -sivulla tallennetut oletukset (vain uusi tarjous). */
   defaultBidTerms?: ContractorBidDefaults;
+  /** Tarjouspyynnön lämpöpumppu — suodattaa valmiit mallit. */
+  jobTypeSlug?: string | null;
 }) {
   const [fields, setFields] = useState<BidFormFields>(() => {
     const base = initialFields ?? initialBidFormFields();
@@ -313,6 +316,7 @@ export function BidForm({
           />
           <BidTermsTemplatePicker
             target="scope_terms"
+            jobTypeSlug={jobTypeSlug}
             onApply={(text, mode) => applyTemplate("scope_terms", text, mode)}
           />
         </div>
@@ -332,6 +336,7 @@ export function BidForm({
           />
           <BidTermsTemplatePicker
             target="contract_terms"
+            jobTypeSlug={jobTypeSlug}
             onApply={(text, mode) =>
               applyTemplate("contract_terms", text, mode)
             }
@@ -357,6 +362,7 @@ export function BidForm({
           />
           <BidTermsTemplatePicker
             target="warranty_work"
+            jobTypeSlug={jobTypeSlug}
             onApply={(text, mode) => applyTemplate("warranty_work", text, mode)}
           />
           {fieldErrors.warranty_work && (
@@ -472,6 +478,7 @@ export function BidForm({
           />
           <BidTermsTemplatePicker
             target="warranty_equipment"
+            jobTypeSlug={jobTypeSlug}
             onApply={(text, mode) =>
               applyTemplate("warranty_equipment", text, mode)
             }
