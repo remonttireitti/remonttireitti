@@ -23,7 +23,8 @@ export function ContractorBillingForm({
   billingAddressLine,
   billingPostalCode,
   billingCity,
-}: Props) {
+  className = "",
+}: Props & { className?: string }) {
   const [state, action, pending] = useActionState<
     ContractorBillingState,
     FormData
@@ -32,7 +33,7 @@ export function ContractorBillingForm({
   return (
     <form
       action={action}
-      className="mt-6 space-y-4 rounded-xl border border-stone-200 bg-white p-6"
+      className={`space-y-4 rounded-xl border border-stone-200 bg-white p-4 sm:p-6 ${className || "mt-6"}`}
     >
       <h2 className="text-lg font-semibold">Laskutustiedot</h2>
       <p className="text-sm text-stone-600">

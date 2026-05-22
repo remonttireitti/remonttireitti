@@ -43,9 +43,11 @@ function buildInitialByJob(
 export function ContractorBidDefaultsForm({
   legacy,
   byJobType,
+  className = "",
 }: {
   legacy: ContractorBidDefaults;
   byJobType: ContractorBidDefaultsByJobType;
+  className?: string;
 }) {
   const [activeSlug, setActiveSlug] = useState<HeatPumpSlug>("ilmalampopumppu");
   const [byJob, setByJob] = useState(() => buildInitialByJob(legacy, byJobType));
@@ -135,10 +137,10 @@ export function ContractorBidDefaultsForm({
 
       <div
         key={activeSlug}
-        className="space-y-4 border-t border-stone-100 pt-4"
+        className="space-y-4 border-t border-stone-100 pt-4 xl:grid xl:grid-cols-2 xl:gap-x-8 xl:gap-y-4"
         role="tabpanel"
       >
-        <p className="text-xs text-stone-500">
+        <p className="text-xs text-stone-500 xl:col-span-2">
           Oletukset: {HEAT_PUMP_MARKETING[activeSlug].title}
         </p>
 

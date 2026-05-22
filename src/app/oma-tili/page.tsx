@@ -113,8 +113,8 @@ export default async function AccountPage({
     return (
       <div className="min-h-full bg-stone-50 text-stone-900">
         <SiteHeader />
-        <main className="mx-auto max-w-2xl px-4 py-8 sm:px-6 sm:py-12">
-          <h1 className="text-xl font-bold">Oma tili</h1>
+        <main className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:px-8 sm:py-12">
+          <h1 className="text-xl font-bold sm:text-2xl">Oma tili</h1>
           {params.virhe && (
             <p className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-800" role="alert">
               Aktivointi epäonnistui: {decodeURIComponent(params.virhe)}
@@ -152,9 +152,11 @@ export default async function AccountPage({
   return (
     <div className="min-h-full bg-stone-50 text-stone-900">
       <SiteHeader />
-      <main className="mx-auto max-w-2xl px-4 py-8 sm:px-6 sm:py-12">
-        <h1 className="text-2xl font-bold">Oma tili</h1>
-        <p className="mt-2 text-stone-600">{user.email}</p>
+      <main className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:px-8 sm:py-12">
+        <header className="max-w-3xl">
+          <h1 className="text-2xl font-bold sm:text-3xl">Oma tili</h1>
+          <p className="mt-2 break-all text-stone-600 sm:text-base">{user.email}</p>
+        </header>
 
         {needsContractorFix && (
           <div className="mt-6">
@@ -188,45 +190,55 @@ export default async function AccountPage({
           </div>
         )}
 
-        <div className="mt-8 space-y-4 rounded-2xl border border-stone-200 bg-white p-6">
-          <Row label="Nimi" value={profile?.full_name ?? "—"} />
-          <Row
-            label="Rooli"
-            value={
-              profile ? roleLabels[profile.role] : contractor ? roleLabels.contractor : "—"
-            }
-          />
-          {contractorCompany && (
-            <Row label="Yritys" value={contractorCompany} />
-          )}
-          {contractor && contractorQuals && (
-            <>
-              <Row
-                label="Lämpöpumput"
-                value={formatPumpTypes(contractorQuals.jobTypeSlugs)}
-              />
-              <Row
-                label="Kylmäainelupa"
-                value={formatRefrigerant(contractorQuals.refrigerantLicense)}
-              />
-              <Row
-                label="Sähkötyöt"
-                value={formatCapability(contractorQuals.electricalCapability)}
-              />
-              <Row
-                label="LVI-työt"
-                value={formatCapability(contractorQuals.lviCapability)}
-              />
-            </>
+        <div className="mt-8 grid gap-6 lg:grid-cols-2 lg:gap-8">
+          <div className="space-y-4 rounded-2xl border border-stone-200 bg-white p-4 sm:p-6">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-stone-500">
+              Tilin tiedot
+            </h2>
+            <Row label="Nimi" value={profile?.full_name ?? "—"} />
+            <Row
+              label="Rooli"
+              value={
+                profile
+                  ? roleLabels[profile.role]
+                  : contractor
+                    ? roleLabels.contractor
+                    : "—"
+              }
+            />
+            {contractorCompany && (
+              <Row label="Yritys" value={contractorCompany} />
+            )}
+            {contractor && contractorQuals && (
+              <>
+                <Row
+                  label="Lämpöpumput"
+                  value={formatPumpTypes(contractorQuals.jobTypeSlugs)}
+                />
+                <Row
+                  label="Kylmäainelupa"
+                  value={formatRefrigerant(contractorQuals.refrigerantLicense)}
+                />
+                <Row
+                  label="Sähkötyöt"
+                  value={formatCapability(contractorQuals.electricalCapability)}
+                />
+                <Row
+                  label="LVI-työt"
+                  value={formatCapability(contractorQuals.lviCapability)}
+                />
+              </>
+            )}
+          </div>
+
+          {profile && (
+            <NotificationPreferencesForm
+              className="mt-0 h-fit lg:mt-0"
+              role={profile.role}
+              prefs={notificationPrefs}
+            />
           )}
         </div>
-
-        {profile && (
-          <NotificationPreferencesForm
-            role={profile.role}
-            prefs={notificationPrefs}
-          />
-        )}
 
         {!contractor && !admin && (
           <>
@@ -290,41 +302,44 @@ export default async function AccountPage({
         )}
 
         {contractor && (
-          <ContractorBidDefaultsForm
-            {...(await fetchContractorBidDefaultsBundle(user.id))}
-          />
-        )}
+          <section className="mt-8 space-y-6 lg:mt-10 lg:space-y-8">
+            <ContractorBidDefaultsForm
+              className="mt-0"
+              {...(await fetchContractorBidDefaultsBundle(user.id))}
+            />
 
-        {contractor && heatPumpJobTypes.length > 0 && contractorQuals && (
-          <ContractorProfileForm
-            jobTypes={heatPumpJobTypes}
-            companyName={contractorQuals.companyName}
-            jobTypeIds={contractorQuals.jobTypeIds}
-            refrigerantLicense={contractorQuals.refrigerantLicense}
-            electricalCapability={contractorQuals.electricalCapability}
-            lviCapability={contractorQuals.lviCapability}
-          />
-        )}
+            <div className="grid gap-6 lg:grid-cols-2 lg:items-start lg:gap-8">
+              {heatPumpJobTypes.length > 0 && contractorQuals && (
+                <ContractorProfileForm
+                  className="mt-0"
+                  jobTypes={heatPumpJobTypes}
+                  companyName={contractorQuals.companyName}
+                  jobTypeIds={contractorQuals.jobTypeIds}
+                  refrigerantLicense={contractorQuals.refrigerantLicense}
+                  electricalCapability={contractorQuals.electricalCapability}
+                  lviCapability={contractorQuals.lviCapability}
+                />
+              )}
 
-        {contractor && (
-          <ContractorBillingForm
-            businessId={billingFields.businessId}
-            billingEmail={billingFields.billingEmail}
-            billingAddressLine={billingFields.billingAddressLine}
-            billingPostalCode={billingFields.billingPostalCode}
-            billingCity={billingFields.billingCity}
-          />
-        )}
+              <ContractorBillingForm
+                className="mt-0"
+                businessId={billingFields.businessId}
+                billingEmail={billingFields.billingEmail}
+                billingAddressLine={billingFields.billingAddressLine}
+                billingPostalCode={billingFields.billingPostalCode}
+                billingCity={billingFields.billingCity}
+              />
+            </div>
 
-        {contractor && (
-          <div className="mt-8">
-            <Link
-              href="/tarjoukset"
-              className="inline-flex rounded-full bg-orange-700 px-5 py-2.5 text-sm font-medium text-white hover:bg-orange-800"
-            >
-              Selaa avoimia lämpöpumppupyyntöjä
-            </Link>
-          </div>
+            <div className="pt-2">
+              <Link
+                href="/tarjoukset"
+                className="inline-flex w-full items-center justify-center rounded-full bg-orange-700 px-5 py-3 text-sm font-medium text-white hover:bg-orange-800 sm:w-auto sm:py-2.5"
+              >
+                Selaa avoimia lämpöpumppupyyntöjä
+              </Link>
+            </div>
+          </section>
         )}
       </main>
     </div>
@@ -333,9 +348,11 @@ export default async function AccountPage({
 
 function Row({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex justify-between gap-4 border-b border-stone-100 pb-3 last:border-0 last:pb-0">
-      <span className="text-sm text-stone-500">{label}</span>
-      <span className="text-sm font-medium">{value}</span>
+    <div className="flex flex-col gap-1 border-b border-stone-100 py-3 last:border-0 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
+      <span className="shrink-0 text-sm text-stone-500">{label}</span>
+      <span className="text-sm font-medium sm:max-w-[65%] sm:text-right">
+        {value}
+      </span>
     </div>
   );
 }

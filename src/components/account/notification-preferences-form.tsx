@@ -11,9 +11,11 @@ import type { UserRole } from "@/types/database";
 export function NotificationPreferencesForm({
   role,
   prefs,
+  className = "",
 }: {
   role: UserRole;
   prefs: NotificationPrefs;
+  className?: string;
 }) {
   const [state, action, pending] = useActionState<
     NotificationPrefsState,
@@ -23,7 +25,7 @@ export function NotificationPreferencesForm({
   return (
     <form
       action={action}
-      className="mt-6 space-y-4 rounded-xl border border-stone-200 bg-white p-6"
+      className={`space-y-4 rounded-xl border border-stone-200 bg-white p-4 sm:p-6 ${className || "mt-6"}`}
     >
       <h2 className="text-lg font-semibold">Ilmoitukset</h2>
       <p className="text-sm text-stone-600">

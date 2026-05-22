@@ -31,14 +31,18 @@ export function ContractorProfileForm({
   refrigerantLicense,
   electricalCapability,
   lviCapability,
-}: Props) {
+  className = "",
+}: Props & { className?: string }) {
   const [state, action, pending] = useActionState<
     ContractorProfileState,
     FormData
   >(updateContractorQualifications, {});
 
   return (
-    <form action={action} className="mt-6 space-y-4 rounded-xl border border-stone-200 bg-white p-6">
+    <form
+      action={action}
+      className={`space-y-4 rounded-xl border border-stone-200 bg-white p-4 sm:p-6 ${className || "mt-6"}`}
+    >
       <h2 className="text-lg font-semibold">Asentajan pätevyydet</h2>
       <p className="text-sm text-stone-600">
         Näitä tietoja käytetään, kun asiakkaat vertailevat tarjouksia.
