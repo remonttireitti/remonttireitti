@@ -14,12 +14,32 @@ import {
 import { marketplaceBrand } from "@/lib/marketplace-brand";
 import { pageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = pageMetadata({
-  title: `Ilmoitukset — ${marketplaceBrand.nameShort}`,
-  description:
-    "Selaa julkaistuja lämpöpumppu- ja laiteilmoituksia. Käytettyjä ja uusia laitteita ympäri Suomen.",
-  path: "/markkinapaikka/ilmoitukset",
-});
+export async function generateMetadata({
+  searchParams,
+}: {
+  searchParams: Promise<{ kategoria?: string }>;
+}): Promise<Metadata> {
+  const { kategoria } = await searchParams;
+  const categoryFilter = listingCategoryFromUrlParam(kategoria);
+  const categoryMeta = categoryFilter
+    ? getListingCategory(categoryFilter)
+    : null;
+
+  if (categoryMeta) {
+    return pageMetadata({
+      title: `${categoryMeta.label} — ${marketplaceBrand.nameShort}`,
+      description: `${categoryMeta.description}. Selaa ${categoryMeta.label.toLowerCase()}-ilmoituksia markkinapaikalla.`,
+      path: `/markkinapaikka/ilmoitukset?kategoria=${categoryMeta.urlSlug}`,
+    });
+  }
+
+  return pageMetadata({
+    title: `Ilmoitukset — ${marketplaceBrand.nameShort}`,
+    description:
+      "Selaa julkaistuja lämpöpumppu- ja laiteilmoituksia. Käytettyjä ja uusia laitteita ympäri Suomen.",
+    path: "/markkinapaikka/ilmoitukset",
+  });
+}
 
 export default async function MarketplaceListingsPage({
   searchParams,
