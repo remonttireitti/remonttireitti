@@ -183,7 +183,7 @@ export const TROUBLESHOOTING_GUIDES: TroubleshootingGuide[] = [
         id: "loose",
         title: "Irralliset osat",
         detail:
-          "Tarkista onko ulkoyksikön kansi löysällä, oksetta tai roskaa puhaltimessa (laite pois päältä).",
+          "Tarkista onko ulkoyksikön kansi löysällä tai puhaltimessa oksia, lehtiä tai roskaa (laite pois päältä).",
       },
       {
         id: "mount",
