@@ -44,9 +44,9 @@ export const TROUBLESHOOTING_GUIDES: TroubleshootingGuide[] = [
       },
       {
         id: "outdoor",
-        title: "Ulkoyksikkö",
+        title: "Ulkoyksikkö — esteet ja lumi ympärillä",
         detail:
-          "Poista lumi, lehdet ja esteet ulkoyksikön edestä ja puhaltimesta. Ilmavirta pitää olla vapaa.",
+          "Poista lumi, lehdet ja esteet laitteen ympäriltä ja puhaltimen edestä. Älä raavi tai hakkoa jäätä kennon lamelista — vaurioitunut kenno vaatii usein huollon.",
       },
       {
         id: "breaker",
@@ -127,38 +127,49 @@ export const TROUBLESHOOTING_GUIDES: TroubleshootingGuide[] = [
     slug: "jaaatyys",
     title: "Jäätyy tai huurteessa",
     summary:
-      "Ulkoyksikössä tai putkissa on huurretta/jää, erityisesti pakkasella.",
+      "Kevyt huurre pakkasella voi olla normaalia. Paksu jää ulkoyksikön kennossa tai toistuva jäätyminen vaatii lähes aina ammattilaisen — pelkkä lumen ja jään kuorinta ei riitä.",
     maintenanceSymptom: "Ei lämmitä",
     safeChecks: [
       {
         id: "defrost",
         title: "Sulatusjakso",
         detail:
-          "Pakkasella ulkoyksikkö sulattaa välillä — odota 15–30 min. Jos lämpö palaa, kyse voi olla normaalista sulatuksesta.",
+          "Pakkasella laite sulattaa välillä itse. Odota yksi sulatusjakso (noin 15–30 min). Jos lämpö palaa ja jää ei kasaannu uudelleen paksuna kerroksena, kyse voi olla normaalista käytöstä.",
       },
       {
-        id: "airflow-ice",
-        title: "Ilmavirta",
-        detail: "Poista lumi jään päältä ulkoyksiköstä. Varmista esteetön ilmankierto.",
+        id: "snow-around",
+        title: "Lumi ja esteet vain ympärillä",
+        detail:
+          "Voit poistaa lumen ja jäätökset laitteen ympäriltä ja puhaltimen edestä. Älä raavi, hakkoa tai paina kennon lamelia — ne taittuvat helposti ja koko laitteen vaihto voi tulla tarpeelliseksi.",
+      },
+      {
+        id: "observe-pattern",
+        title: "Toistuuko paksu jää?",
+        detail:
+          "Jos jää palaa heti sulatuksen jälkeen, peittää kennon paksuna tai lämmitys heikkenee selvästi, syy on usein ulkoyksikön jäätymisessä (kylmäaine, anturi, paine, väärä tila). Siihen tarvitaan asentajan mittaukset.",
       },
       {
         id: "filter-ice",
         title: "Sisäsuodatin",
-        detail: "Likainen suodatin voi aiheuttaa epätavallista käyttäytymistä — puhdista.",
+        detail: "Likainen suodatin voi pahentaa oireita — puhdista. Se ei yksinään selitä paksua jäätä ulkoyksikössä.",
       },
     ],
     doNotDo: [
-      "Älä hakkaa jäätä teräsvälineillä laitteesta.",
-      "Älä kaada kuumaa vettä ulkoyksikön päälle.",
+      "Älä raavi, hakkoa tai käytä teräspäätä, lapetta tai jäähakkuria kennon pinnassa.",
+      "Älä kaada kuumaa vettä ulkoyksikön päälle (vaurio ja turvallisuusriski).",
+      "Älä luule, että jään poisto kennoista korjaa ongelman pysyvästi — syy pitää selvittää.",
     ],
     callProWhen: [
-      "Jää ei poistu sulatuksen jälkeen tai toistuu päivittäin.",
+      "Paksu jää kennossa tai jää palaa heti uudelleen sulatuksen jälkeen.",
+      "Lämpö ei nouse pakkasella tai laite menee usein häiriötilaan.",
       "Sisäyksiköstä tippuu vettä sisälle tai seinällä on jää.",
-      "Lämpö ei nouse lainkaan pakkasella.",
+      "Epäilet kylmäainevikaa, vuotoa tai poikkeavaa ääntä kompressorista.",
     ],
     pumpNotes: {
+      ilmalampopumppu:
+        "Ulkoyksikön jäätyminen on yleisin syy, kun “ei lämmitä pakkasella”. Käytä lämmitystilaa — älä automaattia.",
       ilmavesilampopumppu:
-        "Tarkista onko lämmönjaon pumppu käynnissä — jäätyminen voi liittyä kiertoon.",
+        "Tarkista onko lämmönjaon pumppu käynnissä. Ulkoyksikön jäätyminen vaatii silti usein asentajan.",
     },
   },
   {
