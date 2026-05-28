@@ -51,7 +51,10 @@ export default async function NewProjectPage() {
             Laite ei toimi oikein? Aloita vian selvityksestä
           </Link>
         </p>
-        <ValuePromoBanner variant="customer-negotiate" className="mt-6 max-w-2xl" />
+        <div className="mt-6 grid max-w-3xl gap-4 sm:grid-cols-2">
+          <ValuePromoBanner variant="customer-free" />
+          <ValuePromoBanner variant="customer-negotiate" />
+        </div>
         <div className="mt-8">
           <ProjectWizard
             catalog={catalog}

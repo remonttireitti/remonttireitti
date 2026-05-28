@@ -1,17 +1,28 @@
-type ValuePromoVariant = "customer-negotiate" | "contractor-pay-on-win";
+type ValuePromoVariant =
+  | "customer-negotiate"
+  | "customer-free"
+  | "contractor-pay-on-win";
 
 const COPY: Record<
   ValuePromoVariant,
-  { title: string; body: string; accent: "sky" | "orange" }
+  { audience?: string; title: string; body: string; accent: "sky" | "orange" }
 > = {
   "customer-negotiate": {
+    audience: "Asiakkaalle",
     title: "Hinta tuntuu kalliilta?",
     body: "Voit ehdottaa alhaisempaa hintaa vastatarjouksella ennen kuin hyväksyt tarjouksen. Neuvottelu on osa vertailua.",
     accent: "orange",
   },
+  "customer-free": {
+    audience: "Asiakkaalle",
+    title: "Sinulle palvelu on ilmainen",
+    body: "Kilpailutus ja tarjousten vertailu eivät maksa mitään. Remonttireitti laskuttaa urakoitsijaa — ei sinua. Maksat vain valitsemallesi asentajalle sovitun työn hinnan.",
+    accent: "sky",
+  },
   "contractor-pay-on-win": {
-    title: "Maksat vain todetusta tilauksesta",
-    body: "Välityspalkkio veloitetaan vasta hyväksynnän jälkeen — summa riippuu pumpputyypistä ja tarjoajien määrästä (esim. ilmalämpö 20–30 €). Tarjousten jättäminen on maksuton.",
+    audience: "Urakoitsijalle",
+    title: "Maksat vain voitetusta diilistä",
+    body: "Tarjousten jättäminen on maksutonta. Välityspalkkio veloitetaan vasta, kun asiakas hyväksyy tarjouksesi — summa riippuu pumpputyypistä ja kilpailijoiden määrästä (esim. ilmalämpö 20–30 € veroton).",
     accent: "sky",
   },
 };
@@ -29,13 +40,18 @@ export function ValuePromoBanner({
   variant: ValuePromoVariant;
   className?: string;
 }) {
-  const { title, body, accent } = COPY[variant];
+  const { audience, title, body, accent } = COPY[variant];
   return (
     <aside
       className={`rounded-xl border p-4 text-sm shadow-sm ${accentClasses[accent]} ${className}`}
       role="note"
     >
-      <p className="font-semibold">{title}</p>
+      {audience && (
+        <p className="text-[10px] font-semibold uppercase tracking-wide opacity-80">
+          {audience}
+        </p>
+      )}
+      <p className={`font-semibold ${audience ? "mt-1" : ""}`}>{title}</p>
       <p className="mt-1 leading-relaxed text-stone-800">{body}</p>
     </aside>
   );
@@ -45,7 +61,7 @@ export function ValuePromoPair({ className = "" }: { className?: string }) {
   return (
     <div className={`grid gap-4 sm:grid-cols-2 ${className}`}>
       <ValuePromoBanner variant="customer-negotiate" />
-      <ValuePromoBanner variant="contractor-pay-on-win" />
+      <ValuePromoBanner variant="customer-free" />
     </div>
   );
 }

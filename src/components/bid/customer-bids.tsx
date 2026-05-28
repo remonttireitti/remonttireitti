@@ -518,8 +518,8 @@ export function CustomerBids({
         <p className="mt-3 text-xs text-stone-500">
           Voit jättää vastatarjouksen — urakoitsija hyväksyy tai hylkää sen. Lopullinen
           hyväksyntä on mahdollista vasta, kun vastatarjous on käsitelty (tai jos et ole
-          jättänyt vastatarjousta). Hyväksynnän jälkeen urakoitsijalle lähetetään
-          välityslasku.
+          jättänyt vastatarjousta).           Hyväksynnän jälkeen urakoitsija saa välityslaskun — sinulle ei tule
+          Remonttireitin maksua.
         </p>
       )}
     </section>

@@ -15,8 +15,8 @@ const items = [
     highlight: false,
   },
   {
-    title: "Urakoitsija maksaa vasta diilistä",
-    body: "Tarjousten jättäminen on maksutonta. Välityspalkkio veloitetaan vain, kun asiakas hyväksyy tarjouksesi — summa riippuu pumpputyypistä ja kilpailun määrästä.",
+    title: "Sinulle ilmainen",
+    body: "Pyyntö, vertailu ja vastatarjoukset eivät maksa mitään. Urakoitsija maksaa palvelun välityspalkkion vasta, kun hyväksyt hänen tarjouksensa — ei sinua.",
     highlight: false,
   },
   {
