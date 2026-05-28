@@ -32,9 +32,9 @@ export const TROUBLESHOOTING_GUIDES: TroubleshootingGuide[] = [
     safeChecks: [
       {
         id: "mode",
-        title: "Tarkista käyttötila",
+        title: "Lämmitystila päällä (ei automaatti)",
         detail:
-          "Varmista lämmitystila (ei vain viilennys), automaattitila päällä ja asetettu tavoitelämpötila järkevä (esim. 20–22 °C).",
+          "Kun tarvitset lämpöä, valitse nimenomaan lämmitystila (heat) — älä jätä automaattitilaa talvella. Automaatti voi lämmittää liikaa, vaihtaa viilennykseen, ja taas lämmitykseen, jolloin huone tuntuu kylmältä vaikka laite “tekee töitä”. Aseta tavoitelämpö lämmitystilassa (esim. 20–22 °C).",
       },
       {
         id: "filter",
@@ -72,8 +72,10 @@ export const TROUBLESHOOTING_GUIDES: TroubleshootingGuide[] = [
       "Lämpö ei riitä pitkään aikaan kokeiluista huolimatta.",
     ],
     pumpNotes: {
+      ilmalampopumppu:
+        "Ilmalämpöpumpuissa automaattitila on usein syynä “ei lämmitä kunnolla” -tilanteeseen — kokeile lämmitystilaa ensin.",
       ilmavesilampopumppu:
-        "Tarkista myös lämmityspiiri: patteriventtiilit auki, kiertovesipumppu käy ja lämpötila nousee lämmönjaossa.",
+        "Tarkista myös lämmityspiiri: patteriventtiilit auki, kiertovesipumppu käy ja lämpötila nousee lämmönjaossa. Lämmitystila, ei automaatti.",
       maalampopumppu:
         "Maalämmössä tarkista lämmönjaon pumppu ja lämpötilat. Maalämpökeruussa ongelma vaatii usein asentajan.",
     },
@@ -87,8 +89,9 @@ export const TROUBLESHOOTING_GUIDES: TroubleshootingGuide[] = [
     safeChecks: [
       {
         id: "cool-mode",
-        title: "Viilennystila",
-        detail: "Valitse viilennys (cool) ja alenna asetettua lämpötilaa (esim. 22 °C).",
+        title: "Viilennystila päällä (ei automaatti)",
+        detail:
+          "Kun tarvitset viilennystä, valitse nimenomaan viilennystila (cool) — älä luota automaattitilaan. Aseta tavoitelämpö hieman alemmas (esim. 22–24 °C).",
       },
       {
         id: "filter-cool",
