@@ -8,7 +8,21 @@ export type TroubleshootingCheck = {
   id: string;
   title: string;
   detail: string;
+  /** Ei näytetä näille pumpputyypeille. */
+  skipFor?: readonly HeatPumpSlug[];
+  /** Korvaa otsikon ja tekstin tyypeittäin. */
+  byPump?: Partial<Record<HeatPumpSlug, { title: string; detail: string }>>;
 };
+
+export function resolveCheckForPump(
+  check: TroubleshootingCheck,
+  pump: HeatPumpSlug,
+): { title: string; detail: string } | null {
+  if (check.skipFor?.includes(pump)) return null;
+  const override = check.byPump?.[pump];
+  if (override) return override;
+  return { title: check.title, detail: check.detail };
+}
 
 export type TroubleshootingGuide = {
   slug: string;
@@ -35,12 +49,43 @@ export const TROUBLESHOOTING_GUIDES: TroubleshootingGuide[] = [
         title: "Lämmitystila päällä (ei automaatti)",
         detail:
           "Kun tarvitset lämpöä, valitse nimenomaan lämmitystila (heat) — älä jätä automaattitilaa talvella. Automaatti voi lämmittää liikaa, vaihtaa viilennykseen, ja taas lämmitykseen, jolloin huone tuntuu kylmältä vaikka laite “tekee töitä”. Aseta tavoitelämpö lämmitystilassa (esim. 20–22 °C).",
+        skipFor: ["ilmavesilampopumppu", "maalampopumppu"],
+        byPump: {
+          ilmalampopumppu: {
+            title: "Lämmitystila päällä (ei automaatti)",
+            detail:
+              "Kun tarvitset lämpöä, valitse nimenomaan lämmitystila (heat) — älä jätä automaattitilaa talvella. Automaatti voi lämmittää liikaa, vaihtaa viilennykseen, ja taas lämmitykseen, jolloin huone tuntuu kylmältä vaikka laite “tekee töitä”. Aseta tavoitelämpö lämmitystilassa (esim. 20–22 °C).",
+          },
+          ilmavesilampopumppu: {
+            title: "Lämpötila-asetus ja lämmityspiiri",
+            detail:
+              "Tarkista lämpöpumpun ja huoneen lämpötila-asetus (esim. 20–22 °C). Varmista että patteriventtiilit ovat auki, kiertovesipumppu käy ja lämmönjaon lämpötila nousee. Viilennystilaa tai automaattitilaa ei yleensä ole.",
+          },
+          maalampopumppu: {
+            title: "Lämpötila-asetus ja lämmönjako",
+            detail:
+              "Tarkista lämpöpumpun ja huoneen lämpötila-asetus. Varmista että lämmönjaon pumppu käy ja lämpötila nousee pattereissa tai lattialämmössä.",
+          },
+        },
       },
       {
         id: "filter",
         title: "Sisäyksikön suodatin",
         detail:
           "Puhdista tai vaihda sisäyksikön ilmansuodatin. Tukkeutunut suodatin heikentää lämmönjakoa ja voi estää toiminnan.",
+        skipFor: ["ilmavesilampopumppu", "maalampopumppu"],
+        byPump: {
+          ilmavesilampopumppu: {
+            title: "Lämmönjaon kierto",
+            detail:
+              "Varmista patteriventtiilit auki ja kiertovesipumppu käynnissä. Lämmön pitäisi nousta lämmönjaossa ajan myötä.",
+          },
+          maalampopumppu: {
+            title: "Lämmönjaon kierto",
+            detail:
+              "Varmista että lämmönjaon pumppu on päällä ja venttiilit auki. Poikkeuksellinen kohina tai ei lämpöä → huolto.",
+          },
+        },
       },
       {
         id: "outdoor",
@@ -75,7 +120,7 @@ export const TROUBLESHOOTING_GUIDES: TroubleshootingGuide[] = [
       ilmalampopumppu:
         "Ilmalämpöpumpuissa automaattitila on usein syynä “ei lämmitä kunnolla” -tilanteeseen — kokeile lämmitystilaa ensin.",
       ilmavesilampopumppu:
-        "Tarkista myös lämmityspiiri: patteriventtiilit auki, kiertovesipumppu käy ja lämpötila nousee lämmönjaossa. Lämmitystila, ei automaatti.",
+        "Vesi-ilmalämpöpumppu lämmittää vettä patteriverkkoon tai lattialämmöön — oire on usein lämmönjaossa, ei “ilmatilassa”.",
       maalampopumppu:
         "Maalämmössä tarkista lämmönjaon pumppu ja lämpötilat. Maalämpökeruussa ongelma vaatii usein asentajan.",
     },
@@ -381,7 +426,6 @@ export const SYMPTOM_SLUGS_BY_PUMP: Record<HeatPumpSlug, string[]> = {
   ],
   ilmavesilampopumppu: [
     "ei-lammita",
-    "ei-jaahdyta",
     "jaaatyys",
     "virhekoodi",
     "vuoto",

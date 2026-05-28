@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import type { HeatPumpSlug } from "@/constants/heat-pumps";
 import {
   buildTroubleshootingHuoltoQuery,
+  resolveCheckForPump,
   type TroubleshootingGuide,
   pumpLabel,
 } from "@/lib/troubleshooting-guides";
@@ -80,27 +81,33 @@ export function TroubleshootingChecklist({
       <section>
         <h2 className="text-lg font-semibold">Tarkista nämä (turvalliset)</h2>
         <ul className="mt-4 space-y-3">
-          {guide.safeChecks.map((c) => (
-            <li
-              key={c.id}
-              className="rounded-xl border border-stone-200 bg-white p-4"
-            >
-              <label className="flex cursor-pointer items-start gap-3">
-                <input
-                  type="checkbox"
-                  checked={!!checked[c.id]}
-                  onChange={() => toggle(c.id)}
-                  className="mt-1"
-                />
-                <span>
-                  <span className="font-medium text-stone-900">{c.title}</span>
-                  <span className="mt-1 block text-sm text-stone-600">
-                    {c.detail}
+          {guide.safeChecks.map((c) => {
+            const resolved = resolveCheckForPump(c, pumpSlug);
+            if (!resolved) return null;
+            return (
+              <li
+                key={c.id}
+                className="rounded-xl border border-stone-200 bg-white p-4"
+              >
+                <label className="flex cursor-pointer items-start gap-3">
+                  <input
+                    type="checkbox"
+                    checked={!!checked[c.id]}
+                    onChange={() => toggle(c.id)}
+                    className="mt-1"
+                  />
+                  <span>
+                    <span className="font-medium text-stone-900">
+                      {resolved.title}
+                    </span>
+                    <span className="mt-1 block text-sm text-stone-600">
+                      {resolved.detail}
+                    </span>
                   </span>
-                </span>
-              </label>
-            </li>
-          ))}
+                </label>
+              </li>
+            );
+          })}
         </ul>
       </section>
 
