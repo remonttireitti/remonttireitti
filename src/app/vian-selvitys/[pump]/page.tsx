@@ -8,6 +8,7 @@ import {
   getTroubleshootingGuide,
   isHeatPumpSlug,
   pumpLabel,
+  resolveGuideSummaryForPump,
 } from "@/lib/troubleshooting-guides";
 import { pageMetadata } from "@/lib/seo";
 
@@ -65,7 +66,7 @@ export default async function TroubleshootingPumpPage({
                 >
                   <span className="font-semibold">{guide.title}</span>
                   <span className="mt-1 block text-sm text-stone-600">
-                    {guide.summary.slice(0, 120)}…
+                    {resolveGuideSummaryForPump(guide, pump).slice(0, 120)}…
                   </span>
                 </Link>
               </li>

@@ -26,10 +26,14 @@ export default function TroubleshootingLandingPage() {
         <h1 className="mt-4 text-3xl font-bold tracking-tight">
           Lämpöpumpun vian selvitys
         </h1>
+        <p className="mt-2 text-lg text-stone-700">
+          Ei huoltokäyntiä vielä — vain selkeä ohje oireeseen.
+        </p>
         <p className="mt-3 text-stone-600">
-          Valitse laitteesi tyyppi ja oire. Saat turvallisen tarkistuslistan. Jos
-          vika ei poistu, voit pyytää tarjouksia huoltoon tai korjaukseen — oire
-          ja kokeilemasi toimet siirtyvät automaattisesti pyyntöön.
+          Valitse pumpputyyppi ja oire (esim. ei lämmitä, vuoto, virhekoodi).
+          Näet mitä voit tarkistaa itse turvallisesti ja milloin kannattaa soittaa
+          ammattilaiselle. Jos vika jää, siirry huoltopyyntöön — kokeilemasi
+          kohdat menevät automaattisesti asentajalle.
         </p>
 
         <div className="mt-8 grid gap-4 sm:grid-cols-1">

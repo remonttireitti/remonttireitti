@@ -23,7 +23,7 @@ export const HEAT_PUMP_MARKETING: Record<
   },
   maalampopumppu: {
     title: "Maalämpöpumppu",
-    description: "Maalämpökeruupiiri ja lämpöpumppu.",
-    hint: "Korkea hyötysuhde, vaatii porausta.",
+    description: "Keruupiiri (maa/kaivo) ja lämpöpumppuyksikkö tekniikkahuoneessa.",
+    hint: "Ei ulkoista ilmakennoa eikä sulatusta kuten ilma- tai vesi-ilmalämpöpumpussa.",
   },
 };

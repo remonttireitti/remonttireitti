@@ -14,9 +14,9 @@ const services = [
   {
     title: "Huolto & korjaus",
     description:
-      "Aloita vian selvityksestä — tarkista oireen mukaan. Jos ei korjaannu, kilpailuta huolto asentajilta.",
+      "Lämpö ei riitä, vuoto tai virhekoodi? Valitse oire — saat turvallisen tarkistuslistan. Jos vika jää, kilpailuta huolto ilmaiseksi.",
     href: "/vian-selvitys",
-    cta: "Vian selvitys → huolto",
+    cta: "Tarkista oire (vian selvitys)",
     accent: "border-orange-200 bg-orange-50/60",
   },
   {

@@ -6,6 +6,7 @@ import type { HeatPumpSlug } from "@/constants/heat-pumps";
 import {
   buildTroubleshootingHuoltoQuery,
   resolveCheckForPump,
+  resolveGuideBulletsForPump,
   type TroubleshootingGuide,
   pumpLabel,
 } from "@/lib/troubleshooting-guides";
@@ -27,6 +28,17 @@ export function TroubleshootingChecklist({
   const triedIds = useMemo(
     () => Object.entries(checked).filter(([, v]) => v).map(([k]) => k),
     [checked],
+  );
+
+  const doNotDo = resolveGuideBulletsForPump(
+    guide.doNotDo,
+    guide.doNotDoByPump,
+    pumpSlug,
+  );
+  const callProWhen = resolveGuideBulletsForPump(
+    guide.callProWhen,
+    guide.callProWhenByPump,
+    pumpSlug,
   );
 
   const huoltoQuery = buildTroubleshootingHuoltoQuery({
@@ -114,7 +126,7 @@ export function TroubleshootingChecklist({
       <section className="rounded-xl border border-amber-200 bg-amber-50/80 p-4">
         <h2 className="text-sm font-semibold text-amber-900">Älä tee itse</h2>
         <ul className="mt-2 list-inside list-disc text-sm text-amber-900">
-          {guide.doNotDo.map((item) => (
+          {doNotDo.map((item) => (
             <li key={item}>{item}</li>
           ))}
         </ul>
@@ -125,7 +137,7 @@ export function TroubleshootingChecklist({
           Soita / tilaa ammattilainen, jos
         </h2>
         <ul className="mt-2 list-inside list-disc text-sm text-stone-600">
-          {guide.callProWhen.map((item) => (
+          {callProWhen.map((item) => (
             <li key={item}>{item}</li>
           ))}
         </ul>

@@ -10,6 +10,7 @@ import {
   isHeatPumpSlug,
   pumpLabel,
   buildTroubleshootingHuoltoQuery,
+  resolveGuideSummaryForPump,
 } from "@/lib/troubleshooting-guides";
 import { pageMetadata } from "@/lib/seo";
 
@@ -35,7 +36,7 @@ export async function generateMetadata({
   if (!guide) return {};
   return pageMetadata({
     title: `${guide.title} — ${pumpLabel(pump)}`,
-    description: guide.summary,
+    description: resolveGuideSummaryForPump(guide, pump),
     path: `/vian-selvitys/${pump}/${symptom}`,
   });
 }
@@ -74,7 +75,9 @@ export default async function TroubleshootingGuidePage({
           ← {pumpLabel(pump)} — oireet
         </Link>
         <h1 className="mt-4 text-2xl font-bold sm:text-3xl">{guide.title}</h1>
-        <p className="mt-2 text-stone-600">{guide.summary}</p>
+        <p className="mt-2 text-stone-600">
+          {resolveGuideSummaryForPump(guide, pump)}
+        </p>
 
         <div className="mt-8">
           <TroubleshootingChecklist

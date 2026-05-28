@@ -10,6 +10,7 @@ export const metadata: Metadata = pageMetadata({
 });
 import { Logo } from "@/components/brand/logo";
 import { HomeDifferentiators } from "@/components/marketing/home-differentiators";
+import { HomeHowItWorks } from "@/components/marketing/home-how-it-works";
 import { HomeTrust } from "@/components/marketing/home-trust";
 import { ServiceCards } from "@/components/marketing/service-cards";
 import { HomeNotifications } from "@/components/notifications/home-notifications";
@@ -90,8 +91,9 @@ export default async function Home() {
               <Link
                 href="/vian-selvitys"
                 className={`${brand.btnSecondary} ${brand.btnSecondaryBlock} rounded-full px-8`}
+                title="Tarkista oireen mukaan ennen huoltokutsua"
               >
-                Vian selvitys
+                Pumpputta ei toimi?
               </Link>
               <Link
                 href="/huolto/uusi"
@@ -133,7 +135,13 @@ export default async function Home() {
           </div>
         </section>
 
-        <section className="border-t border-stone-200 bg-stone-50 py-12">
+        <section className="border-t border-stone-200 bg-stone-50 py-14 sm:py-16">
+          <div className="mx-auto max-w-5xl px-4 sm:px-6">
+            <HomeHowItWorks />
+          </div>
+        </section>
+
+        <section className="border-t border-stone-200 bg-white py-12">
           <div className="mx-auto max-w-5xl px-6">
             <ValuePromoPair />
           </div>
@@ -158,38 +166,6 @@ export default async function Home() {
                 Urakoitsijalle: provisiot ja rekisteröityminen →
               </Link>
             </p>
-          </div>
-        </section>
-
-        <section className="border-t border-stone-200 bg-stone-50 py-14">
-          <div className="mx-auto max-w-5xl px-6">
-            <h2 className="text-center text-lg font-semibold text-stone-800">
-              Näin kilpailutus etenee
-            </h2>
-            <ol className="mx-auto mt-8 grid max-w-3xl gap-8 sm:grid-cols-3">
-              <li className="text-center">
-                <span className="text-2xl font-bold text-sky-700">1</span>
-                <p className="mt-2 font-medium">Täytä tarkka pyyntö</p>
-                <p className="mt-1 text-sm text-stone-600">
-                  Pumpputyyppi, kuvat ja kohteen tiedot — ei geneeristä lomaketta.
-                </p>
-              </li>
-              <li className="text-center">
-                <span className="text-2xl font-bold text-sky-700">2</span>
-                <p className="mt-2 font-medium">Vertaile ja tingaa</p>
-                <p className="mt-1 text-sm text-stone-600">
-                  Useita tarjouksia; voit ehdottaa omaa hintaa vastatarjouksella.
-                </p>
-              </li>
-              <li className="text-center">
-                <span className="text-2xl font-bold text-sky-700">3</span>
-                <p className="mt-2 font-medium">Valitse kumppani</p>
-                <p className="mt-1 text-sm text-stone-600">
-                  Hyväksy tarjous — yhteystiedot avautuvat, kun urakoitsija on
-                  maksanut välityspalkkion.
-                </p>
-              </li>
-            </ol>
           </div>
         </section>
 
@@ -225,7 +201,7 @@ export default async function Home() {
             </div>
 
             <div className="mt-10">
-              <ListingCardGrid listings={listings} />
+              <ListingCardGrid listings={listings} variant="list" />
             </div>
           </div>
         </section>

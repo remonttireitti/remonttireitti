@@ -8,9 +8,11 @@ export type TroubleshootingCheck = {
   id: string;
   title: string;
   detail: string;
+  /** Näytetään vain näille (esim. ilmansuodatin vain ILP). */
+  onlyFor?: readonly HeatPumpSlug[];
   /** Ei näytetä näille pumpputyypeille. */
   skipFor?: readonly HeatPumpSlug[];
-  /** Korvaa otsikon ja tekstin tyypeittäin. */
+  /** Korvaa otsikon ja tekstin tyypeittäin (tarkistetaan ennen skipFor). */
   byPump?: Partial<Record<HeatPumpSlug, { title: string; detail: string }>>;
 };
 
@@ -18,21 +20,41 @@ export function resolveCheckForPump(
   check: TroubleshootingCheck,
   pump: HeatPumpSlug,
 ): { title: string; detail: string } | null {
-  if (check.skipFor?.includes(pump)) return null;
+  if (check.onlyFor && !check.onlyFor.includes(pump)) return null;
   const override = check.byPump?.[pump];
   if (override) return override;
+  if (check.skipFor?.includes(pump)) return null;
   return { title: check.title, detail: check.detail };
+}
+
+export function resolveGuideSummaryForPump(
+  guide: TroubleshootingGuide,
+  pump: HeatPumpSlug,
+): string {
+  return guide.summaryByPump?.[pump] ?? guide.summary;
+}
+
+export function resolveGuideBulletsForPump(
+  bullets: string[],
+  byPump: TroubleshootingGuide["doNotDoByPump"],
+  pump: HeatPumpSlug,
+): string[] {
+  return byPump?.[pump] ?? bullets;
 }
 
 export type TroubleshootingGuide = {
   slug: string;
   title: string;
   summary: string;
+  /** Korvaa summaryn tietyillä pumpputyypeillä. */
+  summaryByPump?: Partial<Record<HeatPumpSlug, string>>;
   /** Vastaa huolto-lomakkeen oire-tagia. */
   maintenanceSymptom: string;
   safeChecks: TroubleshootingCheck[];
   doNotDo: string[];
+  doNotDoByPump?: Partial<Record<HeatPumpSlug, string[]>>;
   callProWhen: string[];
+  callProWhenByPump?: Partial<Record<HeatPumpSlug, string[]>>;
   pumpNotes?: Partial<Record<HeatPumpSlug, string>>;
 };
 
@@ -41,57 +63,64 @@ export const TROUBLESHOOTING_GUIDES: TroubleshootingGuide[] = [
     slug: "ei-lammita",
     title: "Ei lämmitä",
     summary:
-      "Lämpöpumppu ei lämmittä tiloja tai lämpö ei riitä. Aloita turvallisista perusasioista ennen huoltokutsua.",
+      "Lämpö ei riitä tai lämmönjako ei nouse (ILP: huone; VILP/maalämpö: patterit tai lattialämpö). Aloita turvallisista perusasioista ennen huoltokutsua.",
     maintenanceSymptom: "Ei lämmitä",
     safeChecks: [
       {
-        id: "mode",
+        id: "mode-ilp",
+        onlyFor: ["ilmalampopumppu"],
         title: "Lämmitystila päällä (ei automaatti)",
         detail:
           "Kun tarvitset lämpöä, valitse nimenomaan lämmitystila (heat) — älä jätä automaattitilaa talvella. Automaatti voi lämmittää liikaa, vaihtaa viilennykseen, ja taas lämmitykseen, jolloin huone tuntuu kylmältä vaikka laite “tekee töitä”. Aseta tavoitelämpö lämmitystilassa (esim. 20–22 °C).",
-        skipFor: ["ilmavesilampopumppu", "maalampopumppu"],
-        byPump: {
-          ilmalampopumppu: {
-            title: "Lämmitystila päällä (ei automaatti)",
-            detail:
-              "Kun tarvitset lämpöä, valitse nimenomaan lämmitystila (heat) — älä jätä automaattitilaa talvella. Automaatti voi lämmittää liikaa, vaihtaa viilennykseen, ja taas lämmitykseen, jolloin huone tuntuu kylmältä vaikka laite “tekee töitä”. Aseta tavoitelämpö lämmitystilassa (esim. 20–22 °C).",
-          },
-          ilmavesilampopumppu: {
-            title: "Lämpötila-asetus ja lämmityspiiri",
-            detail:
-              "Tarkista lämpöpumpun ja huoneen lämpötila-asetus (esim. 20–22 °C). Varmista että patteriventtiilit ovat auki, kiertovesipumppu käy ja lämmönjaon lämpötila nousee. Viilennystilaa tai automaattitilaa ei yleensä ole.",
-          },
-          maalampopumppu: {
-            title: "Lämpötila-asetus ja lämmönjako",
-            detail:
-              "Tarkista lämpöpumpun ja huoneen lämpötila-asetus. Varmista että lämmönjaon pumppu käy ja lämpötila nousee pattereissa tai lattialämmössä.",
-          },
-        },
       },
       {
-        id: "filter",
-        title: "Sisäyksikön suodatin",
+        id: "mode-vilp",
+        onlyFor: ["ilmavesilampopumppu"],
+        title: "Lämpötila-asetus ja lämmityspiiri",
         detail:
-          "Puhdista tai vaihda sisäyksikön ilmansuodatin. Tukkeutunut suodatin heikentää lämmönjakoa ja voi estää toiminnan.",
-        skipFor: ["ilmavesilampopumppu", "maalampopumppu"],
-        byPump: {
-          ilmavesilampopumppu: {
-            title: "Lämmönjaon kierto",
-            detail:
-              "Varmista patteriventtiilit auki ja kiertovesipumppu käynnissä. Lämmön pitäisi nousta lämmönjaossa ajan myötä.",
-          },
-          maalampopumppu: {
-            title: "Lämmönjaon kierto",
-            detail:
-              "Varmista että lämmönjaon pumppu on päällä ja venttiilit auki. Poikkeuksellinen kohina tai ei lämpöä → huolto.",
-          },
-        },
+          "Tarkista lämpöpumpun ohjauskeskuksen ja huoneen lämpötila-asetus (esim. 20–22 °C). Varmista patteriventtiilit auki, kiertovesipumppu käynnissä ja lämmönjaon lämpö nousee.",
       },
       {
-        id: "outdoor",
+        id: "mode-maalampo",
+        onlyFor: ["maalampopumppu"],
+        title: "Lämpötila-asetus ja lämmönjako",
+        detail:
+          "Tarkista lämpöpumpun ja huoneen lämpötila-asetus. Varmista lämmönjaon pumppu käynnissä ja lämpö nousee pattereissa tai lattialämmössä.",
+      },
+      {
+        id: "filter-ilp",
+        onlyFor: ["ilmalampopumppu"],
+        title: "Sisäyksikön ilmansuodatin",
+        detail:
+          "Puhdista tai vaihda jaetun sisäyksikön ilmansuodatin. Tukkeutunut suodatin heikentää lämmönjakoa.",
+      },
+      {
+        id: "filter-vilp",
+        onlyFor: ["ilmavesilampopumppu"],
+        title: "Lämmönjaon kierto",
+        detail:
+          "Varmista patteriventtiilit auki ja kiertovesipumppu käynnissä. Lämmön pitäisi nousta lämmönjaossa — ei ilmansuodatinta.",
+      },
+      {
+        id: "filter-maalampo",
+        onlyFor: ["maalampopumppu"],
+        title: "Lämmönjaon kierto",
+        detail:
+          "Varmista patteriventtiilit auki ja kiertovesipumppu käynnissä. Lämmön pitäisi nousta pattereissa tai lattialämmössä.",
+      },
+      {
+        id: "outdoor-air",
+        onlyFor: ["ilmalampopumppu", "ilmavesilampopumppu"],
         title: "Ulkoyksikkö — esteet ja lumi ympärillä",
         detail:
-          "Poista lumi, lehdet ja esteet laitteen ympäriltä ja puhaltimen edestä. Älä raavi tai hakkoa jäätä kennon lamelista — vaurioitunut kenno vaatii usein huollon.",
+          "Poista lumi, lehdet ja esteet laitteen ympäriltä ja puhaltimen edestä. Älä raavi tai hakkoa jäätä kennon lamelista — taittunutta tai vaurioitunutta kennoa ei yleensä korjata; usein kenno tai koko ulkoyksikkö pitää uusia.",
+      },
+      {
+        id: "outdoor-maalampo",
+        onlyFor: ["maalampopumppu"],
+        title: "Lämpöpumppuyksikkö ja näyttö",
+        detail:
+          "Tarkista vikakoodi ja että lämpöpumppuyksikkö (tekniikkahuone) käynnistyy. Lämpö tulee maasta tai vesistä keruupiirin kautta — ei ilmakennoa eikä sulatusta.",
       },
       {
         id: "breaker",
@@ -100,10 +129,25 @@ export const TROUBLESHOOTING_GUIDES: TroubleshootingGuide[] = [
           "Tarkista ettei sulake ole noussut. Käynnistä laite uudelleen ohjekirjan mukaan (virtakatkaisin pois → odota → päälle).",
       },
       {
-        id: "remote",
-        title: "Ohjaus ja kellonajo",
+        id: "control-ilp",
+        onlyFor: ["ilmalampopumppu"],
+        title: "Kaukosäädin ja ajastukset",
         detail:
-          "Tarkista kaukosäädin/termostaatti, paristot ja etäohjaus. Poista mahdolliset ajastus-estot.",
+          "Tarkista kaukosäädin (paristot), tavoitelämpö ja ajastukset. Poista poissaolo-/yöajastukset, jotka estävät lämmityksen.",
+      },
+      {
+        id: "control-vilp",
+        onlyFor: ["ilmavesilampopumppu"],
+        title: "Ohjauskeskus ja huonetermostaatti",
+        detail:
+          "Tarkista lämpöpumpun ohjauskeskuksen tai näytön lämpötila-asetus, huoneen termostaatti ja patteritermostaatit. Vesi-ilmalämpöpumpussa ei ole ILP:n kaukosäädintä.",
+      },
+      {
+        id: "control-maalampo",
+        onlyFor: ["maalampopumppu"],
+        title: "Ohjaus ja huonetermostaatti",
+        detail:
+          "Tarkista lämpöpumpun ja huoneen lämpötila-asetus sekä lämmönjaon ajastukset. Poista mahdolliset poissaolo-/yöajastukset.",
       },
     ],
     doNotDo: [
@@ -116,13 +160,20 @@ export const TROUBLESHOOTING_GUIDES: TroubleshootingGuide[] = [
       "Ulkoyksikkö ei käynnisty (ei ääntä / ei tuuleta).",
       "Lämpö ei riitä pitkään aikaan kokeiluista huolimatta.",
     ],
+    callProWhenByPump: {
+      maalampopumppu: [
+        "Virhekoodi palaa heti uudelleen käynnistyksen jälkeen.",
+        "Lämpöpumppuyksikkö ei käynnisty tai keruupiirin lämpötila poikkeaa (näyttö/ohje).",
+        "Lämpö ei riitä pitkään aikaan kokeiluista huolimatta.",
+      ],
+    },
     pumpNotes: {
       ilmalampopumppu:
         "Ilmalämpöpumpuissa automaattitila on usein syynä “ei lämmitä kunnolla” -tilanteeseen — kokeile lämmitystilaa ensin.",
       ilmavesilampopumppu:
         "Vesi-ilmalämpöpumppu lämmittää vettä patteriverkkoon tai lattialämmöön — oire on usein lämmönjaossa, ei “ilmatilassa”.",
       maalampopumppu:
-        "Maalämmössä tarkista lämmönjaon pumppu ja lämpötilat. Maalämpökeruussa ongelma vaatii usein asentajan.",
+        "Yleisiä syitä: lämmönjako, keruupiirin lämpötila, nestemäärä. Ei ulkoista ilmakennoa — mittaukset asentajalta.",
     },
   },
   {
@@ -134,17 +185,20 @@ export const TROUBLESHOOTING_GUIDES: TroubleshootingGuide[] = [
     safeChecks: [
       {
         id: "cool-mode",
+        onlyFor: ["ilmalampopumppu"],
         title: "Viilennystila päällä (ei automaatti)",
         detail:
           "Kun tarvitset viilennystä, valitse nimenomaan viilennystila (cool) — älä luota automaattitilaan. Aseta tavoitelämpö hieman alemmas (esim. 22–24 °C).",
       },
       {
         id: "filter-cool",
-        title: "Suodatin ja ilmavirta",
-        detail: "Puhdista sisäsuodatin. Varmista ettei ulkoyksikkö ole tukossa.",
+        onlyFor: ["ilmalampopumppu"],
+        title: "Ilmansuodatin ja ulkoyksikkö",
+        detail: "Puhdista sisäyksikön ilmansuodatin. Varmista ettei ulkoyksikkö ole tukossa.",
       },
       {
         id: "doors",
+        onlyFor: ["ilmalampopumppu"],
         title: "Ikkunat ja ovet",
         detail: "Sulje ikkunat/ovet viilennysalueella — pieni laite ei jäähdytä koko taloa.",
       },
@@ -177,37 +231,50 @@ export const TROUBLESHOOTING_GUIDES: TroubleshootingGuide[] = [
     safeChecks: [
       {
         id: "defrost",
+        onlyFor: ["ilmalampopumppu", "ilmavesilampopumppu"],
         title: "Sulatusjakso",
         detail:
           "Pakkasella laite sulattaa välillä itse. Odota yksi sulatusjakso (noin 15–30 min). Jos lämpö palaa ja jää ei kasaannu uudelleen paksuna kerroksena, kyse voi olla normaalista käytöstä.",
       },
       {
         id: "snow-around",
+        onlyFor: ["ilmalampopumppu", "ilmavesilampopumppu"],
         title: "Lumi ja esteet vain ympärillä",
         detail:
-          "Voit poistaa lumen ja jäätökset laitteen ympäriltä ja puhaltimen edestä. Älä raavi, hakkoa tai paina kennon lamelia — ne taittuvat helposti ja koko laitteen vaihto voi tulla tarpeelliseksi.",
+          "Voit poistaa lumen ja jäätökset laitteen ympäriltä ja puhaltimen edestä. Älä raavi, hakkoa tai paina kennon lamelia — ne taittuvat helposti. Jo selvä vaurio tarkoittaa usein kennon tai koko laitteen vaihtoa, ei huoltoa.",
       },
       {
-        id: "observe-pattern",
+        id: "observe-pattern-ilp",
+        onlyFor: ["ilmalampopumppu"],
         title: "Toistuuko paksu jää?",
         detail:
-          "Jos jää palaa heti sulatuksen jälkeen, peittää kennon paksuna tai lämmitys heikkenee selvästi, syy on usein ulkoyksikön jäätymisessä (kylmäaine, anturi, paine, väärä tila). Siihen tarvitaan asentajan mittaukset.",
+          "Jos jää palaa heti sulatuksen jälkeen, peittää kennon paksuna tai lämmitys heikkenee selvästi, syy on usein ulkoyksikön jäätymisessä (kylmäaine, anturi, paine). Siihen tarvitaan asentajan mittaukset.",
+      },
+      {
+        id: "observe-pattern-vilp",
+        onlyFor: ["ilmavesilampopumppu"],
+        title: "Toistuuko paksu jää?",
+        detail:
+          "Jos jää palaa heti sulatuksen jälkeen tai lämmönjako heikkenee selvästi, syy on ulkoyksikön jäätymisessä tai lämmönjaon kierrossa. Asentajan mittaukset.",
       },
       {
         id: "filter-ice",
-        title: "Sisäsuodatin",
-        detail: "Likainen suodatin voi pahentaa oireita — puhdista. Se ei yksinään selitä paksua jäätä ulkoyksikössä.",
+        onlyFor: ["ilmalampopumppu"],
+        title: "Sisäyksikön ilmansuodatin",
+        detail:
+          "Likainen ilmansuodatin voi heikentää toimintaa — puhdista. Paksu jää ulkoyksikössä on erillinen vika.",
       },
     ],
     doNotDo: [
-      "Älä raavi, hakkoa tai käytä teräspäätä, lapetta tai jäähakkuria kennon pinnassa.",
+      "Älä raavi, hakkoa tai käytä teräspäätä, lapetta tai jäähakkuria kennon pinnassa — vaurioitunutta kennoa ei korjata, vaan uusitaan.",
       "Älä kaada kuumaa vettä ulkoyksikön päälle (vaurio ja turvallisuusriski).",
       "Älä luule, että jään poisto kennoista korjaa ongelman pysyvästi — syy pitää selvittää.",
     ],
     callProWhen: [
       "Paksu jää kennossa tai jää palaa heti uudelleen sulatuksen jälkeen.",
       "Lämpö ei nouse pakkasella tai laite menee usein häiriötilaan.",
-      "Sisäyksiköstä tippuu vettä sisälle tai seinällä on jää.",
+      "Näet taittuneita tai vaurioituneita kennon lamelia — kenno tai laite uusittava, ei korjattavissa.",
+      "Lämmönjako ei lähene (VILP).",
       "Epäilet kylmäainevikaa, vuotoa tai poikkeavaa ääntä kompressorista.",
     ],
     pumpNotes: {
@@ -225,21 +292,52 @@ export const TROUBLESHOOTING_GUIDES: TroubleshootingGuide[] = [
     maintenanceSymptom: "Outo ääni",
     safeChecks: [
       {
-        id: "loose",
+        id: "loose-air",
+        onlyFor: ["ilmalampopumppu", "ilmavesilampopumppu"],
         title: "Irralliset osat",
         detail:
           "Tarkista onko ulkoyksikön kansi löysällä tai puhaltimessa oksia, lehtiä tai roskaa (laite pois päältä).",
       },
       {
-        id: "mount",
+        id: "loose-maalampo",
+        onlyFor: ["maalampopumppu"],
+        title: "Lämpöpumppuyksikkö",
+        detail:
+          "Tarkista tekniikkahuoneen lämpöpumppuyksikön kansi ja kiinnitykset (laite pois päältä). Ei ulkoista ilmakennoa eikä sulatusta.",
+      },
+      {
+        id: "mount-ilp",
+        onlyFor: ["ilmalampopumppu"],
         title: "Kiinnitys",
         detail: "Sisä- ja ulkoyksikön kiinnikkeet — löysä teline voi resonoida.",
       },
       {
-        id: "when",
+        id: "mount-vilp",
+        onlyFor: ["ilmavesilampopumppu"],
+        title: "Kiinnitys ja pumppu",
+        detail:
+          "Tarkista ulkoyksikön teline ja tekniikkahuoneen kiertovesipumpun kiinnitys — löysä runko resonoi.",
+      },
+      {
+        id: "mount-maalampo",
+        onlyFor: ["maalampopumppu"],
+        title: "Kiinnitys ja pumppu",
+        detail:
+          "Tarkista lämpöpumppuyksikön ja kiertovesipumpun kiinnitys tekniikkahuoneessa — ei ulkoista ilmakennoa.",
+      },
+      {
+        id: "when-air",
+        onlyFor: ["ilmalampopumppu", "ilmavesilampopumppu"],
         title: "Milloin ääni kuuluu",
         detail:
           "Kirjaa milloin ääni kuuluu (käynnistys, sulatus, jatkuva). Helpottaa huoltoa.",
+      },
+      {
+        id: "when-maalampo",
+        onlyFor: ["maalampopumppu"],
+        title: "Milloin ääni kuuluu",
+        detail:
+          "Kirjaa milloin ääni kuuluu (käynnistys, kiertopumppu, jatkuva). Ei sulatusjaksoa kuten ilmalämpöpumpussa.",
       },
     ],
     doNotDo: [
@@ -256,43 +354,92 @@ export const TROUBLESHOOTING_GUIDES: TroubleshootingGuide[] = [
     slug: "vuoto",
     title: "Vuoto tai kondenssivesi",
     summary:
-      "Erottele normaali kondenssi (tippaa, lätäkkö sulatuksessa) ja vika. Putki harvoin menee suoraan viemäriin — tarkista vain näkyvät letkut ja määrä.",
+      "ILP: kondenssivesi sisäyksiköstä (näkyvä letku). Erottele tippa/sulatus ja jatkuva vuoto sisälle.",
+    summaryByPump: {
+      ilmavesilampopumppu:
+        "VILP:ssä ei ole ILP:n sisäyksikön kondenssiputkea. Tarkista ulkoyksikön sulatusvesi ja lämmönjaon näkyvät vuodot (patterit, liitokset, tekniikkahuone).",
+      maalampopumppu:
+        "Maalämmössä vuoto on lähes aina lämmönjaossa tai keruupiirissä — ei sisäyksikön kondenssivedestä.",
+    },
     maintenanceSymptom: "Vuoto / kondenssivesi",
     safeChecks: [
       {
         id: "outdoor-drip",
+        onlyFor: ["ilmalampopumppu", "ilmavesilampopumppu"],
         title: "Ulkoyksikkö tippuu",
         detail:
           "Pakkasella sulatuksessa ulkoyksikön alle voi tulla vettä — usein normaalia. Varmista ettei lumi tai jää tuki veden poistumista laitteen alta (älä raavi kennoa).",
       },
       {
         id: "indoor-drain-hose",
+        onlyFor: ["ilmalampopumppu"],
         title: "Sisäyksikön poistoputki (näkyvä letku)",
         detail:
           "Jos näet ulospäin tulevan kondenssiputken tai letkun, tarkista ettei se ole poikki tai litistynyt. Tukoksen voi joskus irrottaa imuroimalla letkun ulkopäästä vesi-imurilla — älä avaa sisäyksikön kantta.",
       },
       {
-        id: "amount",
+        id: "hydronic-visible",
+        onlyFor: ["ilmavesilampopumppu", "maalampopumppu"],
+        title: "Lämmönjaon näkyvät vuodot",
+        detail:
+          "Tarkista patteriliitokset, lattiakaivo, tekniikkahuoneen putket ja lattialla/käytävässä näkyvä lätäkkö. Painemittari vain lue — älä avaa suljettua piiriä.",
+      },
+      {
+        id: "amount-ilp",
+        onlyFor: ["ilmalampopumppu"],
         title: "Määrä ja paikka",
         detail:
-          "Muutama tippa tai pieni lätäkkö voi olla normaalia. Jatkuva virta sisälle lattialle, seinälle tai laitteen sisään ei ole.",
+          "Muutama tippa tai pieni lätäkkö voi olla normaalia. Jatkuva virta sisäyksiköstä lattialle tai seinälle ei ole.",
+      },
+      {
+        id: "amount-hydronic",
+        onlyFor: ["ilmavesilampopumppu", "maalampopumppu"],
+        title: "Määrä ja paikka",
+        detail:
+          "Hidas tippuminen patteriliitännästä tai lattiakaivosta on vika. Jatkuva lätäkkö, paineen lasku näytöllä tai jäätyminen putkissa → ammattilainen.",
       },
     ],
     doNotDo: [
-      "Älä avaa sisäyksikön kantta keräilyaltaan tai sisäosien takia — et yleensä pääse siihen turvallisesti itse.",
-      "Älä avaa kylmäainepuolia tai lämmönjakoputkia.",
+      "Älä avaa sisäyksikön kantta keräilyaltaan takia — et yleensä pääse siihen turvallisesti itse.",
+      "Älä avaa kylmäainepuolia.",
       "Älä sivuuta vuotoa sähkölaitteiden lähellä — sammuta tarvittaessa.",
     ],
+    doNotDoByPump: {
+      ilmavesilampopumppu: [
+        "Älä avaa lämmönjakopiiriä, expansiovesaa tai sulkuventtiilejä itse.",
+        "Älä sekoita ILP:n kondenssiohjeita — VILP:ssä ei ole sisäyksikön kondenssiputkea.",
+        "Älä sivuuta vuotoa sähkölaitteiden lähellä — sammuta tarvittaessa.",
+      ],
+      maalampopumppu: [
+        "Älä avaa maalämpö- tai lämmönjakopiiriä itse.",
+        "Älä tee nestemäärän tai paineen säätöjä ilman asentajaa.",
+        "Älä sivuuta vuotoa sähkölaitteiden lähellä — sammuta tarvittaessa.",
+      ],
+    },
     callProWhen: [
       "Vettä valuu jatkuvasti sisäyksiköstä huoneeseen.",
       "Vesimäärä kasvaa nopeasti tai haju/kemikaalin jäljettä.",
-      "Epäilet kylmäaine- tai lämmönjakopiirivuotoa (öljymäinen jäännös, jäätyminen putkissa).",
+      "Epäilet kylmäainevuotoa (öljymäinen jäännös ulkoyksikön luona).",
     ],
+    callProWhenByPump: {
+      ilmavesilampopumppu: [
+        "Lämmönjaosta, patterista tai tekniikkahuoneesta vuotaa jatkuvasti.",
+        "Lämmönjaon paine laskee tai laite näyttää paine-/kiertoilmoituksen.",
+        "Jäätyminen lämmönjaon putkissa tai epäilet kylmäainevuotoa.",
+      ],
+      maalampopumppu: [
+        "Vuoto keruupiirissä, lämmönjaossa tai tekniikkahuoneessa.",
+        "Paine-/virhekoodi tai lämpö ei nouse vuodosta huolimatta.",
+        "Epäilet maalämpönesteen (glykoli) vuotoa.",
+      ],
+    },
     pumpNotes: {
+      ilmalampopumppu:
+        "Yleisin: tukkeutunut kondenssiputki tai keräilyallas — vain näkyvä letku, ei kannen avaus.",
       ilmavesilampopumppu:
-        "Lämmönjakoputket ja liitokset — tarkista näkyvät tiput, mutta älä avaa suljettua piiriä.",
+        "Yleisiä aiheita: patterivuoto, löysä liitos, kiertovesipumppu ei käy, paine laskee. Ei sisäkondenssiputkea.",
       maalampopumppu:
-        "Maalämpöjärjestelmän vuodot vaativat lähes aina ammattilaisen.",
+        "Vuodot ja paine-asiat vaativat lähes aina asentajan.",
     },
   },
   {
@@ -312,7 +459,7 @@ export const TROUBLESHOOTING_GUIDES: TroubleshootingGuide[] = [
         id: "manual",
         title: "Valmistajan ohje",
         detail:
-          "Etsi koodi käyttöohjeesta tai valmistajan sivuilta — osa koodeista on ohjeistettuja (suodatin, sulatus).",
+          "Etsi koodi käyttöohjeesta tai valmistajan sivuilta — osa koodeista on ohjeistettuja (sulatus, anturi).",
       },
       {
         id: "reset-once",
@@ -340,8 +487,23 @@ export const TROUBLESHOOTING_GUIDES: TroubleshootingGuide[] = [
     safeChecks: [
       {
         id: "filter-power",
-        title: "Suodatin ja ilmavirta",
-        detail: "Likainen suodatin ja tukkeutunut ulkoyksikkö nostavat kulutusta.",
+        onlyFor: ["ilmalampopumppu"],
+        title: "Ilmansuodatin ja ulkoyksikkö",
+        detail: "Likainen ilmansuodatin ja tukkeutunut ulkoyksikkö nostavat kulutusta.",
+      },
+      {
+        id: "hydronic-power-vilp",
+        onlyFor: ["ilmavesilampopumppu"],
+        title: "Lämpötila-asetus ja ulkoyksikkö",
+        detail:
+          "Liian korkea lämpötila-asetus tai tukkeutunut ulkoyksikkö (lumi/esteet) nostavat kulutusta. Lämmönjaon ongelma voi pakottaa sähkölisälämmön.",
+      },
+      {
+        id: "hydronic-power-maalampo",
+        onlyFor: ["maalampopumppu"],
+        title: "Lämpötila-asetus ja lämmönjako",
+        detail:
+          "Liian korkea asetus, heikko lämmönjako tai sähkövastus/lisälämpö käynnissä nostavat kulutusta. Keruupiirin ongelma heikentää COP:ia — vaatii mittauksia.",
       },
       {
         id: "setpoint",
@@ -365,6 +527,8 @@ export const TROUBLESHOOTING_GUIDES: TroubleshootingGuide[] = [
       "Epäilet vikaa kompressorissa tai nestemäärässä.",
     ],
     pumpNotes: {
+      ilmavesilampopumppu:
+        "Korkea kulutus usein: ulkoyksikkö tukossa, lämmönjako ei kierrä, sähkövastus/lisälämpö käy tai liian korkea asetus.",
       maalampopumppu:
         "Maalämmön COP heikkenee, jos keruupiiri tai lämmönjako on vajaa — vaatii mittauksia.",
     },
@@ -383,10 +547,18 @@ export const TROUBLESHOOTING_GUIDES: TroubleshootingGuide[] = [
           "Tarkista Wi-Fi, sovelluksen kirjautuminen ja laiteohjaimen yhteys valmistajan ohjeen mukaan.",
       },
       {
-        id: "local",
+        id: "local-ilp",
+        onlyFor: ["ilmalampopumppu"],
         title: "Paikallinen ohjaus",
         detail:
           "Toimiiko kaukosäädin tai seinätermostaatti? Jos kyllä, vika on yleensä verkossa/sovelluksessa.",
+      },
+      {
+        id: "local-hydronic",
+        onlyFor: ["ilmavesilampopumppu", "maalampopumppu"],
+        title: "Paikallinen ohjaus",
+        detail:
+          "Toimiiko lämpöpumpun näyttö, ohjauskeskus tai huonetermostaatti? Jos kyllä, vika on yleensä verkossa/sovelluksessa.",
       },
       {
         id: "update",
@@ -463,7 +635,7 @@ export function buildTroubleshootingHuoltoQuery(params: {
 
   const parts = [
     `Vian selvitys (${pumpLabel(params.pumpSlug)}): ${params.guide.title}.`,
-    params.guide.summary,
+    resolveGuideSummaryForPump(params.guide, params.pumpSlug),
     tried ? `Kokeiltu: ${tried}.` : "Kokeiltu: ei merkittyjä kohtia.",
     "Ongelma ei ratkennut — pyydän tarjouksia huoltoon/korjaukseen.",
   ];

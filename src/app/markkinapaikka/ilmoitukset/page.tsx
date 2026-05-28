@@ -90,7 +90,7 @@ export default async function MarketplaceListingsPage({
         </div>
 
         <div className="mt-6">
-          <ListingCardGrid listings={listings} />
+          <ListingCardGrid listings={listings} variant="list" />
         </div>
       </main>
     </div>
