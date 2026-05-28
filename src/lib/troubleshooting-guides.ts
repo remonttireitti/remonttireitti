@@ -211,34 +211,36 @@ export const TROUBLESHOOTING_GUIDES: TroubleshootingGuide[] = [
     slug: "vuoto",
     title: "Vuoto tai kondenssivesi",
     summary:
-      "Vettä laitteen alta, putkista tai sisäyksiköstä — erottele normaali kondenssi ja vika.",
+      "Erottele normaali kondenssi (tippaa, lätäkkö sulatuksessa) ja vika. Putki harvoin menee suoraan viemäriin — tarkista vain näkyvät letkut ja määrä.",
     maintenanceSymptom: "Vuoto / kondenssivesi",
     safeChecks: [
       {
-        id: "condensate",
-        title: "Kondenssiveden viemäri",
+        id: "outdoor-drip",
+        title: "Ulkoyksikkö tippuu",
         detail:
-          "Ulkoyksikön ja sisäyksikön kondenssiputki oltava auki ja viemäriin. Puhdista tukos.",
+          "Pakkasella sulatuksessa ulkoyksikön alle voi tulla vettä — usein normaalia. Varmista ettei lumi tai jää tuki veden poistumista laitteen alta (älä raavi kennoa).",
       },
       {
-        id: "drain-pan",
-        title: "Sisäyksikön alusta",
-        detail: "Tarkista kondenssialusta ja poistoputki — tukos aiheuttaa vuodon sisälle.",
+        id: "indoor-drain-hose",
+        title: "Sisäyksikön poistoputki (näkyvä letku)",
+        detail:
+          "Jos näet ulospäin tulevan kondenssiputken tai letkun, tarkista ettei se ole poikki tai litistynyt. Tukoksen voi joskus irrottaa imuroimalla letkun ulkopäästä vesi-imurilla — älä avaa sisäyksikön kantta.",
       },
       {
         id: "amount",
         title: "Määrä ja paikka",
         detail:
-          "Muutama tippa ulkona sulatuksessa on usein normaalia. Jatkuva lätäkkö ei ole.",
+          "Muutama tippa tai pieni lätäkkö voi olla normaalia. Jatkuva virta sisälle lattialle, seinälle tai laitteen sisään ei ole.",
       },
     ],
     doNotDo: [
-      "Älä avaa kylmäainepuolia.",
+      "Älä avaa sisäyksikön kantta keräilyaltaan tai sisäosien takia — et yleensä pääse siihen turvallisesti itse.",
+      "Älä avaa kylmäainepuolia tai lämmönjakoputkia.",
       "Älä sivuuta vuotoa sähkölaitteiden lähellä — sammuta tarvittaessa.",
     ],
     callProWhen: [
-      "Vesimäärä kasvaa nopeasti.",
-      "Vettä tippuu sisäyksiköstä seinälle tai lattialle.",
+      "Vettä valuu jatkuvasti sisäyksiköstä huoneeseen.",
+      "Vesimäärä kasvaa nopeasti tai haju/kemikaalin jäljettä.",
       "Epäilet kylmäaine- tai lämmönjakopiirivuotoa (öljymäinen jäännös, jäätyminen putkissa).",
     ],
     pumpNotes: {
