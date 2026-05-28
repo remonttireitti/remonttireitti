@@ -14,9 +14,9 @@ const services = [
   {
     title: "Huolto & korjaus",
     description:
-      "Kuvaile vika tai huoltotarve, lisää kuvia ja kiireellisyys. Saat tarjouksia asentajilta, jotka tuntevat laitetyyppisi.",
-    href: "/huolto/uusi",
-    cta: "Pyydä huoltoa tai korjausta",
+      "Aloita vian selvityksestä — tarkista oireen mukaan. Jos ei korjaannu, kilpailuta huolto asentajilta.",
+    href: "/vian-selvitys",
+    cta: "Vian selvitys → huolto",
     accent: "border-orange-200 bg-orange-50/60",
   },
   {

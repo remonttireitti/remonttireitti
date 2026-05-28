@@ -88,8 +88,14 @@ export default async function Home() {
                 Kilpailuta asennus
               </Link>
               <Link
-                href="/huolto/uusi"
+                href="/vian-selvitys"
                 className={`${brand.btnSecondary} ${brand.btnSecondaryBlock} rounded-full px-8`}
+              >
+                Vian selvitys
+              </Link>
+              <Link
+                href="/huolto/uusi"
+                className={`${brand.btnSecondary} ${brand.btnSecondaryBlock} rounded-full border-stone-200 px-8 text-stone-700`}
               >
                 Huolto tai korjaus
               </Link>

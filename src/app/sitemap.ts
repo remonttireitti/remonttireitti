@@ -1,6 +1,11 @@
 import type { MetadataRoute } from "next";
+import { HEAT_PUMP_JOB_SLUGS } from "@/constants/heat-pumps";
 import { LISTING_PRODUCT_CATEGORIES } from "@/lib/marketplace-categories";
 import { fetchSitemapListings } from "@/lib/sitemap-data";
+import {
+  SYMPTOM_SLUGS_BY_PUMP,
+  isHeatPumpSlug,
+} from "@/lib/troubleshooting-guides";
 import { getSiteUrl } from "@/lib/seo";
 
 /** Julkinen sitemap — ei dynaamisia headereitä (vältetään 500 build/crawl -tilanteissa). */
@@ -63,7 +68,32 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "yearly",
       priority: 0.3,
     },
+    {
+      url: `${base}/vian-selvitys`,
+      lastModified: now,
+      changeFrequency: "weekly",
+      priority: 0.8,
+    },
   ];
+
+  for (const pump of HEAT_PUMP_JOB_SLUGS) {
+    staticPages.push({
+      url: `${base}/vian-selvitys/${pump}`,
+      lastModified: now,
+      changeFrequency: "weekly",
+      priority: 0.75,
+    });
+    if (isHeatPumpSlug(pump)) {
+      for (const symptom of SYMPTOM_SLUGS_BY_PUMP[pump]) {
+        staticPages.push({
+          url: `${base}/vian-selvitys/${pump}/${symptom}`,
+          lastModified: now,
+          changeFrequency: "monthly",
+          priority: 0.7,
+        });
+      }
+    }
+  }
 
   let listingPages: MetadataRoute.Sitemap = [];
   try {

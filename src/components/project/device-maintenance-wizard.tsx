@@ -59,16 +59,24 @@ type Props = {
   catalog: JobCatalog;
   defaultEmail?: string;
   defaultPhone?: string;
+  /** Vian selvitys -sivulta tms. */
+  initialDetails?: Partial<DeviceMaintenanceDetails>;
+  /** Hyppää suoraan vika-vaiheeseen, jos esitäyttö. */
+  initialStep?: number;
 };
 
 export function DeviceMaintenanceWizard({
   catalog,
   defaultEmail = "",
   defaultPhone = "",
+  initialDetails,
+  initialStep = 0,
 }: Props) {
-  const [step, setStep] = useState(0);
+  const [step, setStep] = useState(initialStep);
   const [details, setDetails] = useState<DeviceMaintenanceDetails>({
     ...INITIAL_DEVICE_MAINTENANCE,
+    ...initialDetails,
+    symptoms: initialDetails?.symptoms ?? INITIAL_DEVICE_MAINTENANCE.symptoms,
   });
   const [form, setForm] = useState<FormState>({
     ...initialForm,

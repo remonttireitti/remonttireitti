@@ -47,8 +47,8 @@ export default async function NewProjectPage() {
         <p className="mt-2 max-w-2xl text-stone-600">
           Valitse pumpputyyppi ja täytä kohdekortit. Julkaise tarjouspyyntö
           ilmaiseksi.{" "}
-          <Link href="/huolto/uusi" className="text-sky-700 hover:underline">
-            Tarvitsetko huoltoa tai korjausta?
+          <Link href="/vian-selvitys" className="text-sky-700 hover:underline">
+            Laite ei toimi oikein? Aloita vian selvityksestä
           </Link>
         </p>
         <ValuePromoBanner variant="customer-negotiate" className="mt-6 max-w-2xl" />
