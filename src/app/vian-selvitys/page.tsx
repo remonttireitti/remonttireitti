@@ -63,6 +63,10 @@ export default function TroubleshootingLandingPage() {
           <Link href="/remontti/uusi" className="text-sky-700 hover:underline">
             Kilpailuta lämpöpumppuasennus
           </Link>
+          {" · "}
+          <Link href="/hinta-arkisto" className="text-sky-700 hover:underline">
+            Katso hinta-arkisto
+          </Link>
         </p>
       </main>
     </div>

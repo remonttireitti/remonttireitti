@@ -125,6 +125,20 @@ export const STATIC_SEO_PAGES: SeoPageDef[] = [
     priority: 0.8,
   },
   {
+    path: "/hinta-arkisto",
+    title: "Hinta-arkisto — toteutuneet lämpöpumppuhinnat",
+    description:
+      "Anonymisoitu yhteenveto hyväksytyistä tarjouksista: lämpöpumpun asennus, huolto ja korjaus. Vertaa alueen hintoja ennen kilpailutusta.",
+    keywords: mergeKeywords(HEAT_PUMP_KEYWORDS, [
+      "hinta",
+      "hinta-arvio",
+      "asennushinta",
+      "huoltohinta",
+    ]),
+    changeFrequency: "weekly",
+    priority: 0.75,
+  },
+  {
     path: "/tietosuoja",
     title: "Tietosuoja",
     description: "Remonttireitin tietosuojaseloste ja henkilötietojen käsittely.",
