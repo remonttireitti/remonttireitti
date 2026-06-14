@@ -3,8 +3,10 @@ import { formInputClass } from "@/lib/brand-theme";
 
 export function ListingFormFields({
   defaults,
+  wantedMode = false,
 }: {
   defaults: { contact_email: string; contact_phone: string };
+  wantedMode?: boolean;
 }) {
   return (
     <>
@@ -13,7 +15,11 @@ export function ListingFormFields({
           name="title"
           required
           minLength={3}
-          placeholder="Esim. Bosch astianpesukone, Miele pesukone, Mitsubishi ILP 5 kW"
+          placeholder={
+            wantedMode
+              ? "Esim. Haluan ostaa: Mitsubishi ILP noin 5 kW"
+              : "Esim. Bosch astianpesukone, Miele pesukone, Mitsubishi ILP 5 kW"
+          }
           className={formInputClass}
         />
       </Field>
@@ -24,7 +30,11 @@ export function ListingFormFields({
           required
           minLength={10}
           rows={4}
-          placeholder="Kunto, mitä mukana, mitä remonttiin sopii, nouto..."
+          placeholder={
+            wantedMode
+              ? "Mitä etsit, kunto, budjetti, sijainti, toimitus/nouto..."
+              : "Kunto, mitä mukana, mitä remonttiin sopii, nouto..."
+          }
           className={formInputClass}
         />
       </Field>
@@ -56,12 +66,16 @@ export function ListingFormFields({
         </Field>
       </div>
 
-      <Field label="Hinta (€)">
+      <Field label={wantedMode ? "Budjetti max (€)" : "Hinta (€)"}>
         <input
           name="price_eur"
           type="number"
           min={0}
-          placeholder="Jätä tyhjäksi = neuvoteltavissa"
+          placeholder={
+            wantedMode
+              ? "Valinnainen — enintään tämän verran"
+              : "Jätä tyhjäksi = neuvoteltavissa"
+          }
           className={formInputClass}
         />
       </Field>

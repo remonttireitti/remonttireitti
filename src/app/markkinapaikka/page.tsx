@@ -122,11 +122,18 @@ export default async function MarketplacePage() {
         </div>
 
         <p className="mt-12 text-center text-sm text-stone-500">
-          Tarvitsetko asennusta tai urakoitsijaa?{" "}
+          Tarvitsetko asennusta? Kilpailuta{" "}
           <Link href="/remontti/uusi" className="text-sky-700 hover:underline">
-            Kilpailuta remontti
+            remontti
           </Link>{" "}
-          erikseen.
+          tai{" "}
+          <Link
+            href="/markkinapaikka/ilmoita?tyyppi=ostopyynto"
+            className="text-sky-700 hover:underline"
+          >
+            julkaise ostopyyntö
+          </Link>
+          .
         </p>
       </main>
     </div>

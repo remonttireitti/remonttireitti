@@ -3,6 +3,7 @@ import { DEVICE_CATEGORIES } from "@/constants/maintenance";
 import type { DeviceMaintenanceDetails } from "@/types/device-maintenance-details";
 import { INITIAL_DEVICE_MAINTENANCE } from "@/types/device-maintenance-details";
 import { MAINTENANCE_SYMPTOMS } from "@/constants/maintenance";
+import { HEAT_PUMP_BRAND_OPTIONS } from "@/lib/heat-pump-error-codes";
 
 /** Lukee huolto-lomakkeen esitäytön URL-parametreista. */
 export function parseHuoltoPrefillFromSearchParams(
@@ -32,6 +33,17 @@ export function parseHuoltoPrefillFromSearchParams(
     patch.issue_description = kuvaus;
   } else if (kuvaus) {
     patch.issue_description = `${kuvaus} `.padEnd(22, ".");
+  }
+
+  const virhekoodi = params.virhekoodi?.trim();
+  const merkki = params.merkki?.trim();
+  if (virhekoodi || merkki) {
+    const brandLabel =
+      HEAT_PUMP_BRAND_OPTIONS.find((b) => b.slug === merkki)?.label ?? merkki ?? "";
+    patch.brand_model = [brandLabel, virhekoodi].filter(Boolean).join(" ").trim();
+    if (virhekoodi && !patch.symptoms?.includes("Virhekoodi näytöllä")) {
+      patch.symptoms = [...(patch.symptoms ?? []), "Virhekoodi näytöllä"];
+    }
   }
 
   return patch;

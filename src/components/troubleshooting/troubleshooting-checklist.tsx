@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import type { HeatPumpSlug } from "@/constants/heat-pumps";
+import { HeatPumpErrorCodeLookup } from "@/components/troubleshooting/heat-pump-error-code-lookup";
 import {
   buildTroubleshootingHuoltoQuery,
   resolveCheckForPump,
@@ -12,6 +13,15 @@ import {
 } from "@/lib/troubleshooting-guides";
 import { brand } from "@/lib/brand-theme";
 
+type ErrorMatch = {
+  code: string;
+  brand: string;
+  title: string;
+  meaning: string;
+  safeAction: string;
+  callPro: boolean;
+} | null;
+
 export function TroubleshootingChecklist({
   pumpSlug,
   guide,
@@ -19,15 +29,22 @@ export function TroubleshootingChecklist({
 }: {
   pumpSlug: HeatPumpSlug;
   guide: TroubleshootingGuide;
-  /** Kirjautumaton: /kirjaudu?redirect=... */
   loginHref?: string;
 }) {
   const [checked, setChecked] = useState<Record<string, boolean>>({});
+  const [followUpAnswers, setFollowUpAnswers] = useState<Record<string, string>>(
+    {},
+  );
+  const [errorMatch, setErrorMatch] = useState<ErrorMatch>(null);
   const [resolved, setResolved] = useState(false);
 
   const triedIds = useMemo(
     () => Object.entries(checked).filter(([, v]) => v).map(([k]) => k),
     [checked],
+  );
+
+  const followUps = (guide.followUps ?? []).filter(
+    (f) => !f.onlyFor || f.onlyFor.includes(pumpSlug),
   );
 
   const doNotDo = resolveGuideBulletsForPump(
@@ -41,16 +58,32 @@ export function TroubleshootingChecklist({
     pumpSlug,
   );
 
+  const errorBrandSlug = errorMatch?.brand ?? null;
+
   const huoltoQuery = buildTroubleshootingHuoltoQuery({
     pumpSlug,
     guide,
     triedCheckIds: triedIds,
+    followUpAnswers,
+    errorCode: errorMatch?.code ?? null,
+    errorBrand: errorBrandSlug,
+    errorLookup: errorMatch
+      ? {
+          code: errorMatch.code,
+          title: errorMatch.title,
+          meaning: errorMatch.meaning,
+        }
+      : null,
   });
   const huoltoHref = `/huolto/uusi?${huoltoQuery}`;
   const ctaHref = loginHref ?? huoltoHref;
 
   function toggle(id: string) {
     setChecked((c) => ({ ...c, [id]: !c[id] }));
+  }
+
+  function setFollowUp(id: string, value: string) {
+    setFollowUpAnswers((prev) => ({ ...prev, [id]: value }));
   }
 
   if (resolved) {
@@ -70,10 +103,7 @@ export function TroubleshootingChecklist({
           >
             ← Muut oireet
           </Link>
-          <Link
-            href={ctaHref}
-            className={`text-sm font-medium ${brand.link}`}
-          >
+          <Link href={ctaHref} className={`text-sm font-medium ${brand.link}`}>
             Pyydä huoltoa silti →
           </Link>
         </div>
@@ -90,12 +120,58 @@ export function TroubleshootingChecklist({
         </p>
       )}
 
+      {followUps.length > 0 && (
+        <section className="rounded-2xl border border-stone-200 bg-white p-4 sm:p-5">
+          <h2 className="text-lg font-semibold text-stone-900">Muutama kysymys</h2>
+          <p className="mt-1 text-sm text-stone-600">
+            Vastaukset menevät mukana huoltopyyntöön, jos tarvitset asentajaa.
+          </p>
+          <div className="mt-4 space-y-4">
+            {followUps.map((f) => (
+              <fieldset key={f.id}>
+                <legend className="text-sm font-medium text-stone-800">
+                  {f.question}
+                </legend>
+                <div className="mt-2 flex flex-col gap-2">
+                  {f.options.map((opt) => (
+                    <label
+                      key={opt.value}
+                      className="flex cursor-pointer items-start gap-2 rounded-lg border border-stone-200 px-3 py-2 hover:bg-stone-50"
+                    >
+                      <input
+                        type="radio"
+                        name={`followup-${f.id}`}
+                        checked={followUpAnswers[f.id] === opt.value}
+                        onChange={() => setFollowUp(f.id, opt.value)}
+                        className="mt-1"
+                      />
+                      <span className="text-sm text-stone-700">
+                        {opt.label}
+                        {opt.hint && (
+                          <span className="mt-0.5 block text-xs text-stone-500">
+                            {opt.hint}
+                          </span>
+                        )}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {guide.slug === "virhekoodi" && (
+        <HeatPumpErrorCodeLookup onMatch={setErrorMatch} />
+      )}
+
       <section>
         <h2 className="text-lg font-semibold">Tarkista nämä (turvalliset)</h2>
         <ul className="mt-4 space-y-3">
           {guide.safeChecks.map((c) => {
-            const resolved = resolveCheckForPump(c, pumpSlug);
-            if (!resolved) return null;
+            const resolvedCheck = resolveCheckForPump(c, pumpSlug);
+            if (!resolvedCheck) return null;
             return (
               <li
                 key={c.id}
@@ -110,10 +186,10 @@ export function TroubleshootingChecklist({
                   />
                   <span>
                     <span className="font-medium text-stone-900">
-                      {resolved.title}
+                      {resolvedCheck.title}
                     </span>
                     <span className="mt-1 block text-sm text-stone-600">
-                      {resolved.detail}
+                      {resolvedCheck.detail}
                     </span>
                   </span>
                 </label>

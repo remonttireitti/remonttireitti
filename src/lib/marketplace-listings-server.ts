@@ -7,13 +7,14 @@ import { createClient } from "@/lib/supabase/server";
 export async function fetchPublishedListings(
   limit = 6,
   category?: ListingProductCategory | null,
+  listingKind?: "sell" | "wanted" | null,
 ): Promise<ListingCardItem[]> {
   await expireListingsIfNeeded();
   const supabase = await createClient();
   let query = supabase
     .from("equipment_listings")
     .select(
-      "id, title, price_eur, municipality, postal_code, condition, seller_type, product_category, highlighted_in_search",
+      "id, title, price_eur, municipality, postal_code, condition, seller_type, product_category, highlighted_in_search, listing_kind",
     )
     .eq("status", "published")
     .order("highlighted_in_search", { ascending: false })
@@ -22,6 +23,9 @@ export async function fetchPublishedListings(
 
   if (category) {
     query = query.eq("product_category", category);
+  }
+  if (listingKind) {
+    query = query.eq("listing_kind", listingKind);
   }
 
   const { data } = await query;

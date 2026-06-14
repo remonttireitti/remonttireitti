@@ -13,6 +13,7 @@ import {
 import { LISTING_DURATION_WEEKS } from "@/lib/marketplace-pricing";
 import { ProjectPhotosGallery } from "@/components/project/project-photos-gallery";
 import { ListingChat } from "@/components/messaging/listing-chat";
+import { ListingInstallCta } from "@/components/marketplace/listing-install-cta";
 import { SiteHeader } from "@/components/site-header";
 import { getSessionUser } from "@/lib/auth";
 import { expireListingsIfNeeded } from "@/lib/expire-listings";
@@ -80,6 +81,7 @@ export default async function MarketplaceListingDetailPage({
       `
       id, title, description, price_eur, municipality, postal_code,
       condition, manufacturer, model, year_manufactured, pump_type_slug, product_category,
+      listing_kind,
       seller_type, seller_id, status, published_at, expires_at,
       contact_email, contact_phone, address_line
     `,
@@ -138,6 +140,8 @@ export default async function MarketplaceListingDetailPage({
 
   const deviceTypeLabel = formatDeviceTypeLabel(listing.pump_type_slug);
 
+  const isWanted = listing.listing_kind === "wanted";
+
   return (
     <div className={brand.page}>
       <SiteHeader />
@@ -150,6 +154,7 @@ export default async function MarketplaceListingDetailPage({
         </Link>
 
         <p className="mt-4 text-xs font-medium uppercase text-stone-500">
+          {isWanted ? "Ostopyyntö · " : null}
           {listingCategoryLabel(
             listing.product_category ?? "device",
           )}{" "}
@@ -200,9 +205,13 @@ export default async function MarketplaceListingDetailPage({
 
         <h1 className="mt-1 text-2xl font-bold">{listing.title}</h1>
         <p className="mt-2 text-2xl font-bold text-sky-800">
-          {listing.price_eur != null
-            ? `${listing.price_eur.toLocaleString("fi-FI")} €`
-            : "Hinta neuvoteltavissa"}
+          {isWanted
+            ? listing.price_eur != null
+              ? `Budjetti max ${listing.price_eur.toLocaleString("fi-FI")} €`
+              : "Budjetti neuvoteltavissa"
+            : listing.price_eur != null
+              ? `${listing.price_eur.toLocaleString("fi-FI")} €`
+              : "Hinta neuvoteltavissa"}
         </p>
         <p className="text-stone-500">
           {listing.municipality}, {listing.postal_code}
@@ -247,9 +256,25 @@ export default async function MarketplaceListingDetailPage({
           </dl>
         )}
 
+        {isPublic && !isSeller && isWanted && (
+          <section className="mt-8 rounded-xl border border-emerald-200 bg-emerald-50/60 p-6">
+            <h2 className="font-semibold text-emerald-950">Myy vastaava laite?</h2>
+            <p className="mt-2 text-sm text-emerald-900">
+              Ota yhteyttä ostajaehdotukseen sähköpostilla, puhelimella tai chatilla
+              alla.
+            </p>
+          </section>
+        )}
+
+        {isPublic && !isSeller && !isWanted && (
+          <ListingInstallCta listing={listing} />
+        )}
+
         {isPublic && !isSeller && (
           <section className="mt-8 rounded-xl border border-sky-200 bg-sky-50/60 p-6">
-            <h2 className="font-semibold text-sky-950">Ota yhteyttä myyjään</h2>
+            <h2 className="font-semibold text-sky-950">
+              {isWanted ? "Ota yhteyttä ostajaan" : "Ota yhteyttä myyjään"}
+            </h2>
             <dl className="mt-4 space-y-2 text-sm">
               <div>
                 <dt className="text-stone-500">Sähköposti</dt>

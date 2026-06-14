@@ -16,8 +16,8 @@ export function HomeAudienceSplit() {
             Etsin tekijää
           </h2>
           <p className="mt-2 text-sm leading-relaxed text-stone-600">
-            Remontti, siivous, piha tai muu palvelu — kilpailuta ilmaiseksi ja
-            vertaile tarjouksia.
+            Remontti, huolto, piha tai muu palvelu — kilpailuta ilmaiseksi tai
+            aloita vian selvityksestä.
           </p>
           <span className={`mt-4 inline-block text-sm font-semibold ${brand.link}`}>
             Aloita tarjouspyyntö →

@@ -58,6 +58,10 @@ import {
 } from "@/lib/service-engagement";
 import { brand, formInputClass } from "@/lib/brand-theme";
 import type { JobCatalog, JobTypeWithTrades } from "@/types/job-catalog";
+import {
+  applyRemonttiPrefillToForm,
+  type RemonttiPrefill,
+} from "@/lib/remontti-prefill";
 
 const inputClass = formInputClass;
 
@@ -110,6 +114,7 @@ type ProjectWizardProps = {
   defaultPhone?: string;
   editSnapshot?: ProjectEditSnapshot;
   submittedBidCount?: number;
+  prefill?: RemonttiPrefill;
 };
 
 export function ProjectWizard({
@@ -118,9 +123,17 @@ export function ProjectWizard({
   defaultPhone = "",
   editSnapshot,
   submittedBidCount = 0,
+  prefill,
 }: ProjectWizardProps) {
   const isEdit = Boolean(editSnapshot);
-  const [step, setStep] = useState(0);
+  const prefillApplied = !isEdit && prefill
+    ? applyRemonttiPrefillToForm(catalog, prefill, {
+        contact_email: defaultEmail,
+        contact_phone: defaultPhone,
+      })
+    : null;
+
+  const [step, setStep] = useState(prefillApplied?.initialStep ?? 0);
   const [stepValidationError, setStepValidationError] = useState<string | null>(
     null,
   );
@@ -129,6 +142,7 @@ export function ProjectWizard({
       ? { ...editSnapshot.form }
       : {
           ...initialForm,
+          ...prefillApplied?.formPatch,
           contact_email: defaultEmail,
           contact_phone: defaultPhone,
         },

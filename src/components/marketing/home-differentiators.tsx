@@ -1,27 +1,27 @@
 const items = [
   {
-    title: "Tingaa hintaa",
-    body: "Etkö hyväksy tarjousta? Ehdota alhaisempaa vastatarjouksella — urakoitsija voi hyväksyä, hylätä tai jättää uuden tarjouksen.",
+    title: "Koko kodin palvelut",
+    body: "Remontti keväällä, lumityö talvella, vian selvitys kun laite oireilee, tori kun myyt vanhan laitteen — sama palvelu, eri tilanteet.",
     highlight: true,
   },
   {
-    title: "Tarkka tarjouspyyntö",
-    body: "Lämpöpumpuissa tarkempi lomake — muissa kuvaus ja kuvat. Jatkuvissa palveluissa kerro taajuus ja kausi. Urakoitsija voi tarjota tarkemmin ilman yllätyksiä.",
+    title: "Tingaa hintaa",
+    body: "Etkö hyväksy tarjousta? Ehdota alhaisempaa vastatarjouksella — urakoitsija voi hyväksyä, hylätä tai jättää uuden tarjouksen.",
+    highlight: false,
+  },
+  {
+    title: "Kertyy arvoa ajan myötä",
+    body: "Arvostelut, huoltokirja ja aiemmat urakat auttavat seuraavassa valinnassa. Mitä enemmän käytät, sitä hyödyllisempi palvelu muuttuu.",
     highlight: false,
   },
   {
     title: "Vertailukelpoiset tarjoukset",
-    body: "Useita tarjouksia samassa muodossa: laite, työ, takuu ja aikataulu. Asiakkaalle palvelu on ilmainen.",
+    body: "Useita tarjouksia samassa muodossa: laajuus, hinta, takuu ja aikataulu. Asiakkaalle palvelu on ilmainen.",
     highlight: false,
   },
   {
     title: "Sinulle ilmainen",
-    body: "Pyyntö, vertailu ja vastatarjoukset eivät maksa mitään. Urakoitsija maksaa palvelun välityspalkkion vasta, kun hyväksyt hänen tarjouksensa — ei sinua.",
-    highlight: false,
-  },
-  {
-    title: "Palaute valmiista urakasta",
-    body: "Kun merkitset urakan valmiiksi, voit arvostella urakoitsijan. Muistutus tulee myös noin viikon kuluttua — kerro miten homma sujui.",
+    body: "Pyyntö, vertailu ja vastatarjoukset eivät maksa mitään. Urakoitsija maksaa palvelun välityspalkkion vasta, kun hyväksyt hänen tarjouksensa.",
     highlight: false,
   },
 ] as const;
@@ -34,7 +34,7 @@ export function HomeDifferentiators() {
           key={item.title}
           className={
             item.highlight
-              ? "rounded-2xl border border-orange-200 bg-gradient-to-br from-orange-50 to-white p-5 shadow-sm ring-1 ring-orange-100"
+              ? "rounded-2xl border border-sky-200 bg-gradient-to-br from-sky-50 to-white p-5 shadow-sm ring-1 ring-sky-100"
               : "rounded-2xl border border-stone-200 bg-white p-5 shadow-sm"
           }
         >

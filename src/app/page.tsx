@@ -64,23 +64,25 @@ export default async function Home() {
               <Logo href="/" size="lg" />
             </div>
             <p className="mb-3 text-sm font-medium uppercase tracking-widest text-sky-800">
-              Remontit, palvelut, huolto ja tori
+              Kodin palveluiden keskus
             </p>
             <h1 className="text-3xl font-bold tracking-tight text-stone-900 sm:text-5xl">
-              Kilpailuta remontti ja palvelut{" "}
-              <span className="text-sky-800">helposti ja ilmaiseksi</span>
+              Remontti, huolto, palvelut ja tori{" "}
+              <span className="text-sky-800">samassa paikassa</span>
             </h1>
             <p className="mx-auto mt-5 max-w-2xl text-base leading-relaxed text-stone-600 sm:text-lg">
-              Keittiö, katto, sähkö, lämmitys — tai siivous, piha, muutto ja
-              kunnossapito. Yksi selkeä pyyntö, vertailukelpoiset tarjoukset.
-              Myös jatkuva palvelu esim. nurmikon leikkuuun tai lumitöihin.
+              Kilpailuta työt ilmaiseksi, selvitä vikat, tilaa kunnossapito tai myy
+              käytetty laite — et etsi eri palvelua joka kerta uudesta tilanteesta.
             </p>
-            <ul className="mx-auto mt-6 flex max-w-lg flex-wrap justify-center gap-2 text-xs font-medium text-stone-700 sm:text-sm">
+            <ul className="mx-auto mt-6 flex max-w-xl flex-wrap justify-center gap-2 text-xs font-medium text-stone-700 sm:text-sm">
               <li className="rounded-full bg-white/90 px-3 py-1.5 shadow-sm ring-1 ring-sky-100">
-                Pätevyydet näkyvissä
+                Vertailukelpoiset tarjoukset
               </li>
               <li className="rounded-full bg-white/90 px-3 py-1.5 shadow-sm ring-1 ring-sky-100">
-                Arvostelut urakoitsijoille
+                Arvostelut valmiista urakoista
+              </li>
+              <li className="rounded-full bg-white/90 px-3 py-1.5 shadow-sm ring-1 ring-sky-100">
+                Huoltokirja kotiin
               </li>
               <li className="rounded-full bg-white/90 px-3 py-1.5 shadow-sm ring-1 ring-sky-100">
                 Asiakkaalle ilmainen
@@ -105,11 +107,11 @@ export default async function Home() {
         <section className="border-t border-stone-200 bg-white py-14">
           <div className={brand.containerWide}>
             <h2 className="text-center text-2xl font-bold tracking-tight">
-              Neljä tapaa käyttää palvelua
+              Mitä täällä voi tehdä
             </h2>
             <p className="mx-auto mt-2 max-w-xl text-center text-sm text-stone-600">
-              Remontit, jatkuva kunnossapito, huolto tai osta ja myy laitteita
-              torilla.
+              Valitse tilanteesi — remontti, jatkuva palvelu, vian selvitys tai
+              tori. Sama paikka koko vuoden tarpeisiin.
             </p>
             <div className="mt-8">
               <ServiceCards />
@@ -138,7 +140,7 @@ export default async function Home() {
         <section className="border-t border-stone-200/80 bg-stone-50/50 py-14 sm:py-16">
           <div className={brand.containerWide}>
             <h2 className="text-2xl font-bold tracking-tight">
-              Miksi Remonttireitti?
+              Miksi yksi paikka riittää?
             </h2>
             <div className="mt-8">
               <HomeDifferentiators />

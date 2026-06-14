@@ -5,11 +5,24 @@ import { SiteHeader } from "@/components/site-header";
 import { ProjectWizard } from "@/components/project/project-wizard";
 import { getProfile, getSessionUser } from "@/lib/auth";
 import { fetchProjectCatalog } from "@/lib/job-catalog-server";
+import { parseRemonttiPrefillFromSearchParams } from "@/lib/remontti-prefill";
 import { brand } from "@/lib/brand-theme";
 
-export default async function NewProjectPage() {
+export default async function NewProjectPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | undefined>>;
+}) {
+  const params = await searchParams;
+  const prefill = parseRemonttiPrefillFromSearchParams(params);
+
   const user = await getSessionUser();
-  if (!user) redirect("/kirjaudu?redirect=/remontti/uusi");
+  if (!user) {
+    const qs = new URLSearchParams(
+      Object.entries(params).filter(([, v]) => v != null) as [string, string][],
+    ).toString();
+    redirect(`/kirjaudu?redirect=/remontti/uusi${qs ? `?${qs}` : ""}`);
+  }
 
   const profile = await getProfile();
   if (profile?.role === "contractor") {
@@ -55,11 +68,21 @@ export default async function NewProjectPage() {
           <ValuePromoBanner variant="customer-free" />
           <ValuePromoBanner variant="customer-negotiate" />
         </div>
+        {prefill.jobSlug && (
+          <p
+            className="mt-4 rounded-lg bg-sky-50 p-3 text-sm text-sky-900"
+            role="status"
+          >
+            Työn tyyppi ja kuvaus on esitäytetty linkistä — tarkista tiedot ennen
+            julkaisua.
+          </p>
+        )}
         <div className="mt-8">
           <ProjectWizard
             catalog={catalog}
             defaultEmail={user.email ?? ""}
             defaultPhone={profile?.phone ?? ""}
+            prefill={prefill}
           />
         </div>
       </main>

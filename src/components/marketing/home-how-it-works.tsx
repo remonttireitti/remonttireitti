@@ -101,11 +101,11 @@ export function HomeHowItWorks() {
         Näin palvelu toimii
       </p>
       <h2 className="mt-1 text-xl font-bold tracking-tight text-stone-900 sm:text-2xl">
-        Remontit, palvelut, huolto ja tori
+        Näin eri tarpeet toimivat
       </h2>
       <p className="mt-2 max-w-2xl text-sm leading-relaxed text-stone-600">
-        Uusi palvelu — emme näytä keksittyjä asiakasarviointeja. Urakoitsijoiden
-        tähtiarvostelut tulevat vasta valmiista urakoista.
+        Remontti, jatkuva palvelu ja vian selvitys käyttävät samaa
+        tarjousmallia. Tori on erillinen — osta ja myy laitteita tarpeen mukaan.
       </p>
 
       <div className="mt-8 grid gap-6 lg:grid-cols-2">

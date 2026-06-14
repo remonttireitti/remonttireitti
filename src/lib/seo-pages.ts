@@ -24,9 +24,9 @@ export type SeoPageDef = {
 export const STATIC_SEO_PAGES: SeoPageDef[] = [
   {
     path: "/",
-    title: "Kilpailuta remontti ja palvelut ilmaiseksi",
+    title: "Kodin palveluiden keskus — remontit, huolto ja palvelut",
     description:
-      "Remontit, lämmitys, huolto ja kunnossapito kilpailutettuna. Siivous, piha, muutto — myös jatkuva palvelu. Remonttitori laitteille. Ilmainen tarjouspyyntö omakotitaloon.",
+      "Remontit, huolto, kunnossapito, vian selvitys ja tori samassa paikassa. Kilpailuta työt ilmaiseksi — ilman että etsit eri palvelua joka kerta.",
     keywords: mergeKeywords(
       SITE_KEYWORDS,
       HEAT_PUMP_KEYWORDS.slice(0, 3),

@@ -94,6 +94,7 @@ export async function createConsumerListing(
       seller_type: "customer",
       plan_id: plan?.id ?? null,
       status: "published",
+      listing_kind: input.listing_kind,
       condition: input.condition,
       title: input.title,
       description: input.description,

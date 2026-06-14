@@ -14,7 +14,7 @@ type Defaults = {
   contact_phone: string;
 };
 
-export function ConsumerListingForm({
+export function ConsumerWantedListingForm({
   defaults,
   slotsLeft,
 }: {
@@ -38,10 +38,11 @@ export function ConsumerListingForm({
 
   return (
     <form action={action} className="mt-6 space-y-4">
-      <input type="hidden" name="listing_kind" value="sell" />
+      <input type="hidden" name="listing_kind" value="wanted" />
+
       <p className="text-sm text-stone-600">
-        Ilmainen julkaisu — {slotsLeft} ilmoituspaikkaa jäljellä (max 2
-        aktiivista).
+        Kerro mitä etsit — myyjät ja urakoitsijat voivat ottaa yhteyttä. Ilmainen
+        julkaisu ({slotsLeft} paikkaa jäljellä).
       </p>
 
       {state.error && (
@@ -50,12 +51,12 @@ export function ConsumerListingForm({
         </p>
       )}
 
-      <ListingFormFields defaults={defaults} />
+      <ListingFormFields defaults={defaults} wantedMode />
 
       <ListingPhotoField files={photoFiles} onFilesChange={setPhotoFiles} />
 
       <button type="submit" disabled={pending} className={`w-full ${brand.btnPrimary}`}>
-        {pending ? "Julkaistaan…" : "Julkaise ilmoitus ilmaiseksi"}
+        {pending ? "Julkaistaan…" : "Julkaise ostopyyntö"}
       </button>
     </form>
   );

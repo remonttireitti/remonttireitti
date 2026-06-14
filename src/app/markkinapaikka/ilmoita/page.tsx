@@ -13,6 +13,7 @@ export const metadata: Metadata = pageMetadata({
 import { ContractorActivationBanner } from "@/components/account/contractor-activation-banner";
 import { ContractorListingForm } from "@/components/marketplace/contractor-listing-form";
 import { ConsumerListingForm } from "@/components/marketplace/consumer-listing-form";
+import { ConsumerWantedListingForm } from "@/components/marketplace/consumer-wanted-listing-form";
 import { SiteHeader } from "@/components/site-header";
 import {
   defaultCompanyFromUser,
@@ -39,6 +40,12 @@ export default async function MarketplaceCreateListingPage({
 }) {
   const params = await searchParams;
   const { tyyppi } = params;
+
+  if (tyyppi === "ostopyynto") {
+    const user = await getSessionUser();
+    if (!user) redirect("/kirjaudu?redirect=/markkinapaikka/ilmoita?tyyppi=ostopyynto");
+    return <ConsumerWantedListingInfo />;
+  }
 
   if (tyyppi === "kuluttaja") {
     const user = await getSessionUser();
@@ -135,6 +142,52 @@ export default async function MarketplaceCreateListingPage({
           }}
         />
 
+      </main>
+    </div>
+  );
+}
+
+async function ConsumerWantedListingInfo() {
+  const user = await getSessionUser();
+  if (!user) redirect("/kirjaudu?redirect=/markkinapaikka/ilmoita?tyyppi=ostopyynto");
+
+  const profile = await getProfile();
+  const active = await countActiveConsumerListings(user.id);
+  const slotsLeft = Math.max(0, CONSUMER_FREE_MAX_ACTIVE_LISTINGS - active);
+
+  return (
+    <div className={brand.page}>
+      <SiteHeader />
+      <main className={brand.mainForm}>
+        <Link
+          href="/markkinapaikka"
+          className="text-sm text-sky-700 hover:underline"
+        >
+          ← {marketplaceBrand.nameShort}
+        </Link>
+        <h1 className="mt-4 text-2xl font-bold">Haluan ostaa</h1>
+        <p className="mt-2 text-sm text-stone-600">
+          Julkaise ostopyyntö torilla — myyjät näkevät mitä etsit. Ilmainen
+          yksityishenkilölle.
+        </p>
+
+        <ConsumerWantedListingForm
+          slotsLeft={slotsLeft}
+          defaults={{
+            contact_email: user.email ?? "",
+            contact_phone: profile?.phone ?? "",
+          }}
+        />
+
+        <p className="mt-8 text-center text-sm text-stone-500">
+          Myyt laitetta?{" "}
+          <Link
+            href="/markkinapaikka/ilmoita?tyyppi=kuluttaja"
+            className="text-sky-700 hover:underline"
+          >
+            Julkaise myynti-ilmoitus
+          </Link>
+        </p>
       </main>
     </div>
   );

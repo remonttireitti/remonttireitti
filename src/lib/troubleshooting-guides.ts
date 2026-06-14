@@ -42,6 +42,13 @@ export function resolveGuideBulletsForPump(
   return byPump?.[pump] ?? bullets;
 }
 
+export type TroubleshootingFollowUp = {
+  id: string;
+  question: string;
+  options: { value: string; label: string; hint?: string }[];
+  onlyFor?: readonly HeatPumpSlug[];
+};
+
 export type TroubleshootingGuide = {
   slug: string;
   title: string;
@@ -50,6 +57,8 @@ export type TroubleshootingGuide = {
   summaryByPump?: Partial<Record<HeatPumpSlug, string>>;
   /** Vastaa huolto-lomakkeen oire-tagia. */
   maintenanceSymptom: string;
+  /** Lyhyet jatkokysymykset ennen tarkistuslistaa. */
+  followUps?: TroubleshootingFollowUp[];
   safeChecks: TroubleshootingCheck[];
   doNotDo: string[];
   doNotDoByPump?: Partial<Record<HeatPumpSlug, string[]>>;
@@ -65,6 +74,38 @@ export const TROUBLESHOOTING_GUIDES: TroubleshootingGuide[] = [
     summary:
       "Lämpö ei riitä tai lämmönjako ei nouse (ILP: huone; VILP/maalämpö: patterit tai lattialämpö). Aloita turvallisista perusasioista ennen huoltokutsua.",
     maintenanceSymptom: "Ei lämmitä",
+    followUps: [
+      {
+        id: "outdoor-running",
+        question: "Kuuluuko tai tuntuuko ulkoyksikön tuuletin / kompressori käynnistyvän?",
+        options: [
+          {
+            value: "yes",
+            label: "Kyllä, ulkoyksikkö käy",
+            hint: "Keskity lämmitystilaan, suodattimeen ja lämmönjakoon.",
+          },
+          {
+            value: "no",
+            label: "Ei — ulkoyksikkö on hiljainen",
+            hint: "Tarkista virta ja sulake. Jos ei auta, tarvitaan asentaja.",
+          },
+          {
+            value: "unsure",
+            label: "En osaa sanoa",
+          },
+        ],
+      },
+      {
+        id: "recent-change",
+        question: "Alkoiko oire äskettäin (esim. pakkasella tai remontin jälkeen)?",
+        options: [
+          { value: "cold", label: "Pakkasella / lumisella säällä" },
+          { value: "after-work", label: "Remontin tai asetusten muutoksen jälkeen" },
+          { value: "gradual", label: "Hidas, pitkään kehittynyt" },
+          { value: "unknown", label: "En tiedä" },
+        ],
+      },
+    ],
     safeChecks: [
       {
         id: "mode-ilp",
@@ -448,6 +489,17 @@ export const TROUBLESHOOTING_GUIDES: TroubleshootingGuide[] = [
     summary:
       "Näytöllä tai sovelluksessa koodi (esim. E09, U4). Kirjaa koodi ennen toimenpiteitä.",
     maintenanceSymptom: "Virhekoodi näytöllä",
+    followUps: [
+      {
+        id: "code-visible",
+        question: "Näkyykö koodi koko ajan vai vain hetken?",
+        options: [
+          { value: "constant", label: "Koko ajan näytöllä" },
+          { value: "flash", label: "Välillä vilkkuu ja katoaa" },
+          { value: "blocks", label: "Laite ei käynnisty ollenkaan" },
+        ],
+      },
+    ],
     safeChecks: [
       {
         id: "write-code",
@@ -627,22 +679,49 @@ export function buildTroubleshootingHuoltoQuery(params: {
   pumpSlug: HeatPumpSlug;
   guide: TroubleshootingGuide;
   triedCheckIds: string[];
+  followUpAnswers?: Record<string, string>;
+  errorCode?: string | null;
+  errorBrand?: string | null;
+  errorLookup?: { code: string; title: string; meaning: string } | null;
 }): string {
   const tried = params.guide.safeChecks
     .filter((c) => params.triedCheckIds.includes(c.id))
-    .map((c) => c.title)
+    .map((c) => resolveCheckForPump(c, params.pumpSlug)?.title ?? c.title)
+    .filter(Boolean)
     .join(", ");
+
+  const followUpText =
+    params.guide.followUps && params.followUpAnswers
+      ? params.guide.followUps
+          .map((f) => {
+            const answer = params.followUpAnswers?.[f.id];
+            if (!answer) return null;
+            const label = f.options.find((o) => o.value === answer)?.label ?? answer;
+            return `${f.question} → ${label}`;
+          })
+          .filter(Boolean)
+          .join(". ")
+      : "";
 
   const parts = [
     `Vian selvitys (${pumpLabel(params.pumpSlug)}): ${params.guide.title}.`,
     resolveGuideSummaryForPump(params.guide, params.pumpSlug),
+    followUpText ? `Vastaukset: ${followUpText}.` : null,
+    params.errorCode
+      ? `Virhekoodi: ${params.errorCode}${params.errorBrand ? ` (${params.errorBrand})` : ""}.`
+      : null,
+    params.errorLookup
+      ? `Tulkinta: ${params.errorLookup.title} — ${params.errorLookup.meaning}.`
+      : null,
     tried ? `Kokeiltu: ${tried}.` : "Kokeiltu: ei merkittyjä kohtia.",
     "Ongelma ei ratkennut — pyydän tarjouksia huoltoon/korjaukseen.",
-  ];
+  ].filter(Boolean);
 
   const q = new URLSearchParams();
   q.set("laite", params.pumpSlug);
   q.set("oire", params.guide.maintenanceSymptom);
   q.set("kuvaus", parts.join(" "));
+  if (params.errorCode) q.set("virhekoodi", params.errorCode);
+  if (params.errorBrand) q.set("merkki", params.errorBrand);
   return q.toString();
 }

@@ -22,7 +22,10 @@ export const PUMP_TYPE_OPTIONS = MARKETPLACE_DEVICE_TYPE_OPTIONS.filter(
     o.value === "muu",
 ) satisfies DeviceTypeOption[];
 
+export type EquipmentListingKind = "sell" | "wanted";
+
 export type ListingFormInput = {
+  listing_kind: EquipmentListingKind;
   product_category: ListingProductCategory;
   title: string;
   description: string;
@@ -68,8 +71,10 @@ export const validateConsumerListing = validateListingForm;
 export function parseListingForm(formData: FormData): ListingFormInput {
   const priceRaw = String(formData.get("price_eur") ?? "").trim();
   const yearRaw = String(formData.get("year_manufactured") ?? "").trim();
+  const kindRaw = String(formData.get("listing_kind") ?? "sell");
 
   return {
+    listing_kind: kindRaw === "wanted" ? "wanted" : "sell",
     product_category: parseListingProductCategory(
       formData.get("product_category"),
     ),

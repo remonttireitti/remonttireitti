@@ -6,6 +6,10 @@ import { SiteHeader } from "@/components/site-header";
 import { brand } from "@/lib/brand-theme";
 import { ListingCardGrid } from "@/components/marketplace/listing-card-grid";
 import { ListingCategoryFilter } from "@/components/marketplace/listing-category-filter";
+import {
+  ListingKindFilter,
+  listingKindFromUrlParam,
+} from "@/components/marketplace/listing-kind-filter";
 import { fetchPublishedListings } from "@/lib/marketplace-listings-server";
 import {
   getListingCategory,
@@ -46,11 +50,12 @@ export async function generateMetadata({
 export default async function MarketplaceListingsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ kategoria?: string }>;
+  searchParams: Promise<{ kategoria?: string; tyyppi?: string }>;
 }) {
-  const { kategoria } = await searchParams;
+  const { kategoria, tyyppi } = await searchParams;
   const categoryFilter = listingCategoryFromUrlParam(kategoria);
-  const listings = await fetchPublishedListings(50, categoryFilter);
+  const kindFilter = listingKindFromUrlParam(tyyppi);
+  const listings = await fetchPublishedListings(50, categoryFilter, kindFilter);
   const categoryMeta = categoryFilter ? getListingCategory(categoryFilter) : null;
 
   const user = await getSessionUser();
@@ -79,16 +84,32 @@ export default async function MarketplaceListingsPage({
                 : "Laitteet, varaosat, tarvikkeet ja työkalut remonttiin — ei kirjautumista"}
             </p>
           </div>
-          <Link
-            href={createListingHref}
-            className={`shrink-0 ${brand.btnPrimary} ${brand.btnPrimaryBlock}`}
-          >
-            Lisää ilmoitus
-          </Link>
+          <div className="flex shrink-0 flex-col gap-2 sm:items-end">
+            <Link
+              href={createListingHref}
+              className={`${brand.btnPrimary} ${brand.btnPrimaryBlock}`}
+            >
+              Myy laite
+            </Link>
+            <Link
+              href="/markkinapaikka/ilmoita?tyyppi=ostopyynto"
+              className={`${brand.btnSecondary} ${brand.btnSecondaryBlock} text-center text-sm`}
+            >
+              Haluan ostaa
+            </Link>
+          </div>
         </div>
 
         <div className="mt-8">
           <ListingCategoryFilter active={categoryFilter} />
+          <ListingKindFilter
+            active={kindFilter}
+            categoryQuery={
+              categoryFilter
+                ? getListingCategory(categoryFilter)?.urlSlug
+                : undefined
+            }
+          />
         </div>
 
         <div className="mt-6">
