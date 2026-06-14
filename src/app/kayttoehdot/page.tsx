@@ -10,7 +10,7 @@ export const metadata: Metadata = pageMetadata({
   path: "/kayttoehdot",
 });
 
-const UPDATED = "19.5.2026";
+const UPDATED = "14.6.2026";
 
 export default function TermsPage() {
   return (
@@ -60,7 +60,26 @@ export default function TermsPage() {
             Hyväksynnän jälkeen urakoitsija maksaa välitysmaksun ennen kuin saa
             asiakkaan yhteystiedot.
           </li>
-          <li>Emme takaa tarjousten määrää, hintaa tai urakan laatua.</li>
+          <li>
+            Emme takaa tarjousten määrää, hintaa tai urakan laatua emmekä sitä,
+            että urakka toteutuu loppuun asti.
+          </li>
+          <li>
+            Palvelumme tehtävä on tarjouskilpailun välittäminen ja tietojen
+            toimittaminen osapuolille. Kun tarjous on hyväksytty ja välityspalkkio
+            maksettu, palveluntarjoajan välitystehtävä on täytetty, vaikka urakka
+            myöhemmin keskeytyisi, peruuntuisi tai epäonnistuisi.
+          </li>
+          <li>
+            Asiakas on vastuussa tarjouspyynnön oikeellisuudesta ja riittävyydestä.
+            Urakoitsija arvioi ennen tarjousta, voiko työn toteuttaa annettujen
+            tietojen perusteella. Puutteelliset tiedot, piilevät vauriot tai muut
+            odottamattomat olosuhteet eivät ole palveluntarjoajan vastuulla.
+          </li>
+          <li>
+            Sopimus urakasta syntyy ainoastaan asiakkaan ja urakoitsijan välille.
+            {siteConfig.name} ei ole urakoitsija eikä osapuoli työsopimuksessa.
+          </li>
         </ul>
       </LegalSection>
 
@@ -91,9 +110,16 @@ export default function TermsPage() {
         <p>
           Palvelu tarjotaan &quot;kuten on&quot;. Emme vastaa välittömistä tai
           välillisistä vahingoista, jotka johtuvat käyttäjien välisistä sopimuksista,
-          viiveistä tai kolmansien osapuolten palveluista. Pakottava kuluttajansuoja
-          säilyy.
+          viiveistä, urakan keskeytymisestä tai kolmansien osapuolten palveluista.
         </p>
+        <p>
+          Erityisesti emme vastaa siitä, että hyväksytty urakka ei toteudu tai
+          toteutuu puutteellisesti, jos syynä ovat muun muassa puutteelliset
+          tarjouspyynnön tiedot, kohteen olosuhteet, osapuolten välinen sopimus tai
+          force majeure. Välityspalkkio koskee onnistunutta yhteydenottoa ja
+          tietojen välittämistä, ei urakan lopputulosta.
+        </p>
+        <p>Pakottava kuluttajansuoja säilyy.</p>
       </LegalSection>
 
       <LegalSection title="8. Immateriaalioikeudet">

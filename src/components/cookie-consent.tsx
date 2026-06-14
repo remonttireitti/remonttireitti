@@ -39,8 +39,10 @@ export function CookieConsentBanner() {
         <div className="text-sm text-stone-700">
           <p className="font-semibold text-stone-900">Evästeet</p>
           <p className="mt-1">
-            Käytämme välttämättömiä evästeitä palvelun toimintaan. Voit hyväksyä
-            myös analytiikan palvelun kehittämiseksi.{" "}
+            Käytämme välttämättömiä evästeitä palvelun toimintaan. Keräämme myös
+            anonyymiä kävijätilastoa (sivulataukset, ei henkilötietoja) palvelun
+            kehittämiseksi — rekisteröitymistä ei vaadita. Voit hyväksyä
+            lisäksi analytiikan palvelun kehittämiseksi.{" "}
             <Link href="/tietosuoja#evasteet" className="text-sky-700 hover:underline">
               Lue lisää
             </Link>

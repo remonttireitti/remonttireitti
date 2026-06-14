@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState, useState } from "react";
 import {
   acceptBid,
@@ -20,6 +21,7 @@ import {
 import { bidTotalAmountCents, bidWorkAmountCents } from "@/lib/bid-amounts";
 import { STALE_BID_CUSTOMER_MESSAGE } from "@/lib/bid-staleness";
 import { formatEurosFromCents } from "@/lib/bids";
+import { BID_ACCEPT_MEDIATION_NOTICE } from "@/lib/platform-liability";
 
 const inputClass =
   "mt-1 w-full rounded-lg border border-stone-300 px-3 py-2 text-sm focus:border-sky-600 focus:outline-none focus:ring-1 focus:ring-sky-600";
@@ -102,6 +104,15 @@ export function CustomerBidActions({
           {formatEurosFromCents(bid.counter_amount_cents)}). Alkuperäinen hinta{" "}
           {formatEurosFromCents(bid.amount_cents)} on voimassa — voit hyväksyä sen
           tai jättää uuden vastatarjouksen.
+        </p>
+      )}
+
+      {canAcceptFinal && (
+        <p className="rounded-lg border border-stone-200 bg-stone-50 px-3 py-2 text-xs leading-relaxed text-stone-700">
+          {BID_ACCEPT_MEDIATION_NOTICE}{" "}
+          <Link href="/kayttoehdot" className="font-medium text-sky-800 hover:underline">
+            Käyttöehdot
+          </Link>
         </p>
       )}
 

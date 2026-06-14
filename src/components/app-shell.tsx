@@ -1,6 +1,7 @@
 import { CookieConsentBanner } from "@/components/cookie-consent";
 import { GoogleAnalytics } from "@/components/google-analytics";
 import { NavigationProgress } from "@/components/navigation/navigation-progress";
+import { PageViewTracker } from "@/components/page-view-tracker";
 import { SiteFooter } from "@/components/site-footer";
 import { siteConfig } from "@/lib/site-config";
 import type { ReactNode } from "react";
@@ -11,6 +12,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     <>
       <Suspense fallback={null}>
         <NavigationProgress />
+        <PageViewTracker />
       </Suspense>
       {children}
       <SiteFooter />

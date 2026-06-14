@@ -124,6 +124,11 @@ export default function PrivacyPage() {
           palvelun perustoiminnot. Niitä ei voi poistaa käytöstä palvelun käytön aikana.
         </p>
         <p>
+          <strong>Anonyymi kävijätilasto</strong> tallentaa sivulataukset ja
+          anonymisoidun kävijätunnisteen (ei nimeä, sähköpostia eikä IP-osoitetta)
+          palvelun kehittämiseksi. Tilastointi toimii ilman rekisteröitymistä.
+        </p>
+        <p>
           <strong>Analytiikkaevästeet</strong> (esim. Google Analytics) asetetaan vain,
           jos hyväksyt ne evästebannerissa. Voit perua suostumuksen tyhjentämällä
           evästeet selaimesta tai hylkäämällä analytiikan bannerissa.

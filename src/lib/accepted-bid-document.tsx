@@ -13,6 +13,7 @@ import {
   parseBidOfferScope,
 } from "@/lib/bid-offer-scope";
 import { formatEurosFromCents, getBidContractorName } from "@/lib/bids";
+import { ACCEPTED_BID_PLATFORM_FOOTER } from "@/lib/platform-liability";
 
 export type AcceptedBidDocumentData = {
   project: {
@@ -363,9 +364,9 @@ export function AcceptedBidDocument({ data }: { data: AcceptedBidDocumentData })
             dateStyle: "long",
             timeStyle: "short",
           })}
-          . Remonttivalitys toimii välittäjänä; sopimus syntyy asiakkaan ja urakoitsijan
-          välille hyväksytyn tarjouksen perusteella.
+          .
         </p>
+        <p className="mt-2 leading-relaxed">{ACCEPTED_BID_PLATFORM_FOOTER}</p>
         <p className="mt-2">
           Kokonaishinta hyväksynnän mukaan:{" "}
           {formatEurosFromCents(bidResolvedAmountCents(data.bid as BidAmountParts))}
