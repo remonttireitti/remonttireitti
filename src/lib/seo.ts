@@ -37,7 +37,7 @@ const defaultKeywords = mergeKeywords(SITE_KEYWORDS, [
   "remonttitori",
 ]);
 
-const defaultOgImage = "/logo.svg";
+const defaultOgImage = "/opengraph-image";
 
 /** Juuri-layoutin metadata (metadataBase, OG-oletukset). */
 export const rootMetadata: Metadata = {
@@ -73,10 +73,10 @@ export const rootMetadata: Metadata = {
     title: defaultTitle,
     description: defaultDescription,
     url: getSiteUrl(),
-    images: [{ url: defaultOgImage, alt: siteConfig.name }],
+    images: [{ url: defaultOgImage, width: 1200, height: 630, alt: siteConfig.name }],
   },
   twitter: {
-    card: "summary",
+    card: "summary_large_image",
     title: defaultTitle,
     description: defaultDescription,
     images: [defaultOgImage],
@@ -127,10 +127,10 @@ export function pageMetadata({
       siteName: siteConfig.name,
       locale: "fi_FI",
       type: "website",
-      images: [{ url: defaultOgImage, alt: siteConfig.name }],
+      images: [{ url: defaultOgImage, width: 1200, height: 630, alt: siteConfig.name }],
     },
     twitter: {
-      card: "summary",
+      card: "summary_large_image",
       title: ogTitle,
       description,
       images: [defaultOgImage],

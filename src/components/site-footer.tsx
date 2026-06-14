@@ -66,6 +66,16 @@ export function SiteFooter() {
                   Evästeet
                 </Link>
               </li>
+              <li>
+                <Link href="/llms.txt" className="text-stone-600 hover:text-sky-700">
+                  llms.txt
+                </Link>
+              </li>
+              <li>
+                <Link href="/sitemap.xml" className="text-stone-600 hover:text-sky-700">
+                  Sitemap
+                </Link>
+              </li>
             </ul>
           </div>
         </div>

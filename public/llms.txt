@@ -1,0 +1,39 @@
+# Remonttireitti
+
+> Suomalainen palvelu omakotitaloille: kilpailuta remontit, asennukset, huolto ja kunnossapito ilmaiseksi. Siivous, piha, muutto — myös jatkuva palvelu. Remonttitori remonttiin liittyville laitteille ja tarvikkeille.
+
+Remonttireitti yhdistää asiakkaan ja urakoitsijat. Asiakas luo tarjouspyynnön, urakoitsijat jättävät tarjouksia, asiakas vertailee ja voi tingata vastatarjouksella. Asiakkaalle palvelu on ilmainen; urakoitsija maksaa välityspalkkion vain hyväksytyistä diileistä.
+
+## Keskeiset sivut
+
+- [Etusivu](https://remonttireitti.fi/): remontit, palvelut, huolto ja tori
+- [Palvelut](https://remonttireitti.fi/palvelut): remontit, asennukset ja kunnossapito (kertaluonteinen ja jatkuva)
+- [Aloita tarjouspyyntö](https://remonttireitti.fi/remontti/uusi): asiakkaan wizard (ei indeksoida hakukoneille)
+- [Lämpöpumpun vian selvitys](https://remonttireitti.fi/vian-selvitys): itse-apu ennen huoltopyyntöä
+- [Huolto tai korjaus](https://remonttireitti.fi/huolto/uusi): lämpöpumpun huolto/korjaus
+- [Remonttitori](https://remonttireitti.fi/markkinapaikka): osta ja myy remonttiin liittyviä laitteita
+- [Urakoitsijaksi](https://remonttireitti.fi/urakoitsijaksi): rekisteröityminen ja provisiot
+
+## Palvelualueet (tarjouspyyntö)
+
+- Remontit: keittiö, kylpyhuone, katto, sähkö, LVI, julkisivu, piha-rakentaminen
+- Lämmitys: lämpöpumput, puulämmitys, aurinkopaneelit, latauspiste
+- Palvelut & kunnossapito: kotisiivous, loppusiivous, ikkunanpesu, nurmikon leikkuu, lumityö, muutto, kuljetus
+- Huolto: lämpöpumpun huolto ja korjaus (vian selvitys + huoltopyyntö)
+
+## Remonttitori
+
+Markkinapaikka remonttiin liittyville laitteille, varaosille ja tarvikkeille (lämmitys, keittiö, kylpyhuone, sähkö jne.). Yksityishenkilön ilmoittaminen on ilmaista.
+
+## Yhteystiedot
+
+- Sähköposti: info@remonttireitti.fi
+- [Tietosuoja](https://remonttireitti.fi/tietosuoja)
+- [Käyttöehdot](https://remonttireitti.fi/kayttoehdot)
+
+## Indeksointi
+
+Julkinen sisältö: /, /palvelut/, /markkinapaikka, /vian-selvitys, /huolto/uusi, /urakoitsijaksi.
+Ei julkinen: /oma-tili, /admin/, /remontti/ (wizard), /tarjoukset/, /kirjaudu, /api/.
+
+Sitemap: https://remonttireitti.fi/sitemap.xml
