@@ -17,6 +17,8 @@ const PROJECT_DETAIL_SELECT = `
   desired_start,
   published_at,
   bid_deadline,
+  inactivity_warning_sent_at,
+  auto_closed_at,
   content_revision,
   accepted_bid_id,
   service_categories ( name_fi )
@@ -38,6 +40,8 @@ export type CustomerProjectRow = {
   desired_start: string | null;
   published_at: string | null;
   bid_deadline: string | null;
+  inactivity_warning_sent_at?: string | null;
+  auto_closed_at?: string | null;
   content_revision?: number;
   accepted_bid_id?: string | null;
   completion_notes?: string | null;

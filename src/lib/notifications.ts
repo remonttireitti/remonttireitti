@@ -14,7 +14,9 @@ export type NotificationType =
   | "new_user_registered"
   | "new_project_published"
   | "bid_request_reminder"
-  | "review_reminder";
+  | "review_reminder"
+  | "project_inactivity_warning"
+  | "project_auto_closed";
 
 export type AppNotification = {
   id: string;
@@ -44,4 +46,6 @@ export const notificationTypeLabels: Record<NotificationType, string> = {
   new_project_published: "Tarjouspyyntö",
   bid_request_reminder: "Muistutus",
   review_reminder: "Arvostelu",
+  project_inactivity_warning: "Tarjouspyyntö",
+  project_auto_closed: "Tarjouspyyntö",
 };

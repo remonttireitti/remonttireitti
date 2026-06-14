@@ -16,6 +16,8 @@ import { PlatformFeedbackPanel } from "@/components/feedback/platform-feedback-p
 import { SiteHeader } from "@/components/site-header";
 import { getSessionUser } from "@/lib/auth";
 import { expirePendingAcceptanceForProject } from "@/lib/expire-pending-acceptance";
+import { expireStaleProjectIfNeeded } from "@/lib/expire-stale-projects";
+import { ProjectInactivityBanner } from "@/components/project/project-inactivity-banner";
 import { getProjectStatusLabel } from "@/lib/projects";
 import { fetchCustomerProjectById } from "@/lib/projects-server";
 import { ensureProjectConversation } from "@/app/actions/messages";
@@ -41,11 +43,19 @@ export default async function ProjectPage({
     peruttu?: string;
     luonnos?: string;
     julkaistu?: string;
+    auto_suljettu?: string;
   }>;
 }) {
   const { id } = await params;
-  const { hyvaksytty, virhe, paivitetty, peruttu, luonnos, julkaistu } =
-    await searchParams;
+  const {
+    hyvaksytty,
+    virhe,
+    paivitetty,
+    peruttu,
+    luonnos,
+    julkaistu,
+    auto_suljettu,
+  } = await searchParams;
   const user = await getSessionUser();
   if (!user) redirect(`/kirjaudu?redirect=/remontti/${id}`);
 
@@ -56,6 +66,15 @@ export default async function ProjectPage({
 
   const expireResult = await expirePendingAcceptanceForProject(id);
   const acceptanceExpired = expireResult === "expired";
+
+  const staleResult = await expireStaleProjectIfNeeded(id);
+  if (staleResult === "closed") {
+    redirect(`/remontti/${id}?auto_suljettu=1`);
+  }
+
+  if (staleResult === "warned") {
+    project = (await fetchCustomerProjectById(supabase, id, user.id)) ?? project;
+  }
 
   async function loadBidsAndInvoice() {
     const [invoiceRes, bidsRes] = await Promise.all([
@@ -283,6 +302,19 @@ export default async function ProjectPage({
             pyynnön pysyvästi yllä olevalla painikkeella.
           </p>
         )}
+        {auto_suljettu === "1" && status === "cancelled" && (
+          <p
+            className="mt-4 rounded-lg border border-stone-200 bg-stone-100 p-3 text-sm text-stone-800"
+            role="status"
+          >
+            Tarjouspyyntö suljettiin automaattisesti, koska sitä ei päivitetty tai
+            suljettu ajoissa. Saapuneet tarjoukset poistettiin käytöstä. Voit poistaa
+            pyynnön pysyvästi yllä olevalla painikkeella.
+          </p>
+        )}
+        {biddingPhase && (
+          <ProjectInactivityBanner projectId={id} project={project} />
+        )}
         {hyvaksytty === "1" && (
           <p
             className="mt-4 rounded-lg bg-sky-50 p-3 text-sm text-sky-900"
@@ -391,14 +423,16 @@ export default async function ProjectPage({
 
         <ProjectLifecyclePanel projectId={id} status={status} />
 
-        <CustomerBids
-          projectId={id}
-          projectStatus={status}
-          contentRevision={project.content_revision ?? 1}
-          bids={(bids ?? []) as BidWithContractor[]}
-          contractorRatings={ratingsMap}
-          acceptedBidId={acceptedBidId}
-        />
+        <div id="tarjoukset">
+          <CustomerBids
+            projectId={id}
+            projectStatus={status}
+            contentRevision={project.content_revision ?? 1}
+            bids={(bids ?? []) as BidWithContractor[]}
+            contractorRatings={ratingsMap}
+            acceptedBidId={acceptedBidId}
+          />
+        </div>
 
         {biddingPhase && (
           <ProjectBiddingChats

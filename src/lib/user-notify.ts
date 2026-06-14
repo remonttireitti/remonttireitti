@@ -13,6 +13,8 @@ import {
   notifyProjectMessage,
   notifyProjectCancelled,
   notifyProjectUpdated,
+  notifyProjectInactivityWarning,
+  notifyProjectAutoClosed,
   projectMessageLinkPath,
 } from "@/lib/email-notify";
 import { createNotification } from "@/lib/notifications-server";
@@ -226,15 +228,59 @@ export async function userNotifyProjectCancelled(params: {
   contractorId: string;
   projectId: string;
   projectTitle: string;
+  autoClosed?: boolean;
 }) {
   await inApp(
     params.contractorId,
     "project_updated",
-    "Tarjouspyyntö peruttu",
-    `Asiakas perui pyynnön: ${params.projectTitle}`,
+    params.autoClosed ? "Tarjouspyyntö suljettiin" : "Tarjouspyyntö peruttu",
+    params.autoClosed
+      ? `Pyyntö suljettiin automaattisesti: ${params.projectTitle}`
+      : `Asiakas perui pyynnön: ${params.projectTitle}`,
     "/tarjoukset",
   );
   await notifyProjectCancelled(params);
+}
+
+export async function userNotifyProjectInactivityWarning(params: {
+  customerId: string;
+  projectId: string;
+  projectTitle: string;
+  closeAt: string;
+}) {
+  const closeLabel = new Date(params.closeAt).toLocaleDateString("fi-FI", {
+    day: "numeric",
+    month: "long",
+  });
+
+  await inApp(
+    params.customerId,
+    "project_inactivity_warning",
+    "Tarjouspyyntö suljetaan pian",
+    `${params.projectTitle} suljetaan ${closeLabel}, jos et toimi. Päivitä, valitse tarjous tai peru pyyntö.`,
+    `/remontti/${params.projectId}`,
+  );
+  await notifyProjectInactivityWarning(params);
+}
+
+export async function userNotifyProjectAutoClosed(params: {
+  customerId: string;
+  projectId: string;
+  projectTitle: string;
+  closedAt: string;
+}) {
+  await inApp(
+    params.customerId,
+    "project_auto_closed",
+    "Tarjouspyyntö suljettiin",
+    `${params.projectTitle} suljettiin automaattisesti. Tarjoukset poistettiin käytöstä.`,
+    "/oma-tili",
+  );
+  await notifyProjectAutoClosed({
+    customerId: params.customerId,
+    projectId: params.projectId,
+    projectTitle: params.projectTitle,
+  });
 }
 
 export async function userNotifyReviewReminder(params: {

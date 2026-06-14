@@ -177,14 +177,58 @@ export async function notifyProjectCancelled(params: {
   contractorId: string;
   projectTitle: string;
   projectId: string;
+  autoClosed?: boolean;
 }) {
+  const body = params.autoClosed
+    ? `<p>Tarjouspyyntö <em>${escapeHtml(params.projectTitle)}</em> suljettiin automaattisesti, koska asiakas ei päivittänyt tai sulkenut sitä ajoissa.</p><p>Tarjouksesi ei ole enää voimassa tähän pyyntöön.</p>`
+    : `<p>Asiakas perui tarjouspyynnön <em>${escapeHtml(params.projectTitle)}</em>.</p><p>Tarjouksesi ei ole enää voimassa tähän pyyntöön.</p>`;
+
   await sendUserEmail(
     params.contractorId,
-    `Tarjouspyyntö peruttu: ${params.projectTitle}`,
-    "Tarjouspyyntö peruttu",
-    `<p>Asiakas perui tarjouspyynnön <em>${escapeHtml(params.projectTitle)}</em>.</p><p>Tarjouksesi ei ole enää voimassa tähän pyyntöön.</p>`,
+    params.autoClosed
+      ? `Tarjouspyyntö suljettiin: ${params.projectTitle}`
+      : `Tarjouspyyntö peruttu: ${params.projectTitle}`,
+    params.autoClosed ? "Tarjouspyyntö suljettiin" : "Tarjouspyyntö peruttu",
+    body,
     "/tarjoukset",
     "Selaa tarjouspyyntöjä",
+  );
+}
+
+export async function notifyProjectInactivityWarning(params: {
+  customerId: string;
+  projectTitle: string;
+  projectId: string;
+  closeAt: string;
+}) {
+  const closeLabel = new Date(params.closeAt).toLocaleDateString("fi-FI", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+
+  await sendUserEmail(
+    params.customerId,
+    `Tarjouspyyntö suljetaan pian: ${params.projectTitle}`,
+    "Tarjouspyyntö suljetaan automaattisesti",
+    `<p>Tarjouspyyntösi <em>${escapeHtml(params.projectTitle)}</em> suljetaan automaattisesti <strong>${escapeHtml(closeLabel)}</strong>, jos et päivitä, hyväksy tarjousta tai peru pyyntöä.</p><p>Suljettaessa saapuneet tarjoukset poistetaan käytöstä.</p>`,
+    `/remontti/${params.projectId}`,
+    "Avaa tarjouspyyntö",
+  );
+}
+
+export async function notifyProjectAutoClosed(params: {
+  customerId: string;
+  projectTitle: string;
+  projectId: string;
+}) {
+  await sendUserEmail(
+    params.customerId,
+    `Tarjouspyyntö suljettiin: ${params.projectTitle}`,
+    "Tarjouspyyntö suljettiin automaattisesti",
+    `<p>Tarjouspyyntösi <em>${escapeHtml(params.projectTitle)}</em> suljettiin automaattisesti, koska sitä ei päivitetty tai suljettu ajoissa.</p><p>Saapuneet tarjoukset on poistettu käytöstä. Voit poistaa pyynnön pysyvästi Oma tililtä.</p>`,
+    "/oma-tili",
+    "Oma tili",
   );
 }
 

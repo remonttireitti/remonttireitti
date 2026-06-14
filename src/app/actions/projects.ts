@@ -19,6 +19,9 @@ import {
   notifyContractorsNewPublishedProject,
 } from "@/lib/contractor-project-notify";
 import { scheduleNotification } from "@/lib/schedule-notification";
+import {
+  extendBidDeadlineFromNow,
+} from "@/lib/project-inactivity";
 import type { DeviceCategory } from "@/constants/maintenance";
 import {
   parseDeviceMaintenanceJson,
@@ -247,8 +250,7 @@ export async function createProject(
   }
 
   const now = new Date();
-  const bidDeadline = new Date(now);
-  bidDeadline.setDate(bidDeadline.getDate() + 14);
+  const bidDeadlineIso = publish ? extendBidDeadlineFromNow() : null;
 
   const { data, error } = await supabase
     .from("projects")
@@ -270,7 +272,7 @@ export async function createProject(
       details: projectDetails,
       status: publish ? "published" : "draft",
       published_at: publish ? now.toISOString() : null,
-      bid_deadline: publish ? bidDeadline.toISOString() : null,
+      bid_deadline: bidDeadlineIso,
     })
     .select("id")
     .single();
@@ -400,15 +402,14 @@ export async function publishProject(
   }
 
   const now = new Date();
-  const bidDeadline = new Date(now);
-  bidDeadline.setDate(bidDeadline.getDate() + 14);
 
   const { error } = await supabase
     .from("projects")
     .update({
       status: "published",
       published_at: now.toISOString(),
-      bid_deadline: bidDeadline.toISOString(),
+      bid_deadline: extendBidDeadlineFromNow(),
+      inactivity_warning_sent_at: null,
     })
     .eq("id", projectId);
 
@@ -807,6 +808,10 @@ export async function updateProject(
     ? existing.content_revision + 1
     : existing.content_revision;
 
+  const inBiddingPhase = ["published", "receiving_bids"].includes(
+    existing.status,
+  );
+
   const { error } = await supabase
     .from("projects")
     .update({
@@ -825,6 +830,12 @@ export async function updateProject(
       flexibility_weeks: flexibilityWeeks,
       details: projectDetails,
       content_revision: nextRevision,
+      ...(inBiddingPhase
+        ? {
+            bid_deadline: extendBidDeadlineFromNow(),
+            inactivity_warning_sent_at: null,
+          }
+        : {}),
     })
     .eq("id", projectId)
     .eq("customer_id", user.id);
