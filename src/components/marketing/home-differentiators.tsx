@@ -6,7 +6,7 @@ const items = [
   },
   {
     title: "Tarkka tarjouspyyntö",
-    body: "Lomake on rakennettu lämpöpumppuille: asennuspaikka, putket, kuvat, ilmastovyöhyke ja laitteen tiedot. Urakoitsija voi laskea tarjouksen tarkemmin ilman yllätyksiä.",
+    body: "Lämpöpumpuissa tarkempi lomake — muissa kuvaus ja kuvat. Urakoitsija voi tarjota tarkemmin ilman yllätyksiä.",
     highlight: false,
   },
   {

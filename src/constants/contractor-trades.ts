@@ -11,6 +11,7 @@ export const PUBLIC_CONTRACTOR_TRADE_SLUGS = [
   "lasi",
   "lattia",
   "muurari",
+  "nuohooja",
   "eristys",
   "betoni",
   "maanrakennus",

@@ -12,7 +12,7 @@ export function SiteFooter() {
           <div>
             <p className="font-semibold text-stone-900">{siteConfig.name}</p>
             <p className="mt-2 text-sm text-stone-600">
-              Lämpöpumppujen tarjouskilpailu ja {marketplaceBrand.name.toLowerCase()}.
+              Remonttien tarjouskilpailu ja {marketplaceBrand.name.toLowerCase()}.
             </p>
           </div>
 
@@ -21,7 +21,7 @@ export function SiteFooter() {
             <ul className="mt-2 space-y-1 text-sm">
               <li>
                 <Link href="/remontti/uusi" className="text-stone-600 hover:text-sky-700">
-                  Kilpailuta lämpöpumppu
+                  Kilpailuta remontti
                 </Link>
               </li>
               <li>

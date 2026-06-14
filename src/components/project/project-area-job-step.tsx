@@ -65,11 +65,7 @@ export function ProjectAreaJobStep({
               key={area.slug}
               type="button"
               onClick={() => selectArea(area.slug)}
-              className={`rounded-xl border p-4 text-left transition-colors hover:border-sky-300 hover:bg-sky-50/40 ${
-                area.slug === "lammitys"
-                  ? "border-sky-200 bg-sky-50/60"
-                  : "border-stone-200 bg-white"
-              }`}
+              className="rounded-xl border border-stone-200 bg-white p-4 text-left transition-colors hover:border-sky-300 hover:bg-sky-50/40"
             >
               <span className="font-semibold text-stone-900">{area.title}</span>
               <span className="mt-1 block text-sm text-stone-600">

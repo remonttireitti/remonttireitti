@@ -110,7 +110,7 @@ export default async function ContractorProjectsPage() {
     <div className="min-h-full bg-stone-50 text-stone-900">
       <SiteHeader />
       <main className="mx-auto max-w-2xl px-6 py-12">
-        <h1 className="text-2xl font-bold">Avoimet lämpöpumppupyynnöt</h1>
+        <h1 className="text-2xl font-bold">Avoimet tarjouspyynnöt</h1>
         <p className="mt-2 text-stone-600">
           Jätä tarjous asennuksesta ja laitteesta.
         </p>

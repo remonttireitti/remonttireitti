@@ -15,7 +15,7 @@ export function HomeTrust() {
         Tunnemme urakoitsijat — sinä näet pätevyydet ja arvostelut
       </h2>
       <p className="mt-2 max-w-2xl text-sm leading-relaxed text-stone-700">
-        Remonttireitti on rakennettu lämpöpumppuille. Urakoitsijat eivät ole
+        Remonttireitti kokoaa tarjouspyynnöt omakotitaloihin. Urakoitsijat eivät ole
         anonyymejä: pätevyystiedot ja aiemmat arvostelut auttavat vertailua.
       </p>
       <ul className="mt-6 grid gap-4 sm:grid-cols-2">

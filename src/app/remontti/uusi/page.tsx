@@ -48,10 +48,7 @@ export default async function NewProjectPage() {
         </h1>
         <p className="mt-2 max-w-2xl text-stone-600">
           Valitse remontin tyyppi ja täytä pyyntö. Julkaise tarjouspyyntö
-          ilmaiseksi.{" "}
-          <Link href="/vian-selvitys" className="text-sky-700 hover:underline">
-            Lämpöpumppu oireilee? Aloita vian selvityksestä
-          </Link>
+          ilmaiseksi.
         </p>
         <div className="mt-6 grid max-w-3xl gap-4 sm:grid-cols-2">
           <ValuePromoBanner variant="customer-free" />

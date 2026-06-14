@@ -5,11 +5,16 @@ import { HEAT_PUMP_JOB_SLUGS, type HeatPumpSlug } from "@/constants/heat-pumps";
  * DB:ssä olemassa olevat job_types.slug-arvot.
  */
 export const PUBLIC_PROJECT_JOB_SLUGS = [
-  // Lämmitys
+  // Lämpöpumput
   "ilmalampopumppu",
   "ilmavesilampopumppu",
   "maalampopumppu",
   "lammitys-vaihto",
+  // Puulämmitys
+  "takka-kamiina",
+  "puukattila",
+  "hormi",
+  "puulammitys-varaaja",
   // Sähkö & energia
   "latauspiste",
   "aurinkopaneelit",
@@ -52,6 +57,7 @@ export type PublicProjectJobSlug = (typeof PUBLIC_PROJECT_JOB_SLUGS)[number];
 
 export type ProjectAreaSlug =
   | "lammitys"
+  | "puulammitys"
   | "sahko-energia"
   | "lvi-ilma"
   | "sisatilat"
@@ -70,9 +76,20 @@ export type ProjectArea = {
 export const PROJECT_AREAS: readonly ProjectArea[] = [
   {
     slug: "lammitys",
-    title: "Lämmitys & jäähdytys",
-    description: "Lämpöpumput ja lämmitysjärjestelmän uusiminen.",
+    title: "Lämpöpumput",
+    description: "Ilmalämpö-, vesi-ilmä- ja maalämpöpumput.",
     jobSlugs: [...HEAT_PUMP_JOB_SLUGS, "lammitys-vaihto"],
+  },
+  {
+    slug: "puulammitys",
+    title: "Puulämmitys",
+    description: "Takat, puukattilat, hormit ja varaajat.",
+    jobSlugs: [
+      "takka-kamiina",
+      "puukattila",
+      "hormi",
+      "puulammitys-varaaja",
+    ],
   },
   {
     slug: "sahko-energia",
@@ -154,6 +171,14 @@ export const GENERIC_PROJECT_DESCRIPTION_HINTS: Partial<
 > = {
   "lammitys-vaihto":
     "Kerro nykyisestä lämmityksestä, talon koosta ja toiveista (pumppu, patterit, lattialämmitys)…",
+  "takka-kamiina":
+    "Kerro tilasta, haluatko uuden takkauunin vai remontin, hormista ja toiveista…",
+  puukattila:
+    "Kerro nykyisestä kattilasta, patteriverkosta, polttoaineesta (puu/pelletti) ja tehotarpeesta…",
+  hormi:
+    "Kerro hormin iästä, ongelmista (vetää huonosti, halkeama), tarvitaanko uusinta vai nuohous…",
+  "puulammitys-varaaja":
+    "Kerro kattilan tyypistä, varaajan koosta ja liittyykö patteriverkkoon tai lämmönjakoon…",
   latauspiste:
     "Kerro autosta, parkkipaikasta, etäisyydestä sähkökeskukseen ja toiveista (esim. 11 kW lataus)…",
   aurinkopaneelit:

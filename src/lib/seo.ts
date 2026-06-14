@@ -25,7 +25,7 @@ export async function getRequestSiteUrl(): Promise<string> {
 
 const defaultTitle = `${siteConfig.name} — Kilpailuta remontti ilmaiseksi`;
 const defaultDescription =
-  "Kilpailuta lämpöpumppu, keittiö, katto, sähkö ja muut remontit. Useita tarjouksia urakoitsijoilta — ilmainen tarjouspyyntö.";
+  "Kilpailuta remontti, lämmitys ja muut työt omakotitaloon. Useita tarjouksia urakoitsijoilta — ilmainen tarjouspyyntö.";
 
 const defaultOgImage = "/logo.svg";
 

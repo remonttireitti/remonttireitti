@@ -61,14 +61,14 @@ export default async function Home() {
               <Logo href="/" size="lg" />
             </div>
             <p className="mb-3 text-sm font-medium uppercase tracking-widest text-sky-800">
-              Remontit ja lämpöpumput — kilpailutus, huolto ja tori
+              Remontit — kilpailutus, huolto ja tori
             </p>
             <h1 className="text-3xl font-bold tracking-tight text-stone-900 sm:text-5xl">
               Kilpailuta remontti{" "}
               <span className="text-sky-800">helposti ja ilmaiseksi</span>
             </h1>
             <p className="mx-auto mt-5 max-w-2xl text-base leading-relaxed text-stone-600 sm:text-lg">
-              Lämpöpumppu, keittiö, katto, sähkö… Yksi selkeä pyyntö —
+              Keittiö, katto, sähkö, lämmitys… Yksi selkeä pyyntö —
               vertailukelpoiset tarjoukset. Näet urakoitsijan pätevyydet ennen
               valintaa.
             </p>
