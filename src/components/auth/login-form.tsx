@@ -32,9 +32,17 @@ export function LoginForm({ redirectTo }: { redirectTo?: string }) {
         />
       </div>
       <div>
-        <label htmlFor="password" className="block text-sm font-medium">
-          Salasana
-        </label>
+        <div className="flex items-center justify-between gap-2">
+          <label htmlFor="password" className="block text-sm font-medium">
+            Salasana
+          </label>
+          <Link
+            href="/kirjaudu/unohdin-salasanan"
+            className="text-xs font-medium text-sky-700 hover:underline"
+          >
+            Unohditko salasanan?
+          </Link>
+        </div>
         <input
           id="password"
           name="password"

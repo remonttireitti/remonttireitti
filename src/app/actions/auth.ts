@@ -17,7 +17,20 @@ import { headers } from "next/headers";
 
 export type AuthState = {
   error?: string;
+  success?: string;
 };
+
+export type PasswordResetRequestState = {
+  error?: string;
+  success?: string;
+};
+
+export type UpdatePasswordState = {
+  error?: string;
+  success?: string;
+};
+
+const MIN_PASSWORD_LENGTH = 8;
 
 async function getOrigin() {
   const h = await headers();
@@ -36,7 +49,7 @@ export async function signUp(
   const role = String(formData.get("role") ?? "customer");
   const companyName = String(formData.get("company_name") ?? "").trim();
 
-  if (!email || !password || password.length < 8) {
+  if (!email || !password || password.length < MIN_PASSWORD_LENGTH) {
     return { error: "Sähköposti ja salasana (väh. 8 merkkiä) vaaditaan." };
   }
 
@@ -175,4 +188,74 @@ export async function signOut() {
   const supabase = await createClient();
   await supabase.auth.signOut();
   redirect("/");
+}
+
+/** Lähettää salasanan palautuslinkin sähköpostiin (Supabase Auth). */
+export async function requestPasswordReset(
+  _prev: PasswordResetRequestState,
+  formData: FormData,
+): Promise<PasswordResetRequestState> {
+  const email = String(formData.get("email") ?? "").trim();
+
+  if (!email) {
+    return { error: "Anna sähköpostiosoite." };
+  }
+
+  const supabase = await createClient();
+  const origin = await getOrigin();
+  const next = encodeURIComponent("/salasana/uusi");
+
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${origin}/auth/callback?next=${next}`,
+  });
+
+  if (error) {
+    console.error("[requestPasswordReset]", error.message);
+    return {
+      error: "Palautuslinkin lähetys epäonnistui. Yritä hetken kuluttua uudelleen.",
+    };
+  }
+
+  return {
+    success:
+      "Jos osoite löytyy palvelusta, lähetimme siihen linkin salasanan vaihtoon. Tarkista myös roskaposti.",
+  };
+}
+
+/** Asettaa uuden salasanan palautuslinkin jälkeen (vaatii aktiivisen session). */
+export async function updatePasswordAfterRecovery(
+  _prev: UpdatePasswordState,
+  formData: FormData,
+): Promise<UpdatePasswordState> {
+  const password = String(formData.get("password") ?? "");
+  const passwordConfirm = String(formData.get("password_confirm") ?? "");
+
+  if (password.length < MIN_PASSWORD_LENGTH) {
+    return { error: `Salasanan pitää olla vähintään ${MIN_PASSWORD_LENGTH} merkkiä.` };
+  }
+
+  if (password !== passwordConfirm) {
+    return { error: "Salasanat eivät täsmää." };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return {
+      error:
+        "Istunto vanhentunut. Pyydä uusi palautuslinkki sähköpostiisi.",
+    };
+  }
+
+  const { error } = await supabase.auth.updateUser({ password });
+
+  if (error) {
+    console.error("[updatePasswordAfterRecovery]", error.message);
+    return { error: "Salasanan vaihto epäonnistui. Yritä uudelleen." };
+  }
+
+  redirect("/kirjaudu?salasana=1");
 }

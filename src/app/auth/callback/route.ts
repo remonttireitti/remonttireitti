@@ -14,14 +14,15 @@ export async function GET(request: Request) {
       const {
         data: { user },
       } = await supabase.auth.getUser();
+      const safeNext = next.startsWith("/") ? next : "/oma-tili";
       if (user) {
         await syncContractorAccount(user);
         const metaRole = user.user_metadata?.role;
-        if (metaRole === "contractor") {
+        if (metaRole === "contractor" && !safeNext.startsWith("/salasana")) {
           return NextResponse.redirect(`${origin}/tarjoukset`);
         }
       }
-      return NextResponse.redirect(`${origin}${next}`);
+      return NextResponse.redirect(`${origin}${safeNext}`);
     }
   }
 

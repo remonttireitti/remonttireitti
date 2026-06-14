@@ -4,7 +4,7 @@ import { LoginForm } from "@/components/auth/login-form";
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ redirect?: string; vahvistus?: string; virhe?: string }>;
+  searchParams: Promise<{ redirect?: string; vahvistus?: string; virhe?: string; salasana?: string }>;
 }) {
   const params = await searchParams;
 
@@ -21,6 +21,14 @@ export default async function LoginPage({
       {params.virhe === "vahvistys" && (
         <p className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">
           Sähköpostin vahvistus epäonnistui. Yritä kirjautua uudelleen.
+        </p>
+      )}
+      {params.salasana === "1" && (
+        <p
+          className="mb-4 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-900"
+          role="status"
+        >
+          Salasana vaihdettu. Voit nyt kirjautua uudella salasanallasi.
         </p>
       )}
       <LoginForm redirectTo={params.redirect} />
