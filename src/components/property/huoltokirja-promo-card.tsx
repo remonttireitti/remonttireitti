@@ -42,8 +42,8 @@ export function HuoltokirjaPromoCard({
           </div>
 
           <p className="mt-3 max-w-xl text-sm leading-relaxed text-stone-600">
-            Tallenna kodin perustiedot, laiterekisteri (LTO, lämpöpumput, kodinkoneet)
-            ja takuuajat. Valmiit urakat kirjautuvat automaattisesti työhistoriaan.
+            Tallenna kodin perustiedot, laiterekisteri (kuitit ja ohjeet) sekä
+            rakennusosat (katto, ikkunat). Valmiit urakat työhistoriaan automaattisesti.
           </p>
 
           {hasProperties ? (

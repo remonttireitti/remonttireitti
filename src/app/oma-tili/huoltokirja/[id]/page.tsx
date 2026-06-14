@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { PropertyDetailsDisplay } from "@/components/property/property-details-display";
+import { PropertyComponentsSection } from "@/components/property/property-components-section";
 import { PropertyDevicesSection } from "@/components/property/property-devices-section";
 import { PropertyForm } from "@/components/property/property-form";
 import { SiteHeader } from "@/components/site-header";
@@ -10,6 +11,8 @@ import { getSessionUser, isContractor } from "@/lib/auth";
 import { PROPERTY_BUILDING_TYPE_LABELS } from "@/lib/property-profile";
 import { fetchPropertyById, formatPropertyAddress } from "@/lib/property-log";
 import { fetchPropertyDevices } from "@/lib/property-devices";
+import { fetchPropertyDeviceFiles } from "@/lib/property-device-files";
+import { fetchPropertyComponents } from "@/lib/property-components";
 import { createClient } from "@/lib/supabase/server";
 
 function formatLogDate(isoDate: string): string {
@@ -42,6 +45,13 @@ export default async function PropertyDetailPage({
 
   const { property, entries } = data;
   const devices = await fetchPropertyDevices(supabase, id, user.id);
+  const filesByDevice = Object.fromEntries(
+    await fetchPropertyDeviceFiles(
+      supabase,
+      devices.map((d) => d.id),
+    ),
+  );
+  const components = await fetchPropertyComponents(supabase, id, user.id);
 
   return (
     <div className={brand.page}>
@@ -82,7 +92,13 @@ export default async function PropertyDetailPage({
           <PropertyDetailsDisplay property={property} />
         </section>
 
-        <PropertyDevicesSection propertyId={id} devices={devices} />
+        <PropertyComponentsSection propertyId={id} components={components} />
+
+        <PropertyDevicesSection
+          propertyId={id}
+          devices={devices}
+          filesByDevice={filesByDevice}
+        />
 
         <section className="mt-8">
           <h2 className="text-lg font-semibold text-stone-900">Työhistoria</h2>

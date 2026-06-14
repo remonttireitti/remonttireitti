@@ -16,6 +16,8 @@ import {
   WARRANTY_STATUS_LABELS,
   type PropertyDeviceRow,
 } from "@/lib/property-devices";
+import type { PropertyDeviceFileView } from "@/lib/property-device-files";
+import { PropertyDeviceFilesPanel } from "@/components/property/property-device-files-panel";
 
 const fieldsetClass =
   "space-y-4 rounded-xl border border-stone-200 bg-stone-50/50 p-4 sm:p-5";
@@ -245,9 +247,11 @@ function DeviceForm({
 function DeviceCard({
   propertyId,
   device,
+  files,
 }: {
   propertyId: string;
   device: PropertyDeviceRow;
+  files: PropertyDeviceFileView[];
 }) {
   const [editing, setEditing] = useState(false);
   const [deleteState, deleteAction, deletePending] = useActionState<
@@ -332,6 +336,13 @@ function DeviceCard({
           </form>
         </div>
       </div>
+
+      <PropertyDeviceFilesPanel
+        propertyId={propertyId}
+        deviceId={device.id}
+        files={files}
+      />
+
       {deleteState.error && (
         <p className="mt-2 text-sm text-red-600">{deleteState.error}</p>
       )}
@@ -342,9 +353,11 @@ function DeviceCard({
 export function PropertyDevicesSection({
   propertyId,
   devices,
+  filesByDevice,
 }: {
   propertyId: string;
   devices: PropertyDeviceRow[];
+  filesByDevice: Record<string, PropertyDeviceFileView[]>;
 }) {
   const [showAdd, setShowAdd] = useState(false);
 
@@ -354,8 +367,8 @@ export function PropertyDevicesSection({
         <div>
           <h2 className="text-lg font-semibold text-stone-900">Laiterekisteri</h2>
           <p className="mt-1 text-sm text-stone-600">
-            LTO, lämpöpumput, kodinkoneet ja muut laitteet — hankinta, takuu ja
-            tekniset tiedot yhdessä paikassa.
+            LTO, lämpöpumput, kodinkoneet ja muut laitteet — hankinta, takuu,
+            kuitit ja käyttöohjeet.
           </p>
         </div>
         {!showAdd && (
@@ -391,7 +404,12 @@ export function PropertyDevicesSection({
         devices.length > 0 && (
           <ul className={`${brand.section} mt-3 divide-y divide-stone-100`}>
             {devices.map((device) => (
-              <DeviceCard key={device.id} propertyId={propertyId} device={device} />
+              <DeviceCard
+                key={device.id}
+                propertyId={propertyId}
+                device={device}
+                files={filesByDevice[device.id] ?? []}
+              />
             ))}
           </ul>
         )
