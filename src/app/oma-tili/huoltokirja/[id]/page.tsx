@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { PropertyArchiveDocumentsSection } from "@/components/property/property-archive-documents-section";
 import { PropertyDetailsDisplay } from "@/components/property/property-details-display";
 import { PropertyComponentsSection } from "@/components/property/property-components-section";
 import { PropertyDevicesSection } from "@/components/property/property-devices-section";
@@ -13,6 +14,8 @@ import { fetchPropertyById, formatPropertyAddress } from "@/lib/property-log";
 import { fetchPropertyDevices } from "@/lib/property-devices";
 import { fetchPropertyDeviceFiles } from "@/lib/property-device-files";
 import { fetchPropertyComponents } from "@/lib/property-components";
+import { fetchPropertyComponentFiles } from "@/lib/property-component-files";
+import { fetchPropertyArchiveDocuments } from "@/lib/property-archive-documents";
 import { createClient } from "@/lib/supabase/server";
 
 function formatLogDate(isoDate: string): string {
@@ -44,6 +47,7 @@ export default async function PropertyDetailPage({
   if (!data) notFound();
 
   const { property, entries } = data;
+  const archiveDocuments = await fetchPropertyArchiveDocuments(supabase, id);
   const devices = await fetchPropertyDevices(supabase, id, user.id);
   const filesByDevice = Object.fromEntries(
     await fetchPropertyDeviceFiles(
@@ -52,6 +56,12 @@ export default async function PropertyDetailPage({
     ),
   );
   const components = await fetchPropertyComponents(supabase, id, user.id);
+  const filesByComponent = Object.fromEntries(
+    await fetchPropertyComponentFiles(
+      supabase,
+      components.map((c) => c.id),
+    ),
+  );
 
   return (
     <div className={brand.page}>
@@ -92,7 +102,16 @@ export default async function PropertyDetailPage({
           <PropertyDetailsDisplay property={property} />
         </section>
 
-        <PropertyComponentsSection propertyId={id} components={components} />
+        <PropertyArchiveDocumentsSection
+          propertyId={id}
+          documents={archiveDocuments}
+        />
+
+        <PropertyComponentsSection
+          propertyId={id}
+          components={components}
+          filesByComponent={filesByComponent}
+        />
 
         <PropertyDevicesSection
           propertyId={id}

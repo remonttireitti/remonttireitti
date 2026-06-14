@@ -5,27 +5,22 @@ import {
   PROPERTY_DOCUMENT_MAX_FILES,
   PROPERTY_DOCUMENTS_BUCKET,
   formatPropertyDocumentFileSize,
-  parsePropertyDocumentKind,
+  parsePropertyArchiveDocumentKind,
   sanitizePropertyDocumentName,
-  PROPERTY_DOCUMENT_FILE_KIND_LABELS,
-  PROPERTY_DOCUMENT_FILE_KINDS,
-  type PropertyDocumentFileKind,
+  type PropertyArchiveDocumentKind,
 } from "@/lib/property-document-kinds";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-export type PropertyDeviceFileKind = PropertyDocumentFileKind;
-
 export {
-  PROPERTY_DOCUMENT_FILE_KIND_LABELS as PROPERTY_DEVICE_FILE_KIND_LABELS,
-  PROPERTY_DOCUMENT_FILE_KINDS as PROPERTY_DEVICE_FILE_KINDS,
-  formatPropertyDocumentFileSize as formatFileSize,
+  PROPERTY_ARCHIVE_DOCUMENT_KIND_LABELS,
+  PROPERTY_ARCHIVE_DOCUMENT_KINDS,
+  formatPropertyDocumentFileSize as formatArchiveDocumentSize,
 } from "@/lib/property-document-kinds";
 
-export type PropertyDeviceFileRow = {
+export type PropertyArchiveDocumentRow = {
   id: string;
-  device_id: string;
   property_id: string;
-  kind: PropertyDeviceFileKind;
+  kind: PropertyArchiveDocumentKind;
   label: string | null;
   storage_path: string;
   original_name: string | null;
@@ -34,18 +29,17 @@ export type PropertyDeviceFileRow = {
   created_at: string;
 };
 
-export type PropertyDeviceFileView = PropertyDeviceFileRow & {
+export type PropertyArchiveDocumentView = PropertyArchiveDocumentRow & {
   url: string;
 };
 
-export async function uploadPropertyDeviceFilesFromFormData(
+export async function uploadPropertyArchiveDocumentsFromFormData(
   propertyId: string,
-  deviceId: string,
   customerId: string,
   formData: FormData,
 ): Promise<void> {
   const files = formData
-    .getAll("device_files")
+    .getAll("archive_documents")
     .filter((f): f is File => f instanceof File && f.size > 0);
 
   if (files.length === 0) return;
@@ -55,8 +49,10 @@ export async function uploadPropertyDeviceFilesFromFormData(
     );
   }
 
-  const kind = parsePropertyDocumentKind(String(formData.get("file_kind") ?? "muu"));
-  const label = String(formData.get("file_label") ?? "").trim() || null;
+  const kind = parsePropertyArchiveDocumentKind(
+    String(formData.get("document_kind") ?? "muu"),
+  );
+  const label = String(formData.get("document_label") ?? "").trim() || null;
 
   const admin = createAdminClient();
 
@@ -71,7 +67,7 @@ export async function uploadPropertyDeviceFilesFromFormData(
     }
 
     const safeName = sanitizePropertyDocumentName(file.name || "tiedosto");
-    const storagePath = `${propertyId}/devices/${deviceId}/${crypto.randomUUID()}-${safeName}`;
+    const storagePath = `${propertyId}/archive/${crypto.randomUUID()}-${safeName}`;
     const buffer = Buffer.from(await file.arrayBuffer());
 
     const { error: uploadErr } = await admin.storage
@@ -85,17 +81,18 @@ export async function uploadPropertyDeviceFilesFromFormData(
       throw new Error("Tiedoston tallennus epäonnistui.");
     }
 
-    const { error: rowErr } = await admin.from("property_device_files").insert({
-      device_id: deviceId,
-      property_id: propertyId,
-      customer_id: customerId,
-      kind,
-      label,
-      storage_path: storagePath,
-      original_name: file.name,
-      mime_type: file.type,
-      file_size_bytes: file.size,
-    });
+    const { error: rowErr } = await admin
+      .from("property_archive_documents")
+      .insert({
+        property_id: propertyId,
+        customer_id: customerId,
+        kind,
+        label,
+        storage_path: storagePath,
+        original_name: file.name,
+        mime_type: file.type,
+        file_size_bytes: file.size,
+      });
 
     if (rowErr) {
       await admin.storage.from(PROPERTY_DOCUMENTS_BUCKET).remove([storagePath]);
@@ -104,20 +101,19 @@ export async function uploadPropertyDeviceFilesFromFormData(
   }
 }
 
-export async function fetchPropertyDeviceFiles(
+export async function fetchPropertyArchiveDocuments(
   supabase: SupabaseClient,
-  deviceIds: string[],
-): Promise<Map<string, PropertyDeviceFileView[]>> {
-  const result = new Map<string, PropertyDeviceFileView[]>();
-  if (deviceIds.length === 0) return result;
-
+  propertyId: string,
+): Promise<PropertyArchiveDocumentView[]> {
   const { data: rows } = await supabase
-    .from("property_device_files")
+    .from("property_archive_documents")
     .select(
-      "id, device_id, property_id, kind, label, storage_path, original_name, mime_type, file_size_bytes, created_at",
+      "id, property_id, kind, label, storage_path, original_name, mime_type, file_size_bytes, created_at",
     )
-    .in("device_id", deviceIds)
+    .eq("property_id", propertyId)
     .order("created_at", { ascending: false });
+
+  const result: PropertyArchiveDocumentView[] = [];
 
   for (const row of rows ?? []) {
     const { data: signed } = await supabase.storage
@@ -126,35 +122,35 @@ export async function fetchPropertyDeviceFiles(
 
     if (!signed?.signedUrl) continue;
 
-    const view = { ...(row as PropertyDeviceFileRow), url: signed.signedUrl };
-    const list = result.get(row.device_id) ?? [];
-    list.push(view);
-    result.set(row.device_id, list);
+    result.push({
+      ...(row as PropertyArchiveDocumentRow),
+      url: signed.signedUrl,
+    });
   }
 
   return result;
 }
 
-export async function deletePropertyDeviceFileRecord(
-  fileId: string,
+export async function deletePropertyArchiveDocumentRecord(
+  documentId: string,
   customerId: string,
 ): Promise<{ ok: boolean; error?: string }> {
   const admin = createAdminClient();
 
   const { data: row } = await admin
-    .from("property_device_files")
+    .from("property_archive_documents")
     .select("id, storage_path")
-    .eq("id", fileId)
+    .eq("id", documentId)
     .eq("customer_id", customerId)
     .maybeSingle();
 
-  if (!row) return { ok: false, error: "Tiedostoa ei löydy." };
+  if (!row) return { ok: false, error: "Asiakirjaa ei löydy." };
 
   await admin.storage.from(PROPERTY_DOCUMENTS_BUCKET).remove([row.storage_path]);
   const { error } = await admin
-    .from("property_device_files")
+    .from("property_archive_documents")
     .delete()
-    .eq("id", fileId);
+    .eq("id", documentId);
 
   if (error) return { ok: false, error: "Poisto epäonnistui." };
   return { ok: true };

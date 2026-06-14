@@ -13,6 +13,8 @@ import {
   PROPERTY_COMPONENT_KINDS,
   type PropertyComponentRow,
 } from "@/lib/property-components";
+import type { PropertyComponentFileView } from "@/lib/property-component-files";
+import { PropertyComponentFilesPanel } from "@/components/property/property-component-files-panel";
 
 const fieldsetClass =
   "space-y-4 rounded-xl border border-stone-200 bg-stone-50/50 p-4 sm:p-5";
@@ -219,9 +221,11 @@ function ComponentForm({
 function ComponentCard({
   propertyId,
   component,
+  files,
 }: {
   propertyId: string;
   component: PropertyComponentRow;
+  files: PropertyComponentFileView[];
 }) {
   const [editing, setEditing] = useState(false);
   const [deleteState, deleteAction, deletePending] = useActionState<
@@ -291,6 +295,13 @@ function ComponentCard({
           </form>
         </div>
       </div>
+
+      <PropertyComponentFilesPanel
+        propertyId={propertyId}
+        componentId={component.id}
+        files={files}
+      />
+
       {deleteState.error && (
         <p className="mt-2 text-sm text-red-600">{deleteState.error}</p>
       )}
@@ -301,9 +312,11 @@ function ComponentCard({
 export function PropertyComponentsSection({
   propertyId,
   components,
+  filesByComponent,
 }: {
   propertyId: string;
   components: PropertyComponentRow[];
+  filesByComponent: Record<string, PropertyComponentFileView[]>;
 }) {
   const [showAdd, setShowAdd] = useState(false);
 
@@ -313,8 +326,8 @@ export function PropertyComponentsSection({
         <div>
           <h2 className="text-lg font-semibold text-stone-900">Rakennusosat</h2>
           <p className="mt-1 text-sm text-stone-600">
-            Katto, ikkunat, putkisto ja muut rakenteet — alkuperäiset vai uusitut ja
-            milloin.
+            Katto, ikkunat, putkisto ja muut rakenteet — alkuperäisyys, uusimisvuosi
+            ja liitteet (kuitit, takuut).
           </p>
         </div>
         {!showAdd && (
@@ -354,6 +367,7 @@ export function PropertyComponentsSection({
                 key={component.id}
                 propertyId={propertyId}
                 component={component}
+                files={filesByComponent[component.id] ?? []}
               />
             ))}
           </ul>
