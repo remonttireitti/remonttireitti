@@ -101,6 +101,9 @@ export function ProjectWizard({
 }: ProjectWizardProps) {
   const isEdit = Boolean(editSnapshot);
   const [step, setStep] = useState(0);
+  const [stepValidationError, setStepValidationError] = useState<string | null>(
+    null,
+  );
   const [form, setForm] = useState<FormState>(() =>
     editSnapshot
       ? { ...editSnapshot.form }
@@ -164,6 +167,7 @@ export function ProjectWizard({
   }
 
   function onJobTypeChange(jt: JobTypeWithTrades | null) {
+    setStepValidationError(null);
     if (!jt) {
       update("job_type_id", "");
       update("category_id", "");
@@ -192,7 +196,7 @@ export function ProjectWizard({
 
   function stepError(): string | null {
     if (step === 0) {
-      if (!form.job_type_id) return "Valitse remontin tyyppi.";
+      if (!form.job_type_id) return "Valitse työ listasta.";
     }
     if (step === 1) {
       if (isIlp) return validateIlpDetails(ilpDetails);
@@ -226,14 +230,16 @@ export function ProjectWizard({
   function goNext() {
     const err = stepError();
     if (err) {
-      alert(err);
+      setStepValidationError(err);
       return;
     }
+    setStepValidationError(null);
     if (step === 1 && isIlp) syncIlpToForm(ilpDetails);
     setStep((s) => Math.min(s + 1, STEPS.length - 1));
   }
 
   function goBack() {
+    setStepValidationError(null);
     setStep((s) => Math.max(s - 1, 0));
   }
 
@@ -582,6 +588,12 @@ export function ProjectWizard({
             budgetMaxLabel={summaryBudgetMax}
             photoCount={photoFiles.length}
           />
+        )}
+
+        {stepValidationError && (
+          <p className="mt-4 text-sm text-red-600" role="alert">
+            {stepValidationError}
+          </p>
         )}
 
         {state.error && (

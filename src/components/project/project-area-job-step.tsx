@@ -99,7 +99,13 @@ export function ProjectAreaJobStep({
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2">
-        {jobsInArea.map((jt) => {
+        {jobsInArea.length === 0 ? (
+          <p className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 sm:col-span-2">
+            Tämän osion tyypit eivät latautuneet. Päivitä sivu — jos vika jatkuu,
+            ota yhteyttä tukeen.
+          </p>
+        ) : (
+          jobsInArea.map((jt) => {
           const active = jobTypeId === jt.id;
           const pumpMeta = isHeatPumpJobSlug(jt.slug)
             ? HEAT_PUMP_MARKETING[jt.slug]
@@ -127,7 +133,8 @@ export function ProjectAreaJobStep({
               )}
             </button>
           );
-        })}
+        })
+        )}
       </div>
     </div>
   );
