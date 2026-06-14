@@ -1,8 +1,19 @@
 import { parseBidTermsFromFormData } from "@/lib/bid-terms";
 import { bidTotalAmountCents } from "@/lib/bid-amounts";
+import {
+  parseBidOfferScope,
+  type BidOfferScope,
+} from "@/lib/bid-offer-scope";
+import {
+  isServicePricingModel,
+  parseServicePricingFromScopeTerms,
+  type ServicePricingModel,
+} from "@/lib/service-engagement";
 
 export type BidFormFields = {
   amount_euros: string;
+  service_pricing_model: ServicePricingModel | "";
+  offer_scope: BidOfferScope | "";
   offers_equipment: boolean;
   equipment_amount_euros: string;
   equipment_description: string;
@@ -35,11 +46,17 @@ export type BidRecordForForm = {
   earliest_start_date: string | null;
   confirms_licenses: boolean | null;
   confirms_building_standards: boolean | null;
+  offer_scope?: string | null;
 };
 
 export function bidToFormFields(bid: BidRecordForForm): BidFormFields {
+  const { model, rest } = parseServicePricingFromScopeTerms(
+    bid.scope_terms ?? null,
+  );
+
   return {
     amount_euros: String(Math.round(bid.amount_cents / 100)),
+    service_pricing_model: model ?? "",
     offers_equipment: Boolean(bid.offers_equipment),
     equipment_amount_euros:
       bid.equipment_amount_cents != null
@@ -49,7 +66,8 @@ export function bidToFormFields(bid: BidRecordForForm): BidFormFields {
     estimated_days:
       bid.estimated_days != null ? String(bid.estimated_days) : "",
     earliest_start_date: bid.earliest_start_date ?? "",
-    scope_terms: bid.scope_terms ?? "",
+    offer_scope: parseBidOfferScope(bid.offer_scope) ?? "",
+    scope_terms: rest,
     contract_terms: bid.contract_terms ?? "",
     warranty_work: bid.warranty_work ?? "",
     warranty_equipment: bid.warranty_equipment ?? "",
@@ -60,14 +78,18 @@ export function bidToFormFields(bid: BidRecordForForm): BidFormFields {
   };
 }
 
-export function initialBidFormFields(): BidFormFields {
+export function initialBidFormFields(
+  servicePricingModel: ServicePricingModel | "" = "",
+): BidFormFields {
   return {
     amount_euros: "",
+    service_pricing_model: servicePricingModel,
     offers_equipment: false,
     equipment_amount_euros: "",
     equipment_description: "",
     estimated_days: "",
     earliest_start_date: "",
+    offer_scope: "",
     scope_terms: "",
     contract_terms: "",
     warranty_work: "",
@@ -82,11 +104,17 @@ export function initialBidFormFields(): BidFormFields {
 export function extractBidFormFields(formData: FormData): BidFormFields {
   return {
     amount_euros: String(formData.get("amount_euros") ?? ""),
+    service_pricing_model: isServicePricingModel(
+      String(formData.get("service_pricing_model") ?? ""),
+    )
+      ? (String(formData.get("service_pricing_model")) as ServicePricingModel)
+      : "",
     offers_equipment: formData.get("offers_equipment") === "on",
     equipment_amount_euros: String(formData.get("equipment_amount_euros") ?? ""),
     equipment_description: String(formData.get("equipment_description") ?? ""),
     estimated_days: String(formData.get("estimated_days") ?? ""),
     earliest_start_date: String(formData.get("earliest_start_date") ?? ""),
+    offer_scope: parseBidOfferScope(String(formData.get("offer_scope") ?? "")) ?? "",
     scope_terms: String(formData.get("scope_terms") ?? ""),
     contract_terms: String(formData.get("contract_terms") ?? ""),
     warranty_work: String(formData.get("warranty_work") ?? ""),
@@ -111,11 +139,15 @@ export function bidFieldsToFormData(
     requiresEquipmentWarranty ? "1" : "0",
   );
   fd.set("amount_euros", fields.amount_euros);
+  if (fields.service_pricing_model) {
+    fd.set("service_pricing_model", fields.service_pricing_model);
+  }
   if (fields.offers_equipment) fd.set("offers_equipment", "on");
   fd.set("equipment_amount_euros", fields.equipment_amount_euros);
   fd.set("equipment_description", fields.equipment_description);
   fd.set("estimated_days", fields.estimated_days);
   fd.set("earliest_start_date", fields.earliest_start_date);
+  if (fields.offer_scope) fd.set("offer_scope", fields.offer_scope);
   fd.set("scope_terms", fields.scope_terms);
   fd.set("contract_terms", fields.contract_terms);
   fd.set("warranty_work", fields.warranty_work);
@@ -143,10 +175,20 @@ export function validateBidFormClient(
     requiresEquipmentWarranty: boolean;
     allowOptionalEquipmentOffer: boolean;
     requiresDeviceAndInstallation: boolean;
+    requiresOfferScope?: boolean;
+    requiresServicePricing?: boolean;
   },
 ): BidFormValidation {
   const fieldErrors: Partial<Record<BidFormFieldKey, string>> = {};
   const amount = Number(fields.amount_euros);
+
+  if (options.requiresOfferScope && !fields.offer_scope) {
+    fieldErrors.offer_scope = "Valitse tarjouksen laajuus.";
+  }
+
+  if (options.requiresServicePricing && !fields.service_pricing_model) {
+    fieldErrors.service_pricing_model = "Valitse hinnoittelutapa.";
+  }
 
   if (!fields.amount_euros.trim()) {
     fieldErrors.amount_euros = "Anna asennuksen / työn hinta euroina.";

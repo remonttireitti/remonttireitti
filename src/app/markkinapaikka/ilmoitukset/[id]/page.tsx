@@ -22,6 +22,7 @@ import {
 import { createAdminClient } from "@/lib/supabase/admin";
 import { fetchListingPhotos } from "@/lib/listing-photos";
 import { listingCategoryLabel } from "@/lib/marketplace-categories";
+import { formatDeviceTypeLabel } from "@/lib/marketplace-device-types";
 import { createClient } from "@/lib/supabase/server";
 
 export async function generateMetadata({
@@ -134,6 +135,8 @@ export default async function MarketplaceListingDetailPage({
 
   const photos = await fetchListingPhotos(id);
 
+  const deviceTypeLabel = formatDeviceTypeLabel(listing.pump_type_slug);
+
   return (
     <div className="min-h-full bg-stone-50 text-stone-900">
       <SiteHeader />
@@ -214,8 +217,14 @@ export default async function MarketplaceListingDetailPage({
           {listing.description}
         </div>
 
-        {(listing.manufacturer || listing.model || listing.year_manufactured) && (
+        {(listing.manufacturer || listing.model || listing.year_manufactured || deviceTypeLabel) && (
           <dl className="mt-4 grid gap-2 text-sm sm:grid-cols-3">
+            {deviceTypeLabel && (
+              <div>
+                <dt className="text-stone-500">Laitteen tyyppi</dt>
+                <dd className="font-medium">{deviceTypeLabel}</dd>
+              </div>
+            )}
             {listing.manufacturer && (
               <div>
                 <dt className="text-stone-500">Valmistaja</dt>

@@ -5,9 +5,9 @@ import {
   updateContractorBilling,
   type ContractorBillingState,
 } from "@/app/actions/contractor-billing";
+import { brand, formInputClass } from "@/lib/brand-theme";
 
-const inputClass =
-  "mt-1 w-full rounded-lg border border-stone-300 px-3 py-2 text-stone-900 focus:border-sky-600 focus:outline-none focus:ring-1 focus:ring-sky-600";
+const inputClass = formInputClass;
 
 type Props = {
   businessId: string;
@@ -33,12 +33,11 @@ export function ContractorBillingForm({
   return (
     <form
       action={action}
-      className={`space-y-4 rounded-xl border border-stone-200 bg-white p-4 sm:p-6 ${className || "mt-6"}`}
+      className={`${brand.section} space-y-4 p-5 sm:p-6 ${className}`}
     >
-      <h2 className="text-lg font-semibold">Laskutustiedot</h2>
-      <p className="text-sm text-stone-600">
-        Näitä tietoja käytetään, kun lähetämme sinulle välitysmaksulaskun
-        kevytyrittäjäpalvelun kautta tarjouksen hyväksynnän jälkeen.
+      <h2 className={brand.sectionTitle}>Laskutustiedot</h2>
+      <p className={brand.sectionDesc}>
+        Näitä tietoja käytetään välitysmaksulaskuun tarjouksen hyväksynnän jälkeen.
       </p>
 
       <div>
@@ -124,7 +123,10 @@ export function ContractorBillingForm({
         </p>
       )}
       {state.ok && (
-        <p className="text-sm text-sky-700" role="status">
+        <p
+          className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900"
+          role="status"
+        >
           {state.ok}
         </p>
       )}
@@ -132,7 +134,7 @@ export function ContractorBillingForm({
       <button
         type="submit"
         disabled={pending}
-        className="rounded-lg bg-sky-700 px-4 py-2 text-sm font-medium text-white hover:bg-sky-800 disabled:opacity-60"
+        className={`${brand.btnPrimary} disabled:opacity-60`}
       >
         {pending ? "Tallennetaan…" : "Tallenna laskutustiedot"}
       </button>

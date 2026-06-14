@@ -13,6 +13,7 @@ import { getProfile, getSessionUser, isContractor } from "@/lib/auth";
 import { ContractorBillingForm } from "@/components/contractor/contractor-billing-form";
 import { ContractorBidDefaultsForm } from "@/components/contractor/contractor-bid-defaults-form";
 import { ContractorProfileForm } from "@/components/contractor/contractor-profile-form";
+import { ContractorServiceAreaForm } from "@/components/contractor/contractor-service-area-form";
 import { fetchContractorBidDefaultsBundle } from "@/lib/contractor-bid-defaults-server";
 import { PUBLIC_CONTRACTOR_TRADE_SLUGS } from "@/constants/contractor-trades";
 import { fetchHeatPumpCatalog, fetchJobCatalog } from "@/lib/job-catalog-server";
@@ -28,6 +29,7 @@ import { getContractorCompanyBypass } from "@/lib/profile-read";
 import { getNotificationPrefs } from "@/lib/notification-prefs";
 import { syncContractorAccount } from "@/lib/sync-contractor";
 import { projectStatusLabels } from "@/lib/projects";
+import { brand } from "@/lib/brand-theme";
 import { isEmailConfigured } from "@/lib/email";
 import { createClient } from "@/lib/supabase/server";
 import type { ProjectStatus } from "@/types/database";
@@ -61,6 +63,11 @@ export default async function AccountPage({
     null;
   let contractorTrades: { id: string; slug: string; name_fi: string }[] = [];
   let heatPumpJobTypes: { id: string; slug: string }[] = [];
+  let serviceAreaFields = {
+    servicePostalCode: "",
+    serviceMunicipality: "",
+    maxTravelKm: 100,
+  };
   let billingFields = {
     businessId: "",
     billingEmail: "",
@@ -91,7 +98,7 @@ export default async function AccountPage({
     const { data: billingRow } = await supabase
       .from("contractor_profiles")
       .select(
-        "business_id, billing_email, billing_address_line, billing_postal_code, billing_city",
+        "business_id, billing_email, billing_address_line, billing_postal_code, billing_city, service_postal_code, service_municipality, max_travel_km",
       )
       .eq("id", user.id)
       .maybeSingle();
@@ -102,6 +109,11 @@ export default async function AccountPage({
         billingAddressLine: billingRow.billing_address_line ?? "",
         billingPostalCode: billingRow.billing_postal_code ?? "",
         billingCity: billingRow.billing_city ?? "",
+      };
+      serviceAreaFields = {
+        servicePostalCode: billingRow.service_postal_code ?? "",
+        serviceMunicipality: billingRow.service_municipality ?? "",
+        maxTravelKm: billingRow.max_travel_km ?? 100,
       };
     }
   }
@@ -126,10 +138,10 @@ export default async function AccountPage({
       typeof meta.company_name === "string" ? meta.company_name : "";
 
     return (
-      <div className="min-h-full bg-stone-50 text-stone-900">
+      <div className={brand.page}>
         <SiteHeader />
-        <main className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:px-8 sm:py-12">
-          <h1 className="text-xl font-bold sm:text-2xl">Oma tili</h1>
+        <main className="mx-auto w-full max-w-4xl px-4 py-8 sm:px-6 sm:py-10">
+          <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Oma tili</h1>
           {params.virhe && (
             <p className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-800" role="alert">
               Aktivointi epäonnistui: {decodeURIComponent(params.virhe)}
@@ -165,12 +177,41 @@ export default async function AccountPage({
   }
 
   return (
-    <div className="min-h-full bg-stone-50 text-stone-900">
+    <div className={brand.page}>
       <SiteHeader />
-      <main className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:px-8 sm:py-12">
-        <header className="max-w-3xl">
-          <h1 className="text-2xl font-bold sm:text-3xl">Oma tili</h1>
-          <p className="mt-2 break-all text-stone-600 sm:text-base">{user.email}</p>
+      <main className={`mx-auto w-full px-4 py-8 sm:px-6 sm:py-10 ${contractor ? "max-w-5xl" : "max-w-4xl"}`}>
+        <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-4">
+            <div
+              className="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-600 to-sky-700 text-lg font-bold text-white shadow-md shadow-sky-900/20"
+              aria-hidden
+            >
+              {initials(profile?.full_name, user.email)}
+            </div>
+            <div className="min-w-0">
+              <h1 className="text-2xl font-bold tracking-tight text-stone-900 sm:text-3xl">
+                Oma tili
+              </h1>
+              <p className="mt-0.5 truncate text-sm text-stone-500 sm:text-base">
+                {user.email}
+              </p>
+              {contractor && contractorCompany && (
+                <p className="mt-0.5 text-sm font-medium text-stone-700">
+                  {contractorCompany}
+                </p>
+              )}
+            </div>
+          </div>
+          {!contractor && !admin && (
+            <Link href="/remontti/uusi" className={brand.btnPrimary}>
+              + Uusi tarjouspyyntö
+            </Link>
+          )}
+          {contractor && (
+            <Link href="/tarjoukset" className={brand.btnPrimary}>
+              Selaa tarjouspyyntöjä
+            </Link>
+          )}
         </header>
 
         {needsContractorFix && (
@@ -205,62 +246,61 @@ export default async function AccountPage({
           </div>
         )}
 
-        <div className="mt-8 grid gap-6 lg:grid-cols-2 lg:gap-8">
-          <div className="space-y-4 rounded-2xl border border-stone-200 bg-white p-4 sm:p-6">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-stone-500">
-              Tilin tiedot
-            </h2>
-            <Row label="Nimi" value={profile?.full_name ?? "—"} />
-            <Row
-              label="Rooli"
-              value={
-                profile
-                  ? roleLabels[profile.role]
-                  : contractor
-                    ? roleLabels.contractor
-                    : "—"
-              }
-            />
-            {contractorCompany && (
-              <Row label="Yritys" value={contractorCompany} />
-            )}
-            {contractor && contractorQuals && (
-              <>
-                <Row
-                  label="Ammatit"
-                  value={formatTrades(contractorQuals.tradeNames)}
-                />
-                {contractorQuals.jobTypeSlugs.length > 0 && (
-                  <>
-                    <Row
-                      label="Lämpöpumput"
-                      value={formatPumpTypes(contractorQuals.jobTypeSlugs)}
-                    />
-                    <Row
-                      label="Kylmäainelupa"
-                      value={formatRefrigerant(contractorQuals.refrigerantLicense)}
-                    />
-                    <Row
-                      label="Sähköpätevyys"
-                      value={formatElectricalQualification(
-                        contractorQuals.electricalQualification,
-                      )}
-                    />
-                    <Row
-                      label="LVI-pätevyydet"
-                      value={formatLviQualifications(
-                        contractorQuals.lviQualifications,
-                      )}
-                    />
-                  </>
-                )}
-              </>
-            )}
-          </div>
+        <div className="mt-8 grid gap-6 lg:grid-cols-2">
+          <section className={`${brand.section} p-5 sm:p-6`}>
+            <h2 className={brand.sectionTitle}>Tilin tiedot</h2>
+            <dl className="mt-4 divide-y divide-stone-100">
+              <AccountRow label="Nimi" value={profile?.full_name ?? "—"} />
+              <AccountRow
+                label="Rooli"
+                value={
+                  profile
+                    ? roleLabels[profile.role]
+                    : contractor
+                      ? roleLabels.contractor
+                      : "—"
+                }
+              />
+              {contractorCompany && (
+                <AccountRow label="Yritys" value={contractorCompany} />
+              )}
+              {contractor && contractorQuals && (
+                <>
+                  <AccountRow
+                    label="Ammatit"
+                    value={formatTrades(contractorQuals.tradeNames)}
+                  />
+                  {contractorQuals.jobTypeSlugs.length > 0 && (
+                    <>
+                      <AccountRow
+                        label="Lämpöpumput"
+                        value={formatPumpTypes(contractorQuals.jobTypeSlugs)}
+                      />
+                      <AccountRow
+                        label="Kylmäainelupa"
+                        value={formatRefrigerant(contractorQuals.refrigerantLicense)}
+                      />
+                      <AccountRow
+                        label="Sähköpätevyys"
+                        value={formatElectricalQualification(
+                          contractorQuals.electricalQualification,
+                        )}
+                      />
+                      <AccountRow
+                        label="LVI-pätevyydet"
+                        value={formatLviQualifications(
+                          contractorQuals.lviQualifications,
+                        )}
+                      />
+                    </>
+                  )}
+                </>
+              )}
+            </dl>
+          </section>
 
           {profile && (
             <NotificationPreferencesForm
-              className="mt-0 h-fit lg:mt-0"
               role={profile.role}
               prefs={notificationPrefs}
               emailConfigured={isEmailConfigured()}
@@ -268,75 +308,130 @@ export default async function AccountPage({
           )}
         </div>
 
-        {!contractor && !admin && (
-          <>
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <h2 className="text-lg font-semibold">Tarjouspyynnöt</h2>
+        {profile &&
+          (profile.role === "customer" || profile.role === "contractor") && (
+            <section className={`${brand.section} mt-6 p-5 sm:p-6`}>
+              <h2 className={brand.sectionTitle}>Palaute palvelusta</h2>
+              <p className="mt-2 text-sm leading-relaxed text-stone-600">
+                Kerro, oliko palvelun käyttö selkeää ja miellyttävää. Palautteesi
+                auttaa kehittämään Remonttivalitysta.
+              </p>
               <Link
-                href="/remontti/uusi"
-                className="inline-flex w-full shrink-0 items-center justify-center rounded-lg bg-orange-700 px-4 py-2.5 text-sm font-medium text-white hover:bg-orange-800 sm:w-auto sm:rounded-full"
+                href="/oma-tili/palaute"
+                className={`${brand.btnSecondary} mt-4 inline-flex`}
               >
-                + Uusi tarjouspyyntö
+                Anna palautetta
               </Link>
+            </section>
+          )}
+
+        {!contractor && !admin && (
+          <section className="mt-8">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+              <h2 className="text-lg font-semibold text-stone-900">
+                Tarjouspyynnöt
+              </h2>
+              <div className="flex flex-wrap items-center gap-3">
+                <Link
+                  href="/oma-tili/huoltokirja"
+                  className="text-sm font-medium text-sky-800 hover:underline"
+                >
+                  Huoltokirja
+                </Link>
+                {projects.length > 0 && (
+                  <span className="rounded-full bg-stone-100 px-2.5 py-0.5 text-xs font-medium text-stone-600">
+                    {projects.length} kpl
+                  </span>
+                )}
+              </div>
             </div>
 
             {projects.length === 0 ? (
-              <p className="mt-4 text-stone-600">
-                Ei vielä tarjouspyyntöjä.{" "}
-                <Link href="/remontti/uusi" className="text-sky-700 underline">
-                  Luo ensimmäinen
+              <div className={`${brand.section} px-6 py-10 text-center`}>
+                <p className="text-base font-medium text-stone-800">
+                  Ei vielä tarjouspyyntöjä
+                </p>
+                <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-stone-500">
+                  Luo ensimmäinen pyyntö — urakoitsijat voivat lähettää sinulle
+                  tarjouksia.
+                </p>
+                <Link
+                  href="/remontti/uusi"
+                  className={`${brand.btnPrimary} mt-6 inline-flex`}
+                >
+                  Luo tarjouspyyntö
                 </Link>
-              </p>
+              </div>
             ) : (
-              <ul className="mt-4 space-y-3">
+              <ul className="space-y-3">
                 {projects.map((p) => (
                   <li key={p.id}>
                     <Link
                       href={`/remontti/${p.id}`}
-                      className="block rounded-xl border border-stone-200 bg-white p-4 hover:border-sky-300"
+                      className={`${brand.section} block p-4 transition hover:border-sky-200 hover:shadow-md sm:p-5`}
                     >
-                      <div className="flex justify-between gap-2">
-                        <span className="font-medium">{p.title}</span>
-                        <span className="text-xs text-stone-500">
-                          {projectStatusLabels[p.status]}
-                        </span>
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="font-semibold text-stone-900">{p.title}</p>
+                          <p className="mt-1 text-sm text-stone-500">
+                            {categoryName(p.service_categories)} · {p.municipality}
+                          </p>
+                        </div>
+                        <ProjectStatusBadge status={p.status} />
                       </div>
-                      <p className="mt-1 text-sm text-stone-500">
-                        {categoryName(p.service_categories)} · {p.municipality}
-                      </p>
                     </Link>
                   </li>
                 ))}
               </ul>
             )}
-          </>
+          </section>
         )}
 
         {admin && (
-          <div className="mt-8 flex flex-wrap gap-2">
-            <Link
-              href="/admin/pyynnot"
-              className="inline-flex rounded-full bg-stone-800 px-5 py-2.5 text-sm font-medium text-white hover:bg-stone-900"
-            >
-              Tarjouspyynnöt
-            </Link>
-            <Link
-              href="/admin"
-              className="inline-flex rounded-full border border-stone-300 bg-white px-5 py-2.5 text-sm font-medium text-stone-800 hover:bg-stone-50"
-            >
-              Käyttäjät
-            </Link>
-          </div>
+          <section className="mt-8">
+            <h2 className="text-lg font-semibold text-stone-900">Ylläpito</h2>
+            <div className="mt-4 flex flex-wrap gap-3">
+              <Link href="/admin/pyynnot" className={brand.btnPrimary}>
+                Tarjouspyynnöt
+              </Link>
+              <Link href="/admin/kysynta" className={brand.btnSecondary}>
+                Kysyntä
+              </Link>
+              <Link href="/admin/palaute" className={brand.btnSecondary}>
+                Palaute
+              </Link>
+              <Link href="/admin" className={brand.btnSecondary}>
+                Käyttäjät
+              </Link>
+            </div>
+          </section>
         )}
 
         {contractor && (
-          <section className="mt-8 space-y-6 lg:mt-10 lg:space-y-8">
+          <section className="mt-8 space-y-8">
+            <div>
+              <h2 className="text-lg font-semibold text-stone-900">
+                Urakoitsijan asetukset
+              </h2>
+              <p className="mt-1 text-sm text-stone-500">
+                Profiili, laskutus ja tarjousten oletusehdot. Muutokset vaikuttavat
+                uusiin tarjouksiin ja ilmoituksiin.
+              </p>
+            </div>
+
             <ContractorBidDefaultsForm
               className="mt-0"
               {...(await fetchContractorBidDefaultsBundle(user.id))}
             />
 
-            <div className="grid gap-6 lg:grid-cols-2 lg:items-start lg:gap-8">
+            <ContractorServiceAreaForm
+              className="mt-0"
+              servicePostalCode={serviceAreaFields.servicePostalCode}
+              serviceMunicipality={serviceAreaFields.serviceMunicipality}
+              maxTravelKm={serviceAreaFields.maxTravelKm}
+            />
+
+            <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
               {contractorTrades.length > 0 && contractorQuals && (
                 <ContractorProfileForm
                   className="mt-0"
@@ -360,15 +455,6 @@ export default async function AccountPage({
                 billingCity={billingFields.billingCity}
               />
             </div>
-
-            <div className="pt-2">
-              <Link
-                href="/tarjoukset"
-                className="inline-flex w-full items-center justify-center rounded-full bg-orange-700 px-5 py-3 text-sm font-medium text-white hover:bg-orange-800 sm:w-auto sm:py-2.5"
-              >
-                Selaa avoimia lämpöpumppupyyntöjä
-              </Link>
-            </div>
           </section>
         )}
       </main>
@@ -376,13 +462,44 @@ export default async function AccountPage({
   );
 }
 
-function Row({ label, value }: { label: string; value: string }) {
+function initials(name: string | null | undefined, email: string | undefined): string {
+  const source = name?.trim() || email?.split("@")[0] || "?";
+  const parts = source.split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) {
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  }
+  return source.slice(0, 2).toUpperCase();
+}
+
+function AccountRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex flex-col gap-1 border-b border-stone-100 py-3 last:border-0 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
-      <span className="shrink-0 text-sm text-stone-500">{label}</span>
-      <span className="text-sm font-medium sm:max-w-[65%] sm:text-right">
+    <div className="flex flex-col gap-0.5 py-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+      <dt className="text-sm text-stone-500">{label}</dt>
+      <dd className="text-sm font-medium text-stone-900 sm:max-w-[60%] sm:text-right">
         {value}
-      </span>
+      </dd>
     </div>
+  );
+}
+
+const statusBadgeStyles: Partial<Record<ProjectStatus, string>> = {
+  draft: "bg-stone-100 text-stone-600",
+  published: "bg-sky-100 text-sky-800",
+  receiving_bids: "bg-emerald-100 text-emerald-800",
+  bid_accepted: "bg-orange-100 text-orange-800",
+  in_progress: "bg-violet-100 text-violet-800",
+  completed: "bg-stone-100 text-stone-700",
+  cancelled: "bg-red-50 text-red-700",
+};
+
+function ProjectStatusBadge({ status }: { status: ProjectStatus }) {
+  return (
+    <span
+      className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${
+        statusBadgeStyles[status] ?? "bg-stone-100 text-stone-600"
+      }`}
+    >
+      {projectStatusLabels[status]}
+    </span>
   );
 }

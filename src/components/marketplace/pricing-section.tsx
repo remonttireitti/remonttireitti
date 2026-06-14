@@ -76,8 +76,8 @@ export function MarketplacePricingSection({
             {CONSUMER_FREE_PLAN.name}
           </h2>
           <p className="mt-2 max-w-2xl text-sm text-sky-900/90">
-            Myy käytetty lämpöpumppu, patteriryhmä tai varaosat ilman maksua.
-            Ammattilaiset ja ostajat löytävät ilmoituksen markkinapaikalta.
+            Myy remonttiin liittyvä laite, varaosa tai tarvike ilman maksua.
+            Ammattilaiset ja ostajat löytävät ilmoituksen torilta.
           </p>
           <ul className="mt-4 grid gap-2 text-sm text-sky-950 sm:grid-cols-2">
             {CONSUMER_FREE_PLAN.features.map((f) => (

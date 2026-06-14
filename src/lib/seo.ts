@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { siteConfig } from "@/lib/site-config";
+import { mergeKeywords, SITE_KEYWORDS } from "@/lib/seo-keywords";
 
 export function getSiteUrl(): string {
   const url = siteConfig.siteUrl;
@@ -23,9 +24,18 @@ export async function getRequestSiteUrl(): Promise<string> {
   return getSiteUrl();
 }
 
-const defaultTitle = `${siteConfig.name} — Kilpailuta remontti ilmaiseksi`;
+const defaultTitle = `${siteConfig.name} — Kilpailuta remontti ja palvelut`;
 const defaultDescription =
-  "Kilpailuta remontti, lämmitys ja muut työt omakotitaloon. Useita tarjouksia urakoitsijoilta — ilmainen tarjouspyyntö.";
+  "Kilpailuta remontit, asennukset, huolto ja kunnossapito omakotitaloon. Siivous, piha, muutto — myös jatkuva palvelu. Remonttitori laitteille. Ilmainen tarjouspyyntö, vertaa tarjouksia.";
+
+const defaultKeywords = mergeKeywords(SITE_KEYWORDS, [
+  "lämpöpumppu",
+  "kylpyhuoneremontti",
+  "keittiöremontti",
+  "remontin kilpailutus",
+  "nurmikon leikkuu",
+  "remonttitori",
+]);
 
 const defaultOgImage = "/logo.svg";
 
@@ -37,6 +47,11 @@ export const rootMetadata: Metadata = {
     template: `%s | ${siteConfig.name}`,
   },
   description: defaultDescription,
+  keywords: defaultKeywords,
+  authors: [{ name: siteConfig.legalName, url: getSiteUrl() }],
+  creator: siteConfig.legalName,
+  publisher: siteConfig.legalName,
+  category: "construction",
   icons: {
     icon: [
       { url: "/logo.svg", type: "image/svg+xml" },
@@ -69,6 +84,12 @@ export const rootMetadata: Metadata = {
   robots: {
     index: true,
     follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
   },
 };
 
@@ -76,21 +97,28 @@ export function pageMetadata({
   title,
   description,
   path,
+  keywords,
   noIndex = false,
 }: {
   title: string;
   description: string;
   path?: string;
+  keywords?: string[];
   noIndex?: boolean;
 }): Metadata {
   const canonical = path ? `${getSiteUrl()}${path}` : undefined;
   const ogTitle = title.includes(siteConfig.name)
     ? title
     : `${title} | ${siteConfig.name}`;
+  const pageKeywords =
+    keywords && keywords.length > 0
+      ? mergeKeywords(SITE_KEYWORDS, keywords)
+      : undefined;
 
   return {
     title,
     description,
+    keywords: pageKeywords,
     alternates: canonical ? { canonical } : undefined,
     openGraph: {
       title: ogTitle,
@@ -109,7 +137,11 @@ export function pageMetadata({
     },
     robots: noIndex
       ? { index: false, follow: false, googleBot: { index: false, follow: false } }
-      : { index: true, follow: true },
+      : {
+          index: true,
+          follow: true,
+          googleBot: { index: true, follow: true, "max-image-preview": "large" },
+        },
   };
 }
 

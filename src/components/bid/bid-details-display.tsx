@@ -1,6 +1,11 @@
 import { formatBidDate } from "@/lib/bid-terms";
+import {
+  BID_OFFER_SCOPE_LABELS,
+  parseBidOfferScope,
+} from "@/lib/bid-offer-scope";
 
 export type BidDetailsView = {
+  offer_scope?: string | null;
   scope_terms?: string | null;
   contract_terms?: string | null;
   warranty_work?: string | null;
@@ -12,12 +17,14 @@ export type BidDetailsView = {
 };
 
 export function BidDetailsDisplay({ bid }: { bid: BidDetailsView }) {
+  const offerScope = parseBidOfferScope(bid.offer_scope);
   const hasTerms =
     bid.warranty_work ||
     bid.warranty_equipment ||
     bid.earliest_start_date ||
     bid.confirms_licenses ||
-    bid.confirms_building_standards;
+    bid.confirms_building_standards ||
+    offerScope;
 
   if (!hasTerms) return null;
 
@@ -37,6 +44,14 @@ export function BidDetailsDisplay({ bid }: { bid: BidDetailsView }) {
         <div>
           <dt className="font-medium text-stone-600">Arvioitu kesto</dt>
           <dd className="mt-0.5 text-stone-800">{bid.estimated_days} päivää</dd>
+        </div>
+      )}
+      {offerScope && (
+        <div>
+          <dt className="font-medium text-stone-600">Tarjouksen tyyppi</dt>
+          <dd className="mt-0.5 text-stone-800">
+            {BID_OFFER_SCOPE_LABELS[offerScope]}
+          </dd>
         </div>
       )}
       {bid.scope_terms && (

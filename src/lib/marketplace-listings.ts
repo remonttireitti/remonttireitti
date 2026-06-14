@@ -3,18 +3,24 @@ import {
   type ListingProductCategory,
 } from "@/lib/marketplace-categories";
 import {
+  MARKETPLACE_DEVICE_TYPE_OPTIONS,
+  type DeviceTypeOption,
+} from "@/lib/marketplace-device-types";
+import {
   CONSUMER_FREE_MAX_ACTIVE_LISTINGS,
   LISTING_DURATION_DAYS,
 } from "@/lib/marketplace-pricing";
 
 export { CONSUMER_FREE_MAX_ACTIVE_LISTINGS, LISTING_DURATION_DAYS };
 
-export const PUMP_TYPE_OPTIONS = [
-  { value: "ilmalampopumppu", label: "Ilmalämpöpumppu" },
-  { value: "ilmavesilampopumppu", label: "Vesi-ilmalämpöpumppu" },
-  { value: "maalampopumppu", label: "Maalämpöpumppu" },
-  { value: "varaosa", label: "Varaosa / muu" },
-] as const;
+/** @deprecated Käytä MARKETPLACE_DEVICE_TYPE_OPTIONS */
+export const PUMP_TYPE_OPTIONS = MARKETPLACE_DEVICE_TYPE_OPTIONS.filter(
+  (o) =>
+    o.value === "ilmalampopumppu" ||
+    o.value === "ilmavesilampopumppu" ||
+    o.value === "maalampopumppu" ||
+    o.value === "muu",
+) satisfies DeviceTypeOption[];
 
 export type ListingFormInput = {
   product_category: ListingProductCategory;

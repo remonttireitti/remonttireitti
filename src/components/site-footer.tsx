@@ -12,13 +12,24 @@ export function SiteFooter() {
           <div>
             <p className="font-semibold text-stone-900">{siteConfig.name}</p>
             <p className="mt-2 text-sm text-stone-600">
-              Remonttien tarjouskilpailu ja {marketplaceBrand.name.toLowerCase()}.
+              Remontit, kunnossapito, huolto ja {marketplaceBrand.name.toLowerCase()}{" "}
+              — yksi paikka kotiin liittyville tarpeille.
             </p>
           </div>
 
           <div>
             <p className="text-sm font-semibold text-stone-900">Palvelu</p>
             <ul className="mt-2 space-y-1 text-sm">
+              <li>
+                <Link href="/palvelut#palvelut" className="text-stone-600 hover:text-sky-700">
+                  Palvelut & kunnossapito
+                </Link>
+              </li>
+              <li>
+                <Link href="/palvelut" className="text-stone-600 hover:text-sky-700">
+                  Kaikki palvelut
+                </Link>
+              </li>
               <li>
                 <Link href="/remontti/uusi" className="text-stone-600 hover:text-sky-700">
                   Kilpailuta remontti

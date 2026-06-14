@@ -10,6 +10,8 @@ import { getIlpDetailSections } from "@/lib/ilp-detail-sections";
 import { ilpDescriptionIsRedundant } from "@/lib/ilp-detail-sections";
 import { formatIvlpDetailsSummary } from "@/lib/ilmavesilampopumppu-details";
 import { formatMaalampDetailsSummary } from "@/lib/maalampopumppu-details";
+import { formatServiceEngagementSummary } from "@/lib/service-engagement";
+import type { ServiceEngagement } from "@/lib/service-engagement";
 import { EQUIPMENT_SUPPLY_LABELS } from "@/lib/equipment-supply";
 import type { IlmalampopumppuDetails } from "@/types/ilmalampopumppu-details";
 import type { IlmavesilampopumppuDetails } from "@/types/ilmavesilampopumppu-details";
@@ -77,6 +79,7 @@ function SummaryAccordion({
 
 export function ProjectSummaryReview({
   jobTypeName,
+  involvedTradesLabel,
   title,
   description,
   isIlp,
@@ -85,6 +88,7 @@ export function ProjectSummaryReview({
   ivlpDetails,
   isMaalamp,
   maalampDetails,
+  serviceEngagement,
   hasStructuredForm,
   contactEmail,
   contactPhone,
@@ -95,6 +99,7 @@ export function ProjectSummaryReview({
   photoCount = 0,
 }: {
   jobTypeName: string;
+  involvedTradesLabel?: string;
   title: string;
   description: string;
   isIlp: boolean;
@@ -103,6 +108,7 @@ export function ProjectSummaryReview({
   ivlpDetails: IlmavesilampopumppuDetails;
   isMaalamp: boolean;
   maalampDetails: MaalampopumppuDetails;
+  serviceEngagement?: ServiceEngagement | null;
   hasStructuredForm: boolean;
   contactEmail: string;
   contactPhone: string;
@@ -145,11 +151,17 @@ export function ProjectSummaryReview({
 
       <SummaryAccordion title="Yleiskatsaus" defaultOpen>
         <dl className="grid gap-3 sm:grid-cols-2">
-          <DetailItem label="Lämpöpumppu" value={jobTypeName} />
+          <DetailItem label="Työn tyyppi" value={jobTypeName} />
+          {involvedTradesLabel && (
+            <DetailItem
+              label="Haetaan ammattilaisia"
+              value={involvedTradesLabel}
+            />
+          )}
           <DetailItem label="Otsikko" value={title} />
           {scopeLabel && <DetailItem label="Tarjouksen laajuus" value={scopeLabel} />}
           {budgetMaxLabel && (
-            <DetailItem label="Budjetin yläraja" value={budgetMaxLabel} />
+            <DetailItem label="Hintatoive" value={budgetMaxLabel} />
           )}
           {photoCount > 0 && (
             <DetailItem
@@ -195,6 +207,15 @@ export function ProjectSummaryReview({
         </SummaryAccordion>
       )}
 
+      {serviceEngagement && (
+        <SummaryAccordion title="Palvelun toistuvuus" defaultOpen>
+          <DetailSection
+            title="Toistuvuus ja kausi"
+            rows={formatServiceEngagementSummary(serviceEngagement)}
+          />
+        </SummaryAccordion>
+      )}
+
       {showFreeTextDescription && description.trim().length > 0 && (
         <SummaryAccordion title="Vapaa kuvaus">
           <p className="whitespace-pre-wrap text-sm leading-relaxed text-stone-700">
@@ -208,7 +229,7 @@ export function ProjectSummaryReview({
           <DetailItem label="Sähköposti" value={contactEmail} />
           <DetailItem label="Puhelin" value={contactPhone} />
           <DetailItem
-            label="Urakan osoite"
+            label={serviceEngagement ? "Palvelukohteen osoite" : "Urakan osoite"}
             value={`${addressLine}, ${postalCode} ${municipality}`}
           />
         </dl>

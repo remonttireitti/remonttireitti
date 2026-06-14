@@ -13,11 +13,11 @@ export function HomeAudienceSplit() {
             Asiakkaalle
           </p>
           <h2 className="mt-2 text-xl font-bold text-stone-900 group-hover:text-sky-900">
-            Etsin urakoitsijaa
+            Etsin tekijää
           </h2>
           <p className="mt-2 text-sm leading-relaxed text-stone-600">
-            Kilpailuta remontti ilmaiseksi — useita tarjouksia yhdestä
-            pyynnöstä.
+            Remontti, siivous, piha tai muu palvelu — kilpailuta ilmaiseksi ja
+            vertaile tarjouksia.
           </p>
           <span className={`mt-4 inline-block text-sm font-semibold ${brand.link}`}>
             Aloita tarjouspyyntö →
@@ -35,8 +35,8 @@ export function HomeAudienceSplit() {
             Haen uusia töitä
           </h2>
           <p className="mt-2 text-sm leading-relaxed text-stone-600">
-            Ilmoitukset valitsemillesi ammateille. Maksat vain hyväksytyistä
-            diileistä.
+            Remontit, huollot ja jatkuvat palvelut — ilmoitukset valitsemillesi
+            ammateille. Maksat vain hyväksytyistä diileistä.
           </p>
           <span className="mt-4 inline-block text-sm font-semibold text-orange-800 group-hover:underline">
             Lue lisää ja rekisteröidy →
@@ -45,6 +45,14 @@ export function HomeAudienceSplit() {
       </div>
 
       <ul className="mt-6 flex flex-wrap justify-center gap-x-4 gap-y-2 text-sm text-stone-600">
+        <li>
+          <Link href="/palvelut#palvelut" className="text-sky-700 hover:underline">
+            Siivous ja piha
+          </Link>
+        </li>
+        <li aria-hidden className="text-stone-300">
+          ·
+        </li>
         <li>
           <Link href="/vian-selvitys" className="text-sky-700 hover:underline">
             Lämpöpumppu oireilee?
@@ -63,7 +71,7 @@ export function HomeAudienceSplit() {
         </li>
         <li>
           <Link href="/markkinapaikka" className="text-sky-700 hover:underline">
-            Tori
+            Remonttitori
           </Link>
         </li>
       </ul>

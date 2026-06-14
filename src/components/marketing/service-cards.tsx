@@ -12,6 +12,14 @@ const services = [
     accent: "border-sky-200 bg-sky-50/80",
   },
   {
+    title: "Palvelut & kunnossapito",
+    description:
+      "Siivous, muutto, ikkunanpesu, nurmikon leikkuu, lumityö… Kertaluonteinen tai jatkuva — pyydä tarjous.",
+    href: "/palvelut#palvelut",
+    cta: "Selaa palveluja",
+    accent: "border-emerald-200 bg-emerald-50/60",
+  },
+  {
     title: "Huolto & korjaus",
     description:
       "Lämpö ei riitä, vuoto tai virhekoodi? Valitse oire — saat turvallisen tarkistuslistan. Jos vika jää, kilpailuta huolto ilmaiseksi.",
@@ -22,7 +30,7 @@ const services = [
   {
     title: marketplaceBrand.nameShort,
     description:
-      "Myy tai osta käytettyjä ja uusia laitteita, varaosia ja työkaluja. Yksityishenkilölle ilmoittaminen on ilmaista.",
+      "Myy tai osta remonttiin liittyviä laitteita, varaosia, tarvikkeita ja työkaluja. Yksityishenkilölle ilmoittaminen on ilmaista.",
     href: "/markkinapaikka",
     cta: "Selaa toria",
     accent: "border-stone-200 bg-white",
@@ -31,7 +39,7 @@ const services = [
 
 export function ServiceCards() {
   return (
-    <div className="grid gap-4 sm:grid-cols-3 sm:gap-5">
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 sm:gap-5">
       {services.map((s) => (
         <article
           key={s.href}

@@ -13,6 +13,7 @@ import {
 } from "@/lib/marketplace-categories";
 import { marketplaceBrand } from "@/lib/marketplace-brand";
 import { pageMetadata } from "@/lib/seo";
+import { seoDefByPath } from "@/lib/seo-pages";
 
 export async function generateMetadata({
   searchParams,
@@ -33,11 +34,12 @@ export async function generateMetadata({
     });
   }
 
+  const listingsSeo = seoDefByPath("/markkinapaikka/ilmoitukset")!;
   return pageMetadata({
-    title: `Ilmoitukset — ${marketplaceBrand.nameShort}`,
-    description:
-      "Selaa julkaistuja lämpöpumppu- ja laiteilmoituksia. Käytettyjä ja uusia laitteita ympäri Suomen.",
+    title: listingsSeo.title,
+    description: listingsSeo.description,
     path: "/markkinapaikka/ilmoitukset",
+    keywords: listingsSeo.keywords,
   });
 }
 
@@ -74,7 +76,7 @@ export default async function MarketplaceListingsPage({
             <p className="mt-1 text-stone-600">
               {categoryMeta
                 ? categoryMeta.description
-                : "Laitteet, varaosat, tarvikkeet ja työkalut — ei kirjautumista"}
+                : "Laitteet, varaosat, tarvikkeet ja työkalut remonttiin — ei kirjautumista"}
             </p>
           </div>
           <Link

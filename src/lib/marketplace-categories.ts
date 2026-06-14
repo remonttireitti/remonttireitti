@@ -10,28 +10,31 @@ export const LISTING_PRODUCT_CATEGORIES = [
     urlSlug: "laitteet",
     label: "Laitteet",
     labelSingular: "Laite",
-    description: "Lämpöpumput ja muut laitteet kokonaisina",
+    description:
+      "Lämmitys, keittiö, kylpyhuone, sauna, sähkö ja muut remonttilaitteet",
   },
   {
     slug: "spare_part" as const,
     urlSlug: "varaosat",
     label: "Varaosat",
     labelSingular: "Varaosa",
-    description: "Komponentit, patruunat, ohjausyksiköt ja varaosat",
+    description:
+      "Komponentit, patruunat, ohjausyksiköt ja varaosat kaikille laiteryhmille",
   },
   {
     slug: "supply" as const,
     urlSlug: "tarvikkeet",
     label: "Tarvikkeet",
     labelSingular: "Tarvike",
-    description: "Asennus- ja huoltotarvikkeet, nesteet, eristeet",
+    description:
+      "Laatat, maalit, eristeet, liitokset ja muut remontti- ja rakennustarvikkeet",
   },
   {
     slug: "tool" as const,
     urlSlug: "tyokalut",
     label: "Työkalut",
     labelSingular: "Työkalu",
-    description: "Mittaus-, asennus- ja huoltotyökalut",
+    description: "Mittaus-, asennus- ja remonttityökalut ammattilaiselle ja kotikäyttöön",
   },
 ] as const;
 

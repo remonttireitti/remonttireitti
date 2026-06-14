@@ -1,11 +1,16 @@
 import { isHeatingSystemDetails } from "@/lib/heating-system-details";
 import { isIlpDetails } from "@/lib/ilmalampopumppu-details";
+import { parseAcceptOffersOverBudget } from "@/lib/budget-preferences";
 import { INITIAL_ILP_DETAILS } from "@/types/ilmalampopumppu-details";
 import { INITIAL_IVLP_DETAILS } from "@/types/ilmavesilampopumppu-details";
 import { INITIAL_MAALAMP_DETAILS } from "@/types/maalampopumppu-details";
 import type { IlmalampopumppuDetails } from "@/types/ilmalampopumppu-details";
 import type { IlmavesilampopumppuDetails } from "@/types/ilmavesilampopumppu-details";
 import type { MaalampopumppuDetails } from "@/types/maalampopumppu-details";
+import {
+  isServiceEngagement,
+  type ServiceEngagement,
+} from "@/lib/service-engagement";
 
 export type ProjectEditFormState = {
   job_type_id: string;
@@ -15,6 +20,7 @@ export type ProjectEditFormState = {
   description: string;
   budget_min: string;
   budget_max: string;
+  accept_offers_over_budget: boolean;
   desired_start: string;
   flexibility_weeks: string;
   municipality: string;
@@ -33,7 +39,13 @@ export type ProjectEditSnapshot = {
   ilpDetails: IlmalampopumppuDetails;
   ivlpDetails: IlmavesilampopumppuDetails;
   maalampDetails: MaalampopumppuDetails;
-  detailsKind: "" | "ilmalampopumppu" | "ilmavesilampopumppu" | "maalampopumppu";
+  serviceEngagement: ServiceEngagement;
+  detailsKind:
+    | ""
+    | "ilmalampopumppu"
+    | "ilmavesilampopumppu"
+    | "maalampopumppu"
+    | "service_engagement";
 };
 
 export function buildProjectEditSnapshot(project: {
@@ -58,6 +70,10 @@ export function buildProjectEditSnapshot(project: {
   let ilpDetails = { ...INITIAL_ILP_DETAILS };
   let ivlpDetails = { ...INITIAL_IVLP_DETAILS };
   let maalampDetails = { ...INITIAL_MAALAMP_DETAILS };
+  let serviceEngagement: ServiceEngagement = {
+    type: "one_off",
+    season: "year_round",
+  };
 
   if (details?.ilmalampopumppu && isIlpDetails(details.ilmalampopumppu)) {
     detailsKind = "ilmalampopumppu";
@@ -74,6 +90,12 @@ export function buildProjectEditSnapshot(project: {
   ) {
     detailsKind = "maalampopumppu";
     maalampDetails = details.maalampopumppu as MaalampopumppuDetails;
+  } else if (
+    details?.service_engagement &&
+    isServiceEngagement(details.service_engagement)
+  ) {
+    detailsKind = "service_engagement";
+    serviceEngagement = details.service_engagement;
   }
 
   return {
@@ -85,14 +107,18 @@ export function buildProjectEditSnapshot(project: {
     ilpDetails,
     ivlpDetails,
     maalampDetails,
+    serviceEngagement,
     form: {
       job_type_id: project.job_type_id ?? "",
       category_id: project.category_id,
       trade_ids: tradeIds,
       title: project.title,
       description: project.description,
-      budget_min: project.budget_min != null ? String(project.budget_min) : "",
+      budget_min: "",
       budget_max: project.budget_max != null ? String(project.budget_max) : "",
+      accept_offers_over_budget: parseAcceptOffersOverBudget(
+        (details?.budget_prefs as Record<string, unknown>) ?? {},
+      ),
       desired_start: project.desired_start ?? "",
       flexibility_weeks: String(project.flexibility_weeks ?? 4),
       municipality: project.municipality,

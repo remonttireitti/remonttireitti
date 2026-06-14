@@ -10,6 +10,10 @@ import {
   bidResolvedAmountCents,
   formatBidAcceptScopeShort,
 } from "@/lib/bid-accept-scope";
+import {
+  BID_OFFER_SCOPE_LABELS,
+  parseBidOfferScope,
+} from "@/lib/bid-offer-scope";
 import { bidTotalAmountCents } from "@/lib/bid-amounts";
 import {
   bidStatusLabels,
@@ -33,6 +37,7 @@ export type BidWithContractor = {
   estimated_days: number | null;
   vat_included: boolean;
   scope_terms: string | null;
+  offer_scope?: string | null;
   contract_terms: string | null;
   warranty_work: string | null;
   warranty_equipment: string | null;
@@ -144,6 +149,7 @@ export function CustomerBids({
     (b) => b.offers_equipment && b.equipment_amount_cents,
   );
   const showScopeTerms = sorted.some((b) => b.scope_terms);
+  const showOfferScope = sorted.some((b) => parseBidOfferScope(b.offer_scope));
   const showContractTerms = sorted.some((b) => b.contract_terms);
   const showEquipmentWarranty = sorted.some((b) => b.warranty_equipment);
   const showCounterRow = sorted.some(
@@ -332,6 +338,29 @@ export function CustomerBids({
                 </td>
               ))}
             </tr>
+
+            {showOfferScope && (
+              <tr className="border-b border-stone-100 bg-stone-50/50">
+                <th className={labelCell} scope="row">
+                  Tarjouksen tyyppi
+                </th>
+                {sorted.map((bid) => {
+                  const scope = parseBidOfferScope(bid.offer_scope);
+                  return (
+                    <td
+                      key={bid.id}
+                      className={`${dataCell} border-l ${columnClass(bid.status, isPendingWinner(bid))}`}
+                    >
+                      {scope ? (
+                        BID_OFFER_SCOPE_LABELS[scope]
+                      ) : (
+                        <span className="text-stone-400">—</span>
+                      )}
+                    </td>
+                  );
+                })}
+              </tr>
+            )}
 
             {showScopeTerms && (
               <tr className="border-b border-stone-100">

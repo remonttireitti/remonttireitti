@@ -5,6 +5,7 @@ import { ValuePromoBanner } from "@/components/promo/value-promo-banner";
 import { ProjectChat } from "@/components/messaging/project-chat";
 import { SiteHeader } from "@/components/site-header";
 import { ProjectOverviewCards } from "@/components/project/project-overview-cards";
+import { PlatformFeedbackPanel } from "@/components/feedback/platform-feedback-panel";
 import { fetchProjectPhotos } from "@/lib/project-photos";
 import {
   bidHasSplitEquipmentOffer,
@@ -15,6 +16,7 @@ import { bidTotalAmountCents, bidWorkAmountCents } from "@/lib/bid-amounts";
 import { formatEurosFromCents } from "@/lib/bids";
 import { getSessionUser, isContractor } from "@/lib/auth";
 import { fetchContractorProjectConversation } from "@/lib/messages-server";
+import { fetchPlatformFeedbackForProject } from "@/lib/platform-feedback-server";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function ContractorWonProjectPage({
@@ -116,6 +118,11 @@ export default async function ContractorWonProjectPage({
     .eq("id", user.id)
     .single();
 
+  const platformFeedback =
+    project.status === "completed"
+      ? await fetchPlatformFeedbackForProject(supabase, user.id, id)
+      : null;
+
   return (
     <div className="min-h-full bg-stone-50 text-stone-900">
       <SiteHeader />
@@ -189,6 +196,15 @@ export default async function ContractorWonProjectPage({
           </p>
         </div>
 
+        <p className="mt-4">
+          <Link
+            href={`/tarjoukset/urakka/${id}/sopimus`}
+            className="text-sm font-medium text-sky-800 hover:underline"
+          >
+            Tulosta sopimusyhteenveto (PDF)
+          </Link>
+        </p>
+
         <div className="mt-6">
           <ProjectOverviewCards
             description={project.description}
@@ -244,6 +260,14 @@ export default async function ContractorWonProjectPage({
             revalidatePaths={[`/tarjoukset/urakka/${id}`]}
             readOnly={project.status === "completed"}
             perspective="contractor"
+          />
+        )}
+
+        {project.status === "completed" && (
+          <PlatformFeedbackPanel
+            role="contractor"
+            projectId={id}
+            existing={platformFeedback}
           />
         )}
       </main>

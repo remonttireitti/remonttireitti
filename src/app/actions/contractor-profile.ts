@@ -89,3 +89,49 @@ export async function updateContractorBidDefaults(
   revalidatePath("/tarjoukset");
   return { ok: "Tarjouksen oletusehdot tallennettu." };
 }
+
+export async function updateContractorServiceArea(
+  _prev: ContractorProfileState,
+  formData: FormData,
+): Promise<ContractorProfileState> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) redirect("/kirjaudu");
+
+  const postalCode = String(formData.get("service_postal_code") ?? "").trim();
+  const municipality = String(formData.get("service_municipality") ?? "").trim();
+  const maxTravelKm = Number(formData.get("max_travel_km"));
+
+  if (postalCode && !/^\d{5}$/.test(postalCode)) {
+    return { error: "Postinumeron tulee olla viisi numeroa." };
+  }
+  if (!postalCode && !municipality) {
+    return { error: "Anna vähintään postinumero tai kunta." };
+  }
+  if (!Number.isFinite(maxTravelKm) || maxTravelKm < 10 || maxTravelKm > 500) {
+    return { error: "Matkustusetäisyyden tulee olla 10–500 km." };
+  }
+
+  const { error } = await supabase
+    .from("contractor_profiles")
+    .update({
+      service_postal_code: postalCode || null,
+      service_municipality: municipality || null,
+      max_travel_km: Math.round(maxTravelKm),
+    })
+    .eq("id", user.id);
+
+  if (error) {
+    const msg = error.message.includes("service_postal_code")
+      ? "Aja Supabase-migraatio 20260614170000_contractor_service_location.sql"
+      : error.message;
+    return { error: msg };
+  }
+
+  revalidatePath("/oma-tili");
+  revalidatePath("/tarjoukset");
+  return { ok: "Toimipaikka tallennettu." };
+}

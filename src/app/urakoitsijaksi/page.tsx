@@ -7,12 +7,15 @@ import { getSessionUser, isContractor } from "@/lib/auth";
 import { brand } from "@/lib/brand-theme";
 import { marketplaceBrand } from "@/lib/marketplace-brand";
 import { pageMetadata } from "@/lib/seo";
+import { seoDefByPath } from "@/lib/seo-pages";
+
+const seo = seoDefByPath("/urakoitsijaksi")!;
 
 export const metadata: Metadata = pageMetadata({
-  title: "Urakoitsijalle",
-  description:
-    "Saat ilmoitukset sopivista tarjouspyynnöistä, jätät tarjouksia maksutta ja maksat välityspalkkion vain hyväksytyistä diileistä.",
+  title: seo.title,
+  description: seo.description,
   path: "/urakoitsijaksi",
+  keywords: seo.keywords,
 });
 
 function Step({

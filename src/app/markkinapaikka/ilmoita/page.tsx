@@ -5,8 +5,8 @@ import { marketplaceBrand } from "@/lib/marketplace-brand";
 import { pageMetadata } from "@/lib/seo";
 
 export const metadata: Metadata = pageMetadata({
-  title: "Ilmoita myytävä laite",
-  description: `Julkaise myynti-ilmoitus ${marketplaceBrand.nameShort.toLowerCase()}lle — yksityisille ilmaiseksi, yrityksille hinnaston mukaan.`,
+  title: "Ilmoita myytävä — remonttitori",
+  description: `Julkaise myynti-ilmoitus ${marketplaceBrand.nameShort.toLowerCase()}lle — remonttiin liittyvät laitteet, varaosat ja tarvikkeet. Yksityisille ilmaiseksi.`,
   path: "/markkinapaikka/ilmoita",
 });
 import { ContractorActivationBanner } from "@/components/account/contractor-activation-banner";
@@ -67,7 +67,7 @@ export default async function MarketplaceCreateListingPage({
           >
             ← {marketplaceBrand.nameShort}
           </Link>
-          <h1 className="mt-4 text-2xl font-bold">Ilmoita myytävä laite</h1>
+          <h1 className="mt-4 text-2xl font-bold">Ilmoita myytävä</h1>
           <div className="mt-6">
             <ContractorActivationBanner
               defaultCompany={defaultCompanyFromUser(user)}
@@ -97,10 +97,11 @@ export default async function MarketplaceCreateListingPage({
         >
           ← {marketplaceBrand.nameShort}
         </Link>
-        <h1 className="mt-4 text-2xl font-bold">Ilmoita myytävä laite</h1>
+        <h1 className="mt-4 text-2xl font-bold">Ilmoita myytävä</h1>
         <p className="mt-2 text-sm text-stone-600">
-          Yritysilmoitus: kk-tilaus tai yksittäinen maksu. Ilmoitus julkaistaan
-          heti, jos sinulla on aktiivinen tilaus ja paikkoja jäljellä.
+          Yritysilmoitus: kk-tilaus tai yksittäinen maksu. Voit myydä remonttiin
+          liittyviä laitteita, varaosia, tarvikkeita ja työkaluja. Ilmoitus
+          julkaistaan heti, jos sinulla on aktiivinen tilaus ja paikkoja jäljellä.
         </p>
 
         {params.lasku === "1" && (
@@ -158,8 +159,8 @@ async function ConsumerListingInfo() {
         </Link>
         <h1 className="mt-4 text-2xl font-bold">Ilmoita myytävä laite</h1>
         <p className="mt-2 text-sm text-stone-600">
-          Yksityishenkilönä ilmoitus on maksuton. Näkyy torilla 4 viikkoa tai kunnes
-          poistat sen.
+          Yksityishenkilönä ilmoitus on maksuton. Myy remonttiin liittyvä laite,
+          varaosa tai tarvike — näkyy torilla 4 viikkoa tai kunnes poistat sen.
         </p>
 
         <p className="mt-3 text-sm">

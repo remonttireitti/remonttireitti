@@ -5,7 +5,7 @@ const installSteps = [
   {
     step: "1",
     title: "Kuvaile työ ja kohde",
-    body: "Valitse remontti, lisää kuvat ja tarvittavat tiedot — urakoitsija voi tarjota tarkasti.",
+    body: "Valitse remontti tai palvelu, lisää kuvat ja tarvittavat tiedot — urakoitsija voi tarjota tarkasti.",
   },
   {
     step: "2",
@@ -14,8 +14,26 @@ const installSteps = [
   },
   {
     step: "3",
-    title: "Valitse asentaja",
+    title: "Valitse tekijä",
     body: "Hyväksy tarjous. Yhteystiedot avautuvat, kun urakoitsija on maksanut välityspalkkion.",
+  },
+] as const;
+
+const serviceSteps = [
+  {
+    step: "1",
+    title: "Valitse palvelu",
+    body: "Siivous, piha, muutto, kuljetus… Kertaluonteinen tai jatkuva — esim. viikoittainen leikkuu tai lumityö tarpeen mukaan.",
+  },
+  {
+    step: "2",
+    title: "Kerro taajuus ja alue",
+    body: "Kertaluonteisessa työssä kuvaus ja ajankohta. Jatkuvassa palvelussa taajuus ja kausi — urakoitsija hinnoittelee käynnin, kuukauden tai kauden mukaan.",
+  },
+  {
+    step: "3",
+    title: "Vertaile tarjouksia",
+    body: "Sama malli kuin remonteissa: useita tarjouksia, vastatarjoukset ja valinta ilman asiakasmaksua.",
   },
 ] as const;
 
@@ -42,12 +60,14 @@ function StepList({
   accent,
 }: {
   steps: readonly { step: string; title: string; body: string }[];
-  accent: "sky" | "orange";
+  accent: "sky" | "orange" | "emerald";
 }) {
   const numClass =
     accent === "sky"
       ? "bg-sky-100 text-sky-800"
-      : "bg-orange-100 text-orange-900";
+      : accent === "emerald"
+        ? "bg-emerald-100 text-emerald-900"
+        : "bg-orange-100 text-orange-900";
 
   return (
     <ol className="mt-4 space-y-4">
@@ -81,7 +101,7 @@ export function HomeHowItWorks() {
         Näin palvelu toimii
       </p>
       <h2 className="mt-1 text-xl font-bold tracking-tight text-stone-900 sm:text-2xl">
-        Kolme tapaa käyttää Remonttireittiä
+        Remontit, palvelut, huolto ja tori
       </h2>
       <p className="mt-2 max-w-2xl text-sm leading-relaxed text-stone-600">
         Uusi palvelu — emme näytä keksittyjä asiakasarviointeja. Urakoitsijoiden
@@ -105,7 +125,24 @@ export function HomeHowItWorks() {
           </Link>
         </article>
 
-        <article className="rounded-2xl border border-orange-100 bg-orange-50/40 p-5">
+        <article className="rounded-2xl border border-emerald-100 bg-emerald-50/40 p-5">
+          <h3 className="text-lg font-semibold text-stone-900">
+            Palvelut & kunnossapito
+          </h3>
+          <p className="mt-1 text-sm text-stone-600">
+            Siivous, piha, muutto ja muut kotiin liittyvät työt — myös toistuva
+            palvelu.
+          </p>
+          <StepList steps={serviceSteps} accent="emerald" />
+          <Link
+            href="/palvelut#palvelut"
+            className={`${brand.link} mt-5 inline-block text-sm font-semibold`}
+          >
+            Selaa palveluja →
+          </Link>
+        </article>
+
+        <article className="rounded-2xl border border-orange-100 bg-orange-50/40 p-5 lg:col-span-2">
           <h3 className="text-lg font-semibold text-stone-900">
             Lämpöpumppu oireilee?
           </h3>
@@ -134,8 +171,8 @@ export function HomeHowItWorks() {
       </div>
 
       <p className="mt-6 rounded-xl border border-stone-100 bg-stone-50 px-4 py-3 text-sm text-stone-600">
-        <strong className="text-stone-800">Tori:</strong> osta tai myy laitteita
-        ja varaosia erikseen — ei liity asennus- tai huoltopyyntöön.{" "}
+        <strong className="text-stone-800">Remonttitori:</strong> osta tai myy
+        laitteita ja varaosia erikseen — ei liity tarjouspyyntöön.{" "}
         <Link href="/markkinapaikka" className={brand.link}>
           Selaa toria →
         </Link>

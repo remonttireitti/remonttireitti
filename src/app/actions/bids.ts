@@ -35,6 +35,12 @@ import {
   projectRequiresEquipmentWarranty,
 } from "@/lib/project-equipment-supply";
 import { bidFormTotalEuros } from "@/lib/bid-form";
+import { parseBidOfferScope } from "@/lib/bid-offer-scope";
+import {
+  formatServicePricingScopeLine,
+  isServicePricingModel,
+} from "@/lib/service-engagement";
+import { fetchProjectTradeContextForContractor } from "@/lib/project-trades-server";
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -71,6 +77,7 @@ type ParsedBidPayload = {
     ReturnType<typeof parseBidTermsFromFormData>,
     { ok: true }
   >["data"];
+  offerScope: ReturnType<typeof parseBidOfferScope>;
   project: {
     id: string;
     status: string;
@@ -183,6 +190,28 @@ async function parseBidSubmission(
   const terms = parseBidTermsFromFormData(formData, requiresEquipmentWarranty);
   if (!terms.ok) return bidError(formData, terms.error);
 
+  const pricingModel = String(formData.get("service_pricing_model") ?? "");
+  if (isServicePricingModel(pricingModel)) {
+    const pricingLine = formatServicePricingScopeLine(pricingModel, workEuros);
+    const existingScope = terms.data.scope_terms?.trim();
+    terms.data.scope_terms = existingScope
+      ? `${pricingLine}\n\n${existingScope}`
+      : pricingLine;
+  }
+
+  const tradeContext = await fetchProjectTradeContextForContractor(
+    supabase,
+    projectId,
+    userId,
+  );
+  const offerScope = parseBidOfferScope(String(formData.get("offer_scope") ?? ""));
+
+  if (tradeContext.isMultiTrade && !offerScope) {
+    return bidError(formData, "Valitse tarjouksen laajuus.", {
+      offer_scope: "Valitse kokonaisurakka tai oman ammattisi osuus.",
+    });
+  }
+
   return {
     projectId,
     message,
@@ -195,6 +224,7 @@ async function parseBidSubmission(
     estimatedDays: estimatedDaysRaw ? Number(estimatedDaysRaw) : null,
     vatIncluded,
     terms: terms.data,
+    offerScope: tradeContext.isMultiTrade ? offerScope : null,
     project,
   };
 }
@@ -219,6 +249,7 @@ function bidRowFromPayload(
     earliest_start_date: payload.terms.earliest_start_date,
     confirms_licenses: payload.terms.confirms_licenses,
     confirms_building_standards: payload.terms.confirms_building_standards,
+    offer_scope: payload.offerScope,
     submitted_at: new Date().toISOString(),
     confirmed_content_revision: payload.project.content_revision,
     rejection_message: null,

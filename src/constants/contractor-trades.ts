@@ -16,6 +16,9 @@ export const PUBLIC_CONTRACTOR_TRADE_SLUGS = [
   "betoni",
   "maanrakennus",
   "purku",
+  "siivous",
+  "piha-palvelu",
+  "kuljetus",
 ] as const;
 
 export type PublicContractorTradeSlug =

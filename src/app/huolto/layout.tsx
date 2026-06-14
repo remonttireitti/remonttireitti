@@ -1,12 +1,5 @@
-import { noIndexRobots } from "@/lib/seo";
+import type { ReactNode } from "react";
 
-/** Huolto-lomake vaatii kirjautumisen — ei hakukoneindeksiin. */
-export const metadata = noIndexRobots;
-
-export default function HuoltoLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function HuoltoLayout({ children }: { children: ReactNode }) {
   return children;
 }

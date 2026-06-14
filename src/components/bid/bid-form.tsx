@@ -34,6 +34,17 @@ import {
   getOverBudgetBlockError,
   type ProjectBudgetInfo,
 } from "@/lib/project-budget";
+import {
+  bidOfferScopeAmountLabel,
+  type BidOfferScope,
+} from "@/lib/bid-offer-scope";
+import {
+  defaultServicePricingModel,
+  SERVICE_PRICING_MODEL_LABELS,
+  suggestedServicePricingModels,
+  type ServiceEngagement,
+} from "@/lib/service-engagement";
+import type { ProjectTradeContext } from "@/lib/project-trades-server";
 
 const inputClass =
   "mt-1 w-full rounded-lg border border-stone-300 px-3 py-2 focus:border-sky-600 focus:outline-none focus:ring-1 focus:ring-sky-600";
@@ -63,6 +74,8 @@ export function BidForm({
   budgetInfo,
   defaultBidTerms,
   jobTypeSlug,
+  tradeContext,
+  serviceEngagement,
 }: {
   projectId: string;
   /** Urakoitsija toimittaa laitteet (pakollinen laitetakuu). */
@@ -77,9 +90,18 @@ export function BidForm({
   defaultBidTerms?: ContractorBidDefaults;
   /** Tarjouspyynnön lämpöpumppu — suodattaa valmiit mallit. */
   jobTypeSlug?: string | null;
+  /** Moniammatillisen kohteen ammatit urakoitsijan näkökulmasta. */
+  tradeContext?: ProjectTradeContext;
+  /** Jatkuva palvelu — hinnoittelu per käynti / kk / kausi. */
+  serviceEngagement?: ServiceEngagement | null;
 }) {
+  const isServiceProject = Boolean(serviceEngagement);
   const [fields, setFields] = useState<BidFormFields>(() => {
-    const base = initialFields ?? initialBidFormFields();
+    const base = initialFields ?? initialBidFormFields(
+      serviceEngagement
+        ? defaultServicePricingModel(serviceEngagement)
+        : "",
+    );
     if (initialFields || !defaultBidTerms) return base;
     return applyBidDefaultsToFields(base, defaultBidTerms);
   });
@@ -149,6 +171,8 @@ export function BidForm({
       requiresEquipmentWarranty: false,
       allowOptionalEquipmentOffer,
       requiresDeviceAndInstallation,
+      requiresOfferScope: tradeContext?.isMultiTrade ?? false,
+      requiresServicePricing: isServiceProject,
     });
     if (!validation.ok) {
       setClientError(validation.error);
@@ -189,10 +213,31 @@ export function BidForm({
     overBudget && getOverBudgetBlockError(amountEuros, budgetInfo) != null;
 
   const displayError = clientError ?? state.error;
+  const isMultiTrade = tradeContext?.isMultiTrade ?? false;
+
+  function setOfferScope(scope: BidOfferScope) {
+    update("offer_scope", scope);
+  }
+
+  const amountLabel = isServiceProject && fields.service_pricing_model
+    ? `${SERVICE_PRICING_MODEL_LABELS[fields.service_pricing_model]} (€) *`
+    : bidOfferScopeAmountLabel(
+        fields.offer_scope || null,
+        isMultiTrade,
+        allowOptionalEquipmentOffer,
+        requiresDeviceAndInstallation,
+      );
+
+  const servicePricingOptions = serviceEngagement
+    ? suggestedServicePricingModels(serviceEngagement)
+    : [];
 
   return (
     <form onSubmit={handleSubmit} noValidate lang="fi" className="space-y-4">
       <input type="hidden" name="project_id" value={projectId} />
+      {fields.offer_scope && (
+        <input type="hidden" name="offer_scope" value={fields.offer_scope} />
+      )}
       <input
         type="hidden"
         name="requires_equipment_warranty"
@@ -202,11 +247,117 @@ export function BidForm({
       />
       {bidId && <input type="hidden" name="bid_id" value={bidId} />}
 
+      {isMultiTrade && tradeContext && (
+        <fieldset className="space-y-3 rounded-xl border border-sky-200 bg-sky-50/50 p-4">
+          <legend className="px-1 text-sm font-semibold text-sky-950">
+            Tarjouksen laajuus *
+          </legend>
+          <p className="text-xs leading-relaxed text-sky-900/80">
+            Kohde vaatii useita ammatteja (
+            {tradeContext.projectTradeNames.join(", ")}). Kerro tarjoatko
+            kokonaisuuden vai vain oman osuutesi
+            {tradeContext.contractorTradeNames.length > 0 && (
+              <>
+                {" "}
+                (
+                {tradeContext.contractorTradeNames.join(", ")})
+              </>
+            )}
+            .
+          </p>
+          <div className="space-y-2">
+            <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-transparent bg-white/80 px-3 py-2.5 has-[:checked]:border-sky-400 has-[:checked]:bg-white">
+              <input
+                type="radio"
+                name="offer_scope_choice"
+                checked={fields.offer_scope === "turnkey"}
+                onChange={() => setOfferScope("turnkey")}
+                className="mt-0.5"
+              />
+              <span className="min-w-0">
+                <span className="block text-sm font-medium text-stone-900">
+                  Kokonaisurakka
+                </span>
+                <span className="mt-0.5 block text-xs text-stone-600">
+                  Vastaat koko remontista tai koordinoit alihankkijat. Hinta
+                  koskee koko urakkaa.
+                </span>
+              </span>
+            </label>
+            <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-transparent bg-white/80 px-3 py-2.5 has-[:checked]:border-sky-400 has-[:checked]:bg-white">
+              <input
+                type="radio"
+                name="offer_scope_choice"
+                checked={fields.offer_scope === "own_trade"}
+                onChange={() => setOfferScope("own_trade")}
+                className="mt-0.5"
+              />
+              <span className="min-w-0">
+                <span className="block text-sm font-medium text-stone-900">
+                  Vain oman ammattini osuus
+                </span>
+                <span className="mt-0.5 block text-xs text-stone-600">
+                  Tarjoat vain oman ammattisi työt. Kuvaa rajaukset selkeästi
+                  laajuuskentässä — asiakas voi yhdistää useita tarjouksia.
+                </span>
+              </span>
+            </label>
+          </div>
+          {fieldErrors.offer_scope && (
+            <p className="text-sm text-red-600" role="alert">
+              {fieldErrors.offer_scope}
+            </p>
+          )}
+        </fieldset>
+      )}
+
+      {isServiceProject && (
+        <fieldset className="space-y-3 rounded-xl border border-violet-200 bg-violet-50/40 p-4">
+          <legend className="px-1 text-sm font-semibold text-violet-950">
+            Palvelun hinnoittelu *
+          </legend>
+          <p className="text-xs leading-relaxed text-violet-900/80">
+            Asiakas kilpailuttaa palvelusopimuksen. Välitysmaksu peritään
+            kertaluonteisesti hyväksytyn tarjouksen yhteydessä — toistuvat
+            käynnit hoidetaan suoraan asiakkaan ja palveluntarjoajan välillä.
+          </p>
+          <div className="space-y-2">
+            {servicePricingOptions.map((model) => (
+              <label
+                key={model}
+                className="flex cursor-pointer items-start gap-3 rounded-lg border border-transparent bg-white/80 px-3 py-2.5 has-[:checked]:border-violet-400 has-[:checked]:bg-white"
+              >
+                <input
+                  type="radio"
+                  name="service_pricing_model_choice"
+                  checked={fields.service_pricing_model === model}
+                  onChange={() => update("service_pricing_model", model)}
+                  className="mt-0.5"
+                />
+                <span className="text-sm text-stone-800">
+                  {SERVICE_PRICING_MODEL_LABELS[model]}
+                </span>
+              </label>
+            ))}
+          </div>
+          {fields.service_pricing_model && (
+            <input
+              type="hidden"
+              name="service_pricing_model"
+              value={fields.service_pricing_model}
+            />
+          )}
+          {fieldErrors.service_pricing_model && (
+            <p className="text-sm text-red-600" role="alert">
+              {fieldErrors.service_pricing_model}
+            </p>
+          )}
+        </fieldset>
+      )}
+
       <div>
         <label htmlFor="amount_euros" className="block text-sm font-medium">
-          {allowOptionalEquipmentOffer && !requiresDeviceAndInstallation
-            ? "Asennus ja työ (€, sis. ALV) *"
-            : "Hintasi (€, sis. ALV) *"}
+          {amountLabel}
         </label>
         <input
           id="amount_euros"
@@ -230,15 +381,15 @@ export function BidForm({
         )}
         {blockedOverBudget && (
           <p className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">
-            Hinta ylittää asiakkaan budjetin ylärajan (
+            Hinta ylittää asiakkaan hintatoiveen (
             {budgetInfo.budgetMaxEur!.toLocaleString("fi-FI")} €). Asiakas ei
-            toivo tarjouksia budjetin yli — tarjousta ei voi lähettää tällä
+            hyväksy tarjouksia tämän yli — tarjousta ei voi lähettää tällä
             hinnalla.
           </p>
         )}
         {overBudget && !blockedOverBudget && (
           <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-950">
-            Hinta ylittää asiakkaan budjetin ylärajan (
+            Hinta ylittää asiakkaan hintatoiveen (
             {budgetInfo.budgetMaxEur!.toLocaleString("fi-FI")} €). Lähetyksessä
             kysytään vahvistus.
           </p>
@@ -303,7 +454,11 @@ export function BidForm({
 
         <div>
           <label htmlFor="scope_terms" className="block text-sm font-medium">
-            Asennuksen laajuus (mitä hinta sisältää)
+            {fields.offer_scope === "own_trade" && isMultiTrade
+              ? "Oman ammattisi osuuden laajuus (mitä hinta sisältää)"
+              : fields.offer_scope === "turnkey" && isMultiTrade
+                ? "Kokonaisurakan laajuus (mitä hinta sisältää)"
+                : "Asennuksen laajuus (mitä hinta sisältää)"}
           </label>
           <textarea
             id="scope_terms"
@@ -312,7 +467,13 @@ export function BidForm({
             value={fields.scope_terms}
             onChange={(e) => update("scope_terms", e.target.value)}
             className={inputClass}
-            placeholder="Esim. perusasennus, putket, käyttöönotto, mitä ei sisälly…"
+            placeholder={
+              fields.offer_scope === "own_trade"
+                ? "Esim. sähkökiukaan asennus ja kytkentä — ei sisällä rakennustöitä tai putkityötä…"
+                : fields.offer_scope === "turnkey"
+                  ? "Esim. kylpyhuone kokonaisuudessaan: purku, putket, vesieristys, laatoitus, kalusteet…"
+                  : "Esim. perusasennus, putket, käyttöönotto, mitä ei sisälly…"
+            }
           />
           <BidTermsTemplatePicker
             target="scope_terms"

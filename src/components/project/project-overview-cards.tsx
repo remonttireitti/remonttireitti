@@ -7,8 +7,10 @@ import {
   hasStructuredPumpDetails,
   ProjectPumpDetails,
 } from "@/components/project/project-pump-details";
+import { ServiceEngagementView } from "@/components/project/service-engagement-view";
 import { ilpDescriptionIsRedundant } from "@/lib/ilp-detail-sections";
 import { isIlpDetails } from "@/lib/ilmalampopumppu-details";
+import { serviceEngagementFromDetails } from "@/lib/service-engagement";
 import { formatBudget } from "@/lib/projects";
 import type { ProjectPhotoView } from "@/lib/project-photos";
 
@@ -59,6 +61,7 @@ export function ProjectOverviewCards({
   contactHiddenHint,
 }: Props) {
   const structured = hasStructuredPumpDetails(details);
+  const serviceEngagement = serviceEngagementFromDetails(details);
   const ilp = details?.ilmalampopumppu;
   const hideDescription =
     structured &&
@@ -73,6 +76,9 @@ export function ProjectOverviewCards({
   return (
     <div className="space-y-3">
       <ProjectPumpDetails details={details} />
+      {serviceEngagement && (
+        <ServiceEngagementView engagement={serviceEngagement} />
+      )}
 
       {photos.length > 0 && <ProjectPhotosGallery photos={photos} />}
 
@@ -132,7 +138,7 @@ export function ProjectOverviewCards({
             title="Budjetti ja aikataulu"
             rows={[
               {
-                label: "Budjetti",
+                label: "Hintatoive",
                 value: formatBudget(budgetMin ?? null, budgetMax ?? null),
               },
               ...(desiredStart

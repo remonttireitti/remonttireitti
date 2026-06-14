@@ -91,13 +91,13 @@ export const CONSUMER_FREE_PLAN: PricingPlan = {
   priceEurCents: 0,
   listingQuota: CONSUMER_FREE_MAX_ACTIVE_LISTINGS,
   features: [
-    "Käytetyt lämpöpumput, osat ja tarvikkeet",
+    "Remonttiin liittyvät laitteet, varaosat ja tarvikkeet",
     `Enintään ${CONSUMER_FREE_MAX_ACTIVE_LISTINGS} aktiivista ilmoitusta`,
     `${LISTING_DURATION_WEEKS} viikon näkyvyys — voit poistaa ilmoituksen milloin tahansa`,
     "Ei kuukausimaksua eikä ilmoitusmaksua",
     "Yhteystiedot näkyvät ostajille julkaisun jälkeen",
   ],
-  cta: "Ilmoita myytävä laite",
+  cta: "Ilmoita myytävä",
   audience: "consumer",
 };
 
@@ -120,7 +120,7 @@ export const PRICING_FAQ = [
   },
   {
     q: "Mitä saan tarjouskilpailun välitysmaksun lisäksi?",
-    a: `Tarjouskilpailu ja ${marketplaceBrand.name.toLowerCase()} ovat erillisiä palveluita. Tarjouksen hyväksynnän välitysmaksu avaa asiakkaan yhteystiedot urakalle; tori on laitteiden ja varaosien myyntiin.`,
+    a: `Tarjouskilpailu ja ${marketplaceBrand.name.toLowerCase()} ovat erillisiä palveluita. Tarjouksen hyväksynnän välitysmaksu avaa asiakkaan yhteystiedot urakalle; tori on remonttiin liittyvien laitteiden, varaosien ja tarvikkeiden myyntiin.`,
   },
 ] as const;
 

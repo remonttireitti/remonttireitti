@@ -1,4 +1,5 @@
 import { HEAT_PUMP_JOB_SLUGS, type HeatPumpSlug } from "@/constants/heat-pumps";
+import { SERVICE_JOB_SLUGS } from "@/constants/service-jobs";
 
 /**
  * Julkaistut remonttityypit — järjestys kysynnän mukaan (Suomi, omakotitalo).
@@ -51,6 +52,8 @@ export const PUBLIC_PROJECT_JOB_SLUGS = [
   "terassi",
   "pihatie",
   "aita",
+  // Palvelut & kunnossapito
+  ...SERVICE_JOB_SLUGS,
 ] as const;
 
 export type PublicProjectJobSlug = (typeof PUBLIC_PROJECT_JOB_SLUGS)[number];
@@ -63,7 +66,8 @@ export type ProjectAreaSlug =
   | "sisatilat"
   | "ulkokuori"
   | "perustus-runko"
-  | "piha";
+  | "piha"
+  | "palvelut";
 
 export type ProjectArea = {
   slug: ProjectAreaSlug;
@@ -155,6 +159,12 @@ export const PROJECT_AREAS: readonly ProjectArea[] = [
     description: "Terassi, pihatie ja aidat.",
     jobSlugs: ["terassi", "pihatie", "aita"],
   },
+  {
+    slug: "palvelut",
+    title: "Palvelut & kunnossapito",
+    description: "Siivous, muutto, piha, pesut — myös jatkuva palvelu.",
+    jobSlugs: [...SERVICE_JOB_SLUGS],
+  },
 ] as const;
 
 export function isHeatPumpJobSlug(slug: string): slug is HeatPumpSlug {
@@ -200,13 +210,13 @@ export const GENERIC_PROJECT_DESCRIPTION_HINTS: Partial<
   vesivahinko:
     "Kerro milloin havaittiin, missä vuotaa/kosteutta ja mitä on jo tehty…",
   kylpyhuone:
-    "Kerro kylpyhuoneen koosta, nykytilasta, toiveista (suihku/amme, laatoitus) ja aikataulusta…",
+    "Kerro koosta, nykytilasta ja toiveista (suihku/amme, laatoitus, putket, sähkö). Mainitse jos tarvitset kokonaisurakkaa vai vain osan töistä…",
   keittio:
     "Kerro keittiön koosta, nykyisistä kaapeista, kodinkoneista ja toiveista…",
   "wc-remontti":
     "Kerro wc:n koosta, laatoituksesta ja mitä uusitaan (istuin, putket, pinta)…",
   sauna:
-    "Kerro nykytilasta, koko toiveesta (sähkökiuas, puusauna) ja aikataulusta…",
+    "Kerro nykytilasta ja toiveista (sähkökiuas, panelit, lauteet, putkityöt). Mainitse jos esim. vain kiukaan sähköasennus…",
   "lattia-sisä":
     "Kerro huoneista, pinta-alasta ja materiaalitoiveesta (parketti, laminaatti, laatta)…",
   seinamaalaus:
@@ -239,9 +249,31 @@ export const GENERIC_PROJECT_DESCRIPTION_HINTS: Partial<
     "Kerro pinta-alasta, käyttötarkoituksesta ja maastosta…",
   aita:
     "Kerro aidan pituudesta, korkeudesta ja materiaalitoiveesta…",
+  "siivous-koti":
+    "Kerro asunnon koko, mitä tiloja siivotaan, toivottu tahti (esim. kerran viikossa) ja erityistoiveet…",
+  "siivous-loppu":
+    "Kerro remontin laajuus, pinta-ala, likaisuusaste ja toivottu ajankohta…",
+  muutto:
+    "Kerro lähtö- ja kohdeosoite, kerrokset, hissi, kalustemäärä ja toivottu muuttopäivä…",
+  kuljetus:
+    "Kerro mitä kuljetetaan, mitat/paino arvio, nouto- ja toimitusosoite…",
+  ikkunanpesu:
+    "Kerro ikkunoiden lukumäärä, kerrokset, parvekkeet ja toivottu tahti (esim. kerran vuodessa)…",
+  kattopesu:
+    "Kerro katon tyyppi, pinta-ala arvio, sammaleen määrä ja turvallisuusnäkökulmat…",
+  "nurmikon-leikkuu":
+    "Kerro pihan koko, nurmikon tila, reunusleikkuu, toivottu tahti (esim. viikoittain kesällä)…",
+  lumityo:
+    "Kerro piha-alueen koko, ajourat, kulkureitit, hiekoitus ja milloin auraus yleensä tarvitaan…",
 };
 
+const FREE_FORM_DESCRIPTION_HINT =
+  "Kerro tarkasti mitä tarvitset: nykytila, toiveet, aikataulu ja budjetti. Mitä enemmän tietoa, sitä parempia tarjouksia saat…";
+
 export function genericDescriptionPlaceholder(jobSlug: string | null): string {
+  if (jobSlug === "vapaa-pyynto") {
+    return FREE_FORM_DESCRIPTION_HINT;
+  }
   if (jobSlug && jobSlug in GENERIC_PROJECT_DESCRIPTION_HINTS) {
     return GENERIC_PROJECT_DESCRIPTION_HINTS[jobSlug as PublicProjectJobSlug]!;
   }

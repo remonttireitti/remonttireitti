@@ -8,7 +8,13 @@ import {
 } from "@/app/actions/projects";
 import type { ProjectEditSnapshot } from "@/lib/project-edit";
 import { ProjectAreaJobStep } from "@/components/project/project-area-job-step";
+import {
+  BudgetPreferenceFields,
+  formatBudgetSummaryLabel,
+} from "@/components/project/budget-preference-fields";
 import { genericDescriptionPlaceholder } from "@/constants/project-areas";
+import { isServiceJobSlug } from "@/constants/service-jobs";
+import { isFreeFormJobSlug } from "@/constants/free-form-job";
 import { IlmalampopumppuDetailsStep } from "@/components/project/ilmalampopumppu-details-step";
 import { ProjectPhotoUpload } from "@/components/project/project-photo-upload";
 import { IlmavesilampopumppuDetailsStep } from "@/components/project/ilmavesilampopumppu-details-step";
@@ -26,6 +32,12 @@ import {
   validateMaalampDetails,
 } from "@/lib/maalampopumppu-details";
 import { ProjectSummaryReview } from "@/components/project/project-summary-review";
+import { ServiceEngagementFields } from "@/components/project/service-engagement-fields";
+import {
+  ProjectAllTradesPicker,
+  ProjectTradeScopeEditor,
+  tradeNamesForSummary,
+} from "@/components/project/project-trade-scope";
 import {
   INITIAL_ILP_DETAILS,
   type IlmalampopumppuDetails,
@@ -38,13 +50,19 @@ import {
   INITIAL_MAALAMP_DETAILS,
   type MaalampopumppuDetails,
 } from "@/types/maalampopumppu-details";
+import {
+  defaultServiceEngagementForJob,
+  INITIAL_SERVICE_ENGAGEMENT,
+  validateServiceEngagement,
+  type ServiceEngagement,
+} from "@/lib/service-engagement";
 import { brand, formInputClass } from "@/lib/brand-theme";
 import type { JobCatalog, JobTypeWithTrades } from "@/types/job-catalog";
 
 const inputClass = formInputClass;
 
 const STEPS = [
-  "Valitse remontin tyyppi",
+  "Valitse työn tai palvelun tyyppi",
   "Kohde ja budjetti",
   "Yhteystiedot ja sijainti",
   "Yhteenveto",
@@ -58,6 +76,7 @@ type FormState = {
   description: string;
   budget_min: string;
   budget_max: string;
+  accept_offers_over_budget: boolean;
   desired_start: string;
   flexibility_weeks: string;
   municipality: string;
@@ -75,6 +94,7 @@ const initialForm: FormState = {
   description: "",
   budget_min: "",
   budget_max: "",
+  accept_offers_over_budget: true,
   desired_start: "",
   flexibility_weeks: "4",
   municipality: "",
@@ -126,6 +146,12 @@ export function ProjectWizard({
       ? { ...editSnapshot.maalampDetails }
       : { ...INITIAL_MAALAMP_DETAILS },
   );
+  const [serviceEngagement, setServiceEngagement] = useState<ServiceEngagement>(
+    () =>
+      editSnapshot?.serviceEngagement
+        ? { ...editSnapshot.serviceEngagement }
+        : { ...INITIAL_SERVICE_ENGAGEMENT },
+  );
   const [photoFiles, setPhotoFiles] = useState<File[]>([]);
   const [submitIntent, setSubmitIntent] = useState<"draft" | "publish" | null>(
     null,
@@ -143,6 +169,8 @@ export function ProjectWizard({
   const isIlp = selectedJobType?.slug === "ilmalampopumppu";
   const isIvlp = selectedJobType?.slug === "ilmavesilampopumppu";
   const isMaalamp = selectedJobType?.slug === "maalampopumppu";
+  const isFreeForm = isFreeFormJobSlug(selectedJobType?.slug);
+  const isServiceJob = isServiceJobSlug(selectedJobType?.slug);
   const hasStructuredForm = isIlp || isIvlp || isMaalamp;
 
   function update<K extends keyof FormState>(field: K, value: FormState[K]) {
@@ -180,7 +208,9 @@ export function ProjectWizard({
       "trade_ids",
       jt.suggested_trade_ids.length > 0 ? [...jt.suggested_trade_ids] : [],
     );
-    if (!form.title || form.title === selectedJobType?.name_fi) {
+    if (isFreeFormJobSlug(jt.slug)) {
+      update("title", "");
+    } else if (!form.title || form.title === selectedJobType?.name_fi) {
       update("title", jt.name_fi);
     }
     if (jt.slug === "ilmalampopumppu") {
@@ -192,6 +222,9 @@ export function ProjectWizard({
     if (jt.slug === "maalampopumppu") {
       setMaalampDetails(INITIAL_MAALAMP_DETAILS);
     }
+    if (isServiceJobSlug(jt.slug)) {
+      setServiceEngagement(defaultServiceEngagementForJob(jt.slug));
+    }
   }
 
   function stepError(): string | null {
@@ -202,11 +235,31 @@ export function ProjectWizard({
       if (isIlp) return validateIlpDetails(ilpDetails);
       if (isIvlp) return validateIvlpDetails(ivlpDetails);
       if (isMaalamp) return validateMaalampDetails(maalampDetails);
-      if (form.title.trim().length < 5) {
+      if (isFreeForm && form.title.trim().length < 5) {
+        return "Kuvaile työ vähintään 5 merkillä.";
+      }
+      if (!isFreeForm && form.title.trim().length < 5) {
         return "Otsikko: vähintään 5 merkkiä.";
       }
       if (form.description.trim().length < 20) {
         return "Kuvaus: vähintään 20 merkkiä.";
+      }
+      if (
+        selectedJobType &&
+        selectedJobType.suggested_trade_ids.length > 0 &&
+        form.trade_ids.length === 0
+      ) {
+        return "Valitse vähintään yksi ammatti.";
+      }
+      if (isFreeForm && form.trade_ids.length === 0) {
+        return "Valitse vähintään yksi ammatti.";
+      }
+      if (isServiceJob) {
+        const serviceErr = validateServiceEngagement(
+          serviceEngagement,
+          selectedJobType?.slug,
+        );
+        if (serviceErr) return serviceErr;
       }
     }
     if (step === 2) {
@@ -218,7 +271,11 @@ export function ProjectWizard({
       if (phoneDigits.length < 6) {
         return "Anna kelvollinen puhelinnumero.";
       }
-      if (!form.address_line.trim()) return "Anna urakan osoite.";
+      if (!form.address_line.trim()) {
+        return isServiceJob
+          ? "Anna palvelukohteen osoite."
+          : "Anna urakan osoite.";
+      }
       if (!form.municipality.trim()) return "Anna kunta.";
       if (!/^\d{5}$/.test(form.postal_code.trim())) {
         return "Postinumero: 5 numeroa (esim. 00100).";
@@ -281,14 +338,18 @@ export function ProjectWizard({
       ? "ilmavesilampopumppu"
       : isIlp
         ? "ilmalampopumppu"
-        : "";
+        : isServiceJob
+          ? "service_engagement"
+          : "";
   const detailsJson = isMaalamp
     ? JSON.stringify(maalampDetails)
     : isIvlp
       ? JSON.stringify(ivlpDetails)
       : isIlp
         ? JSON.stringify(ilpDetails)
-        : "";
+        : isServiceJob
+          ? JSON.stringify(serviceEngagement)
+          : "";
 
   const summaryBudgetMax =
     isIlp && ilpDetails.budget_max_eur
@@ -298,7 +359,10 @@ export function ProjectWizard({
         : isMaalamp && maalampDetails.budget_max_eur
           ? `n. ${maalampDetails.budget_max_eur} €`
           : !hasStructuredForm && form.budget_max
-            ? `${form.budget_max} €`
+            ? formatBudgetSummaryLabel(
+                form.budget_max,
+                form.accept_offers_over_budget,
+              )
             : null;
 
   return (
@@ -333,6 +397,22 @@ export function ProjectWizard({
           <>
             <input type="hidden" name="details_kind" value={detailsKind} />
             <input type="hidden" name="details_json" value={detailsJson} />
+          </>
+        )}
+        {isServiceJob && (
+          <>
+            <input type="hidden" name="details_kind" value={detailsKind} />
+            <input type="hidden" name="details_json" value={detailsJson} />
+          </>
+        )}
+        {isFreeForm && (
+          <>
+            <input type="hidden" name="details_kind" value="custom_request" />
+            <input
+              type="hidden"
+              name="details_json"
+              value={JSON.stringify({ label: form.title.trim() })}
+            />
           </>
         )}
         {step === 0 && (
@@ -390,15 +470,35 @@ export function ProjectWizard({
 
         {step === 1 && !hasStructuredForm && (
           <div className="space-y-4">
+            {isFreeForm && (
+              <ProjectAllTradesPicker
+                catalog={catalog}
+                tradeIds={form.trade_ids}
+                onTradeIdsChange={(ids) => update("trade_ids", ids)}
+              />
+            )}
+            {selectedJobType && !isFreeForm && (
+              <ProjectTradeScopeEditor
+                catalog={catalog}
+                jobType={selectedJobType}
+                tradeIds={form.trade_ids}
+                onTradeIdsChange={(ids) => update("trade_ids", ids)}
+              />
+            )}
             <div>
               <label htmlFor="title" className="block text-sm font-medium">
-                Otsikko *
+                {isFreeForm ? "Mitä remonttia tai työtä tarvitset? *" : "Otsikko *"}
               </label>
               <input
                 id="title"
                 value={form.title}
                 onChange={(e) => update("title", e.target.value)}
                 className={inputClass}
+                placeholder={
+                  isFreeForm
+                    ? "Esim. carportin rakentaminen, kellarin kosteuden poisto, aidan maalaus…"
+                    : undefined
+                }
               />
             </div>
             <div>
@@ -414,38 +514,25 @@ export function ProjectWizard({
                 placeholder={genericDescriptionPlaceholder(selectedJobType?.slug ?? null)}
               />
             </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div>
-                <label htmlFor="budget_min" className="block text-sm font-medium">
-                  Budjetti min (€)
-                </label>
-                <input
-                  id="budget_min"
-                  type="number"
-                  min={0}
-                  value={form.budget_min}
-                  onChange={(e) => update("budget_min", e.target.value)}
-                  className={inputClass}
-                />
-              </div>
-              <div>
-                <label htmlFor="budget_max" className="block text-sm font-medium">
-                  Budjetti max (€)
-                </label>
-                <input
-                  id="budget_max"
-                  type="number"
-                  min={0}
-                  value={form.budget_max}
-                  onChange={(e) => update("budget_max", e.target.value)}
-                  className={inputClass}
-                />
-              </div>
-            </div>
+            <BudgetPreferenceFields
+              budgetMax={form.budget_max}
+              onBudgetMaxChange={(v) => update("budget_max", v)}
+              acceptOffersOverBudget={form.accept_offers_over_budget}
+              onAcceptOffersOverBudgetChange={(v) =>
+                update("accept_offers_over_budget", v)
+              }
+            />
+            {isServiceJob && (
+              <ServiceEngagementFields
+                engagement={serviceEngagement}
+                jobSlug={selectedJobType?.slug ?? null}
+                onChange={setServiceEngagement}
+              />
+            )}
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
                 <label htmlFor="desired_start" className="block text-sm font-medium">
-                  Toivottu aloitus
+                  {isServiceJob ? "Toivottu aloitus / ensimmäinen käynti" : "Toivottu aloitus"}
                 </label>
                 <input
                   id="desired_start"
@@ -509,7 +596,7 @@ export function ProjectWizard({
             </div>
             <div>
               <label htmlFor="address_line" className="block text-sm font-medium">
-                Urakan osoite *
+                {isServiceJob ? "Palvelukohteen osoite *" : "Urakan osoite *"}
               </label>
               <input
                 id="address_line"
@@ -520,8 +607,9 @@ export function ProjectWizard({
                 placeholder="Katu 1 A 2"
               />
               <p className="mt-1 text-xs text-stone-500">
-                Tarkka osoite, jossa asennus tehdään. Näytetään urakoitsijalle vasta
-                tarjouksen hyväksynnän jälkeen.
+                {isServiceJob
+                  ? "Osoite, jossa palvelu suoritetaan. Näytetään palveluntarjoajalle vasta sopimuksen hyväksynnän jälkeen."
+                  : "Tarkka osoite, jossa asennus tehdään. Näytetään urakoitsijalle vasta tarjouksen hyväksynnän jälkeen."}
               </p>
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
@@ -570,7 +658,14 @@ export function ProjectWizard({
 
         {step === 3 && (
           <ProjectSummaryReview
-            jobTypeName={selectedJobType?.name_fi ?? "—"}
+            jobTypeName={
+              isFreeForm ? "Vapaa tarjouspyyntö" : (selectedJobType?.name_fi ?? "—")
+            }
+            involvedTradesLabel={
+              form.trade_ids.length > 0
+                ? tradeNamesForSummary(catalog, form.trade_ids)
+                : undefined
+            }
             title={form.title || (selectedJobType?.name_fi ?? "—")}
             description={submitDescription}
             isIlp={isIlp}
@@ -579,6 +674,7 @@ export function ProjectWizard({
             ivlpDetails={ivlpDetails}
             isMaalamp={isMaalamp}
             maalampDetails={maalampDetails}
+            serviceEngagement={isServiceJob ? serviceEngagement : null}
             hasStructuredForm={hasStructuredForm}
             contactEmail={form.contact_email}
             contactPhone={form.contact_phone}

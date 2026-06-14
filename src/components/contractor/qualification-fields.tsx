@@ -76,7 +76,8 @@ export function ContractorQualificationFields({
       <fieldset className={fieldsetClass}>
         <legend className={legendClass}>Ammatit *</legend>
         <p className="text-xs text-stone-500">
-          Saat ilmoituksia näihin liittyvistä tarjouspyynnöistä.
+          Saat ilmoituksia näihin liittyvistä tarjouspyynnöistä. Oletusnäkymässä
+          näytetään vain oman ammatin pyynnöt valitsemaltasi alueelta.
         </p>
         <div className="grid gap-2 sm:grid-cols-2">
           {tradeOptions.map((t) => (

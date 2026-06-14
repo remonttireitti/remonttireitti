@@ -7,7 +7,7 @@ import {
   LISTING_PRODUCT_CATEGORIES,
   type ListingProductCategory,
 } from "@/lib/marketplace-categories";
-import { PUMP_TYPE_OPTIONS } from "@/lib/marketplace-listings";
+import { MARKETPLACE_DEVICE_TYPE_GROUPS } from "@/lib/marketplace-device-types";
 
 function Field({
   label,
@@ -32,7 +32,7 @@ export function ListingCategoryFields({
   defaultCategory?: ListingProductCategory;
 }) {
   const [category, setCategory] = useState<ListingProductCategory>(defaultCategory);
-  const showPumpType = isDeviceListing(category);
+  const showDeviceType = isDeviceListing(category);
 
   return (
     <>
@@ -54,17 +54,19 @@ export function ListingCategoryFields({
         </select>
       </Field>
 
-      {showPumpType ? (
-        <Field label="Lämpöpumpun tyyppi">
+      {showDeviceType ? (
+        <Field label="Laitteen tyyppi">
           <select name="pump_type_slug" className={formInputClass}>
             <option value="">Valitse (valinnainen)…</option>
-            {PUMP_TYPE_OPTIONS.filter((o) => o.value !== "varaosa").map(
-              (o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ),
-            )}
+            {MARKETPLACE_DEVICE_TYPE_GROUPS.map((group) => (
+              <optgroup key={group.label} label={group.label}>
+                {group.options.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </optgroup>
+            ))}
           </select>
         </Field>
       ) : (

@@ -17,6 +17,14 @@ import { fetchContractorProjectConversation } from "@/lib/messages-server";
 import { fetchProjectPhotos } from "@/lib/project-photos";
 import { fetchContractorBidDefaults } from "@/lib/contractor-bid-defaults-server";
 import { resolveProjectJobTypeSlug } from "@/lib/project-job-type";
+import { ProjectMatchBadges } from "@/components/contractor/contractor-service-area-form";
+import {
+  evaluateProjectMatch,
+} from "@/lib/contractor-project-match";
+import { loadContractorMatchProfile } from "@/lib/contractor-projects-server";
+import { projectDistanceKm } from "@/lib/geo-distance";
+import { fetchProjectTradeContextForContractor } from "@/lib/project-trades-server";
+import { serviceEngagementFromDetails } from "@/lib/service-engagement";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function ContractorProjectPage({
@@ -58,7 +66,7 @@ export default async function ContractorProjectPage({
   const { data: existingBid } = await supabase
     .from("bids")
     .select(
-      "id, amount_cents, offers_equipment, equipment_amount_cents, equipment_description, message, status, estimated_days, vat_included, submitted_at, scope_terms, contract_terms, warranty_work, warranty_equipment, earliest_start_date, confirms_licenses, confirms_building_standards, counter_amount_cents, counter_message, counter_offered_at, counter_status, confirmed_content_revision, rejection_message, rejected_at",
+      "id, amount_cents, offers_equipment, equipment_amount_cents, equipment_description, message, status, estimated_days, vat_included, submitted_at, scope_terms, contract_terms, warranty_work, warranty_equipment, earliest_start_date, confirms_licenses, confirms_building_standards, offer_scope, counter_amount_cents, counter_message, counter_offered_at, counter_status, confirmed_content_revision, rejection_message, rejected_at",
     )
     .eq("project_id", id)
     .eq("contractor_id", user.id)
@@ -115,6 +123,61 @@ export default async function ContractorProjectPage({
     jobTypeSlug,
   );
 
+  const tradeContext = await fetchProjectTradeContextForContractor(
+    supabase,
+    id,
+    user.id,
+  );
+  const serviceEngagement = serviceEngagementFromDetails(project.details);
+
+  const contractorProfile = await loadContractorMatchProfile(supabase, user.id);
+  const { data: projectTrades } = await supabase
+    .from("project_trades")
+    .select("trade_id, trades ( slug )")
+    .eq("project_id", id);
+
+  type TradeLink = {
+    trade_id: string;
+    trades: { slug: string } | { slug: string }[] | null;
+  };
+  const tradeIds = (projectTrades ?? []).map((r) => (r as TradeLink).trade_id);
+  const tradeSlugs = (projectTrades ?? [])
+    .map((r) => {
+      const t = (r as TradeLink).trades;
+      return Array.isArray(t) ? t[0]?.slug : t?.slug;
+    })
+    .filter(Boolean) as string[];
+
+  const jt = project.job_types as
+    | { slug: string }
+    | { slug: string }[]
+    | null;
+  if (!jobTypeSlug) {
+    jobTypeSlug = (Array.isArray(jt) ? jt[0]?.slug : jt?.slug) ?? null;
+  }
+
+  const distanceKm = await projectDistanceKm(
+    supabase,
+    contractorProfile.servicePostalCode,
+    contractorProfile.serviceMunicipality,
+    project.postal_code,
+    project.municipality,
+  );
+
+  const projectMatch = evaluateProjectMatch(
+    contractorProfile,
+    {
+      id: project.id,
+      jobTypeId: project.job_type_id,
+      jobTypeSlug: jobTypeSlug ?? null,
+      tradeIds,
+      tradeSlugs,
+      municipality: project.municipality,
+      postalCode: project.postal_code,
+    },
+    distanceKm,
+  );
+
   const chatData = await fetchContractorProjectConversation(
     supabase,
     id,
@@ -132,6 +195,13 @@ export default async function ContractorProjectPage({
 
         <h1 className="mt-4 text-2xl font-bold">{project.title}</h1>
         <p className="text-stone-500">{categoryName}</p>
+        <ProjectMatchBadges match={projectMatch} />
+        {projectMatch.qualificationFit === "none" && (
+          <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+            Profiilisi pätevyydet eivät täysin vastaa pyyntöä. Voit silti jättää
+            tarjouksen, jos hoidat puuttuvat työt alihankkijalla tai muulla tavalla.
+          </p>
+        )}
 
         {tarjous === "lahetetty" && (
           <p
@@ -200,6 +270,8 @@ export default async function ContractorProjectPage({
           bidStale={bidStale}
           defaultBidTerms={defaultBidTerms}
           jobTypeSlug={jobTypeSlug}
+          tradeContext={tradeContext}
+          serviceEngagement={serviceEngagement}
         />
       </main>
     </div>

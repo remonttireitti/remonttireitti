@@ -10,13 +10,15 @@ import {
   parseHuoltoPrefillFromSearchParams,
 } from "@/lib/troubleshooting-huolto-prefill";
 import { pageMetadata } from "@/lib/seo";
+import { seoDefByPath } from "@/lib/seo-pages";
+
+const seo = seoDefByPath("/huolto/uusi")!;
 
 export const metadata: Metadata = pageMetadata({
-  title: "Huolto tai korjaus — lämpöpumppu",
-  description:
-    "Kilpailuta lämpöpumpun huolto tai korjaus. Kuvaile vika, lisää kuvia ja saa tarjouksia urakoitsijoilta.",
+  title: seo.title,
+  description: seo.description,
   path: "/huolto/uusi",
-  noIndex: true,
+  keywords: seo.keywords,
 });
 
 export default async function NewMaintenanceRequestPage({

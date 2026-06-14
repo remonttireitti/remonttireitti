@@ -13,6 +13,7 @@ import { bidTotalAmountCents } from "@/lib/bid-amounts";
 import { bidStatusLabels, formatEurosFromCents } from "@/lib/bids";
 import type { ContractorBidDefaults } from "@/lib/contractor-bid-defaults-shared";
 import type { ProjectBudgetInfo } from "@/lib/project-budget";
+import type { ProjectTradeContext } from "@/lib/project-trades-server";
 import type { BidStatus } from "@/types/database";
 
 type BidView = BidRecordForForm &
@@ -32,6 +33,8 @@ export function ContractorBidPanel({
   bidStale = false,
   defaultBidTerms,
   jobTypeSlug,
+  tradeContext,
+  serviceEngagement,
 }: {
   projectId: string;
   bid: BidView | null;
@@ -41,6 +44,8 @@ export function ContractorBidPanel({
   bidStale?: boolean;
   defaultBidTerms?: ContractorBidDefaults;
   jobTypeSlug?: string | null;
+  tradeContext?: ProjectTradeContext;
+  serviceEngagement?: import("@/lib/service-engagement").ServiceEngagement | null;
 }) {
   const bidFormProps = {
     projectId,
@@ -49,6 +54,8 @@ export function ContractorBidPanel({
     budgetInfo,
     defaultBidTerms,
     jobTypeSlug,
+    tradeContext,
+    serviceEngagement,
   };
   const router = useRouter();
   const [withdrawError, setWithdrawError] = useState<string | null>(null);

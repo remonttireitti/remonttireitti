@@ -1,25 +1,24 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import {
+  ContractorProjectFilterBar,
+  ProjectMatchBadges,
+} from "@/components/contractor/contractor-service-area-form";
 import { ValuePromoBanner } from "@/components/promo/value-promo-banner";
 import { SiteHeader } from "@/components/site-header";
+import {
+  fetchContractorOpenProjects,
+  loadContractorMatchProfile,
+} from "@/lib/contractor-projects-server";
 import { getSessionUser, isContractor } from "@/lib/auth";
 import { formatBudget } from "@/lib/projects";
 import { createClient } from "@/lib/supabase/server";
 
-type ProjectRow = {
-  id: string;
-  title: string;
-  municipality: string;
-  postal_code: string;
-  status: string;
-  budget_min: number | null;
-  budget_max: number | null;
-  created_at: string;
-  service_categories: { name_fi: string } | { name_fi: string }[] | null;
-  job_types: { name_fi: string } | { name_fi: string }[] | null;
-};
-
-export default async function ContractorProjectsPage() {
+export default async function ContractorProjectsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ nayta?: string }>;
+}) {
   const user = await getSessionUser();
   if (!user) redirect("/kirjaudu?redirect=/tarjoukset");
 
@@ -28,50 +27,20 @@ export default async function ContractorProjectsPage() {
     redirect("/oma-tili?viesti=vain-urakoitsijalle");
   }
 
+  const { nayta } = await searchParams;
+  const showAll = nayta === "kaikki";
+
   const supabase = await createClient();
-  const { data: projectsRaw } = await supabase
-    .from("projects")
-    .select(
-      `id, title, municipality, postal_code, status, budget_min, budget_max, created_at,
-       service_categories ( name_fi ),
-       job_types ( name_fi )`,
-    )
-    .in("status", ["published", "receiving_bids"])
-    .order("created_at", { ascending: false });
+  const profile = await loadContractorMatchProfile(supabase, user.id);
+  const allProjects = await fetchContractorOpenProjects(supabase, profile);
 
-  let projects = (projectsRaw ?? []) as ProjectRow[];
+  const projects = showAll
+    ? allProjects
+    : allProjects.filter((p) => p.match.recommended);
 
-  const { data: myTrades } = await supabase
-    .from("contractor_trades")
-    .select("trade_id")
-    .eq("contractor_id", user.id);
-
-  if (myTrades && myTrades.length > 0) {
-    const tradeIds = new Set(myTrades.map((t) => t.trade_id));
-    const projectIds = projects.map((p) => p.id);
-
-    if (projectIds.length > 0) {
-      const { data: projectTrades } = await supabase
-        .from("project_trades")
-        .select("project_id, trade_id")
-        .in("project_id", projectIds);
-
-      const matchingProjectIds = new Set(
-        (projectTrades ?? [])
-          .filter((row) => tradeIds.has(row.trade_id))
-          .map((row) => row.project_id),
-      );
-
-      const projectsWithTradeRows = new Set(
-        (projectTrades ?? []).map((row) => row.project_id),
-      );
-
-      projects = projects.filter((p) => {
-        if (!projectsWithTradeRows.has(p.id)) return true;
-        return matchingProjectIds.has(p.id);
-      });
-    }
-  }
+  const locationConfigured = Boolean(
+    profile.servicePostalCode?.trim() || profile.serviceMunicipality?.trim(),
+  );
 
   const { data: myBids } = await supabase
     .from("bids")
@@ -95,15 +64,8 @@ export default async function ContractorProjectsPage() {
     .eq("contractor_id", user.id)
     .order("created_at", { ascending: false });
 
-  function label(
-    sc: ProjectRow["service_categories"],
-    jt: ProjectRow["job_types"],
-  ) {
-    const jobName = Array.isArray(jt) ? jt[0]?.name_fi : jt?.name_fi;
-    if (jobName) return jobName;
-    if (!sc) return "Remontti";
-    if (Array.isArray(sc)) return sc[0]?.name_fi ?? "Remontti";
-    return sc.name_fi;
+  function label(p: (typeof allProjects)[number]) {
+    return p.job_type_name ?? p.category_name;
   }
 
   return (
@@ -112,8 +74,16 @@ export default async function ContractorProjectsPage() {
       <main className="mx-auto max-w-2xl px-6 py-12">
         <h1 className="text-2xl font-bold">Avoimet tarjouspyynnöt</h1>
         <p className="mt-2 text-stone-600">
-          Jätä tarjous asennuksesta ja laitteesta.
+          Oletuksena näytetään oman ammatin pyynnöt valitsemaltasi alueelta.
         </p>
+
+        <ContractorProjectFilterBar
+          showAll={showAll}
+          recommendedCount={allProjects.filter((p) => p.match.recommended).length}
+          totalCount={allProjects.length}
+          locationConfigured={locationConfigured}
+          maxTravelKm={profile.maxTravelKm}
+        />
 
         <ValuePromoBanner variant="contractor-pay-on-win" className="mt-6" />
 
@@ -148,7 +118,21 @@ export default async function ContractorProjectsPage() {
         )}
 
         {!projects.length ? (
-          <p className="mt-8 text-stone-600">Ei avoimia pyyntöjä juuri nyt.</p>
+          <div className="mt-8 rounded-xl border border-stone-200 bg-white p-6 text-stone-600">
+            {showAll ? (
+              <p>Ei avoimia pyyntöjä juuri nyt.</p>
+            ) : (
+              <>
+                <p>Ei suodatettuja pyyntöjä juuri nyt.</p>
+                <Link
+                  href="/tarjoukset?nayta=kaikki"
+                  className="mt-3 inline-block text-sm font-medium text-sky-800 hover:underline"
+                >
+                  Näytä kaikki avoimet pyynnöt
+                </Link>
+              </>
+            )}
+          </div>
         ) : (
           <ul className="mt-8 space-y-3">
             {projects.map((p) => (
@@ -166,11 +150,12 @@ export default async function ContractorProjectsPage() {
                     )}
                   </div>
                   <p className="mt-1 text-sm text-stone-500">
-                    {label(p.service_categories, p.job_types)} · {p.municipality}
+                    {label(p)} · {p.municipality}
                   </p>
                   <p className="mt-1 text-sm text-stone-600">
                     Budjetti: {formatBudget(p.budget_min, p.budget_max)}
                   </p>
+                  <ProjectMatchBadges match={p.match} />
                 </Link>
               </li>
             ))}

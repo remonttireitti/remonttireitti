@@ -15,8 +15,9 @@ export function HomeTrust() {
         Tunnemme urakoitsijat — sinä näet pätevyydet ja arvostelut
       </h2>
       <p className="mt-2 max-w-2xl text-sm leading-relaxed text-stone-700">
-        Remonttireitti kokoaa tarjouspyynnöt omakotitaloihin. Urakoitsijat eivät ole
-        anonyymejä: pätevyystiedot ja aiemmat arvostelut auttavat vertailua.
+        Remonttireitti kokoaa tarjouspyynnöt omakotitaloihin: remontit,
+        huollot, kunnossapito ja tori. Urakoitsijat eivät ole anonyymejä —
+        pätevyystiedot ja aiemmat arvostelut auttavat vertailua.
       </p>
       <ul className="mt-6 grid gap-4 sm:grid-cols-2">
         {CONTRACTOR_TRUST_POINTS.map((item, i) => (

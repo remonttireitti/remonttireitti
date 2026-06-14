@@ -10,7 +10,10 @@ import {
   isHeatPumpJobSlug,
   type ProjectAreaSlug,
 } from "@/constants/project-areas";
+import { FREE_FORM_JOB_SLUG } from "@/constants/free-form-job";
+import { SuggestedTradeChips } from "@/components/project/project-trade-scope";
 import { brand } from "@/lib/brand-theme";
+import { tradesForJobType } from "@/lib/project-trade-scope";
 import type { JobCatalog, JobTypeWithTrades } from "@/types/job-catalog";
 
 type Props = {
@@ -41,6 +44,16 @@ export function ProjectAreaJobStep({
       .filter(Boolean) as JobTypeWithTrades[];
   }, [activeArea, catalog.jobTypes]);
 
+  const freeFormJob = useMemo(
+    () => catalog.jobTypes.find((j) => j.slug === FREE_FORM_JOB_SLUG) ?? null,
+    [catalog.jobTypes],
+  );
+
+  function selectFreeForm() {
+    setAreaSlug(null);
+    if (freeFormJob) onJobTypeChange(freeFormJob);
+  }
+
   function selectArea(slug: ProjectAreaSlug) {
     setAreaSlug(slug);
     if (selectedJob && areaForJobSlug(selectedJob.slug)?.slug !== slug) {
@@ -57,7 +70,7 @@ export function ProjectAreaJobStep({
     return (
       <div className="space-y-4">
         <h2 className="text-lg font-semibold text-stone-900">
-          Mitä remonttia tarvitset?
+          Mitä palvelua tai remonttia tarvitset?
         </h2>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {PROJECT_AREAS.map((area) => (
@@ -73,6 +86,26 @@ export function ProjectAreaJobStep({
               </span>
             </button>
           ))}
+          {freeFormJob && (
+            <button
+              type="button"
+              onClick={selectFreeForm}
+              className={`rounded-xl border p-4 text-left transition-colors sm:col-span-2 lg:col-span-3 ${
+                jobTypeId === freeFormJob.id
+                  ? brand.selectedCard
+                  : "border-dashed border-stone-300 bg-stone-50/80 hover:border-amber-300 hover:bg-amber-50/40"
+              }`}
+            >
+              <span className="font-semibold text-stone-900">
+                En löydä listalta — kuvaile itse
+              </span>
+              <span className="mt-1 block text-sm text-stone-600">
+                Vapaamuotoinen tarjouspyyntö. Kerro seuraavassa vaiheessa mitä
+                remonttia tai työtä tarvitset — seurataan kysyntää ja lisätään
+                suositut tyypit valikoimaan.
+              </span>
+            </button>
+          )}
         </div>
       </div>
     );
@@ -126,6 +159,11 @@ export function ProjectAreaJobStep({
                 <span className="mt-2 block text-xs text-stone-500">
                   {pumpMeta.hint}
                 </span>
+              )}
+              {!pumpMeta && (
+                <SuggestedTradeChips
+                  trades={tradesForJobType(catalog.trades, jt)}
+                />
               )}
             </button>
           );

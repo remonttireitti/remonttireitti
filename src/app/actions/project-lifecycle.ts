@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { syncPropertyLogFromCompletedProject } from "@/lib/property-log";
 import { revalidatePath } from "next/cache";
 
 export type LifecycleActionState = { error?: string; success?: string };
@@ -51,8 +52,11 @@ export async function completeProject(
 
   if (error) return { error: "Tallennus epäonnistui." };
 
+  await syncPropertyLogFromCompletedProject(supabase, projectId);
+
   revalidatePath(`/remontti/${projectId}`);
   revalidatePath("/oma-tili");
+  revalidatePath("/oma-tili/huoltokirja");
   return {
     success:
       "Urakka merkitty valmiiksi. Voit arvostella urakoitsijan heti — muistutus tulee myös noin viikon kuluttua, jos et ehdi.",

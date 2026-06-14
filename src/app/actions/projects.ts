@@ -29,9 +29,41 @@ import {
   userNotifyProjectUpdated,
 } from "@/lib/user-notify";
 import { formatProjectSaveError } from "@/lib/project-save-errors";
+import {
+  fetchJobTypeSlug,
+  recordCustomJobDemand,
+} from "@/lib/custom-job-demand";
+import { isFreeFormJobSlug } from "@/constants/free-form-job";
+import {
+  parseServiceEngagementJson,
+  validateServiceEngagement,
+} from "@/lib/service-engagement";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+
+function parseAcceptOverBudgetFromForm(formData: FormData): boolean {
+  return formData.get("accept_offers_over_budget") !== "no";
+}
+
+function mergeBudgetPrefs(
+  details: Record<string, unknown>,
+  acceptOver: boolean,
+): Record<string, unknown> {
+  return {
+    ...details,
+    budget_prefs: { accept_offers_over_budget: acceptOver },
+  };
+}
+
+function shouldStoreGenericBudgetPrefs(detailsKind: string): boolean {
+  return (
+    !detailsKind ||
+    detailsKind === "custom_request" ||
+    detailsKind === "laitteen_huolto" ||
+    detailsKind === "service_engagement"
+  );
+}
 
 export type ProjectActionState = {
   error?: string;
@@ -81,7 +113,18 @@ export async function createProject(
   const detailsKind = String(formData.get("details_kind") ?? "").trim();
   const detailsJsonRaw = String(formData.get("details_json") ?? "").trim();
   let projectDetails: Record<string, unknown> = {};
-  if (detailsJsonRaw && detailsKind === "laitteen_huolto") {
+  if (detailsJsonRaw && detailsKind === "custom_request") {
+    try {
+      const parsed = JSON.parse(detailsJsonRaw) as { label?: string };
+      const label = String(parsed.label ?? title).trim();
+      if (label.length < 5) {
+        return { error: "Kuvaile työ vähintään 5 merkillä." };
+      }
+      projectDetails = { custom_request: { label } };
+    } catch {
+      return { error: "Vapaamuotoisen pyynnön tiedot ovat virheelliset." };
+    }
+  } else if (detailsJsonRaw && detailsKind === "laitteen_huolto") {
     const parsed = parseDeviceMaintenanceJson(detailsJsonRaw);
     if (!parsed) {
       return {
@@ -91,6 +134,17 @@ export async function createProject(
     const detailsErr = validateDeviceMaintenanceDetails(parsed);
     if (detailsErr) return { error: detailsErr };
     projectDetails = { laitteen_huolto: parsed };
+  } else if (detailsJsonRaw && detailsKind === "service_engagement") {
+    const parsed = parseServiceEngagementJson(detailsJsonRaw);
+    if (!parsed) {
+      return { error: "Palvelun toistuvuustiedot ovat virheelliset." };
+    }
+    const jobTypeSlugEarly = jobTypeId
+      ? await fetchJobTypeSlug(supabase, jobTypeId)
+      : null;
+    const detailsErr = validateServiceEngagement(parsed, jobTypeSlugEarly);
+    if (detailsErr) return { error: detailsErr };
+    projectDetails = { service_engagement: parsed };
   } else if (detailsJsonRaw && detailsKind === "maalampopumppu") {
     const parsed = parseMaalampDetailsJson(detailsJsonRaw);
     if (!parsed) {
@@ -117,8 +171,20 @@ export async function createProject(
     projectDetails = { ilmalampopumppu: parsed };
   }
 
+  if (shouldStoreGenericBudgetPrefs(detailsKind)) {
+    projectDetails = mergeBudgetPrefs(
+      projectDetails,
+      parseAcceptOverBudgetFromForm(formData),
+    );
+  }
+
   if (!jobTypeId || tradeIds.length === 0) {
     return { error: "Valitse työ ja vähintään yksi ammatti." };
+  }
+
+  const jobTypeSlug = await fetchJobTypeSlug(supabase, jobTypeId);
+  if (isFreeFormJobSlug(jobTypeSlug) && title.length < 5) {
+    return { error: "Kuvaile työ vähintään 5 merkillä." };
   }
 
   if (
@@ -285,6 +351,16 @@ export async function createProject(
         }),
       );
     }
+
+    if (isFreeFormJobSlug(jobTypeSlug)) {
+      await recordCustomJobDemand(
+        supabase,
+        data.id,
+        jobTypeSlug,
+        title,
+        projectDetails,
+      );
+    }
   }
 
   revalidatePath("/oma-tili");
@@ -363,6 +439,17 @@ export async function publishProject(
         municipality: project.municipality,
         postalCode: project.postal_code,
       }),
+    );
+  }
+
+  const jobTypeSlug = await fetchJobTypeSlug(supabase, project.job_type_id);
+  if (isFreeFormJobSlug(jobTypeSlug)) {
+    await recordCustomJobDemand(
+      supabase,
+      projectId,
+      jobTypeSlug,
+      project.title,
+      project.details,
     );
   }
 
@@ -602,7 +689,18 @@ export async function updateProject(
   const detailsKind = String(formData.get("details_kind") ?? "").trim();
   const detailsJsonRaw = String(formData.get("details_json") ?? "").trim();
   let projectDetails: Record<string, unknown> = {};
-  if (detailsJsonRaw && detailsKind === "maalampopumppu") {
+  if (detailsJsonRaw && detailsKind === "service_engagement") {
+    const parsed = parseServiceEngagementJson(detailsJsonRaw);
+    if (!parsed) {
+      return { error: "Palvelun toistuvuustiedot ovat virheelliset." };
+    }
+    const jobTypeSlugEarly = jobTypeId
+      ? await fetchJobTypeSlug(supabase, jobTypeId)
+      : null;
+    const detailsErr = validateServiceEngagement(parsed, jobTypeSlugEarly);
+    if (detailsErr) return { error: detailsErr };
+    projectDetails = { service_engagement: parsed };
+  } else if (detailsJsonRaw && detailsKind === "maalampopumppu") {
     const parsed = parseMaalampDetailsJson(detailsJsonRaw);
     if (!parsed) {
       return { error: "Lämpöpumpun tiedot ovat virheelliset. Täytä lomake uudelleen." };
@@ -626,6 +724,13 @@ export async function updateProject(
     const detailsErr = validateIlpDetails(parsed);
     if (detailsErr) return { error: detailsErr };
     projectDetails = { ilmalampopumppu: parsed };
+  }
+
+  if (shouldStoreGenericBudgetPrefs(detailsKind)) {
+    projectDetails = mergeBudgetPrefs(
+      projectDetails,
+      parseAcceptOverBudgetFromForm(formData),
+    );
   }
 
   if (!jobTypeId || tradeIds.length === 0) {

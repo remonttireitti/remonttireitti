@@ -7,12 +7,15 @@ import { LISTING_PRODUCT_CATEGORIES } from "@/lib/marketplace-categories";
 import { marketplaceCreateListingPath } from "@/lib/marketplace-listing-links";
 import { marketplaceBrand } from "@/lib/marketplace-brand";
 import { pageMetadata } from "@/lib/seo";
+import { seoDefByPath } from "@/lib/seo-pages";
+
+const seo = seoDefByPath("/markkinapaikka")!;
 
 export const metadata: Metadata = pageMetadata({
-  title: `${marketplaceBrand.name} — lämpöpumput ja osat`,
-  description:
-    "Osta ja myy käytettyjä ja uusia lämpöpumppuja, varaosia ja laitteita. Ilmoitukset yksityisiltä myyjiltä ja urakoitsijoilta.",
+  title: seo.title,
+  description: seo.description,
   path: "/markkinapaikka",
+  keywords: seo.keywords,
 });
 
 export default async function MarketplacePage() {
@@ -32,8 +35,9 @@ export default async function MarketplacePage() {
         </h1>
         <p className="mt-2 text-lg text-stone-500">{marketplaceBrand.tagline}</p>
         <p className="mt-4 max-w-2xl text-lg text-stone-600">
-          Osta ja myy lämpöpumppuja, varaosia ja laitteita torilla. Selaa
-          ilmoituksia alueeltasi tai lisää myytävä kohde
+          Osta ja myy remonttiin liittyviä laitteita, varaosia ja tarvikkeita.
+          Lämmitys, keittiö, kylpyhuone, sähkö, rakennustarvikkeet ja muut —
+          selaa ilmoituksia alueeltasi tai lisää myytävä kohde
           {contractor ? " yrityksenä" : " — yksityisille ja ammattilaisille"}.
         </p>
 
@@ -78,8 +82,8 @@ export default async function MarketplacePage() {
             <div className="flex h-full min-h-[11rem] flex-col rounded-xl border border-stone-200 bg-white p-5 shadow-sm">
               <h2 className="font-semibold text-stone-900">Yksityiselle</h2>
               <p className="mt-2 flex-1 text-sm text-stone-600">
-                Myy käytetty laite tai varaosa helposti. Ilmoitus on maksuton
-                yksityishenkilölle.
+                Myy ylimääräinen laite, varaosa tai remonttitarvike helposti.
+                Ilmoitus on maksuton yksityishenkilölle.
               </p>
               <Link
                 href="/markkinapaikka/ilmoita?tyyppi=kuluttaja"
@@ -118,9 +122,9 @@ export default async function MarketplacePage() {
         </div>
 
         <p className="mt-12 text-center text-sm text-stone-500">
-          Tarvitsetko asennusta?{" "}
+          Tarvitsetko asennusta tai urakoitsijaa?{" "}
           <Link href="/remontti/uusi" className="text-sky-700 hover:underline">
-            Kilpailuta lämpöpumppu
+            Kilpailuta remontti
           </Link>{" "}
           erikseen.
         </p>

@@ -6,7 +6,7 @@ const items = [
   },
   {
     title: "Tarkka tarjouspyyntö",
-    body: "Lämpöpumpuissa tarkempi lomake — muissa kuvaus ja kuvat. Urakoitsija voi tarjota tarkemmin ilman yllätyksiä.",
+    body: "Lämpöpumpuissa tarkempi lomake — muissa kuvaus ja kuvat. Jatkuvissa palveluissa kerro taajuus ja kausi. Urakoitsija voi tarjota tarkemmin ilman yllätyksiä.",
     highlight: false,
   },
   {

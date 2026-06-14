@@ -19,10 +19,10 @@ export function formatBudgetOfferPreference(
   budgetMaxEur: number | null,
   acceptOverBudget: boolean,
 ): string {
-  if (!budgetMaxEur) return "Budjetin ylärajaa ei ilmoitettu";
-  const base = `Budjetin yläraja: n. ${budgetMaxEur} €`;
+  if (!budgetMaxEur) return "Hintatoivetta ei ilmoitettu";
+  const formatted = budgetMaxEur.toLocaleString("fi-FI");
   if (acceptOverBudget) {
-    return `${base} — tarjoukset sallittu myös budjetin ylärajan ylitse`;
+    return `Suosin tarjouksia alle ${formatted} € — korkeammat sallittu`;
   }
-  return `${base} — toivotaan tarjouksia budjetin ylärajan sisällä`;
+  return `En hyväksy tarjouksia yli ${formatted} €`;
 }

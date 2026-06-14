@@ -12,6 +12,7 @@ type ProjectDetailsJson = {
   ilmalampopumppu?: unknown;
   ilmavesilampopumppu?: unknown;
   maalampopumppu?: unknown;
+  budget_prefs?: Partial<{ accept_offers_over_budget?: boolean }>;
 };
 
 export function getProjectBudgetInfo(project: {
@@ -41,6 +42,9 @@ export function getProjectBudgetInfo(project: {
         break;
       }
     }
+    if (details.budget_prefs) {
+      acceptOffersOverBudget = parseAcceptOffersOverBudget(details.budget_prefs);
+    }
   }
 
   return { budgetMaxEur, budgetMinEur, acceptOffersOverBudget };
@@ -64,7 +68,7 @@ export function getOverBudgetBlockError(
   if (budget.acceptOffersOverBudget) return null;
 
   const formattedMax = (budget.budgetMaxEur ?? 0).toLocaleString("fi-FI");
-  return `Asiakas ei toivo tarjouksia budjetin ylärajan (${formattedMax} €) yli. Laske hinta budjetin sisään tai jätä tarjous toiseen pyyntöön.`;
+  return `Asiakas ei hyväksy tarjouksia yli ${formattedMax} €. Laske hinta tämän alle tai jätä tarjous toiseen pyyntöön.`;
 }
 
 /** Vahvistus vain kun ylitys on sallittu mutta halutaan varoittaa. */

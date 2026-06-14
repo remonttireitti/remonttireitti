@@ -7,12 +7,15 @@ import {
 } from "@/constants/heat-pumps";
 import { brand } from "@/lib/brand-theme";
 import { pageMetadata } from "@/lib/seo";
+import { seoDefByPath } from "@/lib/seo-pages";
+
+const seo = seoDefByPath("/vian-selvitys")!;
 
 export const metadata: Metadata = pageMetadata({
-  title: "Lämpöpumpun vian selvitys",
-  description:
-    "Tarkista lämpöpumpun yleisimmät viat itse — ilmalämpö, vesi-ilmalämpö ja maalämpö. Jos ongelma ei ratkea, kilpailuta huolto ammattilaiselta.",
+  title: seo.title,
+  description: seo.description,
   path: "/vian-selvitys",
+  keywords: seo.keywords,
 });
 
 export default function TroubleshootingLandingPage() {

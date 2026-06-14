@@ -17,9 +17,9 @@ import {
   type ContractorBidDefaultsByJobType,
 } from "@/lib/contractor-bid-defaults-shared";
 import type { BidTermTemplateTarget } from "@/lib/bid-term-templates";
+import { brand, formInputClass } from "@/lib/brand-theme";
 
-const inputClass =
-  "mt-1 w-full rounded-lg border border-stone-300 px-3 py-2 text-sm text-stone-900 focus:border-sky-600 focus:outline-none focus:ring-1 focus:ring-sky-600";
+const inputClass = formInputClass;
 
 function mergeDefaultsForSlug(
   slug: HeatPumpSlug,
@@ -96,12 +96,11 @@ export function ContractorBidDefaultsForm({
   return (
     <form
       action={action}
-      className="mt-6 space-y-4 rounded-xl border border-stone-200 bg-white p-6"
+      className={`${brand.section} space-y-4 p-5 sm:p-6 ${className}`}
     >
-      <h2 className="text-lg font-semibold">Tarjouksen oletusehdot</h2>
-      <p className="text-sm text-stone-600">
-        Määritä erilliset oletukset kullekin lämpöpumpputyypille. Ne täyttyvät
-        automaattisesti uuteen tarjoukseen, kun pyynnön tyyppi vastaa valintaa.
+      <h2 className={brand.sectionTitle}>Tarjouksen oletusehdot</h2>
+      <p className={brand.sectionDesc}>
+        Oletukset täyttyvät automaattisesti uuteen tarjoukseen tyypin mukaan.
         Käytä valmiita malleja tai kirjoita oma teksti.
       </p>
 
@@ -117,10 +116,10 @@ export function ContractorBidDefaultsForm({
             role="tab"
             aria-selected={activeSlug === slug}
             onClick={() => setActiveSlug(slug)}
-            className={`rounded-full px-3 py-1.5 text-sm font-medium ${
+            className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
               activeSlug === slug
-                ? "bg-stone-800 text-white"
-                : "bg-stone-100 text-stone-700 hover:bg-stone-200"
+                ? "bg-sky-800 text-white"
+                : "bg-stone-100 text-stone-700 hover:bg-sky-50 hover:text-sky-900"
             }`}
           >
             {HEAT_PUMP_MARKETING[slug].title}
@@ -227,7 +226,10 @@ export function ContractorBidDefaultsForm({
         </p>
       )}
       {state.ok && (
-        <p className="text-sm text-sky-700" role="status">
+        <p
+          className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900"
+          role="status"
+        >
           {state.ok}
         </p>
       )}
@@ -235,7 +237,7 @@ export function ContractorBidDefaultsForm({
       <button
         type="submit"
         disabled={pending}
-        className="rounded-lg bg-stone-800 px-4 py-2 text-sm font-medium text-white hover:bg-stone-900 disabled:opacity-60"
+        className={`${brand.btnPrimary} disabled:opacity-60`}
       >
         {pending ? "Tallennetaan…" : "Tallenna oletusehdot"}
       </button>

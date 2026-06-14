@@ -12,6 +12,7 @@ import { ProjectOverviewCards } from "@/components/project/project-overview-card
 import { fetchProjectPhotos } from "@/lib/project-photos";
 import { ReviewDisplay } from "@/components/review/review-display";
 import { ReviewForm } from "@/components/review/review-form";
+import { PlatformFeedbackPanel } from "@/components/feedback/platform-feedback-panel";
 import { SiteHeader } from "@/components/site-header";
 import { getSessionUser } from "@/lib/auth";
 import { expirePendingAcceptanceForProject } from "@/lib/expire-pending-acceptance";
@@ -23,6 +24,7 @@ import {
   fetchCustomerProjectConversations,
 } from "@/lib/messages-server";
 import { fetchContractorRatings } from "@/lib/reviews";
+import { fetchPlatformFeedbackForProject } from "@/lib/platform-feedback-server";
 import { createClient } from "@/lib/supabase/server";
 import type { ProjectStatus } from "@/types/database";
 
@@ -85,6 +87,7 @@ export default async function ProjectPage({
           estimated_days,
           vat_included,
           scope_terms,
+          offer_scope,
           contract_terms,
           warranty_work,
           warranty_equipment,
@@ -167,6 +170,10 @@ export default async function ProjectPage({
     : (sc?.name_fi ?? "Remontti");
 
   const status = project.status as ProjectStatus;
+  const platformFeedback =
+    status === "completed"
+      ? await fetchPlatformFeedbackForProject(supabase, user.id, id)
+      : null;
   const pendingFinalization =
     status === "bid_accepted" && platformInvoice?.status === "pending";
   const statusLabel = getProjectStatusLabel(status, {
@@ -321,24 +328,36 @@ export default async function ProjectPage({
         {status === "draft" && <ProjectDraftPublishPanel projectId={id} />}
 
         {acceptedCompany && (
-          <OrderFinalizationStatus
-            invoice={
-              platformInvoice
-                ? {
-                    status: platformInvoice.status as
-                      | "pending"
-                      | "paid"
-                      | "cancelled",
-                    amount_cents: platformInvoice.amount_cents,
-                    due_at: platformInvoice.due_at,
-                    paid_at: platformInvoice.paid_at,
-                  }
-                : null
-            }
-            contractorName={acceptedCompany}
-            projectId={id}
-            expiredMessage={acceptanceExpired}
-          />
+          <>
+            <OrderFinalizationStatus
+              invoice={
+                platformInvoice
+                  ? {
+                      status: platformInvoice.status as
+                        | "pending"
+                        | "paid"
+                        | "cancelled",
+                      amount_cents: platformInvoice.amount_cents,
+                      due_at: platformInvoice.due_at,
+                      paid_at: platformInvoice.paid_at,
+                    }
+                  : null
+              }
+              contractorName={acceptedCompany}
+              projectId={id}
+              expiredMessage={acceptanceExpired}
+            />
+            {["bid_accepted", "in_progress", "completed"].includes(status) && (
+              <p className="mt-4">
+                <Link
+                  href={`/remontti/${id}/sopimus`}
+                  className="text-sm font-medium text-sky-800 hover:underline"
+                >
+                  Tulosta sopimusyhteenveto (PDF)
+                </Link>
+              </p>
+            )}
+          </>
         )}
 
         <div className="mt-8">
@@ -412,6 +431,14 @@ export default async function ProjectPage({
             body={review.body}
             wouldRecommend={review.would_recommend}
             createdAt={review.created_at}
+          />
+        )}
+
+        {status === "completed" && (
+          <PlatformFeedbackPanel
+            role="customer"
+            projectId={id}
+            existing={platformFeedback}
           />
         )}
       </main>

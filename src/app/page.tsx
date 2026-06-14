@@ -1,12 +1,15 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { pageMetadata } from "@/lib/seo";
+import { seoDefByPath } from "@/lib/seo-pages";
+
+const seo = seoDefByPath("/")!;
 
 export const metadata: Metadata = pageMetadata({
-  title: "Kilpailuta remontti ilmaiseksi",
-  description:
-    "Asennus, huolto ja remontit kilpailutettuna. Tingaa tarjouksia, vertaile urakoitsijoita ja löydä laitteet torilta.",
+  title: seo.title,
+  description: seo.description,
   path: "/",
+  keywords: seo.keywords,
 });
 import { HomeAudienceSplit } from "@/components/marketing/home-audience-split";
 import { Logo } from "@/components/brand/logo";
@@ -61,16 +64,16 @@ export default async function Home() {
               <Logo href="/" size="lg" />
             </div>
             <p className="mb-3 text-sm font-medium uppercase tracking-widest text-sky-800">
-              Remontit — kilpailutus, huolto ja tori
+              Remontit, palvelut, huolto ja tori
             </p>
             <h1 className="text-3xl font-bold tracking-tight text-stone-900 sm:text-5xl">
-              Kilpailuta remontti{" "}
+              Kilpailuta remontti ja palvelut{" "}
               <span className="text-sky-800">helposti ja ilmaiseksi</span>
             </h1>
             <p className="mx-auto mt-5 max-w-2xl text-base leading-relaxed text-stone-600 sm:text-lg">
-              Keittiö, katto, sähkö, lämmitys… Yksi selkeä pyyntö —
-              vertailukelpoiset tarjoukset. Näet urakoitsijan pätevyydet ennen
-              valintaa.
+              Keittiö, katto, sähkö, lämmitys — tai siivous, piha, muutto ja
+              kunnossapito. Yksi selkeä pyyntö, vertailukelpoiset tarjoukset.
+              Myös jatkuva palvelu esim. nurmikon leikkuuun tai lumitöihin.
             </p>
             <ul className="mx-auto mt-6 flex max-w-lg flex-wrap justify-center gap-2 text-xs font-medium text-stone-700 sm:text-sm">
               <li className="rounded-full bg-white/90 px-3 py-1.5 shadow-sm ring-1 ring-sky-100">
@@ -102,10 +105,11 @@ export default async function Home() {
         <section className="border-t border-stone-200 bg-white py-14">
           <div className="mx-auto max-w-5xl px-6">
             <h2 className="text-center text-2xl font-bold tracking-tight">
-              Kolme palvelua yhdessä paikassa
+              Neljä tapaa käyttää palvelua
             </h2>
             <p className="mx-auto mt-2 max-w-xl text-center text-sm text-stone-600">
-              Valitse tarpeesi — kilpailutus, huolto tai osta/myy laitteita.
+              Remontit, jatkuva kunnossapito, huolto tai osta ja myy laitteita
+              torilla.
             </p>
             <div className="mt-8">
               <ServiceCards />
@@ -158,8 +162,9 @@ export default async function Home() {
                   {marketplaceBrand.name}
                 </h2>
                 <p className="mt-2 max-w-xl text-stone-600">
-                  Käytetyt ja uudet lämpöpumput, varaosat ja työkalut. Yksityishenkilö
-                  ilmoittaa ilmaiseksi — yrityksille erillinen hinnasto.
+                  Remonttiin liittyvät laitteet, varaosat ja tarvikkeet.
+                  Yksityishenkilö ilmoittaa ilmaiseksi — yrityksille erillinen
+                  hinnasto.
                 </p>
               </div>
               <div className={brand.actionsStack}>

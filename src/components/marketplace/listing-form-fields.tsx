@@ -13,7 +13,7 @@ export function ListingFormFields({
           name="title"
           required
           minLength={3}
-          placeholder="Esim. Mitsubishi ILP 5 kW, 2019"
+          placeholder="Esim. Bosch astianpesukone, Miele pesukone, Mitsubishi ILP 5 kW"
           className={formInputClass}
         />
       </Field>
@@ -24,7 +24,7 @@ export function ListingFormFields({
           required
           minLength={10}
           rows={4}
-          placeholder="Kunto, mitä mukana, nouto..."
+          placeholder="Kunto, mitä mukana, mitä remonttiin sopii, nouto..."
           className={formInputClass}
         />
       </Field>
