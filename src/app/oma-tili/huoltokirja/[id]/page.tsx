@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { PropertyDetailsDisplay } from "@/components/property/property-details-display";
+import { PropertyDevicesSection } from "@/components/property/property-devices-section";
 import { PropertyForm } from "@/components/property/property-form";
 import { SiteHeader } from "@/components/site-header";
 import { brand } from "@/lib/brand-theme";
@@ -8,6 +9,7 @@ import { formatEurosFromCents } from "@/lib/bids";
 import { getSessionUser, isContractor } from "@/lib/auth";
 import { PROPERTY_BUILDING_TYPE_LABELS } from "@/lib/property-profile";
 import { fetchPropertyById, formatPropertyAddress } from "@/lib/property-log";
+import { fetchPropertyDevices } from "@/lib/property-devices";
 import { createClient } from "@/lib/supabase/server";
 
 function formatLogDate(isoDate: string): string {
@@ -39,6 +41,7 @@ export default async function PropertyDetailPage({
   if (!data) notFound();
 
   const { property, entries } = data;
+  const devices = await fetchPropertyDevices(supabase, id, user.id);
 
   return (
     <div className={brand.page}>
@@ -78,6 +81,8 @@ export default async function PropertyDetailPage({
           <h2 className={brand.sectionTitle}>Kiinteistön tiedot</h2>
           <PropertyDetailsDisplay property={property} />
         </section>
+
+        <PropertyDevicesSection propertyId={id} devices={devices} />
 
         <section className="mt-8">
           <h2 className="text-lg font-semibold text-stone-900">Työhistoria</h2>
