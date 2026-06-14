@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import {
   parseJobTypeIds,
   parseRefrigerantLicense,
+  parseTradeIds,
   parseWorkCapability,
   validateContractorQualifications,
 } from "@/lib/contractor-qualifications";
@@ -80,13 +81,14 @@ export async function signUp(
     const saveRes = await saveContractorQualifications({
       contractorId: data.user.id,
       companyName: companyName || "Yritys (täydennä profiilissa)",
+      tradeIds: parseTradeIds(formData),
       jobTypeIds: parseJobTypeIds(formData),
-      refrigerantLicense: parseRefrigerantLicense(formData)!,
+      refrigerantLicense: parseRefrigerantLicense(formData),
       electricalCapability: parseWorkCapability(
         formData,
         "electrical_capability",
-      )!,
-      lviCapability: parseWorkCapability(formData, "lvi_capability")!,
+      ),
+      lviCapability: parseWorkCapability(formData, "lvi_capability"),
     });
 
     if (saveRes.error) {

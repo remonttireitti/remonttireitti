@@ -5,30 +5,47 @@ import { HEAT_PUMP_JOB_SLUGS, type HeatPumpSlug } from "@/constants/heat-pumps";
  * DB:ssä olemassa olevat job_types.slug-arvot.
  */
 export const PUBLIC_PROJECT_JOB_SLUGS = [
-  // Lämmitys — vahvin erottuvuus, syvä lomake
+  // Lämmitys
   "ilmalampopumppu",
   "ilmavesilampopumppu",
   "maalampopumppu",
-  // Sähkö & energia — kasvava kysyntä
+  "lammitys-vaihto",
+  // Sähkö & energia
   "latauspiste",
   "aurinkopaneelit",
-  "sahko-keskus",
+  "sahkokeskus",
+  "sahko-lisays",
+  "ulko-valaistus",
   // LVI & ilma
   "ilmanvaihto-kone",
+  "ilmanvaihto-puhdistus",
   "kayttovesi",
+  "viemari",
   "vesivahinko",
-  // Sisätilat — perinteiset remontit
+  // Sisätilat
   "kylpyhuone",
   "keittio",
   "wc-remontti",
+  "sauna",
+  "lattia-sisä",
+  "seinamaalaus",
+  "laatoitus-sisa",
   // Ulkokuori
   "ikkunat",
+  "ovet-ulko",
   "katto-pelti",
+  "rannit",
   "ulkomaalaus",
-  // Perustus
+  "julkisivu-verhous",
+  "julkisivu-rapaus",
+  // Perustus & runko
   "sokkeli",
+  "perustus",
+  "vaihe-eriste",
   // Piha
   "terassi",
+  "pihatie",
+  "aita",
 ] as const;
 
 export type PublicProjectJobSlug = (typeof PUBLIC_PROJECT_JOB_SLUGS)[number];
@@ -54,44 +71,72 @@ export const PROJECT_AREAS: readonly ProjectArea[] = [
   {
     slug: "lammitys",
     title: "Lämmitys & jäähdytys",
-    description: "Lämpöpumput — tarkka asennuslomake ja vian selvitys.",
-    jobSlugs: HEAT_PUMP_JOB_SLUGS,
+    description: "Lämpöpumput ja lämmitysjärjestelmän uusiminen.",
+    jobSlugs: [...HEAT_PUMP_JOB_SLUGS, "lammitys-vaihto"],
   },
   {
     slug: "sahko-energia",
     title: "Sähkö & energia",
-    description: "Lataus, aurinkosähkö ja sähkökeskus.",
-    jobSlugs: ["latauspiste", "aurinkopaneelit", "sahko-keskus"],
+    description: "Lataus, aurinkosähkö, sähkökeskus ja valaistus.",
+    jobSlugs: [
+      "latauspiste",
+      "aurinkopaneelit",
+      "sahkokeskus",
+      "sahko-lisays",
+      "ulko-valaistus",
+    ],
   },
   {
     slug: "lvi-ilma",
     title: "LVI & ilmanvaihto",
     description: "Putket, ilmanvaihto ja vesivahinko.",
-    jobSlugs: ["ilmanvaihto-kone", "kayttovesi", "vesivahinko"],
+    jobSlugs: [
+      "ilmanvaihto-kone",
+      "ilmanvaihto-puhdistus",
+      "kayttovesi",
+      "viemari",
+      "vesivahinko",
+    ],
   },
   {
     slug: "sisatilat",
     title: "Sisätilat",
-    description: "Kylpyhuone, keittiö ja wc.",
-    jobSlugs: ["kylpyhuone", "keittio", "wc-remontti"],
+    description: "Keittiö, kylpyhuone, sauna ja pinnat.",
+    jobSlugs: [
+      "kylpyhuone",
+      "keittio",
+      "wc-remontti",
+      "sauna",
+      "lattia-sisä",
+      "seinamaalaus",
+      "laatoitus-sisa",
+    ],
   },
   {
     slug: "ulkokuori",
     title: "Ulkokuori",
-    description: "Ikkunat, katto ja ulkomaalaus.",
-    jobSlugs: ["ikkunat", "katto-pelti", "ulkomaalaus"],
+    description: "Ikkunat, katto, julkisivu ja ulkomaalaus.",
+    jobSlugs: [
+      "ikkunat",
+      "ovet-ulko",
+      "katto-pelti",
+      "rannit",
+      "ulkomaalaus",
+      "julkisivu-verhous",
+      "julkisivu-rapaus",
+    ],
   },
   {
     slug: "perustus-runko",
     title: "Perustus & runko",
-    description: "Sokkeli, salaojitus ja eristys.",
-    jobSlugs: ["sokkeli"],
+    description: "Sokkeli, perustus ja eristys.",
+    jobSlugs: ["sokkeli", "perustus", "vaihe-eriste"],
   },
   {
     slug: "piha",
     title: "Piha & ulko",
-    description: "Terassi ja pihatyöt.",
-    jobSlugs: ["terassi"],
+    description: "Terassi, pihatie ja aidat.",
+    jobSlugs: ["terassi", "pihatie", "aita"],
   },
 ] as const;
 
@@ -107,16 +152,26 @@ export function areaForJobSlug(slug: string): ProjectArea | null {
 export const GENERIC_PROJECT_DESCRIPTION_HINTS: Partial<
   Record<PublicProjectJobSlug, string>
 > = {
+  "lammitys-vaihto":
+    "Kerro nykyisestä lämmityksestä, talon koosta ja toiveista (pumppu, patterit, lattialämmitys)…",
   latauspiste:
     "Kerro autosta, parkkipaikasta, etäisyydestä sähkökeskukseen ja toiveista (esim. 11 kW lataus)…",
   aurinkopaneelit:
     "Kerro katon suunnasta, koko arviosta, nykyisestä sähkökeskuksesta ja toiveista…",
-  "sahko-keskus":
+  sahkokeskus:
     "Kerro talon iästä, nykyisestä keskuksesa, sulakkeista ja miksi uusinta tarvitaan…",
+  "sahko-lisays":
+    "Kerro montako pistettä tarvitaan, missä huoneissa ja mihin käyttöön…",
+  "ulko-valaistus":
+    "Kerro pihan, polun tai seinän valaistuksesta ja toiveista…",
   "ilmanvaihto-kone":
     "Kerro nykyisestä ilmanvaihdosta, asunnon koosta ja ongelmista (kosteus, veto, melu)…",
+  "ilmanvaihto-puhdistus":
+    "Kerro asunnon koosta, viimeisestä puhdistuksesta ja havaitsemistasi ongelmista…",
   kayttovesi:
     "Kerro putkiston iästä, materiaalista (kupari/muovi) ja mitä haluat uusia…",
+  viemari:
+    "Kerro oireista (haju, hidas viemäri, vuoto) ja talon iästä…",
   vesivahinko:
     "Kerro milloin havaittiin, missä vuotaa/kosteutta ja mitä on jo tehty…",
   kylpyhuone:
@@ -125,16 +180,40 @@ export const GENERIC_PROJECT_DESCRIPTION_HINTS: Partial<
     "Kerro keittiön koosta, nykyisistä kaapeista, kodinkoneista ja toiveista…",
   "wc-remontti":
     "Kerro wc:n koosta, laatoituksesta ja mitä uusitaan (istuin, putket, pinta)…",
+  sauna:
+    "Kerro nykytilasta, koko toiveesta (sähkökiuas, puusauna) ja aikataulusta…",
+  "lattia-sisä":
+    "Kerro huoneista, pinta-alasta ja materiaalitoiveesta (parketti, laminaatti, laatta)…",
+  seinamaalaus:
+    "Kerro huoneista, pintojen tilasta ja toivotusta ajasta…",
+  "laatoitus-sisa":
+    "Kerro tilasta, laatoitusalasta ja toiveista…",
   ikkunat:
     "Kerro ikkunoiden määrästä, tyypistä (puu/muovi/alumiini), kohteesta ja energiatoiveista…",
+  "ovet-ulko":
+    "Kerro oven tyypistä (etuovi, terassi, autotalli), mitat arviosta ja nykytilasta…",
   "katto-pelti":
     "Kerro katon materiaalista, iästä, vuodoista ja näkyvistä vaurioista…",
+  rannit:
+    "Kerro rännien ja kourujen kunnosta, korkeudesta ja materiaalista…",
   ulkomaalaus:
     "Kerro pinta-alasta, nykyisestä pinnasta (puu/rapattu) ja toivotusta ajasta…",
+  "julkisivu-verhous":
+    "Kerro julkisivun nykytilasta ja verhoustoiveista…",
+  "julkisivu-rapaus":
+    "Kerro halkeamista, rapauksen tilasta ja toiveista…",
   sokkeli:
     "Kerro kosteudesta, halkeamista, salaojituksesta tai routaeristeestä…",
+  perustus:
+    "Kerro perustustyön laajuudesta, syystä ja aikataulusta…",
+  "vaihe-eriste":
+    "Kerro eristettävästä kohdasta (yläpohja, välipohja) ja nykytilasta…",
   terassi:
     "Kerro terassin koosta, materiaalitoiveesta ja maastosta…",
+  pihatie:
+    "Kerro pinta-alasta, käyttötarkoituksesta ja maastosta…",
+  aita:
+    "Kerro aidan pituudesta, korkeudesta ja materiaalitoiveesta…",
 };
 
 export function genericDescriptionPlaceholder(jobSlug: string | null): string {

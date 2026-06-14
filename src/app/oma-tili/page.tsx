@@ -14,12 +14,14 @@ import { ContractorBillingForm } from "@/components/contractor/contractor-billin
 import { ContractorBidDefaultsForm } from "@/components/contractor/contractor-bid-defaults-form";
 import { ContractorProfileForm } from "@/components/contractor/contractor-profile-form";
 import { fetchContractorBidDefaultsBundle } from "@/lib/contractor-bid-defaults-server";
-import { fetchHeatPumpCatalog } from "@/lib/job-catalog-server";
+import { PUBLIC_CONTRACTOR_TRADE_SLUGS } from "@/constants/contractor-trades";
+import { fetchHeatPumpCatalog, fetchJobCatalog } from "@/lib/job-catalog-server";
 import { getContractorQualifications } from "@/lib/save-contractor-qualifications";
 import {
   formatCapability,
   formatPumpTypes,
   formatRefrigerant,
+  formatTrades,
 } from "@/lib/format-qualifications";
 import { getContractorCompanyBypass } from "@/lib/profile-read";
 import { getNotificationPrefs } from "@/lib/notification-prefs";
@@ -56,6 +58,7 @@ export default async function AccountPage({
   let contractorCompany: string | null = null;
   let contractorQuals: Awaited<ReturnType<typeof getContractorQualifications>> | null =
     null;
+  let contractorTrades: { id: string; slug: string; name_fi: string }[] = [];
   let heatPumpJobTypes: { id: string; slug: string }[] = [];
   let billingFields = {
     businessId: "",
@@ -71,8 +74,18 @@ export default async function AccountPage({
     if (!contractorCompany) {
       contractorCompany = await getContractorCompanyBypass(user.id);
     }
-    const catalog = await fetchHeatPumpCatalog();
-    heatPumpJobTypes = catalog.jobTypes.map((j) => ({ id: j.id, slug: j.slug }));
+    const [jobCatalog, pumpCatalog] = await Promise.all([
+      fetchJobCatalog(),
+      fetchHeatPumpCatalog(),
+    ]);
+    const tradeSlugs = new Set<string>(PUBLIC_CONTRACTOR_TRADE_SLUGS);
+    contractorTrades = jobCatalog.trades
+      .filter((t) => tradeSlugs.has(t.slug))
+      .map((t) => ({ id: t.id, slug: t.slug, name_fi: t.name_fi }));
+    heatPumpJobTypes = pumpCatalog.jobTypes.map((j) => ({
+      id: j.id,
+      slug: j.slug,
+    }));
 
     const { data: billingRow } = await supabase
       .from("contractor_profiles")
@@ -213,21 +226,29 @@ export default async function AccountPage({
             {contractor && contractorQuals && (
               <>
                 <Row
-                  label="Lämpöpumput"
-                  value={formatPumpTypes(contractorQuals.jobTypeSlugs)}
+                  label="Ammatit"
+                  value={formatTrades(contractorQuals.tradeNames)}
                 />
-                <Row
-                  label="Kylmäainelupa"
-                  value={formatRefrigerant(contractorQuals.refrigerantLicense)}
-                />
-                <Row
-                  label="Sähkötyöt"
-                  value={formatCapability(contractorQuals.electricalCapability)}
-                />
-                <Row
-                  label="LVI-työt"
-                  value={formatCapability(contractorQuals.lviCapability)}
-                />
+                {contractorQuals.jobTypeSlugs.length > 0 && (
+                  <>
+                    <Row
+                      label="Lämpöpumput"
+                      value={formatPumpTypes(contractorQuals.jobTypeSlugs)}
+                    />
+                    <Row
+                      label="Kylmäainelupa"
+                      value={formatRefrigerant(contractorQuals.refrigerantLicense)}
+                    />
+                    <Row
+                      label="Sähkötyöt"
+                      value={formatCapability(contractorQuals.electricalCapability)}
+                    />
+                    <Row
+                      label="LVI-työt"
+                      value={formatCapability(contractorQuals.lviCapability)}
+                    />
+                  </>
+                )}
               </>
             )}
           </div>
@@ -245,7 +266,7 @@ export default async function AccountPage({
         {!contractor && !admin && (
           <>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <h2 className="text-lg font-semibold">Lämpöpumppupyynnöt</h2>
+              <h2 className="text-lg font-semibold">Tarjouspyynnöt</h2>
               <Link
                 href="/remontti/uusi"
                 className="inline-flex w-full shrink-0 items-center justify-center rounded-lg bg-orange-700 px-4 py-2.5 text-sm font-medium text-white hover:bg-orange-800 sm:w-auto sm:rounded-full"
@@ -311,11 +332,13 @@ export default async function AccountPage({
             />
 
             <div className="grid gap-6 lg:grid-cols-2 lg:items-start lg:gap-8">
-              {heatPumpJobTypes.length > 0 && contractorQuals && (
+              {contractorTrades.length > 0 && contractorQuals && (
                 <ContractorProfileForm
                   className="mt-0"
+                  trades={contractorTrades}
                   jobTypes={heatPumpJobTypes}
                   companyName={contractorQuals.companyName}
+                  tradeIds={contractorQuals.tradeIds}
                   jobTypeIds={contractorQuals.jobTypeIds}
                   refrigerantLicense={contractorQuals.refrigerantLicense}
                   electricalCapability={contractorQuals.electricalCapability}

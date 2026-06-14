@@ -70,7 +70,7 @@ export function Logo({
             Remonttireitti
           </span>
           <span className="mt-1 text-[10px] font-medium uppercase tracking-[0.2em] text-orange-600/90 sm:text-[11px]">
-            Lämpöpumput
+            Remontit
           </span>
         </span>
       )}

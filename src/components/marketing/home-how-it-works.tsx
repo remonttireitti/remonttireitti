@@ -4,8 +4,8 @@ import { brand } from "@/lib/brand-theme";
 const installSteps = [
   {
     step: "1",
-    title: "Täytä tarkka pyyntö",
-    body: "Pumpputyyppi, kuvat ja kohteen tiedot — asentaja voi laskea tarjouksen ilman yllätyksiä.",
+    title: "Kuvaile työ ja kohde",
+    body: "Valitse remontti, lisää kuvat ja tarvittavat tiedot — urakoitsija voi tarjota tarkasti.",
   },
   {
     step: "2",
@@ -94,8 +94,7 @@ export function HomeHowItWorks() {
             Kilpailuta remontti
           </h3>
           <p className="mt-1 text-sm text-stone-600">
-            Valitse talon osa (lämmitys, sähkö, sisätilat…) — lämpöpumpussa
-            tarkka lomake. Ilmainen asiakkaalle.
+            Ilmainen asiakkaalle — useita tarjouksia yhdestä pyynnöstä.
           </p>
           <StepList steps={installSteps} accent="sky" />
           <Link

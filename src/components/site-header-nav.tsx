@@ -55,7 +55,7 @@ export function SiteHeaderNav({
   unreadNotifications = 0,
 }: NavProps) {
   const ctaLabel = isCustomer
-    ? "Kilpailuta lämpöpumppu"
+    ? "Kilpailuta remontti"
     : isContractor
       ? "Tarjouspyynnöt"
       : null;
@@ -102,11 +102,14 @@ export function SiteHeaderNav({
             {isAdmin && <NavItem href="/admin">Admin</NavItem>}
           </>
         ) : (
-          <NavItem href="/kirjaudu">Kirjaudu</NavItem>
+          <>
+            <NavItem href="/urakoitsijaksi">Urakoitsijalle</NavItem>
+            <NavItem href="/kirjaudu">Kirjaudu</NavItem>
+          </>
         )}
       </nav>
       <span className="mx-1 h-5 w-px bg-stone-200" aria-hidden />
-      <div className="flex items-center gap-0.5">
+      <div className="flex items-center gap-2">
         {loggedIn ? (
           <>
             {ctaDesktop}
@@ -115,9 +118,14 @@ export function SiteHeaderNav({
             </form>
           </>
         ) : (
-          <Link href="/rekisteroidy" className={ctaClass}>
-            <NavLinkPendingContent>Luo tili</NavLinkPendingContent>
-          </Link>
+          <>
+            <Link href="/remontti/uusi" className={navLinkClass(false)}>
+              <NavLinkPendingContent>Kilpailuta</NavLinkPendingContent>
+            </Link>
+            <Link href="/rekisteroidy?rooli=urakoitsija" className={ctaClass}>
+              <NavLinkPendingContent>Rekisteröidy</NavLinkPendingContent>
+            </Link>
+          </>
         )}
       </div>
     </div>

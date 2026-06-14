@@ -9,10 +9,11 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 type SaveInput = {
   contractorId: string;
   companyName: string;
+  tradeIds: string[];
   jobTypeIds: string[];
-  refrigerantLicense: RefrigerantLicense;
-  electricalCapability: WorkCapability;
-  lviCapability: WorkCapability;
+  refrigerantLicense: RefrigerantLicense | null;
+  electricalCapability: WorkCapability | null;
+  lviCapability: WorkCapability | null;
 };
 
 async function dbClient(): Promise<SupabaseClient> {
@@ -51,27 +52,34 @@ export async function saveContractorQualifications(
       })),
     );
     if (jtErr) return { error: jtErr.message };
+  }
 
+  const tradeIdSet = new Set(input.tradeIds);
+
+  if (input.jobTypeIds.length > 0) {
     const { data: links } = await db
       .from("job_type_trades")
       .select("trade_id")
       .in("job_type_id", input.jobTypeIds);
 
-    const tradeIds = [...new Set((links ?? []).map((l) => l.trade_id))];
-
-    await db
-      .from("contractor_trades")
-      .delete()
-      .eq("contractor_id", input.contractorId);
-
-    if (tradeIds.length > 0) {
-      await db.from("contractor_trades").insert(
-        tradeIds.map((trade_id) => ({
-          contractor_id: input.contractorId,
-          trade_id,
-        })),
-      );
+    for (const link of links ?? []) {
+      tradeIdSet.add(link.trade_id as string);
     }
+  }
+
+  await db
+    .from("contractor_trades")
+    .delete()
+    .eq("contractor_id", input.contractorId);
+
+  if (tradeIdSet.size > 0) {
+    const { error: trErr } = await db.from("contractor_trades").insert(
+      [...tradeIdSet].map((trade_id) => ({
+        contractor_id: input.contractorId,
+        trade_id,
+      })),
+    );
+    if (trErr) return { error: trErr.message };
   }
 
   return {};
@@ -104,6 +112,25 @@ export async function getContractorQualifications(contractorId: string) {
     jobTypeSlugs = (types ?? []).map((t) => t.slug);
   }
 
+  const { data: trRows } = await db
+    .from("contractor_trades")
+    .select("trade_id")
+    .eq("contractor_id", contractorId);
+
+  const tradeIds = (trRows ?? []).map((r) => r.trade_id as string);
+
+  let tradeSlugs: string[] = [];
+  let tradeNames: string[] = [];
+  if (tradeIds.length > 0) {
+    const { data: trades } = await db
+      .from("trades")
+      .select("slug, name_fi")
+      .in("id", tradeIds)
+      .order("sort_order");
+    tradeSlugs = (trades ?? []).map((t) => t.slug);
+    tradeNames = (trades ?? []).map((t) => t.name_fi);
+  }
+
   return {
     companyName: cp?.company_name ?? "",
     refrigerantLicense: cp?.refrigerant_license ?? null,
@@ -111,5 +138,8 @@ export async function getContractorQualifications(contractorId: string) {
     lviCapability: cp?.lvi_capability ?? null,
     jobTypeIds,
     jobTypeSlugs,
+    tradeIds,
+    tradeSlugs,
+    tradeNames,
   };
 }

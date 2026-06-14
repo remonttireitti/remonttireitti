@@ -9,7 +9,7 @@ import { marketplaceBrand } from "@/lib/marketplace-brand";
 import { pageMetadata } from "@/lib/seo";
 
 export const metadata: Metadata = pageMetadata({
-  title: "Lämpöpumppuasentajalle",
+  title: "Urakoitsijalle",
   description:
     "Saat ilmoitukset sopivista tarjouspyynnöistä, jätät tarjouksia maksutta ja maksat välityspalkkion vain hyväksytyistä diileistä.",
   path: "/urakoitsijaksi",
@@ -54,13 +54,14 @@ export default async function ContractorLandingPage() {
             Urakoitsijalle
           </p>
           <h1 className="mt-3 text-4xl font-bold tracking-tight sm:text-5xl">
-            Uusia lämpöpumppuasiakkaita —{" "}
+            Uusia remonttikeikkoja —{" "}
             <span className="text-sky-700">maksat vain voitetusta diilistä</span>
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-lg text-stone-600">
-            Remonttireitti kokoaa valmiit tarjouspyynnöt: asennus, huolto ja
-            korjaus. Ilmoitukset vain valitsemillesi pumpputyypeille. Tarjous on
-            maksuton — välityspalkkio tulee vasta, kun asiakas hyväksyy sinut.
+            Remonttireitti kokoaa valmiit tarjouspyynnöt omakotitaloihin:
+            lämpöpumput, keittiöt, sähkö, LVI ja muut remontit. Ilmoitukset
+            valitsemillesi ammateille. Tarjous on maksuton — välityspalkkio
+            tulee vasta, kun asiakas hyväksyy sinut.
           </p>
           <div className="mx-auto mt-10 flex max-w-md flex-col gap-3 sm:max-w-none sm:flex-row sm:justify-center">
             {contractor ? (
@@ -96,9 +97,8 @@ export default async function ContractorLandingPage() {
                   ✓
                 </span>
                 <span>
-                  <strong>Valmiit pyynnöt</strong> — asiakas on täyttänyt
-                  lämpöpumppukohtaisen lomakkeen (mitat, kuvat, ilmastovyöhyke).
-                  Vähemmän arvailua, tarkempi tarjous.
+                  <strong>Valmiit pyynnöt</strong> — asiakas on kuvannut kohteen
+                  ja liittänyt kuvat. Lämpöpumpuissa tarkempi lomake.
                 </span>
               </li>
               <li className="flex gap-2">
@@ -116,9 +116,9 @@ export default async function ContractorLandingPage() {
                   ✓
                 </span>
                 <span>
-                  <strong>Ilmoitukset oikeista töistä</strong> — valitset profiiliin
-                  ilmalämpö-, vesi-ilmalämpö- ja/tai maalämpöpumput; huolto- ja
-                  korjauspyynnöt vastaavat laitetyyppiäsi.
+                  <strong>Ilmoitukset oikeista töistä</strong> — valitset
+                  profiiliin ammatit (sähkö, putki, kirvesmies…) ja halutessasi
+                  lämpöpumput.
                 </span>
               </li>
               <li className="flex gap-2">
@@ -140,8 +140,8 @@ export default async function ContractorLandingPage() {
             <div className="mt-8 space-y-6">
               <Step
                 n="1"
-                title="Rekisteröidy ja valitse pumpputyypit"
-                body="Kerro mille laitteille tarjoat — saat vain niihin sopivat ilmoitukset."
+                title="Rekisteröidy ja valitse ammatit"
+                body="Kerro mille töille tarjoat — saat vain niihin sopivat ilmoitukset."
               />
               <Step
                 n="2"

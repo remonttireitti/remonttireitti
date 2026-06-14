@@ -23,9 +23,9 @@ export async function getRequestSiteUrl(): Promise<string> {
   return getSiteUrl();
 }
 
-const defaultTitle = `${siteConfig.name} — Kilpailuta lämpöpumppu ilmaiseksi`;
+const defaultTitle = `${siteConfig.name} — Kilpailuta remontti ilmaiseksi`;
 const defaultDescription =
-  "Kilpailuta ilmalämpö-, vesi-ilmalämpö- tai maalämpöpumppu. Useita tarjouksia asentajilta — ilmainen tarjouspyyntö.";
+  "Kilpailuta lämpöpumppu, keittiö, katto, sähkö ja muut remontit. Useita tarjouksia urakoitsijoilta — ilmainen tarjouspyyntö.";
 
 const defaultOgImage = "/logo.svg";
 

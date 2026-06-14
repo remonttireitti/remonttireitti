@@ -56,10 +56,9 @@ export function ProjectAreaJobStep({
   if (!activeArea) {
     return (
       <div className="space-y-4">
-        <p className="text-sm text-stone-600">
-          Valitse ensin talon osa tai remontin tyyppi. Lämpöpumpuissa on tarkka
-          asennuslomake — muissa kuvaus ja kuvat riittävät alkuun.
-        </p>
+        <h2 className="text-lg font-semibold text-stone-900">
+          Mitä remonttia tarvitset?
+        </h2>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {PROJECT_AREAS.map((area) => (
             <button
@@ -75,9 +74,6 @@ export function ProjectAreaJobStep({
               <span className="font-semibold text-stone-900">{area.title}</span>
               <span className="mt-1 block text-sm text-stone-600">
                 {area.description}
-              </span>
-              <span className={`mt-2 block text-xs font-medium ${brand.link}`}>
-                {area.jobSlugs.length} työtä →
               </span>
             </button>
           ))}
@@ -127,11 +123,6 @@ export function ProjectAreaJobStep({
               {pumpMeta?.hint && (
                 <span className="mt-2 block text-xs text-stone-500">
                   {pumpMeta.hint}
-                </span>
-              )}
-              {activeArea.slug === "lammitys" && (
-                <span className="mt-2 block text-xs font-medium text-sky-800">
-                  Tarkka asennuslomake
                 </span>
               )}
             </button>

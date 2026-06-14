@@ -10,6 +10,13 @@ export function parseJobTypeIds(formData: FormData): string[] {
     .filter(Boolean);
 }
 
+export function parseTradeIds(formData: FormData): string[] {
+  return formData
+    .getAll("trade_ids")
+    .map((v) => String(v))
+    .filter(Boolean);
+}
+
 export function parseRefrigerantLicense(
   formData: FormData,
 ): RefrigerantLicense | null {
@@ -29,17 +36,23 @@ export function parseWorkCapability(
 
 export function validateContractorQualifications(formData: FormData): string | null {
   const jobTypeIds = parseJobTypeIds(formData);
-  if (jobTypeIds.length === 0) {
-    return "Valitse vähintään yksi lämpöpumpputyyppi.";
+  const tradeIds = parseTradeIds(formData);
+
+  if (jobTypeIds.length === 0 && tradeIds.length === 0) {
+    return "Valitse vähintään yksi ammatti tai lämpöpumpputyyppi.";
   }
-  if (!parseRefrigerantLicense(formData)) {
-    return "Valitse kylmäainelupa.";
+
+  if (jobTypeIds.length > 0) {
+    if (!parseRefrigerantLicense(formData)) {
+      return "Valitse kylmäainelupa lämpöpumpuille.";
+    }
+    if (!parseWorkCapability(formData, "electrical_capability")) {
+      return "Ilmoita sähkötyöpätevyys lämpöpumpuille.";
+    }
+    if (!parseWorkCapability(formData, "lvi_capability")) {
+      return "Ilmoita LVI-työpätevyys lämpöpumpuille.";
+    }
   }
-  if (!parseWorkCapability(formData, "electrical_capability")) {
-    return "Ilmoita sähkötyöpätevyys.";
-  }
-  if (!parseWorkCapability(formData, "lvi_capability")) {
-    return "Ilmoita LVI-työpätevyys.";
-  }
+
   return null;
 }

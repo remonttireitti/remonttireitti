@@ -3,11 +3,12 @@ import Link from "next/link";
 import { pageMetadata } from "@/lib/seo";
 
 export const metadata: Metadata = pageMetadata({
-  title: "Kilpailuta lämpöpumppu ilmaiseksi",
+  title: "Kilpailuta remontti ilmaiseksi",
   description:
-    "Asennus, huolto ja korjaus kilpailutettuna. Tingaa tarjouksia, vertaile asentajia ja löydä laitteet torilta. Urakoitsija maksaa vain hyväksytystä diilistä.",
+    "Asennus, huolto ja remontit kilpailutettuna. Tingaa tarjouksia, vertaile urakoitsijoita ja löydä laitteet torilta.",
   path: "/",
 });
+import { HomeAudienceSplit } from "@/components/marketing/home-audience-split";
 import { Logo } from "@/components/brand/logo";
 import { HomeDifferentiators } from "@/components/marketing/home-differentiators";
 import { HomeHowItWorks } from "@/components/marketing/home-how-it-works";
@@ -82,32 +83,8 @@ export default async function Home() {
                 Asiakkaalle ilmainen
               </li>
             </ul>
-            <div className="mx-auto mt-8 flex w-full max-w-md flex-col gap-3 sm:max-w-none sm:flex-row sm:justify-center">
-              <Link
-                href="/remontti/uusi"
-                className={`${brand.btnPrimary} ${brand.btnPrimaryBlock} rounded-full px-8`}
-              >
-                Kilpailuta remontti
-              </Link>
-              <Link
-                href="/vian-selvitys"
-                className={`${brand.btnSecondary} ${brand.btnSecondaryBlock} rounded-full px-8`}
-                title="Tarkista oireen mukaan ennen huoltokutsua"
-              >
-                Pumpputta ei toimi?
-              </Link>
-              <Link
-                href="/huolto/uusi"
-                className={`${brand.btnSecondary} ${brand.btnSecondaryBlock} rounded-full border-stone-200 px-8 text-stone-700`}
-              >
-                Huolto tai korjaus
-              </Link>
-              <Link
-                href="/urakoitsijaksi"
-                className={`${brand.btnSecondary} ${brand.btnSecondaryBlock} rounded-full border-stone-200 px-8 text-stone-700`}
-              >
-                Olen asentaja
-              </Link>
+            <div className="mx-auto mt-8">
+              <HomeAudienceSplit />
             </div>
           </div>
         </section>

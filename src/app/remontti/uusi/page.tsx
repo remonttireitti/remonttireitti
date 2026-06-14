@@ -24,9 +24,9 @@ export default async function NewProjectPage() {
         <main className="mx-auto max-w-2xl px-6 py-12">
           <p className="rounded-lg bg-amber-50 p-4 text-sm text-amber-900">
             Remonttityypit puuttuvat tietokannasta. Aja Supabasessa migraatiot{" "}
-            <code className="text-xs">20260519180000_trades_and_job_types.sql</code>{" "}
+            <code className="text-xs">20260519190000_expand_omakotitalo_catalog.sql</code>{" "}
             ja{" "}
-            <code className="text-xs">20260519190000_expand_omakotitalo_catalog.sql</code>.
+            <code className="text-xs">20260614100000_activate_remontti_catalog.sql</code>.
           </p>
         </main>
       </div>
@@ -47,8 +47,8 @@ export default async function NewProjectPage() {
           Kilpailuta remontti
         </h1>
         <p className="mt-2 max-w-2xl text-stone-600">
-          Valitse talon osa ja työ — lämpöpumpussa tarkka lomake, muissa kuvaus
-          ja kuvat. Julkaise tarjouspyyntö ilmaiseksi.{" "}
+          Valitse remontin tyyppi ja täytä pyyntö. Julkaise tarjouspyyntö
+          ilmaiseksi.{" "}
           <Link href="/vian-selvitys" className="text-sky-700 hover:underline">
             Lämpöpumppu oireilee? Aloita vian selvityksestä
           </Link>

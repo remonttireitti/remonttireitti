@@ -66,7 +66,7 @@ export function SiteHeaderMobileNav({
       : null;
 
   const ctaLabel = isCustomer
-    ? "Kilpailuta lämpöpumppu"
+    ? "Kilpailuta remontti"
     : isContractor
       ? "Tarjouspyynnöt"
       : null;
@@ -131,9 +131,12 @@ export function SiteHeaderMobileNav({
             </>
           ) : (
             <>
+              <NavChip href="/urakoitsijaksi" onNavigate={closeMore}>
+                Urakoitsijalle
+              </NavChip>
               <NavChip href="/kirjaudu">Kirjaudu</NavChip>
-              <Link href="/rekisteroidy" className={ctaChip}>
-                <NavLinkPendingContent>Luo tili</NavLinkPendingContent>
+              <Link href="/rekisteroidy?rooli=urakoitsija" className={ctaChip}>
+                <NavLinkPendingContent>Rekisteröidy</NavLinkPendingContent>
               </Link>
             </>
           )}

@@ -20,6 +20,11 @@ export function formatRefrigerant(license: RefrigerantLicense | null): string {
   return REFRIGERANT_LICENSE_LABELS[license];
 }
 
+export function formatTrades(names: string[]): string {
+  if (names.length === 0) return "—";
+  return names.join(", ");
+}
+
 export function formatCapability(cap: WorkCapability | null): string {
   if (!cap) return "—";
   return WORK_CAPABILITY_LABELS[cap];

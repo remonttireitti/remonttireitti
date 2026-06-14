@@ -6,7 +6,7 @@ import {
   type ContractorProfileState,
 } from "@/app/actions/contractor-profile";
 import { ContractorQualificationFields } from "@/components/contractor/qualification-fields";
-import type { JobType } from "@/types/job-catalog";
+import type { JobType, Trade } from "@/types/job-catalog";
 import type {
   RefrigerantLicense,
   WorkCapability,
@@ -16,8 +16,10 @@ const inputClass =
   "mt-1 w-full rounded-lg border border-stone-300 px-3 py-2 text-stone-900 focus:border-sky-600 focus:outline-none focus:ring-1 focus:ring-sky-600";
 
 type Props = {
+  trades: Pick<Trade, "id" | "slug" | "name_fi">[];
   jobTypes: Pick<JobType, "id" | "slug">[];
   companyName: string;
+  tradeIds: string[];
   jobTypeIds: string[];
   refrigerantLicense: RefrigerantLicense | null;
   electricalCapability: WorkCapability | null;
@@ -25,8 +27,10 @@ type Props = {
 };
 
 export function ContractorProfileForm({
+  trades,
   jobTypes,
   companyName,
+  tradeIds,
   jobTypeIds,
   refrigerantLicense,
   electricalCapability,
@@ -43,9 +47,10 @@ export function ContractorProfileForm({
       action={action}
       className={`space-y-4 rounded-xl border border-stone-200 bg-white p-4 sm:p-6 ${className || "mt-6"}`}
     >
-      <h2 className="text-lg font-semibold">Asentajan pätevyydet</h2>
+      <h2 className="text-lg font-semibold">Urakoitsijan profiili</h2>
       <p className="text-sm text-stone-600">
-        Näitä tietoja käytetään, kun asiakkaat vertailevat tarjouksia.
+        Näitä tietoja käytetään, kun asiakkaat vertailevat tarjouksia ja kun
+        lähetämme sinulle uusia pyyntöjä.
       </p>
 
       <div>
@@ -63,7 +68,9 @@ export function ContractorProfileForm({
       </div>
 
       <ContractorQualificationFields
+        trades={trades}
         jobTypes={jobTypes}
+        defaultTradeIds={tradeIds}
         defaultJobTypeIds={jobTypeIds}
         defaultRefrigerant={refrigerantLicense ?? undefined}
         defaultElectrical={electricalCapability ?? undefined}
@@ -86,7 +93,7 @@ export function ContractorProfileForm({
         disabled={pending}
         className="rounded-lg bg-orange-700 px-5 py-2.5 text-sm font-medium text-white hover:bg-orange-800 disabled:opacity-60"
       >
-        {pending ? "Tallennetaan…" : "Tallenna pätevyydet"}
+        {pending ? "Tallennetaan…" : "Tallenna profiili"}
       </button>
     </form>
   );

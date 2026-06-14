@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import {
   parseJobTypeIds,
   parseRefrigerantLicense,
+  parseTradeIds,
   parseWorkCapability,
   validateContractorQualifications,
 } from "@/lib/contractor-qualifications";
@@ -34,13 +35,14 @@ export async function updateContractorQualifications(
   const saveRes = await saveContractorQualifications({
     contractorId: user.id,
     companyName,
+    tradeIds: parseTradeIds(formData),
     jobTypeIds: parseJobTypeIds(formData),
-    refrigerantLicense: parseRefrigerantLicense(formData)!,
+    refrigerantLicense: parseRefrigerantLicense(formData),
     electricalCapability: parseWorkCapability(
       formData,
       "electrical_capability",
-    )!,
-    lviCapability: parseWorkCapability(formData, "lvi_capability")!,
+    ),
+    lviCapability: parseWorkCapability(formData, "lvi_capability"),
   });
 
   if (saveRes.error) return { error: saveRes.error };

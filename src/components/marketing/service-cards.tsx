@@ -6,7 +6,7 @@ const services = [
   {
     title: "Kilpailuta remontti",
     description:
-      "Lämpöpumppu, keittiö, kylpyhuone, katto, sähkö… Valitse talon osa ja työ. Lämpöpumpussa tarkka lomake.",
+      "Lämpöpumppu, keittiö, kylpyhuone, katto, sähkö… Julkaise tarjouspyyntö ilmaiseksi.",
     href: "/remontti/uusi",
     cta: "Aloita tarjouspyyntö",
     accent: "border-sky-200 bg-sky-50/80",

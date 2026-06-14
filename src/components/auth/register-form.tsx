@@ -3,7 +3,7 @@
 import { useActionState, useState } from "react";
 import { signUp, type AuthState } from "@/app/actions/auth";
 import { ContractorQualificationFields } from "@/components/contractor/qualification-fields";
-import type { JobType } from "@/types/job-catalog";
+import type { JobType, Trade } from "@/types/job-catalog";
 import Link from "next/link";
 
 const inputClass =
@@ -11,9 +11,11 @@ const inputClass =
 
 export function RegisterForm({
   defaultRole,
+  trades = [],
   heatPumpJobTypes = [],
 }: {
   defaultRole?: "customer" | "contractor";
+  trades?: Pick<Trade, "id" | "slug" | "name_fi">[];
   heatPumpJobTypes?: Pick<JobType, "id" | "slug">[];
 }) {
   const [role, setRole] = useState<"customer" | "contractor">(
@@ -36,7 +38,7 @@ export function RegisterForm({
             checked={role === "customer"}
             onChange={() => setRole("customer")}
           />
-          <span>Haen lämpöpumppuasentajaa</span>
+          <span>Asiakas — etsin urakoitsijaa</span>
         </label>
         <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-stone-200 p-3 has-checked:border-sky-600 has-checked:bg-sky-50">
           <input
@@ -45,7 +47,7 @@ export function RegisterForm({
             checked={role === "contractor"}
             onChange={() => setRole("contractor")}
           />
-          <span>Lämpöpumppuasentaja / LVI-yritys</span>
+          <span>Urakoitsija — haen töitä</span>
         </label>
       </fieldset>
 
@@ -76,8 +78,11 @@ export function RegisterForm({
               className={inputClass}
             />
           </div>
-          {heatPumpJobTypes.length > 0 && (
-            <ContractorQualificationFields jobTypes={heatPumpJobTypes} />
+          {trades.length > 0 && (
+            <ContractorQualificationFields
+              trades={trades}
+              jobTypes={heatPumpJobTypes}
+            />
           )}
         </>
       )}
