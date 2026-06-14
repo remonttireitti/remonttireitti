@@ -73,3 +73,11 @@ for (const { path, size } of appIconSizes) {
     .toFile(join(root, path));
   console.log("Wrote", path);
 }
+
+for (const path of ["src/app/favicon.ico", "public/favicon.ico"]) {
+  await sharp(svg, { density: 300 })
+    .resize(32, 32)
+    .png()
+    .toFile(join(root, path));
+  console.log("Wrote", path);
+}

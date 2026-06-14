@@ -22,6 +22,16 @@ const nextConfig: NextConfig = {
     formats: ["image/avif", "image/webp"],
     remotePatterns: supabaseImagePatterns(),
   },
+  async redirects() {
+    return [
+      {
+        source: "/favicon.ico",
+        has: [{ type: "query", key: "favicon" }],
+        destination: "/favicon.ico",
+        permanent: true,
+      },
+    ];
+  },
   async headers() {
     return [
       {
