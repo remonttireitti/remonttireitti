@@ -8,8 +8,9 @@ import {
 import { ContractorQualificationFields } from "@/components/contractor/qualification-fields";
 import type { JobType, Trade } from "@/types/job-catalog";
 import type {
+  ElectricalQualification,
+  LviQualification,
   RefrigerantLicense,
-  WorkCapability,
 } from "@/types/contractor";
 
 const inputClass =
@@ -22,8 +23,8 @@ type Props = {
   tradeIds: string[];
   jobTypeIds: string[];
   refrigerantLicense: RefrigerantLicense | null;
-  electricalCapability: WorkCapability | null;
-  lviCapability: WorkCapability | null;
+  electricalQualification: ElectricalQualification | null;
+  lviQualifications: LviQualification[];
 };
 
 export function ContractorProfileForm({
@@ -33,8 +34,8 @@ export function ContractorProfileForm({
   tradeIds,
   jobTypeIds,
   refrigerantLicense,
-  electricalCapability,
-  lviCapability,
+  electricalQualification,
+  lviQualifications,
   className = "",
 }: Props & { className?: string }) {
   const [state, action, pending] = useActionState<
@@ -73,8 +74,8 @@ export function ContractorProfileForm({
         defaultTradeIds={tradeIds}
         defaultJobTypeIds={jobTypeIds}
         defaultRefrigerant={refrigerantLicense ?? undefined}
-        defaultElectrical={electricalCapability ?? undefined}
-        defaultLvi={lviCapability ?? undefined}
+        defaultElectrical={electricalQualification}
+        defaultLvi={lviQualifications}
       />
 
       {state.error && (

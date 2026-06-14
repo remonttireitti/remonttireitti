@@ -5,7 +5,8 @@ import { UserRowActions } from "@/components/admin/user-row-actions";
 import { SiteHeader } from "@/components/site-header";
 import { requireAdmin } from "@/lib/admin";
 import {
-  formatCapability,
+  formatElectricalQualification,
+  formatLviQualifications,
   formatRefrigerant,
 } from "@/lib/format-qualifications";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -31,7 +32,7 @@ export default async function AdminPage() {
   const { data: contractors } = await admin
     .from("contractor_profiles")
     .select(
-      "id, company_name, refrigerant_license, electrical_capability, lvi_capability",
+      "id, company_name, refrigerant_license, electrical_qualification, lvi_qualifications",
     );
 
   const contractorByUser = new Map((contractors ?? []).map((c) => [c.id, c]));
@@ -96,9 +97,15 @@ export default async function AdminPage() {
                   <p className="text-xs text-stone-500">
                     Kylmäaine: {formatRefrigerant(row.contractor.refrigerant_license)}
                     {" · "}
-                    Sähkö: {formatCapability(row.contractor.electrical_capability)}
+                    Sähkö:{" "}
+                    {formatElectricalQualification(
+                      row.contractor.electrical_qualification,
+                    )}
                     {" · "}
-                    LVI: {formatCapability(row.contractor.lvi_capability)}
+                    LVI:{" "}
+                    {formatLviQualifications(
+                      row.contractor.lvi_qualifications ?? [],
+                    )}
                   </p>
                 )}
                 <UserRowActions

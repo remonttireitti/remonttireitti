@@ -2,10 +2,11 @@
 
 import { createClient } from "@/lib/supabase/server";
 import {
+  parseElectricalQualification,
   parseJobTypeIds,
+  parseLviQualifications,
   parseRefrigerantLicense,
   parseTradeIds,
-  parseWorkCapability,
   validateContractorQualifications,
 } from "@/lib/contractor-qualifications";
 import { saveContractorQualifications } from "@/lib/save-contractor-qualifications";
@@ -84,11 +85,8 @@ export async function signUp(
       tradeIds: parseTradeIds(formData),
       jobTypeIds: parseJobTypeIds(formData),
       refrigerantLicense: parseRefrigerantLicense(formData),
-      electricalCapability: parseWorkCapability(
-        formData,
-        "electrical_capability",
-      ),
-      lviCapability: parseWorkCapability(formData, "lvi_capability"),
+      electricalQualification: parseElectricalQualification(formData),
+      lviQualifications: parseLviQualifications(formData),
     });
 
     if (saveRes.error) {

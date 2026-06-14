@@ -3,10 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import {
+  parseElectricalQualification,
   parseJobTypeIds,
+  parseLviQualifications,
   parseRefrigerantLicense,
   parseTradeIds,
-  parseWorkCapability,
   validateContractorQualifications,
 } from "@/lib/contractor-qualifications";
 import { parseBidDefaultsByJobType } from "@/lib/contractor-bid-defaults-shared";
@@ -38,11 +39,8 @@ export async function updateContractorQualifications(
     tradeIds: parseTradeIds(formData),
     jobTypeIds: parseJobTypeIds(formData),
     refrigerantLicense: parseRefrigerantLicense(formData),
-    electricalCapability: parseWorkCapability(
-      formData,
-      "electrical_capability",
-    ),
-    lviCapability: parseWorkCapability(formData, "lvi_capability"),
+    electricalQualification: parseElectricalQualification(formData),
+    lviQualifications: parseLviQualifications(formData),
   });
 
   if (saveRes.error) return { error: saveRes.error };

@@ -18,7 +18,8 @@ import { PUBLIC_CONTRACTOR_TRADE_SLUGS } from "@/constants/contractor-trades";
 import { fetchHeatPumpCatalog, fetchJobCatalog } from "@/lib/job-catalog-server";
 import { getContractorQualifications } from "@/lib/save-contractor-qualifications";
 import {
-  formatCapability,
+  formatElectricalQualification,
+  formatLviQualifications,
   formatPumpTypes,
   formatRefrigerant,
   formatTrades,
@@ -240,12 +241,16 @@ export default async function AccountPage({
                       value={formatRefrigerant(contractorQuals.refrigerantLicense)}
                     />
                     <Row
-                      label="Sähkötyöt"
-                      value={formatCapability(contractorQuals.electricalCapability)}
+                      label="Sähköpätevyys"
+                      value={formatElectricalQualification(
+                        contractorQuals.electricalQualification,
+                      )}
                     />
                     <Row
-                      label="LVI-työt"
-                      value={formatCapability(contractorQuals.lviCapability)}
+                      label="LVI-pätevyydet"
+                      value={formatLviQualifications(
+                        contractorQuals.lviQualifications,
+                      )}
                     />
                   </>
                 )}
@@ -341,8 +346,8 @@ export default async function AccountPage({
                   tradeIds={contractorQuals.tradeIds}
                   jobTypeIds={contractorQuals.jobTypeIds}
                   refrigerantLicense={contractorQuals.refrigerantLicense}
-                  electricalCapability={contractorQuals.electricalCapability}
-                  lviCapability={contractorQuals.lviCapability}
+                  electricalQualification={contractorQuals.electricalQualification}
+                  lviQualifications={contractorQuals.lviQualifications}
                 />
               )}
 

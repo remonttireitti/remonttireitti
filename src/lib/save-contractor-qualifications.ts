@@ -1,8 +1,9 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import type {
+  ElectricalQualification,
+  LviQualification,
   RefrigerantLicense,
-  WorkCapability,
 } from "@/types/contractor";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -12,8 +13,8 @@ type SaveInput = {
   tradeIds: string[];
   jobTypeIds: string[];
   refrigerantLicense: RefrigerantLicense | null;
-  electricalCapability: WorkCapability | null;
-  lviCapability: WorkCapability | null;
+  electricalQualification: ElectricalQualification | null;
+  lviQualifications: LviQualification[];
 };
 
 async function dbClient(): Promise<SupabaseClient> {
@@ -33,8 +34,8 @@ export async function saveContractorQualifications(
     id: input.contractorId,
     company_name: input.companyName,
     refrigerant_license: input.refrigerantLicense,
-    electrical_capability: input.electricalCapability,
-    lvi_capability: input.lviCapability,
+    electrical_qualification: input.electricalQualification,
+    lvi_qualifications: input.lviQualifications,
   });
 
   if (cpErr) return { error: cpErr.message };
@@ -91,7 +92,7 @@ export async function getContractorQualifications(contractorId: string) {
   const { data: cp } = await db
     .from("contractor_profiles")
     .select(
-      "company_name, refrigerant_license, electrical_capability, lvi_capability",
+      "company_name, refrigerant_license, electrical_qualification, lvi_qualifications",
     )
     .eq("id", contractorId)
     .maybeSingle();
@@ -134,8 +135,8 @@ export async function getContractorQualifications(contractorId: string) {
   return {
     companyName: cp?.company_name ?? "",
     refrigerantLicense: cp?.refrigerant_license ?? null,
-    electricalCapability: cp?.electrical_capability ?? null,
-    lviCapability: cp?.lvi_capability ?? null,
+    electricalQualification: cp?.electrical_qualification ?? null,
+    lviQualifications: (cp?.lvi_qualifications ?? []) as LviQualification[],
     jobTypeIds,
     jobTypeSlugs,
     tradeIds,

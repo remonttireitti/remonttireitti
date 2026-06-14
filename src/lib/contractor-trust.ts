@@ -3,7 +3,7 @@
 export const CONTRACTOR_TRUST_POINTS = [
   {
     title: "Pätevyydet ilmoitettu",
-    body: "Urakoitsija kertoo rekisteröityessä kylmäaineluvan, sähkö- ja LVI-työn sekä asentamansa pumpputyypit.",
+    body: "Urakoitsija kertoo ammatit, kylmäaineluvan sekä sähkö- (S1–S3) ja LVI-pätevyydet lämpöpumpuille.",
   },
   {
     title: "Tarjouksessa vahvistus",

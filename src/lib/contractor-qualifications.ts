@@ -1,7 +1,24 @@
 import type {
+  ElectricalQualification,
+  LviQualification,
   RefrigerantLicense,
-  WorkCapability,
 } from "@/types/contractor";
+
+const ELECTRICAL_VALUES = new Set<ElectricalQualification>([
+  "s1",
+  "s2",
+  "s3",
+  "none",
+  "subcontract",
+]);
+
+const LVI_VALUES = new Set<LviQualification>([
+  "putki_asentaja",
+  "markatila_vedeneristaja",
+  "viemarisaneeraaja",
+  "subcontract",
+  "none",
+]);
 
 export function parseJobTypeIds(formData: FormData): string[] {
   return formData
@@ -25,13 +42,28 @@ export function parseRefrigerantLicense(
   return null;
 }
 
-export function parseWorkCapability(
+export function parseElectricalQualification(
   formData: FormData,
-  field: "electrical_capability" | "lvi_capability",
-): WorkCapability | null {
-  const v = String(formData.get(field) ?? "");
-  if (v === "qualified" || v === "not_qualified") return v;
+): ElectricalQualification | null {
+  const v = String(formData.get("electrical_qualification") ?? "");
+  if (ELECTRICAL_VALUES.has(v as ElectricalQualification)) {
+    return v as ElectricalQualification;
+  }
   return null;
+}
+
+export function parseLviQualifications(formData: FormData): LviQualification[] {
+  const raw = formData
+    .getAll("lvi_qualifications")
+    .map((v) => String(v))
+    .filter((v) => LVI_VALUES.has(v as LviQualification)) as LviQualification[];
+
+  if (raw.includes("none") || raw.includes("subcontract")) {
+    const exclusive = raw.find((v) => v === "none" || v === "subcontract");
+    return exclusive ? [exclusive] : raw;
+  }
+
+  return [...new Set(raw)];
 }
 
 export function validateContractorQualifications(formData: FormData): string | null {
@@ -46,11 +78,12 @@ export function validateContractorQualifications(formData: FormData): string | n
     if (!parseRefrigerantLicense(formData)) {
       return "Valitse kylmäainelupa lämpöpumpuille.";
     }
-    if (!parseWorkCapability(formData, "electrical_capability")) {
-      return "Ilmoita sähkötyöpätevyys lämpöpumpuille.";
+    if (!parseElectricalQualification(formData)) {
+      return "Valitse sähköpätevyys (S1, S2, S3 tai miten sähkö hoidetaan).";
     }
-    if (!parseWorkCapability(formData, "lvi_capability")) {
-      return "Ilmoita LVI-työpätevyys lämpöpumpuille.";
+    const lvi = parseLviQualifications(formData);
+    if (lvi.length === 0) {
+      return "Valitse vähintään yksi LVI-pätevyys tai miten LVI-työt hoidetaan.";
     }
   }
 
