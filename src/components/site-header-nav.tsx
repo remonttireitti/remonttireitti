@@ -98,6 +98,7 @@ export function SiteHeaderNav({
                 )}
               </span>
             </NavItem>
+            {isCustomer && <NavItem href="/oma-tili/huoltokirja">Huoltokirja</NavItem>}
             <NavItem href="/oma-tili">Oma tili</NavItem>
             {isAdmin && <NavItem href="/admin">Admin</NavItem>}
           </>

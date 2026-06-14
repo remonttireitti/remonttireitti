@@ -31,6 +31,8 @@ import { syncContractorAccount } from "@/lib/sync-contractor";
 import { projectStatusLabels } from "@/lib/projects";
 import { brand } from "@/lib/brand-theme";
 import { isEmailConfigured } from "@/lib/email";
+import { HuoltokirjaPromoCard } from "@/components/property/huoltokirja-promo-card";
+import { countCustomerPropertyStats } from "@/lib/property-log";
 import { createClient } from "@/lib/supabase/server";
 import type { ProjectStatus } from "@/types/database";
 
@@ -128,6 +130,7 @@ export default async function AccountPage({
   };
 
   let projects: ProjectRow[] = [];
+  let propertyStats = { propertyCount: 0, logEntryCount: 0 };
 
   if (params.viesti === "vain-urakoitsijalle") {
     await syncContractorAccount(user);
@@ -158,14 +161,18 @@ export default async function AccountPage({
   }
 
   if (!contractor && !admin) {
-    const { data } = await supabase
-      .from("projects")
-      .select(
-        "id, title, status, municipality, created_at, service_categories ( name_fi )",
-      )
-      .eq("customer_id", user.id)
-      .order("created_at", { ascending: false });
+    const [{ data }, stats] = await Promise.all([
+      supabase
+        .from("projects")
+        .select(
+          "id, title, status, municipality, created_at, service_categories ( name_fi )",
+        )
+        .eq("customer_id", user.id)
+        .order("created_at", { ascending: false }),
+      countCustomerPropertyStats(supabase, user.id),
+    ]);
     projects = (data ?? []) as ProjectRow[];
+    propertyStats = stats;
   }
 
   function categoryName(
@@ -220,6 +227,14 @@ export default async function AccountPage({
               defaultCompany={defaultCompanyFromUser(user)}
             />
           </div>
+        )}
+
+        {!contractor && !admin && (
+          <HuoltokirjaPromoCard
+            className="mt-8"
+            propertyCount={propertyStats.propertyCount}
+            logEntryCount={propertyStats.logEntryCount}
+          />
         )}
 
         {params.viesti === "ei-oikeuksia" && (
@@ -331,19 +346,11 @@ export default async function AccountPage({
               <h2 className="text-lg font-semibold text-stone-900">
                 Tarjouspyynnöt
               </h2>
-              <div className="flex flex-wrap items-center gap-3">
-                <Link
-                  href="/oma-tili/huoltokirja"
-                  className="text-sm font-medium text-sky-800 hover:underline"
-                >
-                  Huoltokirja
-                </Link>
-                {projects.length > 0 && (
-                  <span className="rounded-full bg-stone-100 px-2.5 py-0.5 text-xs font-medium text-stone-600">
-                    {projects.length} kpl
-                  </span>
-                )}
-              </div>
+              {projects.length > 0 && (
+                <span className="rounded-full bg-stone-100 px-2.5 py-0.5 text-xs font-medium text-stone-600">
+                  {projects.length} kpl
+                </span>
+              )}
             </div>
 
             {projects.length === 0 ? (

@@ -45,11 +45,11 @@ export default async function PropertyLogPage({
         <header className={brand.pageHeaderRow}>
           <div>
             <p className="text-sm font-medium text-sky-800">Oma tili</p>
-            <h1 className="mt-1 text-2xl font-bold tracking-tight text-stone-900">
-              Huoltokirja
+            <h1 className="mt-1 text-2xl font-bold tracking-tight text-stone-900 sm:text-3xl">
+              Kiinteistöt ja huoltokirja
             </h1>
             <p className="mt-2 max-w-xl text-sm leading-relaxed text-stone-600">
-              Lisää kiinteistöjä ja niiden tekniset tiedot. Valmiit urakat
+              Lisää kodit ja mökit sekä niiden tekniset tiedot. Valmiit urakat
               kirjautuvat automaattisesti työhistoriaan.
             </p>
           </div>

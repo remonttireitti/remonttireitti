@@ -279,6 +279,35 @@ export async function backfillPropertyLogsForCustomer(
   return count;
 }
 
+export async function countCustomerPropertyStats(
+  supabase: SupabaseClient,
+  customerId: string,
+): Promise<{ propertyCount: number; logEntryCount: number }> {
+  const { count: propertyCount } = await supabase
+    .from("properties")
+    .select("id", { count: "exact", head: true })
+    .eq("customer_id", customerId);
+
+  const { data: propertyIds } = await supabase
+    .from("properties")
+    .select("id")
+    .eq("customer_id", customerId);
+
+  let logEntryCount = 0;
+  if (propertyIds?.length) {
+    const { count } = await supabase
+      .from("property_log_entries")
+      .select("id", { count: "exact", head: true })
+      .in(
+        "property_id",
+        propertyIds.map((p) => p.id),
+      );
+    logEntryCount = count ?? 0;
+  }
+
+  return { propertyCount: propertyCount ?? 0, logEntryCount };
+}
+
 export async function fetchCustomerPropertyLog(
   supabase: SupabaseClient,
   customerId: string,
