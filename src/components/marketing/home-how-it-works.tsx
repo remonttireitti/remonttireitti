@@ -91,17 +91,18 @@ export function HomeHowItWorks() {
       <div className="mt-8 grid gap-6 lg:grid-cols-2">
         <article className="rounded-2xl border border-sky-100 bg-sky-50/40 p-5">
           <h3 className="text-lg font-semibold text-stone-900">
-            Kilpailuta asennus
+            Kilpailuta remontti
           </h3>
           <p className="mt-1 text-sm text-stone-600">
-            Ilmainen asiakkaalle — useita tarjouksia yhdestä pyynnöstä.
+            Valitse talon osa (lämmitys, sähkö, sisätilat…) — lämpöpumpussa
+            tarkka lomake. Ilmainen asiakkaalle.
           </p>
           <StepList steps={installSteps} accent="sky" />
           <Link
             href="/remontti/uusi"
             className={`${brand.link} mt-5 inline-block text-sm font-semibold`}
           >
-            Aloita asennuspyyntö →
+            Aloita tarjouspyyntö →
           </Link>
         </article>
 

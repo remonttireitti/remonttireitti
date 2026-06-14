@@ -1,0 +1,143 @@
+"use client";
+
+import { useMemo, useState } from "react";
+import {
+  HEAT_PUMP_MARKETING,
+} from "@/constants/heat-pumps";
+import {
+  PROJECT_AREAS,
+  areaForJobSlug,
+  isHeatPumpJobSlug,
+  type ProjectAreaSlug,
+} from "@/constants/project-areas";
+import { brand } from "@/lib/brand-theme";
+import type { JobCatalog, JobTypeWithTrades } from "@/types/job-catalog";
+
+type Props = {
+  catalog: JobCatalog;
+  jobTypeId: string;
+  onJobTypeChange: (jobType: JobTypeWithTrades | null) => void;
+};
+
+export function ProjectAreaJobStep({
+  catalog,
+  jobTypeId,
+  onJobTypeChange,
+}: Props) {
+  const selectedJob = useMemo(
+    () => catalog.jobTypes.find((j) => j.id === jobTypeId) ?? null,
+    [catalog.jobTypes, jobTypeId],
+  );
+
+  const initialArea = selectedJob ? areaForJobSlug(selectedJob.slug)?.slug ?? null : null;
+  const [areaSlug, setAreaSlug] = useState<ProjectAreaSlug | null>(initialArea);
+
+  const activeArea = PROJECT_AREAS.find((a) => a.slug === areaSlug) ?? null;
+
+  const jobsInArea = useMemo(() => {
+    if (!activeArea) return [];
+    return activeArea.jobSlugs
+      .map((slug) => catalog.jobTypes.find((j) => j.slug === slug))
+      .filter(Boolean) as JobTypeWithTrades[];
+  }, [activeArea, catalog.jobTypes]);
+
+  function selectArea(slug: ProjectAreaSlug) {
+    setAreaSlug(slug);
+    if (selectedJob && areaForJobSlug(selectedJob.slug)?.slug !== slug) {
+      onJobTypeChange(null);
+    }
+  }
+
+  function backToAreas() {
+    setAreaSlug(null);
+    onJobTypeChange(null);
+  }
+
+  if (!activeArea) {
+    return (
+      <div className="space-y-4">
+        <p className="text-sm text-stone-600">
+          Valitse ensin talon osa tai remontin tyyppi. Lämpöpumpuissa on tarkka
+          asennuslomake — muissa kuvaus ja kuvat riittävät alkuun.
+        </p>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {PROJECT_AREAS.map((area) => (
+            <button
+              key={area.slug}
+              type="button"
+              onClick={() => selectArea(area.slug)}
+              className={`rounded-xl border p-4 text-left transition-colors hover:border-sky-300 hover:bg-sky-50/40 ${
+                area.slug === "lammitys"
+                  ? "border-sky-200 bg-sky-50/60"
+                  : "border-stone-200 bg-white"
+              }`}
+            >
+              <span className="font-semibold text-stone-900">{area.title}</span>
+              <span className="mt-1 block text-sm text-stone-600">
+                {area.description}
+              </span>
+              <span className={`mt-2 block text-xs font-medium ${brand.link}`}>
+                {area.jobSlugs.length} työtä →
+              </span>
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <button
+        type="button"
+        onClick={backToAreas}
+        className="text-sm text-sky-700 hover:underline"
+      >
+        ← Kaikki osiot
+      </button>
+      <div>
+        <h2 className="text-lg font-semibold text-stone-900">
+          {activeArea.title}
+        </h2>
+        <p className="mt-1 text-sm text-stone-600">{activeArea.description}</p>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        {jobsInArea.map((jt) => {
+          const active = jobTypeId === jt.id;
+          const pumpMeta = isHeatPumpJobSlug(jt.slug)
+            ? HEAT_PUMP_MARKETING[jt.slug]
+            : null;
+
+          return (
+            <button
+              key={jt.id}
+              type="button"
+              onClick={() => onJobTypeChange(jt)}
+              className={`rounded-xl border p-4 text-left transition-colors ${
+                active ? brand.selectedCard : "border-stone-200 bg-white hover:border-sky-200"
+              }`}
+            >
+              <span className="font-semibold">
+                {pumpMeta?.title ?? jt.name_fi}
+              </span>
+              <span className="mt-1 block text-sm text-stone-600">
+                {pumpMeta?.description ?? jt.description_fi}
+              </span>
+              {pumpMeta?.hint && (
+                <span className="mt-2 block text-xs text-stone-500">
+                  {pumpMeta.hint}
+                </span>
+              )}
+              {activeArea.slug === "lammitys" && (
+                <span className="mt-2 block text-xs font-medium text-sky-800">
+                  Tarkka asennuslomake
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}

@@ -60,15 +60,16 @@ export default async function Home() {
               <Logo href="/" size="lg" />
             </div>
             <p className="mb-3 text-sm font-medium uppercase tracking-widest text-sky-800">
-              Lämpöpumput — asennus, huolto ja tori
+              Remontit ja lämpöpumput — kilpailutus, huolto ja tori
             </p>
             <h1 className="text-3xl font-bold tracking-tight text-stone-900 sm:text-5xl">
-              Kilpailuta lämpöpumppu{" "}
+              Kilpailuta remontti{" "}
               <span className="text-sky-800">helposti ja ilmaiseksi</span>
             </h1>
             <p className="mx-auto mt-5 max-w-2xl text-base leading-relaxed text-stone-600 sm:text-lg">
-              Yksi selkeä pyyntö — vertailukelpoiset tarjoukset. Näet urakoitsijan
-              pätevyydet ja arvostelut ennen valintaa.
+              Lämpöpumppu, keittiö, katto, sähkö… Yksi selkeä pyyntö —
+              vertailukelpoiset tarjoukset. Näet urakoitsijan pätevyydet ennen
+              valintaa.
             </p>
             <ul className="mx-auto mt-6 flex max-w-lg flex-wrap justify-center gap-2 text-xs font-medium text-stone-700 sm:text-sm">
               <li className="rounded-full bg-white/90 px-3 py-1.5 shadow-sm ring-1 ring-sky-100">
@@ -86,7 +87,7 @@ export default async function Home() {
                 href="/remontti/uusi"
                 className={`${brand.btnPrimary} ${brand.btnPrimaryBlock} rounded-full px-8`}
               >
-                Kilpailuta asennus
+                Kilpailuta remontti
               </Link>
               <Link
                 href="/vian-selvitys"

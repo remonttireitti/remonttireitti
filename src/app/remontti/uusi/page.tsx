@@ -4,7 +4,7 @@ import { ValuePromoBanner } from "@/components/promo/value-promo-banner";
 import { SiteHeader } from "@/components/site-header";
 import { ProjectWizard } from "@/components/project/project-wizard";
 import { getProfile, getSessionUser } from "@/lib/auth";
-import { fetchHeatPumpCatalog } from "@/lib/job-catalog-server";
+import { fetchProjectCatalog } from "@/lib/job-catalog-server";
 
 export default async function NewProjectPage() {
   const user = await getSessionUser();
@@ -15,7 +15,7 @@ export default async function NewProjectPage() {
     redirect("/oma-tili");
   }
 
-  const catalog = await fetchHeatPumpCatalog();
+  const catalog = await fetchProjectCatalog();
 
   if (catalog.jobTypes.length === 0) {
     return (
@@ -23,8 +23,10 @@ export default async function NewProjectPage() {
         <SiteHeader />
         <main className="mx-auto max-w-2xl px-6 py-12">
           <p className="rounded-lg bg-amber-50 p-4 text-sm text-amber-900">
-            Lämpöpumppuluettelo puuttuu. Aja Supabasessa migraatio{" "}
-            <code className="text-xs">20260519200000_heat_pump_focus.sql</code>.
+            Remonttityypit puuttuvat tietokannasta. Aja Supabasessa migraatiot{" "}
+            <code className="text-xs">20260519180000_trades_and_job_types.sql</code>{" "}
+            ja{" "}
+            <code className="text-xs">20260519190000_expand_omakotitalo_catalog.sql</code>.
           </p>
         </main>
       </div>
@@ -42,13 +44,13 @@ export default async function NewProjectPage() {
           ← Oma tili
         </Link>
         <h1 className="mt-4 text-2xl font-bold sm:text-3xl">
-          Kilpailuta lämpöpumppu
+          Kilpailuta remontti
         </h1>
         <p className="mt-2 max-w-2xl text-stone-600">
-          Valitse pumpputyyppi ja täytä kohdekortit. Julkaise tarjouspyyntö
-          ilmaiseksi.{" "}
+          Valitse talon osa ja työ — lämpöpumpussa tarkka lomake, muissa kuvaus
+          ja kuvat. Julkaise tarjouspyyntö ilmaiseksi.{" "}
           <Link href="/vian-selvitys" className="text-sky-700 hover:underline">
-            Laite ei toimi oikein? Aloita vian selvityksestä
+            Lämpöpumppu oireilee? Aloita vian selvityksestä
           </Link>
         </p>
         <div className="mt-6 grid max-w-3xl gap-4 sm:grid-cols-2">

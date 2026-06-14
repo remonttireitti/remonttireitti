@@ -4,11 +4,11 @@ import { marketplaceBrand } from "@/lib/marketplace-brand";
 
 const services = [
   {
-    title: "Asennus",
+    title: "Kilpailuta remontti",
     description:
-      "Kilpailuta ilmalämpö-, vesi-ilmalämpö- tai maalämpöpumppu. Ohjattu lomake kertoo asentajalle kohteesta tarvittavat tiedot.",
+      "Lämpöpumppu, keittiö, kylpyhuone, katto, sähkö… Valitse talon osa ja työ. Lämpöpumpussa tarkka lomake.",
     href: "/remontti/uusi",
-    cta: "Aloita asennuspyyntö",
+    cta: "Aloita tarjouspyyntö",
     accent: "border-sky-200 bg-sky-50/80",
   },
   {

@@ -17,7 +17,7 @@ async function contractorEmail(userId: string): Promise<string | null> {
   return data.user?.email ?? null;
 }
 
-/** Ilmoita urakoitsijoille, joilla on valittu sama lämpöpumppu / työlaji. */
+/** Ilmoita urakoitsijoille: ensin työlaji, sitten ammattipäällekkäisyys. */
 export async function notifyContractorsNewPublishedProject(params: {
   projectId: string;
   projectTitle: string;
@@ -33,16 +33,37 @@ export async function notifyContractorsNewPublishedProject(params: {
     .eq("id", params.jobTypeId)
     .maybeSingle();
 
-  const pumpLabel = jobType?.name_fi ?? "Lämpöpumppu";
+  const jobLabel = jobType?.name_fi ?? "Remontti";
 
-  const { data: matches } = await admin
+  let contractorIds: string[] = [];
+
+  const { data: jobMatches } = await admin
     .from("contractor_job_types")
     .select("contractor_id")
     .eq("job_type_id", params.jobTypeId);
 
-  const contractorIds = [
-    ...new Set((matches ?? []).map((r) => r.contractor_id as string)),
+  contractorIds = [
+    ...new Set((jobMatches ?? []).map((r) => r.contractor_id as string)),
   ];
+
+  if (contractorIds.length === 0) {
+    const { data: projectTrades } = await admin
+      .from("project_trades")
+      .select("trade_id")
+      .eq("project_id", params.projectId);
+
+    const tradeIds = (projectTrades ?? []).map((r) => r.trade_id as string);
+    if (tradeIds.length > 0) {
+      const { data: tradeMatches } = await admin
+        .from("contractor_trades")
+        .select("contractor_id")
+        .in("trade_id", tradeIds);
+
+      contractorIds = [
+        ...new Set((tradeMatches ?? []).map((r) => r.contractor_id as string)),
+      ];
+    }
+  }
 
   if (contractorIds.length === 0) return;
 
@@ -54,7 +75,7 @@ export async function notifyContractorsNewPublishedProject(params: {
 
   const title = "Uusi tarjouspyyntö";
   const location = `${params.municipality} ${params.postalCode}`.trim();
-  const body = `${pumpLabel} · ${location} — ${params.projectTitle}`;
+  const body = `${jobLabel} · ${location} — ${params.projectTitle}`;
   const linkPath = `/tarjoukset/${params.projectId}`;
 
   await Promise.all(
@@ -80,7 +101,7 @@ export async function notifyContractorsNewPublishedProject(params: {
           subject: `${title}: ${params.projectTitle}`,
           html: `<div style="font-family:system-ui,sans-serif;max-width:560px">
             <h1 style="font-size:18px">${escapeHtml(title)}</h1>
-            <p>Uusi tarjouspyyntö sopii valitsemillesi lämpöpumpuille (<strong>${escapeHtml(pumpLabel)}</strong>).</p>
+            <p>Uusi tarjouspyyntö (<strong>${escapeHtml(jobLabel)}</strong>) sopii valitsemillesi töille tai ammateille.</p>
             <ul style="line-height:1.6">
               <li><strong>${escapeHtml(params.projectTitle)}</strong></li>
               <li>${escapeHtml(location)}</li>

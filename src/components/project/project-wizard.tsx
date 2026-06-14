@@ -7,7 +7,8 @@ import {
   type ProjectActionState,
 } from "@/app/actions/projects";
 import type { ProjectEditSnapshot } from "@/lib/project-edit";
-import { HeatPumpTypeStep } from "@/components/project/heat-pump-type-step";
+import { ProjectAreaJobStep } from "@/components/project/project-area-job-step";
+import { genericDescriptionPlaceholder } from "@/constants/project-areas";
 import { IlmalampopumppuDetailsStep } from "@/components/project/ilmalampopumppu-details-step";
 import { ProjectPhotoUpload } from "@/components/project/project-photo-upload";
 import { IlmavesilampopumppuDetailsStep } from "@/components/project/ilmavesilampopumppu-details-step";
@@ -43,7 +44,7 @@ import type { JobCatalog, JobTypeWithTrades } from "@/types/job-catalog";
 const inputClass = formInputClass;
 
 const STEPS = [
-  "Lämpöpumpun tyyppi",
+  "Valitse remontin tyyppi",
   "Kohde ja budjetti",
   "Yhteystiedot ja sijainti",
   "Yhteenveto",
@@ -191,7 +192,7 @@ export function ProjectWizard({
 
   function stepError(): string | null {
     if (step === 0) {
-      if (!form.job_type_id) return "Valitse lämpöpumpun tyyppi.";
+      if (!form.job_type_id) return "Valitse remontin tyyppi.";
     }
     if (step === 1) {
       if (isIlp) return validateIlpDetails(ilpDetails);
@@ -329,7 +330,7 @@ export function ProjectWizard({
           </>
         )}
         {step === 0 && (
-          <HeatPumpTypeStep
+          <ProjectAreaJobStep
             catalog={catalog}
             jobTypeId={form.job_type_id}
             onJobTypeChange={onJobTypeChange}
@@ -404,7 +405,7 @@ export function ProjectWizard({
                 value={form.description}
                 onChange={(e) => update("description", e.target.value)}
                 className={inputClass}
-                placeholder="Kerro talostasi, nykyisestä lämmityksestä ja toiveistasi…"
+                placeholder={genericDescriptionPlaceholder(selectedJobType?.slug ?? null)}
               />
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
