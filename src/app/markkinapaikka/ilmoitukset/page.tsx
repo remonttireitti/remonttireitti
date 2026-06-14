@@ -59,9 +59,9 @@ export default async function MarketplaceListingsPage({
   );
 
   return (
-    <div className="min-h-full bg-stone-50 text-stone-900">
+    <div className={brand.page}>
       <SiteHeader />
-      <main className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
+      <main className={brand.mainWide}>
         <Link
           href="/markkinapaikka"
           className="text-sm text-sky-700 hover:underline"

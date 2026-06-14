@@ -12,6 +12,7 @@ import {
 } from "@/lib/admin-projects-server";
 import { getSessionUser } from "@/lib/auth";
 import { projectStatusLabels } from "@/lib/projects";
+import { brand } from "@/lib/brand-theme";
 
 export default async function AdminProjectDetailPage({
   params,
@@ -35,9 +36,9 @@ export default async function AdminProjectDetailPage({
   ).length;
 
   return (
-    <div className="min-h-full bg-stone-50 text-stone-900">
+    <div className={brand.page}>
       <SiteHeader />
-      <main className="mx-auto max-w-4xl px-6 py-12">
+      <main className={brand.mainStandard}>
         <Link
           href="/admin/pyynnot"
           className="text-sm text-sky-700 hover:underline"

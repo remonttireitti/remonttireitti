@@ -24,9 +24,9 @@ export default async function MarketplacePage() {
   const createListingHref = marketplaceCreateListingPath(contractor);
 
   return (
-    <div className="min-h-full bg-gradient-to-b from-sky-50/40 to-stone-50 text-stone-900">
+    <div className={brand.page}>
       <SiteHeader />
-      <main className="mx-auto max-w-6xl px-4 py-12 sm:px-6 lg:px-8">
+      <main className={brand.mainWide}>
         <p className="text-sm font-medium uppercase tracking-wide text-sky-700">
           {marketplaceBrand.nameShort}
         </p>

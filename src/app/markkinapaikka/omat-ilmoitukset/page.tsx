@@ -10,6 +10,7 @@ import { listingStatusLabels } from "@/lib/marketplace-listings";
 import { LISTING_DURATION_WEEKS } from "@/lib/marketplace-pricing";
 import { marketplaceBrand } from "@/lib/marketplace-brand";
 import { pageMetadata } from "@/lib/seo";
+import { brand } from "@/lib/brand-theme";
 
 export const metadata: Metadata = pageMetadata({
   title: `Omat ilmoitukset — ${marketplaceBrand.nameShort}`,
@@ -34,9 +35,9 @@ export default async function MyListingsPage() {
   const newListingHref = marketplaceCreateListingPath(contractor);
 
   return (
-    <div className="min-h-full bg-stone-50 text-stone-900">
+    <div className={brand.page}>
       <SiteHeader />
-      <main className="mx-auto max-w-2xl px-4 py-10 sm:px-6 sm:py-12">
+      <main className={brand.mainStandard}>
         <Link
           href="/markkinapaikka"
           className="text-sm text-sky-700 hover:underline"

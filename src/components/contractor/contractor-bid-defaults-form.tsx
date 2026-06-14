@@ -7,12 +7,8 @@ import {
 } from "@/app/actions/contractor-profile";
 import { BidTermsTemplatePicker } from "@/components/bid/bid-terms-template-picker";
 import {
-  HEAT_PUMP_JOB_SLUGS,
-  HEAT_PUMP_MARKETING,
-  type HeatPumpSlug,
-} from "@/constants/heat-pumps";
-import {
-  resolveBidDefaultsForJobType,
+  buildInitialDefaultsByKey,
+  type BidDefaultsTab,
   type ContractorBidDefaults,
   type ContractorBidDefaultsByJobType,
 } from "@/lib/contractor-bid-defaults-shared";
@@ -21,65 +17,54 @@ import { brand, formInputClass } from "@/lib/brand-theme";
 
 const inputClass = formInputClass;
 
-function mergeDefaultsForSlug(
-  slug: HeatPumpSlug,
-  byJob: ContractorBidDefaultsByJobType,
-  legacy: ContractorBidDefaults,
-): ContractorBidDefaults {
-  return resolveBidDefaultsForJobType(byJob, legacy, slug);
-}
-
-function buildInitialByJob(
-  legacy: ContractorBidDefaults,
-  byJob: ContractorBidDefaultsByJobType,
-): Record<HeatPumpSlug, ContractorBidDefaults> {
-  const out = {} as Record<HeatPumpSlug, ContractorBidDefaults>;
-  for (const slug of HEAT_PUMP_JOB_SLUGS) {
-    out[slug] = mergeDefaultsForSlug(slug, byJob, legacy);
-  }
-  return out;
-}
-
 export function ContractorBidDefaultsForm({
   legacy,
   byJobType,
+  tabs,
   className = "",
 }: {
   legacy: ContractorBidDefaults;
   byJobType: ContractorBidDefaultsByJobType;
+  tabs: BidDefaultsTab[];
   className?: string;
 }) {
-  const [activeSlug, setActiveSlug] = useState<HeatPumpSlug>("ilmalampopumppu");
-  const [byJob, setByJob] = useState(() => buildInitialByJob(legacy, byJobType));
+  const [activeKey, setActiveKey] = useState(tabs[0]?.key ?? "");
+  const [byJob, setByJob] = useState(() =>
+    buildInitialDefaultsByKey(tabs, legacy, byJobType),
+  );
 
   const [state, action, pending] = useActionState<
     ContractorProfileState,
     FormData
   >(updateContractorBidDefaults, {});
 
-  const active = byJob[activeSlug];
+  const active = byJob[activeKey] ?? legacy;
+  const activeTab = tabs.find((t) => t.key === activeKey);
 
   const jsonPayload = useMemo(() => JSON.stringify(byJob), [byJob]);
 
+  const pumpTabs = tabs.filter((t) => t.group === "Lämpöpumput");
+  const tradeTabs = tabs.filter((t) => t.group === "Ammatit");
+
   function updateField(
-    slug: HeatPumpSlug,
-    key: keyof ContractorBidDefaults,
+    key: string,
+    field: keyof ContractorBidDefaults,
     value: string,
   ) {
     setByJob((prev) => ({
       ...prev,
-      [slug]: { ...prev[slug], [key]: value },
+      [key]: { ...(prev[key] ?? legacy), [field]: value },
     }));
   }
 
   function applyTemplate(
-    slug: HeatPumpSlug,
+    key: string,
     target: BidTermTemplateTarget,
     text: string,
     mode: "append" | "replace",
   ) {
     setByJob((prev) => {
-      const current = prev[slug][target];
+      const current = (prev[key] ?? legacy)[target];
       const next =
         mode === "replace"
           ? text
@@ -88,9 +73,41 @@ export function ContractorBidDefaultsForm({
             : text;
       return {
         ...prev,
-        [slug]: { ...prev[slug], [target]: next },
+        [key]: { ...(prev[key] ?? legacy), [target]: next },
       };
     });
+  }
+
+  function renderTabButtons(groupTabs: BidDefaultsTab[]) {
+    return groupTabs.map((tab) => (
+      <button
+        key={tab.key}
+        type="button"
+        role="tab"
+        aria-selected={activeKey === tab.key}
+        onClick={() => setActiveKey(tab.key)}
+        className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
+          activeKey === tab.key
+            ? "bg-sky-800 text-white"
+            : "bg-stone-100 text-stone-700 hover:bg-sky-50 hover:text-sky-900"
+        }`}
+      >
+        {tab.label}
+      </button>
+    ));
+  }
+
+  if (tabs.length === 0) {
+    return (
+      <section className={`${brand.section} space-y-3 p-5 sm:p-6 ${className}`}>
+        <h2 className={brand.sectionTitle}>Tarjouksen oletusehdot</h2>
+        <p className="text-sm leading-relaxed text-stone-600">
+          Valitse ensin ammatit (ja tarvittaessa lämpöpumput) urakoitsijan
+          profiilissa — sen jälkeen voit asettaa työlaji- ja
+          ammattikohtaiset oletusehdot tähän.
+        </p>
+      </section>
+    );
   }
 
   return (
@@ -100,32 +117,31 @@ export function ContractorBidDefaultsForm({
     >
       <h2 className={brand.sectionTitle}>Tarjouksen oletusehdot</h2>
       <p className={brand.sectionDesc}>
-        Oletukset täyttyvät automaattisesti uuteen tarjoukseen tyypin mukaan.
-        Käytä valmiita malleja tai kirjoita oma teksti.
+        Oletukset täyttyvät automaattisesti uuteen tarjoukseen työlajin tai
+        ammatin mukaan. Käytä valmiita malleja tai kirjoita oma teksti.
       </p>
 
-      <div
-        className="flex flex-wrap gap-2"
-        role="tablist"
-        aria-label="Lämpöpumpputyypit"
-      >
-        {HEAT_PUMP_JOB_SLUGS.map((slug) => (
-          <button
-            key={slug}
-            type="button"
-            role="tab"
-            aria-selected={activeSlug === slug}
-            onClick={() => setActiveSlug(slug)}
-            className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
-              activeSlug === slug
-                ? "bg-sky-800 text-white"
-                : "bg-stone-100 text-stone-700 hover:bg-sky-50 hover:text-sky-900"
-            }`}
-          >
-            {HEAT_PUMP_MARKETING[slug].title}
-          </button>
-        ))}
-      </div>
+      {pumpTabs.length > 0 && (
+        <div>
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-stone-500">
+            Lämpöpumput
+          </p>
+          <div className="flex flex-wrap gap-2" role="tablist" aria-label="Lämpöpumput">
+            {renderTabButtons(pumpTabs)}
+          </div>
+        </div>
+      )}
+
+      {tradeTabs.length > 0 && (
+        <div>
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-stone-500">
+            Ammatit
+          </p>
+          <div className="flex flex-wrap gap-2" role="tablist" aria-label="Ammatit">
+            {renderTabButtons(tradeTabs)}
+          </div>
+        </div>
+      )}
 
       <input
         type="hidden"
@@ -135,29 +151,29 @@ export function ContractorBidDefaultsForm({
       />
 
       <div
-        key={activeSlug}
+        key={activeKey}
         className="space-y-4 border-t border-stone-100 pt-4 xl:grid xl:grid-cols-2 xl:gap-x-8 xl:gap-y-4"
         role="tabpanel"
       >
         <p className="text-xs text-stone-500 xl:col-span-2">
-          Oletukset: {HEAT_PUMP_MARKETING[activeSlug].title}
+          Oletukset: {activeTab?.label ?? activeKey}
         </p>
 
         <div>
-          <label className="block text-sm font-medium">Asennuksen laajuus</label>
+          <label className="block text-sm font-medium">Työn laajuus</label>
           <textarea
             rows={4}
             value={active.scope_terms}
             onChange={(e) =>
-              updateField(activeSlug, "scope_terms", e.target.value)
+              updateField(activeKey, "scope_terms", e.target.value)
             }
             className={inputClass}
           />
           <BidTermsTemplatePicker
             target="scope_terms"
-            jobTypeSlug={activeSlug}
+            defaultsKey={activeKey}
             onApply={(text, mode) =>
-              applyTemplate(activeSlug, "scope_terms", text, mode)
+              applyTemplate(activeKey, "scope_terms", text, mode)
             }
           />
         </div>
@@ -168,15 +184,15 @@ export function ContractorBidDefaultsForm({
             rows={4}
             value={active.contract_terms}
             onChange={(e) =>
-              updateField(activeSlug, "contract_terms", e.target.value)
+              updateField(activeKey, "contract_terms", e.target.value)
             }
             className={inputClass}
           />
           <BidTermsTemplatePicker
             target="contract_terms"
-            jobTypeSlug={activeSlug}
+            defaultsKey={activeKey}
             onApply={(text, mode) =>
-              applyTemplate(activeSlug, "contract_terms", text, mode)
+              applyTemplate(activeKey, "contract_terms", text, mode)
             }
           />
         </div>
@@ -187,34 +203,34 @@ export function ContractorBidDefaultsForm({
             rows={2}
             value={active.warranty_work}
             onChange={(e) =>
-              updateField(activeSlug, "warranty_work", e.target.value)
+              updateField(activeKey, "warranty_work", e.target.value)
             }
             className={inputClass}
           />
           <BidTermsTemplatePicker
             target="warranty_work"
-            jobTypeSlug={activeSlug}
+            defaultsKey={activeKey}
             onApply={(text, mode) =>
-              applyTemplate(activeSlug, "warranty_work", text, mode)
+              applyTemplate(activeKey, "warranty_work", text, mode)
             }
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium">Takuu laitteelle</label>
+          <label className="block text-sm font-medium">Takuu laitteelle / materiaaleille</label>
           <textarea
             rows={2}
             value={active.warranty_equipment}
             onChange={(e) =>
-              updateField(activeSlug, "warranty_equipment", e.target.value)
+              updateField(activeKey, "warranty_equipment", e.target.value)
             }
             className={inputClass}
           />
           <BidTermsTemplatePicker
             target="warranty_equipment"
-            jobTypeSlug={activeSlug}
+            defaultsKey={activeKey}
             onApply={(text, mode) =>
-              applyTemplate(activeSlug, "warranty_equipment", text, mode)
+              applyTemplate(activeKey, "warranty_equipment", text, mode)
             }
           />
         </div>

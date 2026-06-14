@@ -143,7 +143,7 @@ export default async function AccountPage({
     return (
       <div className={brand.page}>
         <SiteHeader />
-        <main className="mx-auto w-full max-w-4xl px-4 py-8 sm:px-6 sm:py-10">
+        <main className={brand.mainStandard}>
           <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Oma tili</h1>
           {params.virhe && (
             <p className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-800" role="alert">
@@ -186,7 +186,7 @@ export default async function AccountPage({
   return (
     <div className={brand.page}>
       <SiteHeader />
-      <main className={`mx-auto w-full px-4 py-8 sm:px-6 sm:py-10 ${contractor ? "max-w-5xl" : "max-w-4xl"}`}>
+      <main className={`${brand.mainStandard} ${contractor ? "lg:max-w-6xl" : ""}`}>
         <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-4">
             <div

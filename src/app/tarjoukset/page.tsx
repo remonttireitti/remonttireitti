@@ -12,6 +12,7 @@ import {
 } from "@/lib/contractor-projects-server";
 import { getSessionUser, isContractor } from "@/lib/auth";
 import { formatBudget } from "@/lib/projects";
+import { brand } from "@/lib/brand-theme";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function ContractorProjectsPage({
@@ -69,9 +70,9 @@ export default async function ContractorProjectsPage({
   }
 
   return (
-    <div className="min-h-full bg-stone-50 text-stone-900">
+    <div className={brand.page}>
       <SiteHeader />
-      <main className="mx-auto max-w-2xl px-6 py-12">
+      <main className={brand.mainStandard}>
         <h1 className="text-2xl font-bold">Avoimet tarjouspyynnöt</h1>
         <p className="mt-2 text-stone-600">
           Oletuksena näytetään oman ammatin pyynnöt valitsemaltasi alueelta.

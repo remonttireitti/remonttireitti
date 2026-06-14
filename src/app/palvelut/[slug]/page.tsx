@@ -52,7 +52,7 @@ export default async function PalveluPage({ params }: Props) {
   return (
     <div className={brand.page}>
       <SiteHeader />
-      <main className="mx-auto max-w-2xl px-4 py-10 sm:py-12">
+      <main className={brand.mainContent}>
         <Link href="/palvelut" className="text-sm font-medium text-sky-800 hover:underline">
           ← Kaikki palvelut
         </Link>

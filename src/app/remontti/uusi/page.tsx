@@ -5,6 +5,7 @@ import { SiteHeader } from "@/components/site-header";
 import { ProjectWizard } from "@/components/project/project-wizard";
 import { getProfile, getSessionUser } from "@/lib/auth";
 import { fetchProjectCatalog } from "@/lib/job-catalog-server";
+import { brand } from "@/lib/brand-theme";
 
 export default async function NewProjectPage() {
   const user = await getSessionUser();
@@ -19,9 +20,9 @@ export default async function NewProjectPage() {
 
   if (catalog.jobTypes.length === 0) {
     return (
-      <div className="min-h-full bg-gradient-to-b from-sky-50/40 to-stone-50 text-stone-900">
+      <div className={brand.page}>
         <SiteHeader />
-        <main className="mx-auto max-w-2xl px-6 py-12">
+        <main className={brand.mainForm}>
           <p className="rounded-lg bg-amber-50 p-4 text-sm text-amber-900">
             Remonttityypit puuttuvat tietokannasta. Aja Supabasessa migraatiot{" "}
             <code className="text-xs">20260519190000_expand_omakotitalo_catalog.sql</code>{" "}
@@ -34,9 +35,9 @@ export default async function NewProjectPage() {
   }
 
   return (
-    <div className="min-h-full bg-gradient-to-b from-sky-50/40 to-stone-50 text-stone-900">
+    <div className={brand.page}>
       <SiteHeader />
-      <main className="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
+      <main className={brand.mainWide}>
         <Link
           href="/oma-tili"
           className="text-sm text-sky-700 hover:underline"

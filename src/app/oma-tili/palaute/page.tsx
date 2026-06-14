@@ -21,7 +21,7 @@ export default async function PlatformFeedbackPage() {
   return (
     <div className={brand.page}>
       <SiteHeader />
-      <main className="mx-auto w-full max-w-2xl px-4 py-8 sm:px-6 sm:py-10">
+      <main className={brand.mainForm}>
         <Link href="/oma-tili" className="text-sm text-sky-800 hover:underline">
           ← Oma tili
         </Link>

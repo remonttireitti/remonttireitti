@@ -6,6 +6,7 @@ import { getProfile, getSessionUser } from "@/lib/auth";
 import { buildProjectEditSnapshot } from "@/lib/project-edit";
 import { fetchHeatPumpCatalog } from "@/lib/job-catalog-server";
 import { createClient } from "@/lib/supabase/server";
+import { brand } from "@/lib/brand-theme";
 
 const EDITABLE_STATUSES = ["draft", "published", "receiving_bids"] as const;
 
@@ -77,9 +78,9 @@ export default async function EditProjectPage({
   const editSnapshot = buildProjectEditSnapshot(project, tradeIds);
 
   return (
-    <div className="min-h-full bg-gradient-to-b from-sky-50/40 to-stone-50 text-stone-900">
+    <div className={brand.page}>
       <SiteHeader />
-      <main className="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
+      <main className={brand.mainWide}>
         <Link
           href={`/remontti/${id}`}
           className="text-sm text-sky-700 hover:underline"

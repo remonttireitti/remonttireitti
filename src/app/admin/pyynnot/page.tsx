@@ -9,6 +9,7 @@ import { fetchAdminProjectsList } from "@/lib/admin-projects-server";
 import { getSessionUser } from "@/lib/auth";
 import { projectStatusLabels } from "@/lib/projects";
 import type { ProjectStatus } from "@/types/database";
+import { brand } from "@/lib/brand-theme";
 
 const STATUS_FILTERS: { value: string; label: string }[] = [
   { value: "all", label: "Kaikki" },
@@ -35,9 +36,9 @@ export default async function AdminProjectsPage({
   const { rows, error } = await fetchAdminProjectsList({ statusFilter: tila });
 
   return (
-    <div className="min-h-full bg-stone-50 text-stone-900">
+    <div className={brand.page}>
       <SiteHeader />
-      <main className="mx-auto max-w-4xl px-6 py-12">
+      <main className={brand.mainStandard}>
         <Link href="/oma-tili" className="text-sm text-sky-700 hover:underline">
           ← Oma tili
         </Link>

@@ -25,6 +25,7 @@ import { loadContractorMatchProfile } from "@/lib/contractor-projects-server";
 import { projectDistanceKm } from "@/lib/geo-distance";
 import { fetchProjectTradeContextForContractor } from "@/lib/project-trades-server";
 import { serviceEngagementFromDetails } from "@/lib/service-engagement";
+import { brand } from "@/lib/brand-theme";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function ContractorProjectPage({
@@ -186,14 +187,16 @@ export default async function ContractorProjectPage({
   );
 
   return (
-    <div>
+    <div className={brand.page}>
       <SiteHeader />
-      <main className="mx-auto max-w-2xl px-6 py-12">
+      <main className={brand.mainDetail}>
         <Link href="/tarjoukset" className="text-sm text-sky-700 hover:underline">
           ← Pyynnöt
         </Link>
 
-        <h1 className="mt-4 text-2xl font-bold">{project.title}</h1>
+        <h1 className="mt-4 text-2xl font-bold tracking-tight sm:text-3xl">
+          {project.title}
+        </h1>
         <p className="text-stone-500">{categoryName}</p>
         <ProjectMatchBadges match={projectMatch} />
         {projectMatch.qualificationFit === "none" && (
@@ -223,56 +226,64 @@ export default async function ContractorProjectPage({
           </p>
         )}
 
-        <div>
-          <ProjectOverviewCards
-            description={project.description}
-            details={
-              project.details as {
-                ilmalampopumppu?: unknown;
-                ilmavesilampopumppu?: unknown;
-                maalampopumppu?: unknown;
-              } | null
-            }
-            photos={projectPhotos}
-            postalCode={project.postal_code}
-            municipality={project.municipality}
-            budgetMin={project.budget_min}
-            budgetMax={project.budget_max}
-            desiredStart={project.desired_start}
-            showContact={false}
-            showLocationOnly
-            bidDeadline={project.bid_deadline}
-          />
+        <div className={brand.detailSplit}>
+          <div className={brand.detailSplitMain}>
+            <ProjectOverviewCards
+              description={project.description}
+              details={
+                project.details as {
+                  ilmalampopumppu?: unknown;
+                  ilmavesilampopumppu?: unknown;
+                  maalampopumppu?: unknown;
+                } | null
+              }
+              photos={projectPhotos}
+              postalCode={project.postal_code}
+              municipality={project.municipality}
+              budgetMin={project.budget_min}
+              budgetMax={project.budget_max}
+              desiredStart={project.desired_start}
+              showContact={false}
+              showLocationOnly
+              bidDeadline={project.bid_deadline}
+            />
+
+            {chatData && (
+              <ProjectChat
+                conversationId={chatData.conversation.id}
+                messages={chatData.messages}
+                currentUserId={user.id}
+                customerId={chatData.conversation.customer_id}
+                customerLabel="Asiakas"
+                contractorLabel="Sinä"
+                revalidatePaths={[`/tarjoukset/${id}`]}
+                perspective="contractor"
+                contactRestricted
+              />
+            )}
+
+            <ValuePromoBanner variant="contractor-pay-on-win" className="lg:hidden" />
+          </div>
+
+          <div className={brand.detailSplitSticky}>
+            <ValuePromoBanner
+              variant="contractor-pay-on-win"
+              className="mb-6 hidden lg:block"
+            />
+            <ContractorBidPanel
+              projectId={id}
+              bid={existingBid}
+              requiresDeviceAndInstallation={requiresDeviceAndInstallation}
+              allowOptionalEquipmentOffer={allowOptionalEquipmentOffer}
+              budgetInfo={budgetInfo}
+              bidStale={bidStale}
+              defaultBidTerms={defaultBidTerms}
+              jobTypeSlug={jobTypeSlug}
+              tradeContext={tradeContext}
+              serviceEngagement={serviceEngagement}
+            />
+          </div>
         </div>
-
-        {chatData && (
-          <ProjectChat
-            conversationId={chatData.conversation.id}
-            messages={chatData.messages}
-            currentUserId={user.id}
-            customerId={chatData.conversation.customer_id}
-            customerLabel="Asiakas"
-            contractorLabel="Sinä"
-            revalidatePaths={[`/tarjoukset/${id}`]}
-            perspective="contractor"
-            contactRestricted
-          />
-        )}
-
-        <ValuePromoBanner variant="contractor-pay-on-win" className="mt-8" />
-
-        <ContractorBidPanel
-          projectId={id}
-          bid={existingBid}
-          requiresDeviceAndInstallation={requiresDeviceAndInstallation}
-          allowOptionalEquipmentOffer={allowOptionalEquipmentOffer}
-          budgetInfo={budgetInfo}
-          bidStale={bidStale}
-          defaultBidTerms={defaultBidTerms}
-          jobTypeSlug={jobTypeSlug}
-          tradeContext={tradeContext}
-          serviceEngagement={serviceEngagement}
-        />
       </main>
     </div>
   );

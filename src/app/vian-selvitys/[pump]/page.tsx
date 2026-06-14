@@ -11,6 +11,7 @@ import {
   resolveGuideSummaryForPump,
 } from "@/lib/troubleshooting-guides";
 import { pageMetadata } from "@/lib/seo";
+import { brand } from "@/lib/brand-theme";
 
 export function generateStaticParams() {
   return Object.keys(SYMPTOM_SLUGS_BY_PUMP).map((pump) => ({ pump }));
@@ -43,9 +44,9 @@ export default async function TroubleshootingPumpPage({
   const marketing = HEAT_PUMP_MARKETING[pump];
 
   return (
-    <div className="min-h-full bg-stone-50 text-stone-900">
+    <div className={brand.page}>
       <SiteHeader />
-      <main className="mx-auto max-w-3xl px-4 py-10 sm:px-6 sm:py-14">
+      <main className={brand.mainContent}>
         <Link href="/vian-selvitys" className="text-sm text-sky-700 hover:underline">
           ← Vian selvitys
         </Link>

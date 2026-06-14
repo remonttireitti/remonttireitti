@@ -3,6 +3,7 @@ import {
   HEAT_PUMP_MARKETING,
   type HeatPumpSlug,
 } from "@/constants/heat-pumps";
+import { tradeSlugFromDefaultsKey } from "@/lib/contractor-bid-defaults-shared";
 
 export type BidTermTemplateTarget =
   | "scope_terms"
@@ -16,10 +17,12 @@ export type BidTermTemplate = {
   target: BidTermTemplateTarget;
   text: string;
   /** Jos puuttuu, malli näkyy kaikilla työlajeilla. */
-  jobTypeSlugs?: readonly HeatPumpSlug[];
+  jobTypeSlugs?: readonly string[];
+  /** Ammattikohtaiset mallit (esim. putki, sahko). */
+  tradeSlugs?: readonly string[];
 };
 
-/** Valmiit mallit — suodatetaan tarjouspyynnön lämpöpumpputyypin mukaan. */
+/** Valmiit mallit — suodatetaan työlajin tai ammatin mukaan. */
 export const BID_TERM_TEMPLATES: BidTermTemplate[] = [
   {
     id: "scope_basic_ilp",
@@ -91,6 +94,57 @@ Ei sisällä: poikkeuksellisen pitkiä porausmatkoja, sähkökeskuksen uusintaa,
 • Porausmetrit ja maaperätyypit tarkennetaan kohteessa`,
   },
   {
+    id: "scope_renovation_general",
+    label: "Remontin peruslaajuus",
+    target: "scope_terms",
+    tradeSlugs: ["kirvesmies", "maalari", "laatoitus", "lattia"],
+    text: `Hinta sisältää sovitun remonttityön:
+• Työn suunnittelu ja tarvittavat materiaalit erikseen mainittuna
+• Purku- ja suojaus työmaalla tarpeen mukaan
+• Asennus/remontti sovitun laajuuden mukaisesti
+• Työmaan siistiminen ja jätteiden poisvienti
+
+Ei sisällä: piilovirheitä, yllättäviä rakenteellisia muutoksia tai asiakkaan toimittamia laitteita ellei erikseen sovita.`,
+  },
+  {
+    id: "scope_putki",
+    label: "Putki/LVI-perus",
+    target: "scope_terms",
+    tradeSlugs: ["putki", "iv"],
+    text: `Hinta sisältää sovitun LVI-/putkityön:
+• Materiaalit ja tarvikkeet erikseen mainittuna
+• Asennus ja kytkentä sovitun laajuuden mukaisesti
+• Painetestaus / tarkistus tarvittaessa
+• Käyttöopastus ja dokumentointi
+
+Ei sisällä: piilokanalointia, rakennuslupia tai muiden ammattiryhmien töitä ellei erikseen sovita.`,
+  },
+  {
+    id: "scope_sahko",
+    label: "Sähkötyön peruslaajuus",
+    target: "scope_terms",
+    tradeSlugs: ["sahko"],
+    text: `Hinta sisältää sovitun sähkötyön:
+• Materiaalit ja tarvikkeet erikseen mainittuna
+• Asennus ja kytkentä voimassa olevan standardin mukaisesti
+• Mittaukset ja käyttöönottotarkistus
+• Dokumentointi
+
+Ei sisällä: pääkeskuksen laajaa uusintaa tai muiden ammattiryhmien töitä ellei erikseen sovita.`,
+  },
+  {
+    id: "scope_siivous",
+    label: "Siivous / palvelu",
+    target: "scope_terms",
+    tradeSlugs: ["siivous", "piha-palvelu", "kuljetus"],
+    text: `Hinta sisältää sovitun palvelun:
+• Työn suoritus sovitussa ajassa ja laajuudessa
+• Tarvittavat välineet ja normaalit tarvikkeet
+• Raportointi tai kuittaus tarvittaessa
+
+Ei sisällä: erikoiskemikaaleja, poikkeuksellista jätehuoltoa tai lisätunteja ilman erillistä sopimusta.`,
+  },
+  {
     id: "contract_standard",
     label: "Sopimusehdot (yleinen)",
     target: "contract_terms",
@@ -113,22 +167,47 @@ Force majeure: emme vastaa viivästyksistä ylivoimaisen esteen vuoksi.`,
     id: "warranty_equipment_mfg",
     label: "Laitetakuu (valmistaja)",
     target: "warranty_equipment",
-    text: `Laitteelle valmistajan takuu voimassa olevan ehdon mukaisesti. Asennustakuu erikseen työehdoissa.`,
+    text: `Laitteille valmistajan takuu voimassa olevan ehdon mukaisesti. Asennustakuu erikseen työehdoissa.`,
   },
 ];
 
 export function templatesForTarget(
   target: BidTermTemplateTarget,
-  jobTypeSlug?: string | null,
+  defaultsKey?: string | null,
 ): BidTermTemplate[] {
+  const tradeSlug = defaultsKey ? tradeSlugFromDefaultsKey(defaultsKey) : null;
+  const jobTypeSlug =
+    defaultsKey &&
+    (HEAT_PUMP_JOB_SLUGS as readonly string[]).includes(defaultsKey)
+      ? defaultsKey
+      : null;
+
   return BID_TERM_TEMPLATES.filter((t) => {
     if (t.target !== target) return false;
-    if (!t.jobTypeSlugs || t.jobTypeSlugs.length === 0) return true;
-    if (!jobTypeSlug) return false;
-    return (t.jobTypeSlugs as readonly string[]).includes(jobTypeSlug);
+    const hasJobFilter = t.jobTypeSlugs && t.jobTypeSlugs.length > 0;
+    const hasTradeFilter = t.tradeSlugs && t.tradeSlugs.length > 0;
+    if (!hasJobFilter && !hasTradeFilter) return true;
+    if (jobTypeSlug && hasJobFilter) {
+      return (t.jobTypeSlugs as readonly string[]).includes(jobTypeSlug);
+    }
+    if (tradeSlug && hasTradeFilter) {
+      return (t.tradeSlugs as readonly string[]).includes(tradeSlug);
+    }
+    return false;
   });
 }
 
+export function defaultsKeyLabel(defaultsKey: string | null): string | null {
+  if (!defaultsKey) return null;
+  if ((HEAT_PUMP_JOB_SLUGS as readonly string[]).includes(defaultsKey)) {
+    return HEAT_PUMP_MARKETING[defaultsKey as HeatPumpSlug].title;
+  }
+  const tradeSlug = tradeSlugFromDefaultsKey(defaultsKey);
+  if (tradeSlug) return tradeSlug;
+  return defaultsKey;
+}
+
+/** @deprecated Käytä defaultsKeyLabel */
 export function heatPumpLabelForSlug(slug: string | null): string | null {
   if (!slug || !(HEAT_PUMP_JOB_SLUGS as readonly string[]).includes(slug)) {
     return null;

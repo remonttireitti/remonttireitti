@@ -17,6 +17,7 @@ import { formatEurosFromCents } from "@/lib/bids";
 import { getSessionUser, isContractor } from "@/lib/auth";
 import { fetchContractorProjectConversation } from "@/lib/messages-server";
 import { fetchPlatformFeedbackForProject } from "@/lib/platform-feedback-server";
+import { brand } from "@/lib/brand-theme";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function ContractorWonProjectPage({
@@ -124,9 +125,9 @@ export default async function ContractorWonProjectPage({
       : null;
 
   return (
-    <div className="min-h-full bg-stone-50 text-stone-900">
+    <div className={brand.page}>
       <SiteHeader />
-      <main className="mx-auto max-w-2xl px-6 py-12">
+      <main className={brand.mainDetail}>
         <Link href="/tarjoukset" className="text-sm text-sky-700 hover:underline">
           ← Pyynnöt
         </Link>

@@ -5,6 +5,7 @@ import { SiteHeader } from "@/components/site-header";
 import { requireAdmin } from "@/lib/admin";
 import { fetchPlatformFeedbackAdmin } from "@/lib/platform-feedback-server";
 import { getSessionUser } from "@/lib/auth";
+import { brand } from "@/lib/brand-theme";
 import { createClient } from "@/lib/supabase/server";
 
 const roleLabels = {
@@ -54,9 +55,9 @@ export default async function AdminFeedbackPage() {
       : null;
 
   return (
-    <div className="min-h-full bg-stone-50 text-stone-900">
+    <div className={brand.page}>
       <SiteHeader />
-      <main className="mx-auto max-w-5xl px-6 py-12">
+      <main className={brand.mainWide}>
         <Link href="/oma-tili" className="text-sm text-sky-700 hover:underline">
           ← Oma tili
         </Link>

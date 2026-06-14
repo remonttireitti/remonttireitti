@@ -12,7 +12,7 @@ export function DetailSection({
   children?: ReactNode;
 }) {
   return (
-    <section className="rounded-xl border border-stone-200 bg-white p-4 shadow-sm">
+    <section className="rounded-xl border border-stone-200 bg-white p-4 shadow-sm sm:p-5">
       <h3 className="text-sm font-semibold text-stone-900">{title}</h3>
       {rows && rows.length > 0 && (
         <dl className="mt-3 grid gap-3 sm:grid-cols-2">
@@ -36,5 +36,7 @@ export function DetailItem({ label, value }: DetailRow) {
 }
 
 export function DetailSectionsGrid({ children }: { children: ReactNode }) {
-  return <div className="grid gap-3">{children}</div>;
+  return (
+    <div className="grid gap-3 md:gap-4 lg:grid-cols-2">{children}</div>
+  );
 }

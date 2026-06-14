@@ -43,7 +43,7 @@ export default async function PropertyDetailPage({
   return (
     <div className={brand.page}>
       <SiteHeader />
-      <main className="mx-auto max-w-3xl px-4 py-8">
+      <main className={brand.mainContent}>
         <Link
           href="/oma-tili/huoltokirja"
           className="text-sm font-medium text-sky-800 hover:underline"

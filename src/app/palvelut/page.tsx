@@ -23,7 +23,7 @@ export default async function PalvelutPage() {
   return (
     <div className={brand.page}>
       <SiteHeader />
-      <main className="mx-auto max-w-3xl px-4 py-10 sm:py-12">
+      <main className={brand.mainContent}>
         <h1 className="text-3xl font-bold tracking-tight text-stone-900">
           Kilpailuta remontit, asennukset ja palvelut
         </h1>

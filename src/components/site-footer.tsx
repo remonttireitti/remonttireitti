@@ -7,7 +7,7 @@ export function SiteFooter() {
 
   return (
     <footer className="mt-auto border-t border-stone-200 bg-white">
-      <div className="mx-auto max-w-6xl px-6 py-10">
+      <div className="mx-auto max-w-7xl px-6 py-10">
         <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
           <div>
             <p className="font-semibold text-stone-900">{siteConfig.name}</p>

@@ -52,6 +52,35 @@ export const brand = {
   cardHover: "hover:border-sky-300",
   checkedLabel:
     "has-checked:border-sky-600 has-checked:bg-sky-50",
+  /** Sivu-layoutit — mobiili ensin, levenee tabletilla ja työpöydällä */
+  containerWide:
+    "mx-auto w-full max-w-5xl px-4 sm:px-6 lg:max-w-6xl xl:max-w-7xl",
+  containerStandard:
+    "mx-auto w-full max-w-4xl px-4 sm:px-6 lg:max-w-5xl",
+  containerContent:
+    "mx-auto w-full max-w-3xl px-4 sm:px-6 lg:max-w-4xl",
+  mainBase:
+    "mx-auto w-full px-4 py-8 pb-[calc(2rem+env(safe-area-inset-bottom))] sm:px-6 sm:py-10",
+  /** Lomakkeet (ilmoitus, tilaus) */
+  mainForm:
+    "mx-auto w-full max-w-lg px-4 py-8 pb-[calc(2rem+env(safe-area-inset-bottom))] sm:max-w-xl sm:px-6 sm:py-10",
+  /** Artikkelit, palvelusivut */
+  mainContent:
+    "mx-auto w-full max-w-3xl px-4 py-8 pb-[calc(2rem+env(safe-area-inset-bottom))] sm:px-6 sm:py-10 lg:max-w-4xl",
+  /** Oma tili, listat */
+  mainStandard:
+    "mx-auto w-full max-w-4xl px-4 py-8 pb-[calc(2rem+env(safe-area-inset-bottom))] sm:px-6 sm:py-10 lg:max-w-5xl",
+  /** Tarjouspyyntö, markkinapaikka */
+  mainWide:
+    "mx-auto w-full max-w-5xl px-4 py-8 pb-[calc(2rem+env(safe-area-inset-bottom))] sm:px-6 sm:py-10 lg:max-w-6xl xl:max-w-7xl",
+  /** Projektin / tarjouksen tarkastelu */
+  mainDetail:
+    "mx-auto w-full max-w-4xl px-4 py-8 pb-[calc(2rem+env(safe-area-inset-bottom))] sm:px-6 sm:py-10 lg:max-w-5xl xl:max-w-6xl 2xl:max-w-7xl",
+  /** Kaksipalstainen tarkastelu (tiedot + toiminto) */
+  detailSplit:
+    "mt-8 grid gap-8 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] lg:items-start xl:gap-10",
+  detailSplitSticky: "min-w-0 lg:sticky lg:top-[5.25rem] lg:self-start",
+  detailSplitMain: "min-w-0 space-y-6",
 } as const;
 
 /** Yleinen lomakekentän focus-tyyli (ei spin-nappuloita). */

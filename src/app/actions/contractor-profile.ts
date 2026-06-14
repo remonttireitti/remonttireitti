@@ -10,8 +10,13 @@ import {
   parseTradeIds,
   validateContractorQualifications,
 } from "@/lib/contractor-qualifications";
-import { parseBidDefaultsByJobType } from "@/lib/contractor-bid-defaults-shared";
-import { saveContractorQualifications } from "@/lib/save-contractor-qualifications";
+import {
+  allowedBidDefaultsKeys,
+  buildBidDefaultsTabs,
+  parseBidDefaultsByJobType,
+} from "@/lib/contractor-bid-defaults-shared";
+import { HEAT_PUMP_MARKETING } from "@/constants/heat-pumps";
+import { saveContractorQualifications, getContractorQualifications } from "@/lib/save-contractor-qualifications";
 import { createClient } from "@/lib/supabase/server";
 
 export type ContractorProfileState = { error?: string; ok?: string };
@@ -64,9 +69,9 @@ export async function updateContractorBidDefaults(
   const jsonRaw = String(formData.get("defaults_by_job_type_json") ?? "");
   let byJob = {};
   try {
-    byJob = parseBidDefaultsByJobType(
-      jsonRaw ? (JSON.parse(jsonRaw) as unknown) : {},
-    );
+    const parsed = jsonRaw ? (JSON.parse(jsonRaw) as unknown) : {};
+    const quals = await getContractorQualificationsForDefaults(user.id);
+    byJob = parseBidDefaultsByJobType(parsed, quals.allowedKeys);
   } catch {
     return { error: "Oletusehtojen tallennus epäonnistui (virheellinen data)." };
   }
@@ -88,6 +93,33 @@ export async function updateContractorBidDefaults(
   revalidatePath("/oma-tili");
   revalidatePath("/tarjoukset");
   return { ok: "Tarjouksen oletusehdot tallennettu." };
+}
+
+async function getContractorQualificationsForDefaults(contractorId: string) {
+  const supabase = await createClient();
+  const quals = await getContractorQualifications(contractorId);
+
+  const trades =
+    quals.tradeSlugs.length > 0
+      ? (
+          await supabase
+            .from("trades")
+            .select("slug, name_fi")
+            .in("slug", quals.tradeSlugs)
+            .order("sort_order")
+        ).data ?? []
+      : [];
+
+  const tabs = buildBidDefaultsTabs({
+    jobTypeSlugs: quals.jobTypeSlugs,
+    trades: trades.map((t) => ({
+      slug: t.slug as string,
+      name_fi: t.name_fi as string,
+    })),
+    heatPumpLabels: HEAT_PUMP_MARKETING,
+  });
+
+  return { allowedKeys: allowedBidDefaultsKeys(tabs) };
 }
 
 export async function updateContractorServiceArea(

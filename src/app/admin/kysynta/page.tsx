@@ -5,6 +5,7 @@ import { SiteHeader } from "@/components/site-header";
 import { requireAdmin } from "@/lib/admin";
 import { fetchJobDemandSignals } from "@/lib/admin-demand-server";
 import { getSessionUser } from "@/lib/auth";
+import { brand } from "@/lib/brand-theme";
 
 function formatWhen(iso: string): string {
   return new Date(iso).toLocaleDateString("fi-FI", {
@@ -24,9 +25,9 @@ export default async function AdminDemandPage() {
   const totalRequests = signals.reduce((sum, s) => sum + s.project_count, 0);
 
   return (
-    <div className="min-h-full bg-stone-50 text-stone-900">
+    <div className={brand.page}>
       <SiteHeader />
-      <main className="mx-auto max-w-4xl px-6 py-12">
+      <main className={brand.mainStandard}>
         <Link href="/oma-tili" className="text-sm text-sky-700 hover:underline">
           ← Oma tili
         </Link>

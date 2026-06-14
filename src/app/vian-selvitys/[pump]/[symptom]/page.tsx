@@ -13,6 +13,7 @@ import {
   resolveGuideSummaryForPump,
 } from "@/lib/troubleshooting-guides";
 import { pageMetadata } from "@/lib/seo";
+import { brand } from "@/lib/brand-theme";
 
 export function generateStaticParams() {
   const params: { pump: string; symptom: string }[] = [];
@@ -65,9 +66,9 @@ export default async function TroubleshootingGuidePage({
     : `/kirjaudu?redirect=${encodeURIComponent(huoltoPath)}`;
 
   return (
-    <div className="min-h-full bg-stone-50 text-stone-900">
+    <div className={brand.page}>
       <SiteHeader />
-      <main className="mx-auto max-w-3xl px-4 py-10 sm:px-6 sm:py-14">
+      <main className={brand.mainContent}>
         <Link
           href={`/vian-selvitys/${pump}`}
           className="text-sm text-sky-700 hover:underline"

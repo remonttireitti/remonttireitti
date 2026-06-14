@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { pageMetadata } from "@/lib/seo";
+import { brand } from "@/lib/brand-theme";
 import { RemoveListingButton } from "@/components/marketplace/remove-listing-button";
 import { ListingSellerInbox } from "@/components/marketplace/listing-seller-inbox";
 import {
@@ -138,9 +139,9 @@ export default async function MarketplaceListingDetailPage({
   const deviceTypeLabel = formatDeviceTypeLabel(listing.pump_type_slug);
 
   return (
-    <div className="min-h-full bg-stone-50 text-stone-900">
+    <div className={brand.page}>
       <SiteHeader />
-      <main className="mx-auto max-w-2xl px-6 py-12">
+      <main className={brand.mainDetail}>
         <Link
           href="/markkinapaikka/ilmoitukset"
           className="text-sm text-sky-700 hover:underline"

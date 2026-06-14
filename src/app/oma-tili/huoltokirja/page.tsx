@@ -41,7 +41,7 @@ export default async function PropertyLogPage({
   return (
     <div className={brand.page}>
       <SiteHeader />
-      <main className="mx-auto max-w-3xl px-4 py-8">
+      <main className={brand.mainContent}>
         <header className={brand.pageHeaderRow}>
           <div>
             <p className="text-sm font-medium text-sky-800">Oma tili</p>

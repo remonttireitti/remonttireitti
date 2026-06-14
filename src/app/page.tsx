@@ -58,7 +58,7 @@ export default async function Home() {
       <SiteHeader />
 
       <main className="pb-16">
-        <section className="mx-auto max-w-5xl px-4 pt-6 sm:px-6 sm:pt-10">
+        <section className={`${brand.containerWide} pt-6 sm:pt-10`}>
           <div className={`${brand.hero} text-center`}>
             <div className="mb-6 flex justify-center">
               <Logo href="/" size="lg" />
@@ -103,7 +103,7 @@ export default async function Home() {
         )}
 
         <section className="border-t border-stone-200 bg-white py-14">
-          <div className="mx-auto max-w-5xl px-6">
+          <div className={brand.containerWide}>
             <h2 className="text-center text-2xl font-bold tracking-tight">
               Neljä tapaa käyttää palvelua
             </h2>
@@ -118,25 +118,25 @@ export default async function Home() {
         </section>
 
         <section className="border-t border-stone-200 bg-stone-50 py-14 sm:py-16">
-          <div className="mx-auto max-w-5xl px-4 sm:px-6">
+          <div className={brand.containerWide}>
             <HomeHowItWorks />
           </div>
         </section>
 
         <section className="border-t border-stone-200 bg-white py-12">
-          <div className="mx-auto max-w-5xl px-6">
+          <div className={brand.containerWide}>
             <ValuePromoPair />
           </div>
         </section>
 
         <section className="border-t border-stone-200/80 bg-white py-14 sm:py-16">
-          <div className="mx-auto max-w-5xl px-4 sm:px-6">
+          <div className={brand.containerWide}>
             <HomeTrust />
           </div>
         </section>
 
         <section className="border-t border-stone-200/80 bg-stone-50/50 py-14 sm:py-16">
-          <div className="mx-auto max-w-5xl px-4 sm:px-6">
+          <div className={brand.containerWide}>
             <h2 className="text-2xl font-bold tracking-tight">
               Miksi Remonttireitti?
             </h2>
@@ -152,7 +152,7 @@ export default async function Home() {
         </section>
 
         <section className="border-t border-stone-200 bg-gradient-to-b from-sky-50/40 to-stone-50 py-16">
-          <div className="mx-auto max-w-6xl px-4 sm:px-6">
+          <div className={brand.containerWide}>
             <div className={brand.pageHeaderRow}>
               <div className="min-w-0">
                 <p className="text-sm font-medium uppercase tracking-wide text-sky-800">

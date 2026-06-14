@@ -11,6 +11,7 @@ import {
 } from "@/lib/troubleshooting-huolto-prefill";
 import { pageMetadata } from "@/lib/seo";
 import { seoDefByPath } from "@/lib/seo-pages";
+import { brand } from "@/lib/brand-theme";
 
 const seo = seoDefByPath("/huolto/uusi")!;
 
@@ -55,9 +56,9 @@ export default async function NewMaintenanceRequestPage({
     (prefill.issue_description?.length ?? 0) > 0;
 
   return (
-    <div className="min-h-full bg-stone-50 text-stone-900">
+    <div className={brand.page}>
       <SiteHeader />
-      <main className="mx-auto max-w-2xl px-4 py-8 sm:px-6 sm:py-12">
+      <main className={brand.mainContent}>
         <Link
           href={hasPrefill ? "/vian-selvitys" : "/"}
           className="text-sm text-sky-700 hover:underline"

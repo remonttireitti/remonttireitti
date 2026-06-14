@@ -10,6 +10,7 @@ import {
 } from "@/lib/marketplace-pricing";
 import type { MarketplacePlanSlug } from "@/lib/marketplace-pricing";
 import { marketplaceBrand } from "@/lib/marketplace-brand";
+import { brand } from "@/lib/brand-theme";
 
 const ALL_SLUGS = new Set<MarketplacePlanSlug>([
   "contractor_basic",
@@ -42,9 +43,9 @@ export default async function MarketplaceOrderPage({
     (slug === "listing_single" ? LISTING_SINGLE : CONTRACTOR_PLANS[0]);
 
   return (
-    <div className="min-h-full bg-stone-50 text-stone-900">
+    <div className={brand.page}>
       <SiteHeader />
-      <main className="mx-auto max-w-lg px-6 py-12">
+      <main className={brand.mainForm}>
         <Link
           href="/markkinapaikka/hinnasto"
           className="text-sm text-sky-700 hover:underline"

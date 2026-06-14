@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { SiteHeader } from "@/components/site-header";
+import { brand } from "@/lib/brand-theme";
 import { siteConfig } from "@/lib/site-config";
 import type { ReactNode } from "react";
 
@@ -13,9 +14,9 @@ export function LegalPage({
   children: ReactNode;
 }) {
   return (
-    <div className="flex min-h-full flex-col bg-stone-50 text-stone-900">
+    <div className={`flex min-h-full flex-col ${brand.page}`}>
       <SiteHeader />
-      <main className="mx-auto w-full max-w-3xl flex-1 px-6 py-12">
+      <main className={`${brand.mainContent} flex-1`}>
         <Link href="/" className="text-sm text-sky-700 hover:underline">
           ← Etusivu
         </Link>

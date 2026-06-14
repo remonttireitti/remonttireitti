@@ -25,6 +25,7 @@ import {
 } from "@/lib/messages-server";
 import { fetchContractorRatings } from "@/lib/reviews";
 import { fetchPlatformFeedbackForProject } from "@/lib/platform-feedback-server";
+import { brand } from "@/lib/brand-theme";
 import { createClient } from "@/lib/supabase/server";
 import type { ProjectStatus } from "@/types/database";
 
@@ -224,9 +225,9 @@ export default async function ProjectPage({
   }
 
   return (
-    <div>
+    <div className={brand.page}>
       <SiteHeader />
-      <main className="mx-auto max-w-2xl px-4 py-8 sm:px-6 sm:py-12">
+      <main className={brand.mainDetail}>
         <Link href="/oma-tili" className="text-sm text-sky-700 hover:underline">
           ← Oma tili
         </Link>

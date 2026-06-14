@@ -8,6 +8,7 @@ import { getSessionUser, isContractor } from "@/lib/auth";
 import { MARKETPLACE_INVOICE_EMAIL } from "@/lib/marketplace-pricing";
 import { marketplaceBrand } from "@/lib/marketplace-brand";
 import { pageMetadata } from "@/lib/seo";
+import { brand } from "@/lib/brand-theme";
 
 export const metadata: Metadata = pageMetadata({
   title: `Hinnasto — ${marketplaceBrand.nameShort}`,
@@ -21,9 +22,9 @@ export default async function MarketplacePricingPage() {
   const contractor = user ? await isContractor() : false;
 
   return (
-    <div className="min-h-full bg-gradient-to-b from-sky-50/40 to-stone-50 text-stone-900">
+    <div className={brand.page}>
       <SiteHeader />
-      <main className="mx-auto max-w-6xl px-4 py-12 sm:px-6 lg:px-8">
+      <main className={brand.mainWide}>
         <Link
           href="/markkinapaikka"
           className="text-sm text-sky-700 hover:underline"

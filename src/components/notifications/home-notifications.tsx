@@ -12,6 +12,7 @@ import {
   notificationTypeLabels,
   type AppNotification,
 } from "@/lib/notifications";
+import { brand } from "@/lib/brand-theme";
 
 function formatWhen(iso: string) {
   return new Date(iso).toLocaleString("fi-FI", {
@@ -119,7 +120,7 @@ export function HomeNotifications({
   }
 
   return (
-    <section id="ilmoitukset" className="mx-auto max-w-5xl px-4 py-10 sm:px-6">
+    <section id="ilmoitukset" className={`${brand.containerWide} py-10`}>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h2 className="text-xl font-bold tracking-tight">Ilmoitukset</h2>

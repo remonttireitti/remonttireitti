@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { marketplaceBrand } from "@/lib/marketplace-brand";
+import { brand } from "@/lib/brand-theme";
 import { pageMetadata } from "@/lib/seo";
 
 export const metadata: Metadata = pageMetadata({
@@ -58,9 +59,9 @@ export default async function MarketplaceCreateListingPage({
 
   if (shouldOfferContractorActivation(user, profile)) {
     return (
-      <div className="min-h-full bg-stone-50 text-stone-900">
+      <div className={brand.page}>
         <SiteHeader />
-        <main className="mx-auto max-w-lg px-6 py-12">
+        <main className={brand.mainForm}>
           <Link
             href="/markkinapaikka"
             className="text-sm text-sky-700 hover:underline"
@@ -88,9 +89,9 @@ export default async function MarketplaceCreateListingPage({
   const slots = sub ? subscriptionSlotsLeft(sub) : 0;
 
   return (
-    <div className="min-h-full bg-stone-50 text-stone-900">
+    <div className={brand.page}>
       <SiteHeader />
-      <main className="mx-auto max-w-lg px-6 py-12">
+      <main className={brand.mainForm}>
         <Link
           href="/markkinapaikka"
           className="text-sm text-sky-700 hover:underline"
@@ -148,9 +149,9 @@ async function ConsumerListingInfo() {
   const slotsLeft = Math.max(0, CONSUMER_FREE_MAX_ACTIVE_LISTINGS - active);
 
   return (
-    <div className="min-h-full bg-stone-50 text-stone-900">
+    <div className={brand.page}>
       <SiteHeader />
-      <main className="mx-auto max-w-lg px-6 py-12">
+      <main className={brand.mainForm}>
         <Link
           href="/markkinapaikka"
           className="text-sm text-sky-700 hover:underline"

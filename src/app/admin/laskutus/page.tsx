@@ -12,6 +12,7 @@ import { getAdminBillingEmail } from "@/lib/billing-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getSessionUser } from "@/lib/auth";
 import { formatPriceFromCents } from "@/lib/marketplace-pricing";
+import { brand } from "@/lib/brand-theme";
 
 export default async function AdminBillingPage() {
   const user = await getSessionUser();
@@ -135,9 +136,9 @@ export default async function AdminBillingPage() {
   const billingEmail = getAdminBillingEmail();
 
   return (
-    <div className="min-h-full bg-stone-50 text-stone-900">
+    <div className={brand.page}>
       <SiteHeader />
-      <main className="mx-auto max-w-4xl px-6 py-12">
+      <main className={brand.mainStandard}>
         <Link href="/oma-tili" className="text-sm text-sky-700 hover:underline">
           ← Oma tili
         </Link>

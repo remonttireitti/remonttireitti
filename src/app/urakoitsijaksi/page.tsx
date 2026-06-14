@@ -45,11 +45,11 @@ export default async function ContractorLandingPage() {
   const contractor = user ? await isContractor() : false;
 
   return (
-    <div className="min-h-full bg-stone-50 text-stone-900">
+    <div className={brand.page}>
       <SiteHeader />
 
       <main>
-        <section className="mx-auto max-w-4xl px-4 py-14 text-center sm:px-6 sm:py-20">
+        <section className={`${brand.containerWide} py-14 text-center sm:py-20`}>
           <div className="mb-6 flex justify-center">
             <Logo href="/" size="lg" />
           </div>
@@ -92,7 +92,7 @@ export default async function ContractorLandingPage() {
         </section>
 
         <section className="border-t border-stone-200 bg-white py-14">
-          <div className="mx-auto max-w-4xl px-6">
+          <div className={brand.containerWide}>
             <h2 className="text-2xl font-bold">Miksi Remonttireitti?</h2>
             <ul className="mt-6 space-y-4 text-sm leading-relaxed text-stone-700">
               <li className="flex gap-2">
@@ -138,7 +138,7 @@ export default async function ContractorLandingPage() {
         </section>
 
         <section className="border-t border-stone-200 bg-stone-50 py-14">
-          <div className="mx-auto max-w-4xl px-6">
+          <div className={brand.containerWide}>
             <h2 className="text-2xl font-bold">Näin se toimii</h2>
             <div className="mt-8 space-y-6">
               <Step
@@ -164,7 +164,7 @@ export default async function ContractorLandingPage() {
           id="valityspalkkio"
           className="border-t border-stone-200 bg-white py-14 scroll-mt-20"
         >
-          <div className="mx-auto max-w-4xl px-6">
+          <div className={brand.containerWide}>
             <h2 className="text-2xl font-bold">Välityspalkkio (veroton + ALV)</h2>
             <p className="mt-2 text-sm text-stone-600">
               Taulukon hinnat ovat verottomia. Arvonlisävero lisätään
@@ -176,7 +176,7 @@ export default async function ContractorLandingPage() {
         </section>
 
         <section className="border-t border-stone-200 bg-gradient-to-b from-sky-50/50 to-stone-50 py-14">
-          <div className="mx-auto max-w-4xl px-6 text-center">
+          <div className={`${brand.containerWide} text-center`}>
             <h2 className="text-xl font-bold">Aloita tänään</h2>
             <p className="mx-auto mt-2 max-w-lg text-sm text-stone-600">
               Rekisteröityminen on ilmainen. Ensimmäiset tarjouspyynnöt näet heti
