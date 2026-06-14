@@ -22,6 +22,33 @@ function adminNotifyEmail(): string | null {
   );
 }
 
+async function adminAuthEmail(adminId: string): Promise<string | null> {
+  const admin = createAdminClient();
+  const { data } = await admin.auth.admin.getUserById(adminId);
+  const email = data.user?.email?.trim();
+  return email?.includes("@") ? email : null;
+}
+
+function buildRegistrationEmailHtml(params: {
+  title: string;
+  roleLabel: string;
+  who: string;
+  email?: string | null;
+}) {
+  return `
+    <div style="font-family:system-ui,sans-serif;max-width:560px">
+      <h1 style="font-size:18px">${escapeHtml(params.title)}</h1>
+      <p>Uusi rekisteröityminen palveluun.</p>
+      <ul style="line-height:1.6">
+        <li><strong>Rooli:</strong> ${escapeHtml(params.roleLabel)}</li>
+        <li><strong>Nimi / yritys:</strong> ${escapeHtml(params.who)}</li>
+        ${params.email ? `<li><strong>Sähköposti:</strong> ${escapeHtml(params.email)}</li>` : ""}
+      </ul>
+      <p style="margin-top:24px"><a href="${siteUrl("/admin")}">Avaa hallinta</a></p>
+    </div>
+  `;
+}
+
 /** Ilmoita admineille: uusi käyttäjä tai urakoitsija. */
 export async function notifyAdminsNewRegistration(params: {
   userId: string;
@@ -48,6 +75,15 @@ export async function notifyAdminsNewRegistration(params: {
     params.role === "contractor" ? "Uusi urakoitsija" : "Uusi käyttäjä";
   const body = `${roleLabel}: ${who}`;
   const linkPath = "/admin";
+  const emailHtml = buildRegistrationEmailHtml({
+    title,
+    roleLabel,
+    who,
+    email: params.email,
+  });
+  const emailSubject = `${title}: ${who}`;
+
+  const emailRecipients = new Set<string>();
 
   for (const row of admins ?? []) {
     const prefs = await getNotificationPrefs(row.id);
@@ -62,23 +98,28 @@ export async function notifyAdminsNewRegistration(params: {
         linkPath,
       });
     }
+
+    if (prefs.notifyEmail) {
+      const to = await adminAuthEmail(row.id);
+      if (to) emailRecipients.add(to.toLowerCase());
+    }
   }
 
-  const to = adminNotifyEmail();
-  if (to) {
-    const bodyHtml = `
-      <p>Uusi rekisteröityminen palveluun.</p>
-      <ul style="line-height:1.6">
-        <li><strong>Rooli:</strong> ${escapeHtml(roleLabel)}</li>
-        <li><strong>Nimi / yritys:</strong> ${escapeHtml(who)}</li>
-        ${params.email ? `<li><strong>Sähköposti:</strong> ${escapeHtml(params.email)}</li>` : ""}
-      </ul>
-      <p style="margin-top:24px"><a href="${siteUrl(linkPath)}">Avaa hallinta</a></p>
-    `;
-    await sendEmail({
+  const fallbackTo = adminNotifyEmail();
+  if (fallbackTo) emailRecipients.add(fallbackTo.toLowerCase());
+
+  for (const to of emailRecipients) {
+    const result = await sendEmail({
       to,
-      subject: `${title}: ${who}`,
-      html: `<div style="font-family:system-ui,sans-serif;max-width:560px"><h1 style="font-size:18px">${escapeHtml(title)}</h1>${bodyHtml}</div>`,
+      subject: emailSubject,
+      html: emailHtml,
     });
+    if (!result.ok && !result.skipped) {
+      console.error(
+        "[admin-user-notify] registration email failed",
+        to,
+        result.error,
+      );
+    }
   }
 }

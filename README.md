@@ -40,6 +40,7 @@ Ilmoitukset lähetetään [Resend](https://resend.com)-palvelulla. Ilman avainta
 | `RESEND_API_KEY` | `re_…` (Resend API Keys) |
 | `EMAIL_FROM` | `Remonttireitti <noreply@remonttireitti.fi>` |
 | `NEXT_PUBLIC_SITE_URL` | `https://remonttireitti.fi` |
+| `ADMIN_NOTIFY_EMAIL` | (valinnainen) ylimääräinen vastaanottaja uusista rekisteröitymisistä |
 
 Vahvista lähettäjädomain Resendissä (DNS-tietueet). Kehityksessä Resend voi lähettää vain vahvistettuihin osoitteisiin.
 

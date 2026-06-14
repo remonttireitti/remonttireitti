@@ -43,7 +43,7 @@ export async function setUserRole(
     });
 
     const { data: authUser } = await admin.auth.admin.getUserById(userId);
-    void notifyAdminsNewRegistration({
+    await notifyAdminsNewRegistration({
       userId,
       role: "contractor",
       companyName: company,

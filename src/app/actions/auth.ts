@@ -108,7 +108,7 @@ export async function signUp(
 
     await syncContractorAccount(data.user);
 
-    void notifyAdminsNewRegistration({
+    await notifyAdminsNewRegistration({
       userId: data.user.id,
       role: "contractor",
       fullName: fullName || null,
@@ -120,7 +120,7 @@ export async function signUp(
   }
 
   if (data.user) {
-    void notifyAdminsNewRegistration({
+    await notifyAdminsNewRegistration({
       userId: data.user.id,
       role: "customer",
       fullName: fullName || null,

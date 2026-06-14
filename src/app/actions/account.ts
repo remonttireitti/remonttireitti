@@ -41,7 +41,7 @@ export async function activateContractorAccount(formData: FormData) {
 
   await syncContractorAccount(user);
 
-  void notifyAdminsNewRegistration({
+  await notifyAdminsNewRegistration({
     userId: user.id,
     role: "contractor",
     fullName,
