@@ -6,12 +6,20 @@ import {
   formatPlatformFee,
   type PlatformFeeCategory,
 } from "@/lib/platform-fee";
+import { platformFeeBetaPromoTitle } from "@/lib/platform-fee-beta";
 
 const CATEGORIES: PlatformFeeCategory[] = ["ilp", "large", "maintenance"];
 
 export function PlatformFeeTable({ className = "" }: { className?: string }) {
+  const betaTitle = platformFeeBetaPromoTitle();
+
   return (
     <div className={`overflow-x-auto ${className}`}>
+      {betaTitle && (
+        <p className="mb-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-950">
+          {betaTitle}
+        </p>
+      )}
       <table className="w-full min-w-[20rem] border-collapse text-left text-sm">
         <thead>
           <tr className="border-b border-stone-200 text-stone-500">

@@ -9,6 +9,7 @@ import {
   notifyCounterOfferAccepted,
   notifyCounterOfferDeclined,
   notifyNewBid,
+  notifyContactsRevealedCustomer,
   notifyOrderFinalizing,
   notifyProjectMessage,
   notifyProjectCancelled,
@@ -142,8 +143,6 @@ export async function userNotifyBidAccepted(params: {
   acceptedAmountCents: number;
   acceptedIncludesEquipment: boolean;
 }) {
-  const dl = formatDeadlineFi(params.commitDeadline);
-  const fee = formatPlatformFee(params.feeCents);
   const amount = new Intl.NumberFormat("fi-FI", {
     style: "currency",
     currency: "EUR",
@@ -152,6 +151,21 @@ export async function userNotifyBidAccepted(params: {
   const scope = params.acceptedIncludesEquipment
     ? "asennus + laite"
     : "vain asennus";
+
+  if (params.feeCents === 0) {
+    await inApp(
+      params.contractorId,
+      "bid_accepted",
+      "Tarjous hyväksytty — yhteystiedot auki",
+      `${params.projectTitle}: asiakas hyväksyi ${scope} (${amount}). Beta-etu: ei välitysmaksua — asiakkaan yhteystiedot ovat nyt näkyvissä.`,
+      `/tarjoukset/urakka/${params.projectId}`,
+    );
+    await notifyBidAccepted(params);
+    return;
+  }
+
+  const dl = formatDeadlineFi(params.commitDeadline);
+  const fee = formatPlatformFee(params.feeCents);
   await inApp(
     params.contractorId,
     "bid_accepted",
@@ -160,6 +174,22 @@ export async function userNotifyBidAccepted(params: {
     `/tarjoukset/urakka/${params.projectId}`,
   );
   await notifyBidAccepted(params);
+}
+
+export async function userNotifyContactsRevealedCustomer(params: {
+  customerId: string;
+  projectId: string;
+  projectTitle: string;
+  contractorName: string;
+}) {
+  await inApp(
+    params.customerId,
+    "order_finalizing",
+    "Yhteystiedot avautuivat",
+    `${params.contractorName} on valittu urakoitsijaksi: ${params.projectTitle}. Urakoitsija näkee yhteystietosi ja voi ottaa yhteyttä.`,
+    `/remontti/${params.projectId}`,
+  );
+  await notifyContactsRevealedCustomer(params);
 }
 
 export async function userNotifyOrderFinalizing(params: {

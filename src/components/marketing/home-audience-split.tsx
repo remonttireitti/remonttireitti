@@ -36,7 +36,7 @@ export function HomeAudienceSplit() {
           </h2>
           <p className="mt-2 text-sm leading-relaxed text-stone-600">
             Remontit, huollot ja jatkuvat palvelut — ilmoitukset valitsemillesi
-            ammateille. Maksat vain hyväksytyistä diileistä.
+            ammateille. Ensimmäiset 3 hyväksyttyä diiliä ilman välityspalkkiota.
           </p>
           <span className="mt-4 inline-block text-sm font-semibold text-orange-800 group-hover:underline">
             Lue lisää ja rekisteröidy →

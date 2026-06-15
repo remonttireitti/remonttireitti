@@ -271,6 +271,22 @@ export async function notifyOrderFinalizing(params: {
   );
 }
 
+export async function notifyContactsRevealedCustomer(params: {
+  customerId: string;
+  projectTitle: string;
+  projectId: string;
+  contractorName: string;
+}) {
+  await sendUserEmail(
+    params.customerId,
+    `Urakoitsija valittu: ${params.projectTitle}`,
+    "Yhteystiedot urakoitsijalle",
+    `<p><strong>${escapeHtml(params.contractorName)}</strong> on valittu urakoitsijaksi urakkaan <em>${escapeHtml(params.projectTitle)}</em>.</p><p>Urakoitsija näkee yhteystietosi ja voi ottaa yhteyttä jatkaakseen sopimusta.</p>`,
+    `/remontti/${params.projectId}`,
+    "Avaa urakka",
+  );
+}
+
 export async function notifyBidAccepted(params: {
   contractorId: string;
   projectTitle: string;
@@ -282,11 +298,25 @@ export async function notifyBidAccepted(params: {
 }) {
   const { formatDeadlineFi } = await import("@/lib/bid-acceptance");
   const { formatPlatformFeeInvoiceLine } = await import("@/lib/platform-fee");
-  const dl = formatDeadlineFi(params.commitDeadline);
-  const feeLine = formatPlatformFeeInvoiceLine(params.feeCents);
   const scope = params.acceptedIncludesEquipment
     ? "asennus ja laite"
     : "vain asennus";
+
+  if (params.feeCents === 0) {
+    await sendUserEmail(
+      params.contractorId,
+      `Tarjouksesi hyväksyttiin: ${params.projectTitle}`,
+      "Beta-etu: ei välitysmaksua",
+      `<p>Asiakas hyväksyi tarjouksesi urakkaan <em>${escapeHtml(params.projectTitle)}</em> (${scope}, ${formatEuros(params.acceptedAmountCents / 100)} €).</p>
+       <p><strong>Ei välityspalkkiota</strong> — ensimmäiset diilit beta-aikana. Asiakkaan yhteystiedot ovat nyt näkyvissä urakkasivulla.</p>`,
+      `/tarjoukset/urakka/${params.projectId}`,
+      "Avaa yhteystiedot",
+    );
+    return;
+  }
+
+  const dl = formatDeadlineFi(params.commitDeadline);
+  const feeLine = formatPlatformFeeInvoiceLine(params.feeCents);
   await sendUserEmail(
     params.contractorId,
     `Tarjouksesi hyväksyttiin: ${params.projectTitle}`,

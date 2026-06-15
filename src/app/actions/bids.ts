@@ -3,10 +3,13 @@
 import { ensureProjectConversation } from "@/app/actions/messages";
 import { createPlatformInvoiceForBid } from "@/app/actions/platform-invoices";
 import { notifyAdminsNewPlatformInvoice } from "@/lib/billing-admin";
+import { platformFeeDueAt } from "@/lib/platform-fee";
+import { resolvePlatformFeeCentsForContractor } from "@/lib/platform-fee-beta";
 import {
-  computePlatformFeeCentsForJob,
-  platformFeeDueAt,
-} from "@/lib/platform-fee";
+  countContractorPlatformInvoices,
+  finalizePlatformInvoiceAsPaid,
+} from "@/lib/platform-invoice-finalize-server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { parseBidTermsFromFormData } from "@/lib/bid-terms";
 import {
   extractBidFormFields,
@@ -16,6 +19,7 @@ import {
 import { formatBidSaveError } from "@/lib/bid-save-errors";
 import {
   userNotifyBidAccepted,
+  userNotifyContactsRevealedCustomer,
   userNotifyOrderFinalizing,
   userNotifyBidRejected,
   userNotifyBidUpdated,
@@ -846,10 +850,18 @@ export async function acceptBid(formData: FormData): Promise<void> {
     : project.job_types;
   const jobSlug =
     (jobType as { slug?: string } | null)?.slug ?? "ilmalampopumppu";
-  const feeCents = computePlatformFeeCentsForJob(
-    jobSlug,
-    bidderCount ?? 1,
+
+  const admin = createAdminClient();
+  const priorInvoiceCount = await countContractorPlatformInvoices(
+    admin,
+    bid.contractor_id,
   );
+  const feeCents = resolvePlatformFeeCentsForContractor({
+    jobTypeSlug: jobSlug,
+    bidderCount: bidderCount ?? 1,
+    priorInvoiceCount,
+  });
+  const feeWaived = feeCents === 0;
 
   const commitDeadline = platformFeeDueAt();
 
@@ -885,7 +897,18 @@ export async function acceptBid(formData: FormData): Promise<void> {
     redirect(`/remontti/${projectId}?virhe=lasku`);
   }
 
-  if (invoiceRes.invoiceId) {
+  if (feeWaived && invoiceRes.invoiceId) {
+    const finalizeRes = await finalizePlatformInvoiceAsPaid(
+      admin,
+      invoiceRes.invoiceId,
+      projectId,
+    );
+    if (finalizeRes.error) {
+      redirect(`/remontti/${projectId}?virhe=lasku`);
+    }
+  }
+
+  if (invoiceRes.invoiceId && !feeWaived) {
     void notifyAdminsNewPlatformInvoice({
       invoiceId: invoiceRes.invoiceId,
       projectId,
@@ -902,15 +925,28 @@ export async function acceptBid(formData: FormData): Promise<void> {
     .eq("id", bid.contractor_id)
     .maybeSingle();
 
-  scheduleNotification(() =>
-    userNotifyOrderFinalizing({
-      customerId: user.id,
-      projectId,
-      projectTitle: project.title,
-      contractorName: contractorProfile?.company_name ?? "Urakoitsija",
-      commitDeadline,
-    }),
-  );
+  const contractorName = contractorProfile?.company_name ?? "Urakoitsija";
+
+  if (feeWaived) {
+    scheduleNotification(() =>
+      userNotifyContactsRevealedCustomer({
+        customerId: user.id,
+        projectId,
+        projectTitle: project.title,
+        contractorName,
+      }),
+    );
+  } else {
+    scheduleNotification(() =>
+      userNotifyOrderFinalizing({
+        customerId: user.id,
+        projectId,
+        projectTitle: project.title,
+        contractorName,
+        commitDeadline,
+      }),
+    );
+  }
 
   const acceptedAmountCents =
     acceptedIncludesEquipment && bid.equipment_amount_cents

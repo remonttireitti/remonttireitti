@@ -21,8 +21,8 @@ const COPY: Record<
   },
   "contractor-pay-on-win": {
     audience: "Urakoitsijalle",
-    title: "Maksat vain voitetusta diilistä",
-    body: "Tarjousten jättäminen on maksutonta. Välityspalkkio veloitetaan vasta, kun asiakas hyväksyy tarjouksesi — summa riippuu pumpputyypistä ja kilpailijoiden määrästä (esim. ilmalämpö 20–30 € veroton).",
+    title: "Ensimmäiset 3 diiliä ilman palkkiota",
+    body: "Tarjousten jättäminen on maksutonta. Kun asiakas hyväksyy tarjouksesi, ensimmäiset kolme diiliä ovat välityspalkkiota 0 € — yhteystiedot avautuvat heti. Sen jälkeen normaali hinnasto tyypin ja kilpailijoiden mukaan.",
     accent: "sky",
   },
 };

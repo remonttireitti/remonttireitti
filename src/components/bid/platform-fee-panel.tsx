@@ -44,10 +44,16 @@ export function PlatformFeePanel({
       <section className="mt-8 rounded-2xl border border-sky-200 bg-sky-50/60 p-6">
         <h2 className="font-semibold text-sky-950">Asiakkaan yhteystiedot</h2>
         <p className="mt-1 text-sm text-sky-800">
-          Välitysmaksu maksettu{" "}
-          {invoice.paid_at &&
-            new Date(invoice.paid_at).toLocaleDateString("fi-FI")}
-          .
+          {invoice.amount_cents === 0 ? (
+            <>Beta-etu: ei välitysmaksua — yhteystiedot avattu.</>
+          ) : (
+            <>
+              Välitysmaksu maksettu{" "}
+              {invoice.paid_at &&
+                new Date(invoice.paid_at).toLocaleDateString("fi-FI")}
+              .
+            </>
+          )}
         </p>
         <dl className="mt-4 space-y-3 text-sm">
           <div>

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Logo } from "@/components/brand/logo";
+import { BetaPlatformFeeBanner } from "@/components/promo/beta-platform-fee-banner";
 import { PlatformFeeTable } from "@/components/pricing/platform-fee-table";
 import { SiteHeader } from "@/components/site-header";
 import { getSessionUser, isContractor } from "@/lib/auth";
@@ -63,9 +64,12 @@ export default async function ContractorLandingPage() {
           <p className="mx-auto mt-6 max-w-2xl text-lg text-stone-600">
             Remonttireitti kokoaa valmiit tarjouspyynnöt omakotitaloihin:
             lämpöpumput, keittiöt, sähkö, LVI ja muut remontit. Ilmoitukset
-            valitsemillesi ammateille. Tarjous on maksuton — välityspalkkio
-            tulee vasta, kun asiakas hyväksyy sinut.
+            valitsemillesi ammateille. Tarjous on maksuton — ensimmäiset 3
+            hyväksyttyä diiliä ilman välityspalkkiota.
           </p>
+          <div className="mx-auto mt-8 max-w-xl">
+            <BetaPlatformFeeBanner showCta={!contractor} />
+          </div>
           <div className="mx-auto mt-10 flex max-w-md flex-col gap-3 sm:max-w-none sm:flex-row sm:justify-center">
             {contractor ? (
               <Link
