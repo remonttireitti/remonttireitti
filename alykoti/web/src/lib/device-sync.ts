@@ -149,6 +149,7 @@ export async function syncDevice(
 
   if (ventilationState) {
     Object.assign(mergedState, ventilationState);
+    mergedState.airfi_updated_at = new Date().toISOString();
   }
 
   const hubUpdate: Record<string, unknown> = {

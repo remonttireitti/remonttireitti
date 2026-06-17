@@ -44,9 +44,13 @@ export function VentilationDiagram({ hub, settingsHref }: Props) {
             role="status"
             className="border-b border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-950"
           >
-            <span className="font-semibold">Keskusyksikkö offline</span>
+            <span className="font-semibold">
+              {status.hub.online ? "Osittainen yhteys" : "Keskusyksikkö offline"}
+            </span>
             <span className="mx-2 text-amber-300">·</span>
-            AirFi toimii verkossa — lukemat päivittyvät suoraan koneelta
+            {status.airfi.check === "lan_only"
+              ? "AirFi kotiverkossa — pilvi näyttää viimeisimmät tallennetut lukemat"
+              : "AirFi toimii verkossa — lukemat päivittyvät suoraan koneelta"}
           </div>
         )}
         {status && level === "offline" && (
@@ -175,7 +179,18 @@ export function VentilationDiagram({ hub, settingsHref }: Props) {
             </div>
             <div className="mt-2 flex flex-wrap items-center justify-center gap-1.5 border-t border-stone-100 pt-2">
               <StatusDot ok={hubOnline} warn={!hubOnline} label={hubOnline ? "Hub online" : onlineLabel} onTrend={() => showTrend("hub_online")} />
-              <StatusDot ok={airfiOnline} warn={!airfiOnline} label={airfiOnline ? "AirFi online" : "AirFi offline"} onTrend={() => showTrend("airfi_online")} />
+              <StatusDot
+                ok={airfiOnline}
+                warn={!airfiOnline}
+                label={
+                  airfiOnline
+                    ? status?.airfi.check === "lan_only"
+                      ? "AirFi kotiverkossa"
+                      : "AirFi online"
+                    : "AirFi offline"
+                }
+                onTrend={() => showTrend("airfi_online")}
+              />
               <StatusDot label={MODE_LABELS[hub.control_mode]} ok={hub.control_mode === "auto"} onTrend={() => showTrend("control_mode")} />
               {co2Band && (
                 <StatusDot

@@ -80,6 +80,8 @@ export type HubState = {
   fault?: boolean;
   satellite_count?: number;
   airthings_source?: "ble" | "cloud";
+  /** Viimeisin onnistunut AirFi-lukema (ISO). */
+  airfi_updated_at?: string | null;
 };
 
 export type Hub = {
