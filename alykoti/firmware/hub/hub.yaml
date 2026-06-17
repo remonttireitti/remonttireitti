@@ -4,7 +4,7 @@
 substitutions:
   device_name: alykoti-hub
   friendly_name: "Alykoti keskusyksikko"
-  firmware_version: "1.6.2"
+  firmware_version: "1.7.5"
 
   upload_port: COM7
 
@@ -53,7 +53,6 @@ esphome:
         - delay: 2s
         - light.turn_on: display_backlight
         - lvgl.page.show: iv_page
-        - script.execute: update_page_dots
 
 esp32:
   board: esp32-p4-evboard
@@ -115,6 +114,11 @@ wifi:
     ssid: "Alykoti-Setup"
     password: !secret ota_password
 
+time:
+  - platform: sntp
+    id: sntp_time
+    timezone: Europe/Helsinki
+
 # captive_portal pois: wifi on secrets.yaml:ssa, valttaa ylimaaraisen http-palvelimen
 
 # web_server pois toistaiseksi: vahentaa kuormaa WiFi-yhteyden jalkeen
@@ -157,17 +161,7 @@ binary_sensor:
     name: "AirFi data ok"
     id: airfi_data_ok
     internal: true
-    lambda: |-
-      auto valid_temp = [](float v) {
-        return !isnan(v) && v >= -50.0f && v <= 80.0f;
-      };
-      if (id(airfi_outdoor_temp).has_state() && valid_temp(id(airfi_outdoor_temp).state)) return true;
-      if (id(airfi_exhaust_temp).has_state() && valid_temp(id(airfi_exhaust_temp).state)) return true;
-      if (id(airfi_supply_room_temp).has_state() && valid_temp(id(airfi_supply_room_temp).state)) return true;
-      if (id(airfi_exhaust_hru_temp).has_state() && valid_temp(id(airfi_exhaust_hru_temp).state)) return true;
-      if (id(airfi_supply_fan).has_state() && id(airfi_supply_fan).state > 0) return true;
-      if (id(airfi_exhaust_fan).has_state() && id(airfi_exhaust_fan).state > 0) return true;
-      return id(airfi_connected).state;
+    lambda: "return id(airfi_online_flag);"
 
 # --- Naytto JC1060P470 (MIPI-DSI + taustavalo) ---
 # ASCII-only tekstit: laitefontti ei tue a/o/2-alaindeksia luotettavasti.
@@ -189,14 +183,32 @@ i2c:
 touchscreen:
   - platform: gt911
     id: hub_touch
+    display: main_display
     i2c_id: bus_a
     reset_pin: GPIO22
     interrupt_pin: GPIO21
-    update_interval: 50ms
-    transform:
-      swap_xy: true
-      mirror_x: false
-      mirror_y: true
+    calibration:
+      x_min: 0
+      x_max: 1024
+      y_min: 0
+      y_max: 600
+    on_touch:
+      - lambda: |-
+          id(swipe_active) = true;
+          id(swipe_x0) = touch.x;
+          id(swipe_y0) = touch.y;
+          id(swipe_x1) = touch.x;
+          id(swipe_y1) = touch.y;
+    on_update:
+      - lambda: |-
+          for (auto t : touches) {
+            if (t.state <= 2) {
+              id(swipe_x1) = t.x;
+              id(swipe_y1) = t.y;
+            }
+          }
+    on_release:
+      - script.execute: handle_swipe_release
 
 output:
   - platform: ledc
@@ -451,6 +463,41 @@ globals:
     restore_value: no
     initial_value: "0"
 
+  - id: airfi_online_flag
+    type: bool
+    restore_value: no
+    initial_value: "false"
+
+  - id: swipe_active
+    type: bool
+    restore_value: no
+    initial_value: "false"
+
+  - id: swipe_x0
+    type: int
+    restore_value: no
+    initial_value: "0"
+
+  - id: swipe_y0
+    type: int
+    restore_value: no
+    initial_value: "0"
+
+  - id: swipe_x1
+    type: int
+    restore_value: no
+    initial_value: "0"
+
+  - id: swipe_y1
+    type: int
+    restore_value: no
+    initial_value: "0"
+
+  - id: nav_swipe_lock_until
+    type: uint32_t
+    restore_value: no
+    initial_value: "0"
+
   - id: el_price_now
     type: float
     restore_value: no
@@ -477,25 +524,58 @@ globals:
     initial_value: "0"
 
 script:
-  - id: update_page_dots
+  - id: refresh_airfi_online
     mode: restart
     then:
-      - lvgl.label.update:
-          id: lv_dots_iv
-          text: !lambda |-
-            return id(display_page_idx) == 0 ? std::string("*IV*  Koti  Sahko  WiFi") : std::string("IV  Koti  Sahko  WiFi");
-      - lvgl.label.update:
-          id: lv_dots_floor
-          text: !lambda |-
-            return id(display_page_idx) == 1 ? std::string("IV  *Koti*  Sahko  WiFi") : std::string("IV  Koti  Sahko  WiFi");
-      - lvgl.label.update:
-          id: lv_dots_price
-          text: !lambda |-
-            return id(display_page_idx) == 2 ? std::string("IV  Koti  *Sahko*  WiFi") : std::string("IV  Koti  Sahko  WiFi");
-      - lvgl.label.update:
-          id: lv_dots_wifi
-          text: !lambda |-
-            return id(display_page_idx) == 3 ? std::string("IV  Koti  Sahko  *WiFi*") : std::string("IV  Koti  Sahko  WiFi");
+      - lambda: |-
+          auto valid_temp = [](float v) {
+            return !isnan(v) && v >= -50.0f && v <= 80.0f;
+          };
+          bool ok = false;
+          if (id(airfi_outdoor_temp).has_state() && valid_temp(id(airfi_outdoor_temp).state)) ok = true;
+          else if (id(airfi_exhaust_temp).has_state() && valid_temp(id(airfi_exhaust_temp).state)) ok = true;
+          else if (id(airfi_supply_room_temp).has_state() && valid_temp(id(airfi_supply_room_temp).state)) ok = true;
+          else if (id(airfi_exhaust_hru_temp).has_state() && valid_temp(id(airfi_exhaust_hru_temp).state)) ok = true;
+          else if (id(airfi_supply_hru_temp).has_state() && valid_temp(id(airfi_supply_hru_temp).state)) ok = true;
+          else if (id(airfi_supply_fan).has_state()) ok = true;
+          else if (id(airfi_exhaust_fan).has_state()) ok = true;
+          else if (id(fan_supply_pct).has_state()) ok = true;
+          else if (id(fan_exhaust_pct).has_state()) ok = true;
+          else if (id(airfi_connected).state) ok = true;
+
+          if (!ok) {
+            auto *modbus = id(airfi_modbus);
+            if (modbus != nullptr) {
+              auto probe = [&](uint16_t reg, float scale) -> bool {
+                auto resp = modbus->read_register(reg, modbus_tcp::ModbusFunction::READ_INPUT_REGISTERS);
+                if (!resp.success || resp.data.empty()) return false;
+                float v = ((int16_t) resp.data[0]) * scale;
+                return valid_temp(v) || (scale == 1.0f && v >= 0.0f && v <= 100.0f);
+              };
+              if (probe(3, 0.1f) || probe(5, 0.1f) || probe(7, 0.1f) || probe(12, 1.0f) || probe(11, 1.0f)) {
+                ok = true;
+              }
+            }
+          }
+          id(airfi_online_flag) = ok;
+
+  - id: handle_swipe_release
+    mode: restart
+    then:
+      - lambda: |-
+          if (!id(swipe_active)) return;
+          id(swipe_active) = false;
+          if (id(swipe_y0) < 48 || id(swipe_y0) > 500) return;
+          uint32_t now = millis();
+          if (now < id(nav_swipe_lock_until)) return;
+          int dx = id(swipe_x1) - id(swipe_x0);
+          int dy = id(swipe_y1) - id(swipe_y0);
+          if (abs(dx) < 40) return;
+          if (abs(dy) * 2 > abs(dx)) return;
+          id(nav_swipe_lock_until) = now + 300;
+          int p = id(display_page_idx);
+          if (dx < 0 && p < 3) id(nav_goto).execute(p + 1);
+          if (dx > 0 && p > 0) id(nav_goto).execute(p - 1);
 
   - id: nav_goto
     mode: restart
@@ -506,7 +586,6 @@ script:
           if (page < 0) page = 0;
           if (page > 3) page = 3;
           id(display_page_idx) = page;
-      - script.execute: update_page_dots
       - if:
           condition:
             lambda: "return page == 0;"
@@ -528,32 +607,6 @@ script:
           then:
             - lvgl.page.show: wifi_page
 
-  - id: nav_page_next
-    mode: restart
-    then:
-      - if:
-          condition:
-            lambda: "return id(display_page_idx) < 3;"
-          then:
-            - lambda: "id(display_page_idx)++;"
-            - lvgl.page.next:
-                animation: MOVE_LEFT
-                time: 200ms
-            - script.execute: update_page_dots
-
-  - id: nav_page_prev
-    mode: restart
-    then:
-      - if:
-          condition:
-            lambda: "return id(display_page_idx) > 0;"
-          then:
-            - lambda: "id(display_page_idx)--;"
-            - lvgl.page.previous:
-                animation: MOVE_RIGHT
-                time: 200ms
-            - script.execute: update_page_dots
-
   - id: fetch_spot_prices
     mode: single
     then:
@@ -562,22 +615,36 @@ script:
             wifi.connected:
           then:
             - http_request.get:
-                url: "https://api.spot-hinta.fi/Today?region=FI"
+                url: "https://api.spot-hinta.fi/TodayAndDayForward?region=FI"
                 capture_response: true
-                max_response_buffer_size: 8192
+                max_response_buffer_size: 65536
                 on_response:
                   - lambda: |-
                       if (response->status_code != 200) return;
 
-                      float hours[24] = {0};
-                      int counts[24] = {0};
+                      float hours[48] = {0};
+                      int counts[48] = {0};
                       float min_c = 9999.0f;
                       float max_c = 0.0f;
                       float sum_c = 0.0f;
                       int sum_n = 0;
+                      float cur_c = NAN;
+                      float next_c = NAN;
+                      bool have_next = false;
                       time_t now_ts = ::time(nullptr);
                       struct tm tm_now;
                       localtime_r(&now_ts, &tm_now);
+                      char today_key[11];
+                      snprintf(today_key, sizeof(today_key), "%04d-%02d-%02d",
+                               tm_now.tm_year + 1900, tm_now.tm_mon + 1, tm_now.tm_mday);
+                      struct tm tm_tom = tm_now;
+                      tm_tom.tm_mday += 1;
+                      mktime(&tm_tom);
+                      char tomorrow_key[11];
+                      snprintf(tomorrow_key, sizeof(tomorrow_key), "%04d-%02d-%02d",
+                               tm_tom.tm_year + 1900, tm_tom.tm_mon + 1, tm_tom.tm_mday);
+                      int now_h = tm_now.tm_hour;
+                      int now_slot = tm_now.tm_min / 15;
 
                       JsonDocument doc = json::parse_json(body);
                       if (doc.isNull() || doc.overflowed()) return;
@@ -586,27 +653,55 @@ script:
 
                       for (JsonObject row : arr) {
                         const char *dt = row["DateTime"] | "";
-                        if (strlen(dt) < 13) continue;
+                        if (strlen(dt) < 16) continue;
+                        char day_key[11];
+                        memcpy(day_key, dt, 10);
+                        day_key[10] = '\0';
+                        int day_off = -1;
+                        if (strcmp(day_key, today_key) == 0) day_off = 0;
+                        else if (strcmp(day_key, tomorrow_key) == 0) day_off = 1;
+                        else continue;
                         int hour = (dt[11] - '0') * 10 + (dt[12] - '0');
+                        int minute = (dt[14] - '0') * 10 + (dt[15] - '0');
                         if (hour < 0 || hour > 23) continue;
                         float cents = row["PriceWithTax"].as<float>() * 100.0f;
-                        hours[hour] += cents;
-                        counts[hour]++;
-                        if (cents < min_c) min_c = cents;
-                        if (cents > max_c) max_c = cents;
-                        sum_c += cents;
-                        sum_n++;
+                        int idx = day_off * 24 + hour;
+                        if (idx < 0 || idx > 47) continue;
+                        hours[idx] += cents;
+                        counts[idx]++;
+                        if (day_off == 0) {
+                          if (cents < min_c) min_c = cents;
+                          if (cents > max_c) max_c = cents;
+                          sum_c += cents;
+                          sum_n++;
+                        }
+                        if (day_off == 0 && hour == now_h && (minute / 15) == now_slot) {
+                          cur_c = cents;
+                        }
+                        if (isnan(cur_c) && day_off == 0 && hour == now_h && minute / 15 > now_slot) {
+                          next_c = cents;
+                          have_next = true;
+                        }
                       }
 
-                      for (int h = 0; h < 24; h++) {
-                        if (counts[h] > 0) hours[h] /= counts[h];
+                      for (int i = 0; i < 48; i++) {
+                        if (counts[i] > 0) hours[i] /= counts[i];
                       }
                       if (sum_n == 0) return;
 
-                      int cur_h = tm_now.tm_hour;
-                      int next_h = (cur_h + 1) % 24;
-                      id(el_price_now) = counts[cur_h] > 0 ? hours[cur_h] : hours[0];
-                      id(el_price_next) = counts[next_h] > 0 ? hours[next_h] : id(el_price_now);
+                      if (isnan(cur_c)) {
+                        int idx = now_h;
+                        if (counts[idx] > 0) cur_c = hours[idx];
+                      }
+                      if (!have_next) {
+                        int idx = now_h + 1;
+                        if (idx < 24 && counts[idx] > 0) next_c = hours[idx];
+                        else if (counts[24] > 0) next_c = hours[24];
+                        else next_c = cur_c;
+                      }
+
+                      id(el_price_now) = cur_c;
+                      id(el_price_next) = next_c;
                       id(el_price_min) = min_c;
                       id(el_price_max) = max_c;
                       id(el_price_avg) = sum_c / sum_n;
@@ -614,12 +709,12 @@ script:
                       float span = max_c - min_c;
                       if (span < 0.05f) span = 1.0f;
 
-                      auto set_bar = [&](int h, lv_obj_t *bar) {
-                        if (counts[h] <= 0) {
+                      auto set_bar = [&](int idx, lv_obj_t *bar) {
+                        if (counts[idx] <= 0) {
                           lv_bar_set_value(bar, 0, LV_ANIM_OFF);
                           return;
                         }
-                        int v = (int) ((hours[h] - min_c) / span * 100.0f);
+                        int v = (int) ((hours[idx] - min_c) / span * 100.0f);
                         if (v < 0) v = 0;
                         if (v > 100) v = 100;
                         lv_bar_set_value(bar, v, LV_ANIM_OFF);
@@ -649,6 +744,30 @@ script:
                       set_bar(21, id(price_bar_21));
                       set_bar(22, id(price_bar_22));
                       set_bar(23, id(price_bar_23));
+                      set_bar(24, id(price_bar_24));
+                      set_bar(25, id(price_bar_25));
+                      set_bar(26, id(price_bar_26));
+                      set_bar(27, id(price_bar_27));
+                      set_bar(28, id(price_bar_28));
+                      set_bar(29, id(price_bar_29));
+                      set_bar(30, id(price_bar_30));
+                      set_bar(31, id(price_bar_31));
+                      set_bar(32, id(price_bar_32));
+                      set_bar(33, id(price_bar_33));
+                      set_bar(34, id(price_bar_34));
+                      set_bar(35, id(price_bar_35));
+                      set_bar(36, id(price_bar_36));
+                      set_bar(37, id(price_bar_37));
+                      set_bar(38, id(price_bar_38));
+                      set_bar(39, id(price_bar_39));
+                      set_bar(40, id(price_bar_40));
+                      set_bar(41, id(price_bar_41));
+                      set_bar(42, id(price_bar_42));
+                      set_bar(43, id(price_bar_43));
+                      set_bar(44, id(price_bar_44));
+                      set_bar(45, id(price_bar_45));
+                      set_bar(46, id(price_bar_46));
+                      set_bar(47, id(price_bar_47));
 
                       auto fmt_price = [](char *buf, size_t len, float cents) {
                         snprintf(buf, len, "%.2f c/kWh", cents);
@@ -668,13 +787,9 @@ script:
   - id: display_refresh
     mode: restart
     then:
+      - script.execute: refresh_airfi_online
       - lvgl.label.update:
           id: iv_timer
-          text: !lambda |-
-            if (id(display_timer_text).empty()) return std::string("");
-            return id(display_timer_text);
-      - lvgl.label.update:
-          id: lv_timer
           text: !lambda |-
             if (id(display_timer_text).empty()) return std::string("");
             return id(display_timer_text);
@@ -789,10 +904,10 @@ script:
       - lvgl.label.update:
           id: iv_airfi
           text: !lambda |-
-            if (id(airfi_data_ok).state) return std::string("AirFi online");
+            if (id(airfi_online_flag)) return std::string("AirFi online");
             return std::string("AirFi offline");
           text_color: !lambda |-
-            if (id(airfi_data_ok).state) return lv_color_hex(0x065F46);
+            if (id(airfi_online_flag)) return lv_color_hex(0x065F46);
             return lv_color_hex(0xB45309);
       - lvgl.label.update:
           id: iv_mode
@@ -800,63 +915,6 @@ script:
             return id(display_mode_label);
       - lvgl.label.update:
           id: iv_co2_band
-          text: !lambda |-
-            return id(display_co2_band);
-      - lvgl.label.update:
-          id: lv_vent_room
-          text: !lambda |-
-            float supply = NAN;
-            if (id(fan_supply_pct).has_state()) supply = id(fan_supply_pct).state;
-            else if (id(airfi_supply_fan).has_state()) supply = id(airfi_supply_fan).state;
-            if (isnan(supply)) return std::string("--");
-            char buf[24];
-            snprintf(buf, sizeof(buf), "Tulo %d%%", (int) supply);
-            return std::string(buf);
-      - lvgl.label.update:
-          id: lv_co2
-          text: !lambda |-
-            if (id(effective_co2).has_state()) {
-              char buf[32];
-              snprintf(buf, sizeof(buf), "%d ppm", (int) id(effective_co2).state);
-              return std::string(buf);
-            }
-            return std::string("-- ppm");
-      - lvgl.label.update:
-          id: lv_room
-          text: !lambda |-
-            if (id(cloud_temp_c) > 0) {
-              char buf[24];
-              snprintf(buf, sizeof(buf), "%.1f C", id(cloud_temp_c));
-              return std::string(buf);
-            }
-            if (id(cloud_humidity_pct) > 0) {
-              char buf[24];
-              snprintf(buf, sizeof(buf), "%.0f %%", id(cloud_humidity_pct));
-              return std::string(buf);
-            }
-            return std::string("");
-      - lvgl.label.update:
-          id: lv_hub_badge
-          text: !lambda |-
-            if (wifi::global_wifi_component->is_connected()) return std::string("Hub online");
-            return std::string("Hub offline");
-          text_color: !lambda |-
-            if (wifi::global_wifi_component->is_connected()) return lv_color_hex(0x065F46);
-            return lv_color_hex(0xB45309);
-      - lvgl.label.update:
-          id: lv_airfi
-          text: !lambda |-
-            if (id(airfi_data_ok).state) return std::string("AirFi (hub)");
-            return std::string("AirFi offline");
-          text_color: !lambda |-
-            if (id(airfi_data_ok).state) return lv_color_hex(0x065F46);
-            return lv_color_hex(0xB45309);
-      - lvgl.label.update:
-          id: lv_mode
-          text: !lambda |-
-            return id(display_mode_label);
-      - lvgl.label.update:
-          id: lv_co2_band
           text: !lambda |-
             return id(display_co2_band);
       - lvgl.label.update:
@@ -885,7 +943,7 @@ script:
     then:
       - lambda: |-
           auto *modbus = id(airfi_modbus);
-          if (modbus == nullptr || !id(airfi_connected).state) {
+          if (modbus == nullptr || !id(airfi_online_flag)) {
             ESP_LOGW("airfi", "Ei yhteytta - ohjaus ohitetaan");
             return;
           }
@@ -902,6 +960,7 @@ script:
           condition:
             wifi.connected:
           then:
+            - script.execute: refresh_airfi_online
             - http_request.post:
                 url: !secret sync_url
                 max_response_buffer_size: 4096
@@ -914,7 +973,8 @@ script:
                   if (id(ack_cmd_2) != "") root["acked_command_ids"].add(id(ack_cmd_2).c_str());
                   if (id(ack_cmd_3) != "") root["acked_command_ids"].add(id(ack_cmd_3).c_str());
                   if (id(effective_co2).has_state()) root["state"]["co2_ppm"] = id(effective_co2).state;
-                  root["state"]["airfi_online"] = id(airfi_data_ok).state;
+                  bool airfi_ok = id(airfi_online_flag);
+                  root["state"]["airfi_online"] = airfi_ok;
                   if (id(airfi_outdoor_temp).has_state()) {
                     float v = id(airfi_outdoor_temp).state;
                     if (v >= -50.0f && v <= 80.0f) root["state"]["outdoor_temp_c"] = v;
@@ -935,8 +995,16 @@ script:
                     float v = id(airfi_exhaust_hru_temp).state;
                     if (v >= -50.0f && v <= 80.0f) root["state"]["exhaust_hru_temp_c"] = v;
                   }
-                  if (id(airfi_supply_fan).has_state()) root["state"]["fan_supply_pct"] = (int) id(airfi_supply_fan).state;
-                  if (id(airfi_exhaust_fan).has_state()) root["state"]["fan_exhaust_pct"] = (int) id(airfi_exhaust_fan).state;
+                  if (id(fan_supply_pct).has_state()) {
+                    root["state"]["fan_supply_pct"] = (int) id(fan_supply_pct).state;
+                  } else if (id(airfi_supply_fan).has_state()) {
+                    root["state"]["fan_supply_pct"] = (int) id(airfi_supply_fan).state;
+                  }
+                  if (id(fan_exhaust_pct).has_state()) {
+                    root["state"]["fan_exhaust_pct"] = (int) id(fan_exhaust_pct).state;
+                  } else if (id(airfi_exhaust_fan).has_state()) {
+                    root["state"]["fan_exhaust_pct"] = (int) id(airfi_exhaust_fan).state;
+                  }
                   if (id(airfi_supply_airflow).has_state()) root["state"]["supply_airflow_m3h"] = (int) id(airfi_supply_airflow).state;
                   if (id(airfi_exhaust_airflow).has_state()) root["state"]["exhaust_airflow_m3h"] = (int) id(airfi_exhaust_airflow).state;
                 capture_response: true
@@ -969,6 +1037,11 @@ script:
 
                         JsonObject ventilation = root["ventilation"];
                         if (!ventilation.isNull()) {
+                          if (ventilation.containsKey("fan_supply_pct") ||
+                              ventilation.containsKey("fan_exhaust_pct") ||
+                              ventilation.containsKey("fan_speed")) {
+                            id(airfi_online_flag) = true;
+                          }
                           if (ventilation.containsKey("fan_supply_pct")) {
                             int pct = ventilation["fan_supply_pct"].as<int>();
                             id(fan_supply_pct).publish_state(pct);
@@ -1042,7 +1115,7 @@ script:
                               JsonObject payload = cmd["payload"];
                               bool away = payload["away"] | false;
                               auto *modbus = id(airfi_modbus);
-                              if (modbus != nullptr && id(airfi_connected).state) {
+                              if (modbus != nullptr && id(airfi_online_flag)) {
                                 modbus->write_register(12, away ? 1 : 0);
                                 ESP_LOGI("airfi", "Poissa-tila: %d", away ? 1 : 0);
                               }
@@ -1064,6 +1137,10 @@ script:
                         - script.execute: cloud_sync
 
 interval:
+  - interval: 5s
+    then:
+      - script.execute: refresh_airfi_online
+
   - interval: 3s
     then:
       - script.execute: display_refresh
