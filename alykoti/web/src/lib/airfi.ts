@@ -14,10 +14,10 @@ const SLAVE_ID = 1;
 /** AirFi IV rekisterikartta v2.9 — osoitteet 0-pohjaiset (modbus-serial). */
 const INPUT = {
   outdoor_temp: 3,
-  supply_hru_temp: 4,
+  t2_reserved: 4,
   exhaust_temp: 5,
-  supply_room_temp: 6,
-  exhaust_hru_temp: 7,
+  exhaust_hru_temp: 6,
+  supply_room_temp: 7,
   exhaust_fan_pct: 11,
   supply_fan_pct: 12,
   internal_humidity: 22,
@@ -161,8 +161,8 @@ export async function fetchAirfiState(): Promise<AirfiState | null> {
     const outdoor_temp_c = parseAirfiTempC(core?.[0] ?? null);
     const supply_hru_temp_c = parseAirfiTempC(core?.[1] ?? null);
     const exhaust_temp_c = parseAirfiTempC(core?.[2] ?? null);
-    const supply_room_temp_c = parseAirfiTempC(core?.[3] ?? null);
-    const exhaust_hru_temp_c = parseAirfiTempC(core?.[4] ?? null);
+    const exhaust_hru_temp_c = parseAirfiTempC(core?.[3] ?? null);
+    const supply_room_temp_c = parseAirfiTempC(core?.[4] ?? null);
     const fireplaceStatus = core?.[INPUT.fireplace_status - INPUT.outdoor_temp] ?? null;
 
     const supply_airflow_m3h =

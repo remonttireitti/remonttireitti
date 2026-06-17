@@ -4,7 +4,7 @@
 substitutions:
   device_name: alykoti-hub
   friendly_name: "Alykoti keskusyksikko"
-  firmware_version: "1.6.0"
+  firmware_version: "1.6.1"
 
   upload_port: COM7
 
@@ -253,7 +253,7 @@ sensor:
   - platform: modbus_tcp_manager
     modbus_tcp_id: airfi_modbus
     id: airfi_supply_hru_temp
-    name: "AirFi T2 tulo LTO"
+    name: "AirFi T2 varalla"
     register_address: 4
     function_code: 4
     scale: 0.1
@@ -272,8 +272,8 @@ sensor:
 
   - platform: modbus_tcp_manager
     modbus_tcp_id: airfi_modbus
-    id: airfi_supply_room_temp
-    name: "AirFi T4 tulo huone"
+    id: airfi_exhaust_hru_temp
+    name: "AirFi T4 jateilma"
     register_address: 6
     function_code: 4
     scale: 0.1
@@ -282,8 +282,8 @@ sensor:
 
   - platform: modbus_tcp_manager
     modbus_tcp_id: airfi_modbus
-    id: airfi_exhaust_hru_temp
-    name: "AirFi T5 jateilma"
+    id: airfi_supply_room_temp
+    name: "AirFi T5 tulo asuntoon"
     register_address: 7
     function_code: 4
     scale: 0.1
@@ -343,11 +343,14 @@ sensor:
     accuracy_decimals: 0
     update_interval: 30s
     lambda: |-
-      if (!id(airfi_outdoor_temp).has_state() || !id(airfi_supply_hru_temp).has_state()) return {};
+      if (!id(airfi_outdoor_temp).has_state() || !id(airfi_supply_room_temp).has_state()) return {};
       if (!id(airfi_exhaust_temp).has_state()) return {};
       float outdoor = id(airfi_outdoor_temp).state;
-      float supply = id(airfi_supply_hru_temp).state;
+      float supply = id(airfi_supply_room_temp).state;
       float exhaust = id(airfi_exhaust_temp).state;
+      if (outdoor < -50.0f || outdoor > 80.0f) return {};
+      if (supply < -50.0f || supply > 80.0f) return {};
+      if (exhaust < -50.0f || exhaust > 80.0f) return {};
       float delta = exhaust - outdoor;
       if (fabsf(delta) < 0.3f || exhaust <= outdoor + 0.1f) return {};
       float eff = (supply - outdoor) / delta * 100.0f;
@@ -628,29 +631,37 @@ script:
           id: iv_t1
           text: !lambda |-
             if (!id(airfi_outdoor_temp).has_state()) return std::string("-- C");
+            float v = id(airfi_outdoor_temp).state;
+            if (v < -50.0f || v > 80.0f) return std::string("-- C");
             char buf[16];
-            snprintf(buf, sizeof(buf), "%.1f C", id(airfi_outdoor_temp).state);
+            snprintf(buf, sizeof(buf), "%.1f C", v);
             return std::string(buf);
       - lvgl.label.update:
           id: iv_t2
           text: !lambda |-
-            if (!id(airfi_supply_hru_temp).has_state()) return std::string("-- C");
+            if (!id(airfi_supply_room_temp).has_state()) return std::string("-- C");
+            float v = id(airfi_supply_room_temp).state;
+            if (v < -50.0f || v > 80.0f) return std::string("-- C");
             char buf[16];
-            snprintf(buf, sizeof(buf), "%.1f C", id(airfi_supply_hru_temp).state);
+            snprintf(buf, sizeof(buf), "%.1f C", v);
             return std::string(buf);
       - lvgl.label.update:
           id: iv_t3
           text: !lambda |-
             if (!id(airfi_exhaust_temp).has_state()) return std::string("-- C");
+            float v = id(airfi_exhaust_temp).state;
+            if (v < -50.0f || v > 80.0f) return std::string("-- C");
             char buf[16];
-            snprintf(buf, sizeof(buf), "%.1f C", id(airfi_exhaust_temp).state);
+            snprintf(buf, sizeof(buf), "%.1f C", v);
             return std::string(buf);
       - lvgl.label.update:
           id: iv_t5
           text: !lambda |-
             if (!id(airfi_exhaust_hru_temp).has_state()) return std::string("-- C");
+            float v = id(airfi_exhaust_hru_temp).state;
+            if (v < -50.0f || v > 80.0f) return std::string("-- C");
             char buf[16];
-            snprintf(buf, sizeof(buf), "%.1f C", id(airfi_exhaust_hru_temp).state);
+            snprintf(buf, sizeof(buf), "%.1f C", v);
             return std::string(buf);
       - lvgl.label.update:
           id: iv_lto
@@ -853,11 +864,26 @@ script:
                   if (id(ack_cmd_3) != "") root["acked_command_ids"].add(id(ack_cmd_3).c_str());
                   if (id(effective_co2).has_state()) root["state"]["co2_ppm"] = id(effective_co2).state;
                   root["state"]["airfi_online"] = id(airfi_connected).state;
-                  if (id(airfi_outdoor_temp).has_state()) root["state"]["outdoor_temp_c"] = id(airfi_outdoor_temp).state;
-                  if (id(airfi_supply_hru_temp).has_state()) root["state"]["supply_hru_temp_c"] = id(airfi_supply_hru_temp).state;
-                  if (id(airfi_exhaust_temp).has_state()) root["state"]["exhaust_temp_c"] = id(airfi_exhaust_temp).state;
-                  if (id(airfi_supply_room_temp).has_state()) root["state"]["supply_room_temp_c"] = id(airfi_supply_room_temp).state;
-                  if (id(airfi_exhaust_hru_temp).has_state()) root["state"]["exhaust_hru_temp_c"] = id(airfi_exhaust_hru_temp).state;
+                  if (id(airfi_outdoor_temp).has_state()) {
+                    float v = id(airfi_outdoor_temp).state;
+                    if (v >= -50.0f && v <= 80.0f) root["state"]["outdoor_temp_c"] = v;
+                  }
+                  if (id(airfi_supply_hru_temp).has_state()) {
+                    float v = id(airfi_supply_hru_temp).state;
+                    if (v >= -50.0f && v <= 80.0f) root["state"]["supply_hru_temp_c"] = v;
+                  }
+                  if (id(airfi_exhaust_temp).has_state()) {
+                    float v = id(airfi_exhaust_temp).state;
+                    if (v >= -50.0f && v <= 80.0f) root["state"]["exhaust_temp_c"] = v;
+                  }
+                  if (id(airfi_supply_room_temp).has_state()) {
+                    float v = id(airfi_supply_room_temp).state;
+                    if (v >= -50.0f && v <= 80.0f) root["state"]["supply_room_temp_c"] = v;
+                  }
+                  if (id(airfi_exhaust_hru_temp).has_state()) {
+                    float v = id(airfi_exhaust_hru_temp).state;
+                    if (v >= -50.0f && v <= 80.0f) root["state"]["exhaust_hru_temp_c"] = v;
+                  }
                   if (id(airfi_supply_fan).has_state()) root["state"]["fan_supply_pct"] = (int) id(airfi_supply_fan).state;
                   if (id(airfi_exhaust_fan).has_state()) root["state"]["fan_exhaust_pct"] = (int) id(airfi_exhaust_fan).state;
                   if (id(airfi_supply_airflow).has_state()) root["state"]["supply_airflow_m3h"] = (int) id(airfi_supply_airflow).state;

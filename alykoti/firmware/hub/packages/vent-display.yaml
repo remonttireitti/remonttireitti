@@ -56,7 +56,7 @@ lvgl:
                   align: TOP_MID
                   y: 2
                   text_color: 0x9A3412
-                  text: "JATE T5"
+                  text: "JATE T4"
               - label:
                   id: iv_t5
                   align: BOTTOM_MID
@@ -119,7 +119,7 @@ lvgl:
                   align: TOP_MID
                   y: 2
                   text_color: 0x1E3A8A
-                  text: "TULO T2"
+                  text: "TULO T5"
               - label:
                   id: iv_t2
                   align: BOTTOM_MID
@@ -807,7 +807,7 @@ lvgl:
             x: 24
             y: 336
             text_color: 0x1C1917
-            text: "v1.6.0"
+            text: "v1.6.1"
         - label:
             align: TOP_LEFT
             x: 24

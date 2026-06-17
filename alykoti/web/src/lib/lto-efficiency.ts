@@ -53,7 +53,7 @@ export function computeLtoEfficiency(input: {
   supply_fan_pct?: number | null;
   exhaust_fan_pct?: number | null;
 }): LtoEfficiencyResult {
-  const supply_c_used = input.supply_hru_c ?? input.supply_room_c;
+  const supply_c_used = input.supply_room_c ?? input.supply_hru_c;
   if (
     input.outdoor_c == null ||
     input.exhaust_c == null ||

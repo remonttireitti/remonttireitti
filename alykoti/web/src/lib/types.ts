@@ -50,14 +50,14 @@ export type HubState = {
   fan_exhaust_pct?: number | null;
   /** T1 ulkoilma °C (AirFi) */
   outdoor_temp_c?: number | null;
-  /** T2 tuloilma LTO:n jälkeen °C (AirFi, ei kaikissa) */
+  /** T2 varalla (ei kaikissa koneissa) */
   supply_hru_temp_c?: number | null;
-  /** T3 poistoilma asunnosta °C (AirFi) */
+  /** T3 poistoilma koneelle °C (AirFi) */
   exhaust_temp_c?: number | null;
-  /** T4 tulo asuntoon °C (AirFi) */
-  supply_room_temp_c?: number | null;
-  /** T5 jäteilma LTO:n jälkeen °C (AirFi) */
+  /** T4 jäteilma ulos °C (AirFi) */
   exhaust_hru_temp_c?: number | null;
+  /** T5 tuloilma asuntoon °C (AirFi) */
+  supply_room_temp_c?: number | null;
   /** Ilmamäärä tulo m³/h (C-sarja) */
   supply_airflow_m3h?: number | null;
   /** Ilmamäärä poisto m³/h (C-sarja) */
