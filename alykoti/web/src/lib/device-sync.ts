@@ -1,6 +1,7 @@
 import { canPingAirfiFromRuntime } from "@/lib/airfi-runtime";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { fetchAirthingsState } from "@/lib/airthings";
+import { hasAirfiTelemetry } from "@/lib/airfi-telemetry";
 import {
   airfiToHubState,
   applyVentilationControl,
@@ -154,16 +155,10 @@ export async function syncDevice(
   });
 
   const hubReportedAirfi = body.state?.airfi_online;
-  const hasAirfiTelemetry =
-    mergedState.outdoor_temp_c != null ||
-    mergedState.exhaust_temp_c != null ||
-    mergedState.supply_room_temp_c != null ||
-    mergedState.exhaust_hru_temp_c != null ||
-    mergedState.fan_supply_pct != null ||
-    mergedState.fan_exhaust_pct != null;
-  if (hasAirfiTelemetry || hubReportedAirfi === true) {
+  if (hasAirfiTelemetry(mergedState) || hubReportedAirfi === true) {
     mergedState.airfi_online = true;
-  } else if (hubReportedAirfi === false && !hasAirfiTelemetry) {
+    mergedState.airfi_updated_at = new Date().toISOString();
+  } else if (hubReportedAirfi === false && !hasAirfiTelemetry(mergedState)) {
     mergedState.airfi_online = false;
   }
   const effectiveMode = effectiveControlMode(storedMode, mergedState);

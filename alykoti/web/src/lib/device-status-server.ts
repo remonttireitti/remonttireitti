@@ -1,5 +1,6 @@
 import { canPingAirfiFromRuntime } from "@/lib/airfi-runtime";
 import { pingAirfiFast } from "@/lib/airfi";
+import { inferAirfiOnline } from "@/lib/airfi-telemetry";
 import {
   buildOfflineMessage,
   connectivityLevel,
@@ -13,25 +14,19 @@ import { recordHubMetrics } from "@/lib/metric-samples";
 import { fetchPrimaryHub } from "@/lib/hubs";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import type { HubState } from "@/lib/types";
+
 async function resolveAirfiConnectivity(
   hubOnline: boolean,
   airfiOnlineFromHub: boolean | null | undefined,
-  state?: { outdoor_temp_c?: number | null; exhaust_temp_c?: number | null; supply_room_temp_c?: number | null; exhaust_hru_temp_c?: number | null; fan_supply_pct?: number | null; fan_exhaust_pct?: number | null },
+  state?: Partial<HubState>,
 ): Promise<AirfiConnectivity> {
   if (canPingAirfiFromRuntime()) {
     return { online: await pingAirfiFast(), source: "local_modbus" };
   }
 
-  const hasTelemetry =
-    state?.outdoor_temp_c != null ||
-    state?.exhaust_temp_c != null ||
-    state?.supply_room_temp_c != null ||
-    state?.exhaust_hru_temp_c != null ||
-    state?.fan_supply_pct != null ||
-    state?.fan_exhaust_pct != null;
-
   return {
-    online: hubOnline && (airfiOnlineFromHub === true || hasTelemetry),
+    online: inferAirfiOnline(hubOnline, state, airfiOnlineFromHub),
     source: "hub",
   };
 }

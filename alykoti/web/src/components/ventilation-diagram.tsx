@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useDeviceStatus } from "@/hooks/use-device-status";
 import { useMetricTrend } from "@/hooks/use-metric-trend";
 import { hubLastSeenLabel, isHubOnline } from "@/lib/device-status";
+import { inferAirfiOnline } from "@/lib/airfi-telemetry";
 import type { Hub } from "@/lib/types";
 import { getCo2BandLabel, getCo2Band } from "@/lib/ventilation-logic";
 
@@ -29,7 +30,9 @@ export function VentilationDiagram({ hub, settingsHref }: Props) {
   const supplyTemp = s.supply_room_temp_c ?? s.supply_hru_temp_c;
 
   const hubOnline = status?.hub.online ?? isHubOnline(hub.last_seen_at);
-  const airfiOnline = status?.airfi.online ?? false;
+  const airfiOnline =
+    status?.airfi.online ??
+    inferAirfiOnline(hubOnline, hub.state, hub.state.airfi_online);
   const level =
     status?.level ??
     (hubOnline && airfiOnline ? "ok" : !hubOnline ? "degraded" : "offline");

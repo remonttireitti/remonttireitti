@@ -264,7 +264,6 @@ export type VentilationTargets = {
 };
 
 export function hubStateToAirfiState(state: HubState): AirfiState | null {
-  if (state.airfi_online === false) return null;
   if (
     state.fan_supply_pct == null &&
     state.fan_exhaust_pct == null &&

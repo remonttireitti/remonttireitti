@@ -5,6 +5,7 @@ import { FloorPlanView } from "@/components/floor-plan-view";
 import { useDeviceStatus } from "@/hooks/use-device-status";
 import { useMetricTrend } from "@/hooks/use-metric-trend";
 import { hubLastSeenLabel, isHubOnline } from "@/lib/device-status";
+import { inferAirfiOnline } from "@/lib/airfi-telemetry";
 import { FLOOR_PLAN_ANCHORS, type FloorPlanMarker } from "@/lib/floor-plan";
 import type { Hub } from "@/lib/types";
 import { getCo2Band, getCo2BandLabel } from "@/lib/ventilation-logic";
@@ -27,7 +28,9 @@ export function VentilationFloorPlan({ hub, settingsHref }: Props) {
   const s = hub.state;
 
   const hubOnline = status?.hub.online ?? isHubOnline(hub.last_seen_at);
-  const airfiOnline = status?.airfi.online ?? false;
+  const airfiOnline =
+    status?.airfi.online ??
+    inferAirfiOnline(hubOnline, hub.state, hub.state.airfi_online);
   const level =
     status?.level ??
     (hubOnline && airfiOnline ? "ok" : !hubOnline ? "degraded" : "offline");
