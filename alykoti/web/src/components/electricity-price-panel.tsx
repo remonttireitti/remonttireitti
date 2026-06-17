@@ -48,41 +48,41 @@ export function ElectricityPricePanel({ initial }: Props) {
     };
   }, []);
 
-  const chartHours = useMemo(() => {
+  const chartSlots = useMemo(() => {
     if (!data) return [];
     return data.tomorrow
-      ? [...data.today.hours, ...data.tomorrow.hours]
-      : data.today.hours;
+      ? [...data.today.slots, ...data.tomorrow.slots]
+      : data.today.slots;
   }, [data]);
 
   const chartMin = useMemo(() => {
-    if (!chartHours.length) return 0;
-    return Math.min(...chartHours.map((h) => h.centsPerKwh));
-  }, [chartHours]);
+    if (!chartSlots.length) return 0;
+    return Math.min(...chartSlots.map((s) => s.centsPerKwh));
+  }, [chartSlots]);
 
   const chartMax = useMemo(() => {
-    if (!chartHours.length) return 1;
-    return Math.max(...chartHours.map((h) => h.centsPerKwh));
-  }, [chartHours]);
+    if (!chartSlots.length) return 1;
+    return Math.max(...chartSlots.map((s) => s.centsPerKwh));
+  }, [chartSlots]);
 
   const nowMarker = useMemo(() => {
-    if (!chartHours.length) return null;
+    if (!chartSlots.length) return null;
     const t = now.getTime();
     let index = 0;
-    for (let i = 0; i < chartHours.length; i++) {
-      if (new Date(chartHours[i]!.at).getTime() <= t) index = i;
+    for (let i = 0; i < chartSlots.length; i++) {
+      if (new Date(chartSlots[i]!.at).getTime() <= t) index = i;
     }
-    const slotStart = new Date(chartHours[index]!.at).getTime();
+    const slotStart = new Date(chartSlots[index]!.at).getTime();
     const nextStart =
-      index + 1 < chartHours.length
-        ? new Date(chartHours[index + 1]!.at).getTime()
-        : slotStart + 3_600_000;
+      index + 1 < chartSlots.length
+        ? new Date(chartSlots[index + 1]!.at).getTime()
+        : slotStart + 900_000;
     const progress = Math.min(
       1,
       Math.max(0, (t - slotStart) / Math.max(1, nextStart - slotStart)),
     );
     return { index, progress };
-  }, [chartHours, now]);
+  }, [chartSlots, now]);
 
   if (!data) {
     return (
@@ -154,7 +154,7 @@ export function ElectricityPricePanel({ initial }: Props) {
           viewBox="0 0 920 280"
           className="h-auto w-full min-w-[640px]"
           role="img"
-          aria-label="Sähkön tuntihinnat tänään ja huomenna"
+          aria-label="Sähkön 15 minuutin hinnat tänään ja huomenna"
         >
           <text x="8" y="16" fill="#78716c" fontSize="11">
             c/kWh
@@ -185,23 +185,24 @@ export function ElectricityPricePanel({ initial }: Props) {
             );
           })}
 
-          {chartHours.map((hour, i) => {
-            const barW = 852 / Math.max(chartHours.length, 1);
+          {chartSlots.map((slot, i) => {
+            const barW = 852 / Math.max(chartSlots.length, 1);
             const x = 48 + i * barW;
-            const h = (hour.centsPerKwh / yMax) * 200;
+            const h = (slot.centsPerKwh / yMax) * 200;
             const y = 240 - h;
-            const hourLabel = new Date(hour.at).toLocaleString("fi-FI", {
+            const slotLabel = new Date(slot.at).toLocaleString("fi-FI", {
               timeZone: HELSINKI,
               hour: "2-digit",
+              minute: "2-digit",
               hour12: false,
             });
-            const showLabel = i % 2 === 0;
+            const showLabel = i % 4 === 0;
             const dayKey = new Intl.DateTimeFormat("sv-SE", {
               timeZone: HELSINKI,
               year: "numeric",
               month: "2-digit",
               day: "2-digit",
-            }).format(new Date(hour.at));
+            }).format(new Date(slot.at));
             const prevDay =
               i > 0
                 ? new Intl.DateTimeFormat("sv-SE", {
@@ -209,12 +210,12 @@ export function ElectricityPricePanel({ initial }: Props) {
                     year: "numeric",
                     month: "2-digit",
                     day: "2-digit",
-                  }).format(new Date(chartHours[i - 1]!.at))
+                  }).format(new Date(chartSlots[i - 1]!.at))
                 : null;
             const dayBreak = prevDay != null && prevDay !== dayKey;
 
             return (
-              <g key={hour.at}>
+              <g key={slot.at}>
                 {dayBreak && (
                   <>
                     <line
@@ -239,10 +240,10 @@ export function ElectricityPricePanel({ initial }: Props) {
                 <rect
                   x={x + 1}
                   y={y}
-                  width={Math.max(2, barW - 2)}
+                  width={Math.max(1, barW - 1)}
                   height={h}
-                  rx="2"
-                  fill={priceBarColor(hour.centsPerKwh, chartMin, chartMax)}
+                  rx="1"
+                  fill={priceBarColor(slot.centsPerKwh, chartMin, chartMax)}
                 />
                 {showLabel && (
                   <text
@@ -252,17 +253,17 @@ export function ElectricityPricePanel({ initial }: Props) {
                     fill="#a8a29e"
                     fontSize="9"
                   >
-                    {hourLabel}
+                    {slotLabel}
                   </text>
                 )}
               </g>
             );
           })}
 
-          {nowMarker && chartHours.length > 0 && (
+          {nowMarker && chartSlots.length > 0 && (
             <g>
               {(() => {
-                const barW = 852 / Math.max(chartHours.length, 1);
+                const barW = 852 / Math.max(chartSlots.length, 1);
                 const x =
                   48 +
                   nowMarker.index * barW +
@@ -298,7 +299,7 @@ export function ElectricityPricePanel({ initial }: Props) {
       </div>
 
       <p className="mt-2 text-xs text-stone-500">
-        ALV 25,5 % mukana. Tuntipalkit ovat 15 minuutin jaksojen keskiarvoja.
+        ALV 25,5 % mukana. Palkit ovat 15 minuutin Nord Pool -hintoja.
         Hinnat päivittyvät noin minuutin välein.
       </p>
     </section>

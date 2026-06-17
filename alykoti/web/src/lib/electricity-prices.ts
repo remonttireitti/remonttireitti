@@ -18,7 +18,7 @@ export type ElectricityPriceDay = {
   minCents: number;
   maxCents: number;
   avgCents: number;
-  hours: SpotPriceSlot[];
+  slots: SpotPriceSlot[];
 };
 
 export type ElectricityPrices = {
@@ -26,7 +26,6 @@ export type ElectricityPrices = {
   source: "spot-hinta.fi";
   updatedAt: string;
   slots: SpotPriceSlot[];
-  hours: SpotPriceSlot[];
   today: ElectricityPriceDay;
   tomorrow: ElectricityPriceDay | null;
   current: SpotPriceSlot | null;
@@ -60,20 +59,6 @@ function helsinkiDateKey(iso: string): string {
   }).format(new Date(iso));
 }
 
-function helsinkiHourKey(iso: string): string {
-  const d = new Date(iso);
-  const parts = new Intl.DateTimeFormat("sv-SE", {
-    timeZone: HELSINKI,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    hour12: false,
-  }).formatToParts(d);
-  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "00";
-  return `${get("year")}-${get("month")}-${get("day")}T${get("hour")}`;
-}
-
 function dayLabel(dateKey: string): string {
   const today = helsinkiDateKey(new Date().toISOString());
   const tomorrowDate = new Date();
@@ -88,33 +73,8 @@ function dayLabel(dateKey: string): string {
   });
 }
 
-function aggregateHourly(slots: SpotPriceSlot[]): SpotPriceSlot[] {
-  const buckets = new Map<string, SpotPriceSlot[]>();
-  for (const slot of slots) {
-    const key = helsinkiHourKey(slot.at);
-    const list = buckets.get(key) ?? [];
-    list.push(slot);
-    buckets.set(key, list);
-  }
-
-  return [...buckets.entries()]
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([, group]) => {
-      const cents =
-        group.reduce((sum, s) => sum + s.centsPerKwh, 0) / group.length;
-      const rank = Math.round(
-        group.reduce((sum, s) => sum + s.rank, 0) / group.length,
-      );
-      return {
-        at: group[0]!.at,
-        rank,
-        centsPerKwh: Math.round(cents * 100) / 100,
-      };
-    });
-}
-
-function summarizeDay(dateKey: string, hours: SpotPriceSlot[]): ElectricityPriceDay {
-  const values = hours.map((h) => h.centsPerKwh);
+function summarizeDay(dateKey: string, slots: SpotPriceSlot[]): ElectricityPriceDay {
+  const values = slots.map((s) => s.centsPerKwh);
   const minCents = values.length ? Math.min(...values) : 0;
   const maxCents = values.length ? Math.max(...values) : 0;
   const avgCents = values.length
@@ -126,7 +86,7 @@ function summarizeDay(dateKey: string, hours: SpotPriceSlot[]): ElectricityPrice
     minCents,
     maxCents,
     avgCents,
-    hours,
+    slots,
   };
 }
 
@@ -179,7 +139,6 @@ export function buildElectricityPrices(
   region: ElectricityPriceRegion = ELECTRICITY_PRICE_REGION,
 ): ElectricityPrices {
   const slots = parseRows(rows);
-  const hours = aggregateHourly(slots);
   const now = new Date();
   const todayKey = helsinkiDateKey(now.toISOString());
 
@@ -187,19 +146,18 @@ export function buildElectricityPrices(
   tomorrowProbe.setDate(tomorrowProbe.getDate() + 1);
   const tomorrowKey = helsinkiDateKey(tomorrowProbe.toISOString());
 
-  const todayHours = hours.filter((h) => helsinkiDateKey(h.at) === todayKey);
-  const tomorrowHours = hours.filter((h) => helsinkiDateKey(h.at) === tomorrowKey);
+  const todaySlots = slots.filter((s) => helsinkiDateKey(s.at) === todayKey);
+  const tomorrowSlots = slots.filter((s) => helsinkiDateKey(s.at) === tomorrowKey);
 
   return {
     region,
     source: "spot-hinta.fi",
     updatedAt: now.toISOString(),
     slots,
-    hours,
-    today: summarizeDay(todayKey, todayHours),
+    today: summarizeDay(todayKey, todaySlots),
     tomorrow:
-      tomorrowHours.length > 0
-        ? summarizeDay(tomorrowKey, tomorrowHours)
+      tomorrowSlots.length > 0
+        ? summarizeDay(tomorrowKey, tomorrowSlots)
         : null,
     current: findCurrentSlot(slots, now),
     next: findNextSlot(slots, now),
