@@ -12,12 +12,12 @@ export type HubConnectivity = {
   last_seen_label: string;
 };
 
-export type AirfiCheck = "live" | "lan_only";
+export type AirfiSource = "hub" | "local_modbus";
 
 export type AirfiConnectivity = {
   online: boolean;
-  /** live = Modbus ping tästä palvelimesta; lan_only = kotiverkko, pilvi ei voi pingata. */
-  check: AirfiCheck;
+  /** hub = ESP32-silta; local_modbus = dev-palvelin lukee suoraan. */
+  source: AirfiSource;
 };
 
 export type DeviceStatus = {
@@ -27,8 +27,6 @@ export type DeviceStatus = {
   online: boolean;
   level: ConnectivityLevel;
   message: string | null;
-  /** Tuore AirFi-lukema kun hub on offline. */
-  live_state?: HubState;
   checked_at: string;
 };
 
@@ -59,16 +57,6 @@ export function hubLastSeenLabel(
   })}`;
 }
 
-export function hasAirfiTelemetry(state: HubState): boolean {
-  return (
-    state.outdoor_temp_c != null ||
-    state.exhaust_hru_temp_c != null ||
-    state.exhaust_temp_c != null ||
-    state.fan_supply_pct != null ||
-    state.fan_exhaust_pct != null
-  );
-}
-
 export function buildOfflineMessage(
   hub: HubConnectivity,
   airfi: AirfiConnectivity,
@@ -83,10 +71,10 @@ export function buildOfflineMessage(
         : "Keskusyksikkö ei ole koskaan yhteydessä",
     );
   }
-  if (!airfi.online && airfi.check === "live") {
+  if (!airfi.online && hub.online && airfi.source === "hub") {
+    parts.push("Hub ei saa yhteyttä AirFiin lähiverkossa");
+  } else if (!airfi.online && airfi.source === "local_modbus") {
     parts.push("AirFi ei vastaa Modbus-yhteydellä");
-  } else if (!airfi.online && airfi.check === "lan_only") {
-    parts.push("AirFi on kotiverkossa — pilvi ei voi tarkistaa yhteyttä");
   }
   return parts.join(" · ");
 }
@@ -97,6 +85,6 @@ export function connectivityLevel(
 ): ConnectivityLevel {
   if (airfi.online && hub.online) return "ok";
   if (airfi.online) return "degraded";
-  if (airfi.check === "lan_only") return "degraded";
+  if (!hub.online) return "degraded";
   return "offline";
 }

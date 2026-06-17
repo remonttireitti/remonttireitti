@@ -24,13 +24,15 @@ export function VentilationDiagram({ hub, settingsHref }: Props) {
   const { status } = useDeviceStatus();
   const { showTrend, modal } = useMetricTrend();
 
-  const s = { ...hub.state, ...status?.live_state };
+  const s = hub.state;
   const co2Band = s.co2_ppm != null ? getCo2Band(s.co2_ppm, hub.config) : null;
   const supplyTemp = s.supply_hru_temp_c ?? s.supply_room_temp_c;
 
   const hubOnline = status?.hub.online ?? isHubOnline(hub.last_seen_at);
-  const airfiOnline = status?.airfi.online ?? true;
-  const level = status?.level ?? (hubOnline && airfiOnline ? "ok" : airfiOnline ? "degraded" : "offline");
+  const airfiOnline = status?.airfi.online ?? false;
+  const level =
+    status?.level ??
+    (hubOnline && airfiOnline ? "ok" : !hubOnline ? "degraded" : "offline");
   const onlineLabel =
     status?.hub.last_seen_label ??
     hubLastSeenLabel(hub.last_seen_at, isHubOnline(hub.last_seen_at));
@@ -45,12 +47,16 @@ export function VentilationDiagram({ hub, settingsHref }: Props) {
             className="border-b border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-950"
           >
             <span className="font-semibold">
-              {status.hub.online ? "Osittainen yhteys" : "Keskusyksikkö offline"}
+              {!status.hub.online
+                ? "Keskusyksikkö offline"
+                : "Hub ei saa yhteyttä AirFiin"}
             </span>
-            <span className="mx-2 text-amber-300">·</span>
-            {status.airfi.check === "lan_only"
-              ? "AirFi kotiverkossa — pilvi näyttää viimeisimmät tallennetut lukemat"
-              : "AirFi toimii verkossa — lukemat päivittyvät suoraan koneelta"}
+            {status.message && (
+              <>
+                <span className="mx-2 text-amber-300">·</span>
+                {status.message}
+              </>
+            )}
           </div>
         )}
         {status && level === "offline" && (
@@ -184,8 +190,8 @@ export function VentilationDiagram({ hub, settingsHref }: Props) {
                 warn={!airfiOnline}
                 label={
                   airfiOnline
-                    ? status?.airfi.check === "lan_only"
-                      ? "AirFi kotiverkossa"
+                    ? status?.airfi.source === "hub"
+                      ? "AirFi (hub)"
                       : "AirFi online"
                     : "AirFi offline"
                 }

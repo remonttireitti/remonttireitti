@@ -82,6 +82,8 @@ export type HubState = {
   airthings_source?: "ble" | "cloud";
   /** Viimeisin onnistunut AirFi-lukema (ISO). */
   airfi_updated_at?: string | null;
+  /** Hubin Modbus-lukema: onko AirFi tavoitettavissa lähiverkosta. */
+  airfi_online?: boolean | null;
 };
 
 export type Hub = {

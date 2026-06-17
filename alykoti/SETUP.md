@@ -75,10 +75,12 @@ copy secrets.yaml.example secrets.yaml
 
 ```yaml
 device_auth: "Bearer <token>"
-sync_url: "http://<pc-ip>:3001/api/device/sync"
+sync_url: "https://alykoti.vercel.app/api/device/sync"
+airfi_modbus_host: "192.168.50.26"
 ```
 
-ESP32 ei näe `localhost` — käytä tietokoneen LAN-IP:tä tai julkaistua URL:ia.
+Hub lukee AirFin Modbus TCP:llä lähiverkosta ja välittää lukemat pilveen
+synkissä. Vercel ei koskaan yritä pingata `192.168.50.26`:ää suoraan.
 
 ## 5. Tarkista että Remonttireitti on erillinen
 

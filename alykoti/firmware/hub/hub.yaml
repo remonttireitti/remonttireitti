@@ -4,9 +4,8 @@
 substitutions:
   device_name: alykoti-hub
   friendly_name: "Alykoti keskusyksikko"
-  firmware_version: "1.1.1"
+  firmware_version: "1.2.0"
 
-  # RS485 vapaana — AirFi ohjataan webin kautta Modbus TCP:lla (192.168.50.26:502)
   upload_port: COM7
 
 esphome:
@@ -126,6 +125,25 @@ http_request:
   id: http_client
   timeout: 10s
   watchdog_timeout: 30s
+
+external_components:
+  - source: github://Gucioo/esphome_modbus_tcp_master
+    components: [modbus_tcp_manager]
+    refresh: 0s
+
+# --- AirFi Modbus TCP (hub toimii siltana pilven ja lähiverkon välillä) ---
+modbus_tcp_manager:
+  id: airfi_modbus
+  host: !secret airfi_modbus_host
+  port: 502
+  unit_id: 1
+
+binary_sensor:
+  - platform: modbus_tcp_manager
+    modbus_tcp_id: airfi_modbus
+    name: "AirFi yhteys"
+    id: airfi_connected
+    internal: true
 
 # --- Naytto JC1060P470 (MIPI-DSI + taustavalo) ---
 # ASCII-only tekstit: laitefontti ei tue a/o/2-alaindeksia luotettavasti.
@@ -267,7 +285,103 @@ sensor:
             snprintf(buf, sizeof(buf), "Poisto: %d%%", (int) x);
             return std::string(buf);
 
-# --- AirFi: web hoitaa Modbus TCP (ei RS485 hubissa) ---
+  - platform: modbus_tcp_manager
+    modbus_tcp_id: airfi_modbus
+    id: airfi_outdoor_temp
+    name: "AirFi T1 ulkoilma"
+    register_address: 3
+    function_code: 4
+    scale: 0.1
+    update_interval: 30s
+    internal: true
+
+  - platform: modbus_tcp_manager
+    modbus_tcp_id: airfi_modbus
+    id: airfi_supply_hru_temp
+    name: "AirFi T2 tulo LTO"
+    register_address: 4
+    function_code: 4
+    scale: 0.1
+    update_interval: 30s
+    internal: true
+
+  - platform: modbus_tcp_manager
+    modbus_tcp_id: airfi_modbus
+    id: airfi_exhaust_temp
+    name: "AirFi T3 poisto"
+    register_address: 5
+    function_code: 4
+    scale: 0.1
+    update_interval: 30s
+    internal: true
+
+  - platform: modbus_tcp_manager
+    modbus_tcp_id: airfi_modbus
+    id: airfi_supply_room_temp
+    name: "AirFi T4 tulo huone"
+    register_address: 6
+    function_code: 4
+    scale: 0.1
+    update_interval: 30s
+    internal: true
+
+  - platform: modbus_tcp_manager
+    modbus_tcp_id: airfi_modbus
+    id: airfi_exhaust_hru_temp
+    name: "AirFi T5 jateilma"
+    register_address: 7
+    function_code: 4
+    scale: 0.1
+    update_interval: 30s
+    internal: true
+
+  - platform: modbus_tcp_manager
+    modbus_tcp_id: airfi_modbus
+    id: airfi_exhaust_fan
+    name: "AirFi poistonopeus"
+    register_address: 11
+    function_code: 4
+    scale: 1.0
+    update_interval: 30s
+    internal: true
+    on_value:
+      - lambda: |-
+          id(fan_exhaust_pct).publish_state(x);
+
+  - platform: modbus_tcp_manager
+    modbus_tcp_id: airfi_modbus
+    id: airfi_supply_fan
+    name: "AirFi tulonopeus"
+    register_address: 12
+    function_code: 4
+    scale: 1.0
+    update_interval: 30s
+    internal: true
+    on_value:
+      - lambda: |-
+          id(fan_supply_pct).publish_state(x);
+
+  - platform: modbus_tcp_manager
+    modbus_tcp_id: airfi_modbus
+    id: airfi_supply_airflow
+    name: "AirFi tuloilmamaara"
+    register_address: 44
+    function_code: 4
+    scale: 1.0
+    update_interval: 60s
+    internal: true
+
+  - platform: modbus_tcp_manager
+    modbus_tcp_id: airfi_modbus
+    id: airfi_exhaust_airflow
+    name: "AirFi poistoilmamaara"
+    register_address: 45
+    function_code: 4
+    scale: 1.0
+    update_interval: 60s
+    internal: true
+
+# --- AirFi ohjaus: hub kirjoittaa Modbus TCP:lla, pilvi laskee tavoitteet ---
 
 globals:
   - id: control_mode_auto
@@ -306,6 +420,25 @@ globals:
     initial_value: '""'
 
 script:
+  - id: airfi_apply_targets
+    mode: single
+    parameters:
+      supply_pct: int
+      exhaust_pct: int
+      fireplace: bool
+    then:
+      - lambda: |-
+          auto *modbus = id(airfi_modbus);
+          if (modbus == nullptr || !id(airfi_connected).state) {
+            ESP_LOGW("airfi", "Ei yhteytta - ohjaus ohitetaan");
+            return;
+          }
+          modbus->write_register(58, fireplace ? 1 : 0);
+          modbus->write_register(3, 1);
+          modbus->write_register(10, supply_pct);
+          modbus->write_register(11, exhaust_pct);
+          ESP_LOGI("airfi", "Ohjaus: tulo=%d poisto=%d takka=%d", supply_pct, exhaust_pct, fireplace);
+
   - id: cloud_sync
     mode: single
     then:
@@ -325,6 +458,16 @@ script:
                   if (id(ack_cmd_2) != "") root["acked_command_ids"].add(id(ack_cmd_2).c_str());
                   if (id(ack_cmd_3) != "") root["acked_command_ids"].add(id(ack_cmd_3).c_str());
                   if (id(effective_co2).has_state()) root["state"]["co2_ppm"] = id(effective_co2).state;
+                  root["state"]["airfi_online"] = id(airfi_connected).state;
+                  if (id(airfi_outdoor_temp).has_state()) root["state"]["outdoor_temp_c"] = id(airfi_outdoor_temp).state;
+                  if (id(airfi_supply_hru_temp).has_state()) root["state"]["supply_hru_temp_c"] = id(airfi_supply_hru_temp).state;
+                  if (id(airfi_exhaust_temp).has_state()) root["state"]["exhaust_temp_c"] = id(airfi_exhaust_temp).state;
+                  if (id(airfi_supply_room_temp).has_state()) root["state"]["supply_room_temp_c"] = id(airfi_supply_room_temp).state;
+                  if (id(airfi_exhaust_hru_temp).has_state()) root["state"]["exhaust_hru_temp_c"] = id(airfi_exhaust_hru_temp).state;
+                  if (id(airfi_supply_fan).has_state()) root["state"]["fan_supply_pct"] = (int) id(airfi_supply_fan).state;
+                  if (id(airfi_exhaust_fan).has_state()) root["state"]["fan_exhaust_pct"] = (int) id(airfi_exhaust_fan).state;
+                  if (id(airfi_supply_airflow).has_state()) root["state"]["supply_airflow_m3h"] = (int) id(airfi_supply_airflow).state;
+                  if (id(airfi_exhaust_airflow).has_state()) root["state"]["exhaust_airflow_m3h"] = (int) id(airfi_exhaust_airflow).state;
                 capture_response: true
                 on_response:
                   - lambda: |-
@@ -369,16 +512,36 @@ script:
                             id(fan_supply_pct).publish_state(pct);
                             id(fan_exhaust_pct).publish_state(pct);
                           }
+                          if (ventilation.containsKey("fan_supply_target") && ventilation.containsKey("fan_exhaust_target")) {
+                            int supply = ventilation["fan_supply_target"].as<int>();
+                            int exhaust = ventilation["fan_exhaust_target"].as<int>();
+                            bool fireplace = ventilation["fireplace_active"] | false;
+                            id(airfi_apply_targets).execute(supply, exhaust, fireplace);
+                          }
                         }
 
                         JsonArray commands = root["commands"];
                         if (!commands.isNull()) {
                           for (JsonObject cmd : commands) {
                             const char *command = cmd["command"] | "";
+                            const char *cmd_id = cmd["id"] | "";
                             if (strcmp(command, "set_mode") == 0) {
                               JsonObject payload = cmd["payload"];
                               const char *m = payload["mode"] | "auto";
                               id(control_mode_auto) = strcmp(m, "auto") == 0;
+                              if (cmd_id[0] != '\0' && id(ack_cmd_1) == "") id(ack_cmd_1) = cmd_id;
+                              else if (cmd_id[0] != '\0' && id(ack_cmd_2) == "") id(ack_cmd_2) = cmd_id;
+                              else if (cmd_id[0] != '\0' && id(ack_cmd_3) == "") id(ack_cmd_3) = cmd_id;
+                            }
+                            if (strcmp(command, "set_fan_pct") == 0) {
+                              JsonObject payload = cmd["payload"];
+                              int supply = payload["supply_pct"] | 0;
+                              int exhaust = payload["exhaust_pct"] | 0;
+                              bool fireplace = payload["fireplace"] | false;
+                              id(airfi_apply_targets).execute(supply, exhaust, fireplace);
+                              if (cmd_id[0] != '\0' && id(ack_cmd_1) == "") id(ack_cmd_1) = cmd_id;
+                              else if (cmd_id[0] != '\0' && id(ack_cmd_2) == "") id(ack_cmd_2) = cmd_id;
+                              else if (cmd_id[0] != '\0' && id(ack_cmd_3) == "") id(ack_cmd_3) = cmd_id;
                             }
                           }
                         }

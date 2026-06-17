@@ -1,12 +1,16 @@
+import { canPingAirfiFromRuntime } from "@/lib/airfi-runtime";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { fetchAirthingsState } from "@/lib/airthings";
-import { recordHubMetrics } from "@/lib/metric-samples";
 import {
   airfiToHubState,
   applyVentilationControl,
-  executeVentilationCommand,
-  fetchVentilationState,
-} from "@/lib/ventilation";
+  computeVentilationTargets,
+  executeAirfiCommand,
+  fetchAirfiState,
+  hubStateToAirfiState,
+  type AirfiState,
+} from "@/lib/airfi";
+import { recordHubMetrics } from "@/lib/metric-samples";
 import { migrateLegacySpeedPct } from "@/lib/ventilation-logic";
 import {
   DEFAULT_VENTILATION_CONFIG,
@@ -52,11 +56,24 @@ function parseState(raw: unknown): HubState {
   return raw as HubState;
 }
 
+function targetsToVentilationState(
+  targets: { supply: number; exhaust: number; fireplace: boolean },
+): HubState {
+  return {
+    fan_supply_target: targets.supply,
+    fan_exhaust_target: targets.exhaust,
+    fan_speed_target: targets.supply,
+    fireplace_active: targets.fireplace,
+    direct_control: true,
+  };
+}
+
 export async function syncDevice(
   deviceToken: string,
   body: DeviceSyncRequest,
 ): Promise<DeviceSyncResponse | null> {
   const supabase = createAdminClient();
+  const canPing = canPingAirfiFromRuntime();
 
   const { data: hub, error: lookupError } = await supabase
     .from("hubs")
@@ -103,7 +120,13 @@ export async function syncDevice(
   const config = parseConfig(hub.config);
   const controlMode = hub.control_mode as HubControlMode;
 
-  let airfiState = await fetchVentilationState();
+  let airfiState: AirfiState | null = canPing
+    ? await fetchAirfiState()
+    : hubStateToAirfiState(mergedState);
+
+  if (!canPing && airfiState) {
+    mergedState.airfi_updated_at = new Date().toISOString();
+  }
 
   const { data: pendingCommands } = await supabase
     .from("commands")
@@ -115,13 +138,22 @@ export async function syncDevice(
 
   const commands = pendingCommands ?? [];
   const executedIds: string[] = [];
+  const hubCommands: DeviceSyncResponse["commands"] = [];
 
   for (const cmd of commands) {
-    const ok = await executeVentilationCommand(
-      cmd.command,
-      (cmd.payload ?? {}) as Record<string, unknown>,
-    );
-    if (ok) executedIds.push(cmd.id);
+    if (canPing) {
+      const ok = await executeAirfiCommand(
+        cmd.command,
+        (cmd.payload ?? {}) as Record<string, unknown>,
+      );
+      if (ok) executedIds.push(cmd.id);
+    } else {
+      hubCommands.push({
+        id: cmd.id,
+        command: cmd.command,
+        payload: (cmd.payload ?? {}) as Record<string, unknown>,
+      });
+    }
   }
 
   if (executedIds.length > 0) {
@@ -136,19 +168,42 @@ export async function syncDevice(
       .in("id", executedIds);
   }
 
-  if (controlMode === "auto" || controlMode === "fireplace" || controlMode === "hood") {
-    await applyVentilationControl(controlMode, mergedState.co2_ppm, config, airfiState);
-    if (!airfiState) {
-      airfiState = await fetchVentilationState();
+  let ventilationState: HubState | undefined;
+
+  if (
+    controlMode === "auto" ||
+    controlMode === "fireplace" ||
+    controlMode === "hood"
+  ) {
+    if (canPing) {
+      const applied = await applyVentilationControl(
+        controlMode,
+        mergedState.co2_ppm,
+        config,
+        airfiState,
+      );
+      if (!airfiState) {
+        airfiState = await fetchAirfiState();
+      }
+      if (applied) {
+        ventilationState = targetsToVentilationState(applied);
+      }
+    } else {
+      const targets = computeVentilationTargets(
+        controlMode,
+        mergedState.co2_ppm,
+        config,
+        airfiState,
+      );
+      if (targets) {
+        ventilationState = targetsToVentilationState(targets);
+      }
     }
   }
 
-  const ventilationState: HubState | undefined = airfiState
-    ? airfiToHubState(airfiState)
-    : undefined;
-
-  if (ventilationState) {
-    Object.assign(mergedState, ventilationState);
+  if (canPing && airfiState) {
+    Object.assign(mergedState, airfiToHubState(airfiState));
+    mergedState.airfi_online = true;
     mergedState.airfi_updated_at = new Date().toISOString();
   }
 
@@ -162,12 +217,15 @@ export async function syncDevice(
 
   await supabase.from("hubs").update(hubUpdate).eq("id", hub.id);
 
-  void recordHubMetrics(hub.id, mergedState, controlMode);
+  void recordHubMetrics(hub.id, mergedState, controlMode, {
+    hub_online: true,
+    airfi_online: mergedState.airfi_online === true,
+  });
 
   return {
     control_mode: controlMode,
     config,
-    commands: [],
+    commands: hubCommands,
     sensor: airthingsState ?? undefined,
     ventilation: ventilationState,
   };

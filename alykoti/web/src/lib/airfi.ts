@@ -257,12 +257,52 @@ function targetsMatch(
   );
 }
 
-export async function applyVentilationControl(
+export type VentilationTargets = {
+  supply: number;
+  exhaust: number;
+  fireplace: boolean;
+};
+
+export function hubStateToAirfiState(state: HubState): AirfiState | null {
+  if (state.airfi_online === false) return null;
+  if (
+    state.fan_supply_pct == null &&
+    state.fan_exhaust_pct == null &&
+    state.outdoor_temp_c == null &&
+    state.exhaust_temp_c == null
+  ) {
+    return null;
+  }
+
+  return {
+    supply_fan_pct: state.fan_supply_pct ?? null,
+    exhaust_fan_pct: state.fan_exhaust_pct ?? null,
+    supply_target_pct: state.fan_supply_target ?? null,
+    exhaust_target_pct: state.fan_exhaust_target ?? null,
+    outdoor_temp_c: state.outdoor_temp_c ?? null,
+    supply_hru_temp_c: state.supply_hru_temp_c ?? null,
+    exhaust_temp_c: state.exhaust_temp_c ?? null,
+    supply_room_temp_c: state.supply_room_temp_c ?? null,
+    exhaust_hru_temp_c: state.exhaust_hru_temp_c ?? null,
+    supply_airflow_m3h: state.supply_airflow_m3h ?? null,
+    exhaust_airflow_m3h: state.exhaust_airflow_m3h ?? null,
+    internal_humidity_pct: state.humidity_pct ?? null,
+    lto_temp_efficiency_pct: state.lto_temp_efficiency_pct ?? null,
+    lto_energy_efficiency_pct: state.lto_energy_efficiency_pct ?? null,
+    direct_control: state.direct_control ?? false,
+    fireplace_active: state.fireplace_active ?? false,
+    hood_flap_open: state.hood_active ?? false,
+    emergency_stop: state.emergency_stop ?? false,
+    away_mode: state.away_mode ?? false,
+  };
+}
+
+export function computeVentilationTargets(
   controlMode: HubControlMode,
   co2Ppm: number | null | undefined,
   config: VentilationConfig,
   airfi: AirfiState | null,
-): Promise<{ supply: number; exhaust: number } | null> {
+): VentilationTargets | null {
   if (!airfi || airfi.emergency_stop || airfi.away_mode) return null;
 
   let supply: number;
@@ -294,14 +334,26 @@ export async function applyVentilationControl(
   exhaust = clampFanPct(exhaust);
 
   if (targetsMatch(airfi, supply, exhaust) && airfi.fireplace_active === fireplace) {
-    return { supply, exhaust };
+    return null;
   }
 
-  if (fireplace) await setFireplaceMode(true);
-  else if (airfi.fireplace_active) await setFireplaceMode(false);
+  return { supply, exhaust, fireplace };
+}
 
-  const ok = await setDirectFanPct(supply, exhaust);
-  return ok ? { supply, exhaust } : null;
+export async function applyVentilationControl(
+  controlMode: HubControlMode,
+  co2Ppm: number | null | undefined,
+  config: VentilationConfig,
+  airfi: AirfiState | null,
+): Promise<VentilationTargets | null> {
+  const targets = computeVentilationTargets(controlMode, co2Ppm, config, airfi);
+  if (!targets) return null;
+
+  if (targets.fireplace) await setFireplaceMode(true);
+  else if (airfi?.fireplace_active) await setFireplaceMode(false);
+
+  const ok = await setDirectFanPct(targets.supply, targets.exhaust);
+  return ok ? targets : null;
 }
 
 export function airfiToHubState(airfi: AirfiState): Partial<HubState> {
