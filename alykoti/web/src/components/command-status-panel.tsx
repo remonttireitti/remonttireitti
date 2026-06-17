@@ -1,18 +1,13 @@
 "use client";
 
-import {
-  commandStatusLabel,
-  commandSummary,
-  useCommandStatus,
-} from "@/hooks/use-command-status";
+import type { CommandRow } from "@/app/api/device/commands/route";
+import { commandStatusLabel, commandSummary } from "@/hooks/use-command-status";
 
 type Props = {
-  trackIds?: string[];
+  commands: CommandRow[];
 };
 
-export function CommandStatusPanel({ trackIds }: Props) {
-  const { commands } = useCommandStatus(trackIds);
-
+export function CommandStatusPanel({ commands }: Props) {
   if (commands.length === 0) return null;
 
   return (

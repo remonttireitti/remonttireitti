@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { VentilationDiagram } from "@/components/ventilation-diagram";
+import { VentilationFloorPlan } from "@/components/ventilation-floor-plan";
 import { fetchPrimaryHub } from "@/lib/hubs";
 import { createClient } from "@/lib/supabase/server";
 
@@ -36,7 +36,7 @@ export default async function VentilationPage() {
   }
 
   return (
-    <div className="mx-auto max-w-4xl">
+    <div className="mx-auto max-w-5xl">
       <header>
         <h1 className="text-2xl font-bold tracking-tight">Ilmanvaihto</h1>
       </header>
@@ -65,7 +65,7 @@ export default async function VentilationPage() {
         </div>
       ) : hub ? (
         <div className="mt-6">
-          <VentilationDiagram hub={hub} settingsHref="/ilmanvaihto/asetukset" />
+          <VentilationFloorPlan hub={hub} settingsHref="/ilmanvaihto/asetukset" />
         </div>
       ) : null}
     </div>

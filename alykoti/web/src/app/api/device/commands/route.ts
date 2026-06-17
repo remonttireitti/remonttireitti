@@ -31,8 +31,9 @@ export async function GET() {
     .from("commands")
     .select("id, command, payload, status, created_at, delivered_at, acked_at, error_message")
     .eq("hub_id", hub.id)
+    .in("status", ["pending", "delivered"])
     .order("created_at", { ascending: false })
-    .limit(8);
+    .limit(4);
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });

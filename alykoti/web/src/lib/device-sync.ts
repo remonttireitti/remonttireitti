@@ -11,7 +11,8 @@ import {
   type AirfiState,
 } from "@/lib/airfi";
 import { recordHubMetrics } from "@/lib/metric-samples";
-import { effectiveControlMode, expireTimedModes } from "@/lib/mode-schedule";
+import { activeTimedMode, effectiveControlMode, expireTimedModes, formatRemaining, remainingMs } from "@/lib/mode-schedule";
+import { getCo2Band, getCo2BandLabel } from "@/lib/ventilation-logic";
 import { migrateLegacySpeedPct } from "@/lib/ventilation-logic";
 import {
   DEFAULT_VENTILATION_CONFIG,
@@ -66,6 +67,54 @@ function targetsToVentilationState(
     fan_speed_target: targets.supply,
     fireplace_active: targets.fireplace,
     direct_control: true,
+  };
+}
+
+function modeLabel(mode: HubControlMode, active: ReturnType<typeof activeTimedMode>): string {
+  if (active === "fireplace") return "Takka";
+  if (active === "hood") return "Liesi";
+  if (active === "away") return "Poissa";
+  switch (mode) {
+    case "manual":
+      return "Manuaali";
+    case "fireplace":
+      return "Takka";
+    case "hood":
+      return "Liesi";
+    default:
+      return "Automaatti";
+  }
+}
+
+function buildSyncDisplay(
+  mode: HubControlMode,
+  state: HubState,
+  config: VentilationConfig,
+): { mode: HubControlMode; mode_label: string; timer_text: string | null; co2_band_label: string | null } {
+  const s = expireTimedModes(state);
+  const active = activeTimedMode(s);
+
+  let timer_text: string | null = null;
+  if (active === "fireplace" && s.fireplace_until) {
+    timer_text = formatRemaining(remainingMs(s.fireplace_until)!);
+  } else if (active === "hood" && s.hood_until) {
+    timer_text = formatRemaining(remainingMs(s.hood_until)!);
+  } else if (active === "away") {
+    timer_text = s.away_unlimited
+      ? "rajaton"
+      : s.away_until
+        ? formatRemaining(remainingMs(s.away_until)!)
+        : null;
+  }
+
+  return {
+    mode,
+    mode_label: modeLabel(mode, active),
+    timer_text,
+    co2_band_label:
+      s.co2_ppm != null && Number.isFinite(s.co2_ppm)
+        ? getCo2BandLabel(getCo2Band(s.co2_ppm, config))
+        : null,
   };
 }
 
@@ -243,9 +292,11 @@ export async function syncDevice(
   });
 
   return {
-    control_mode: effectiveMode,    config,
+    control_mode: effectiveMode,
+    config,
     commands: hubCommands,
     sensor: airthingsState ?? undefined,
     ventilation: ventilationState,
+    display: buildSyncDisplay(effectiveMode, mergedState, config),
   };
 }

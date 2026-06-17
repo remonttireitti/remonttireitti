@@ -114,6 +114,13 @@ export type DeviceSyncRequest = {
   acked_command_ids?: string[];
 };
 
+export type DeviceSyncDisplay = {
+  mode: HubControlMode;
+  mode_label: string;
+  timer_text: string | null;
+  co2_band_label: string | null;
+};
+
 export type DeviceSyncResponse = {
   control_mode: HubControlMode;
   config: VentilationConfig;
@@ -124,6 +131,7 @@ export type DeviceSyncResponse = {
   }>;
   sensor?: HubState;
   ventilation?: HubState;
+  display?: DeviceSyncDisplay;
 };
 
 export type ControlMode = HubControlMode;

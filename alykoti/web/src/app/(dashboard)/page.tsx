@@ -1,5 +1,8 @@
 import Link from "next/link";
-import { fetchHubs, formatLastSeen } from "@/lib/hubs";
+import { ElectricityPricePanel } from "@/components/electricity-price-panel";
+import { HomeFloorPlan } from "@/components/home-floor-plan";
+import { fetchElectricityPrices } from "@/lib/electricity-prices";
+import { fetchHubs } from "@/lib/hubs";
 import { isHubOnline } from "@/lib/device-status";
 import { createClient } from "@/lib/supabase/server";
 
@@ -9,9 +12,10 @@ export default async function OverviewPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const hubs = user
-    ? await fetchHubs(supabase, user.id).catch(() => [])
-    : [];
+  const [hubs, electricityPrices] = await Promise.all([
+    user ? fetchHubs(supabase, user.id).catch(() => []) : Promise.resolve([]),
+    fetchElectricityPrices().catch(() => null),
+  ]);
 
   const online = hubs.filter((h) => isHubOnline(h.last_seen_at)).length;
 
@@ -24,18 +28,28 @@ export default async function OverviewPage() {
       ? Math.round(co2Values.reduce((a, b) => a + b, 0) / co2Values.length)
       : null;
 
+  const primaryHub = hubs[0] ?? null;
+
   return (
-    <div className="mx-auto max-w-4xl">
+    <div className="mx-auto max-w-5xl">
       <header>
         <h1 className="text-2xl font-bold tracking-tight">Koti</h1>
-        <p className="mt-1 text-sm text-stone-600">Yleiskatsaus automaatioon.</p>
+        <p className="mt-1 text-sm text-stone-600">
+          Pohjapiirros — valot, lämpötilat ja anturit kartalle myöhemmin.
+        </p>
       </header>
+
+      <div className="mt-6">
+        <HomeFloorPlan hub={primaryHub} />
+      </div>
 
       <div className="mt-6 grid gap-4 sm:grid-cols-3">
         <StatCard label="Keskusyksiköt" value={String(hubs.length)} />
         <StatCard label="Online" value={String(online)} />
         <StatCard label="CO₂ keskiarvo" value={avgCo2 != null ? `${avgCo2} ppm` : "—"} />
       </div>
+
+      <ElectricityPricePanel initial={electricityPrices} />
 
       {hubs.length === 0 && (
         <div className="mt-8 rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
@@ -50,36 +64,6 @@ export default async function OverviewPage() {
           </Link>
         </div>
       )}
-
-      <section className="mt-8 rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
-        <div className="flex items-center justify-between gap-3">
-          <h2 className="font-semibold text-stone-900">Ilmanvaihto</h2>
-          <Link
-            href="/ilmanvaihto"
-            className="text-sm font-medium text-stone-700 hover:underline"
-          >
-            Avaa →
-          </Link>
-        </div>
-
-        {hubs.length === 0 ? (
-          <p className="mt-3 text-sm text-stone-500">Ei dataa.</p>
-        ) : (
-          <ul className="mt-3 divide-y divide-stone-100">
-            {hubs.slice(0, 3).map((h) => (
-              <li key={h.id} className="py-3">
-                <Link href="/ilmanvaihto" className="block hover:text-sky-800">
-                  <span className="font-medium">{h.name}</span>
-                  <span className="mt-1 block text-xs text-stone-500">
-                    {formatLastSeen(h.last_seen_at)}
-                    {h.state.co2_ppm != null && ` · CO₂ ${Math.round(h.state.co2_ppm)} ppm`}
-                  </span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
     </div>
   );
 }

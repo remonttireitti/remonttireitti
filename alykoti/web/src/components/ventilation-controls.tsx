@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import {
   clearAwayMode,
   extendFireplaceMode,
@@ -13,8 +13,10 @@ import {
 } from "@/app/actions/hubs";
 import { CommandStatusPanel } from "@/components/command-status-panel";
 import { FanGauge, FanTargetSlider } from "@/components/fan-gauge";
+import { useCommandStatus } from "@/hooks/use-command-status";
 import { useDeviceStatus } from "@/hooks/use-device-status";
 import { useMetricTrend } from "@/hooks/use-metric-trend";
+import { PING_INTERVAL_MS } from "@/lib/device-status";
 import {
   activeTimedMode,
   effectiveControlMode,
@@ -33,7 +35,11 @@ export function VentilationControls({ hub: initialHub }: { hub: Hub }) {
   const [trackIds, setTrackIds] = useState<string[]>([]);
   const [pressedKey, setPressedKey] = useState<string | null>(null);
   const [showAwayPicker, setShowAwayPicker] = useState(false);
-  const { status } = useDeviceStatus();
+  const { commands: activeCommands, refresh: refreshCommands } =
+    useCommandStatus(trackIds.length > 0 ? trackIds : undefined);
+  const { status } = useDeviceStatus(
+    activeCommands.length > 0 ? 2_000 : PING_INTERVAL_MS,
+  );
   const { showTrend, modal } = useMetricTrend();
   const [, tick] = useState(0);
 
@@ -77,7 +83,8 @@ export function VentilationControls({ hub: initialHub }: { hub: Hub }) {
       const result = await action();
       setFlash(result);
       if (result.commandIds?.length) {
-        setTrackIds((prev) => [...result.commandIds!, ...prev].slice(0, 8));
+        setTrackIds((prev) => [...result.commandIds!, ...prev].slice(0, 4));
+        void refreshCommands();
       }
     });
   }
@@ -120,7 +127,7 @@ export function VentilationControls({ hub: initialHub }: { hub: Hub }) {
           />
         </section>
 
-        <CommandStatusPanel trackIds={trackIds.length > 0 ? trackIds : undefined} />
+        <CommandStatusPanel commands={activeCommands} />
 
         <section className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
           <h2 className="font-semibold text-stone-900">Toimintatila</h2>

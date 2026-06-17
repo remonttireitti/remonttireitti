@@ -1,0 +1,821 @@
+# Naytot: IV -> Pohjakuva -> Sahkon hinta -> WiFi (viimeinen). Vierita vasemmalle/oikealle.
+image:
+  - file: images/pohjakuva.png
+    id: floor_plan
+    resize: 1000x468
+    type: RGB565
+
+lvgl:
+  byte_order: little_endian
+  disp_bg_color: 0xFAFAF9
+  draw_rounding: 1
+  update_interval: never
+  displays:
+    - main_display
+  touchscreens:
+    - hub_touch
+  on_swipe_left:
+    - script.execute: nav_page_next
+  on_swipe_right:
+    - script.execute: nav_page_prev
+  pages:
+    # --- 1. Ilmanvaihto ---
+    - id: iv_page
+      bg_color: 0xFAFAF9
+      bg_opa: cover
+      widgets:
+        - label:
+            align: TOP_LEFT
+            x: 20
+            y: 10
+            text_color: 0x1C1917
+            text: "Ilmanvaihto"
+        - label:
+            id: lv_dots_iv
+            align: TOP_MID
+            y: 10
+            text_color: 0x78716C
+            text: "*IV*  Koti  Sahko  WiFi"
+        - label:
+            id: iv_timer
+            align: TOP_MID
+            y: 34
+            text_color: 0xD97706
+            text: ""
+        - obj:
+            x: 72
+            y: 52
+            width: 120
+            height: 46
+            bg_color: 0xFFF7ED
+            border_color: 0xFDBA74
+            border_width: 1
+            radius: 8
+            widgets:
+              - label:
+                  align: TOP_MID
+                  y: 2
+                  text_color: 0x9A3412
+                  text: "JATE T5"
+              - label:
+                  id: iv_t5
+                  align: BOTTOM_MID
+                  y: -2
+                  text_color: 0x7C2D12
+                  text: "-- C"
+        - obj:
+            x: 832
+            y: 52
+            width: 120
+            height: 46
+            bg_color: 0xF0F9FF
+            border_color: 0x7DD3FC
+            border_width: 1
+            radius: 8
+            widgets:
+              - label:
+                  align: TOP_MID
+                  y: 2
+                  text_color: 0x0C4A6E
+                  text: "ULKO T1"
+              - label:
+                  id: iv_t1
+                  align: BOTTOM_MID
+                  y: -2
+                  text_color: 0x075985
+                  text: "-- C"
+        - obj:
+            x: 448
+            y: 108
+            width: 128
+            height: 46
+            bg_color: 0xECFDF5
+            border_color: 0x6EE7B7
+            border_width: 1
+            radius: 8
+            widgets:
+              - label:
+                  align: TOP_MID
+                  y: 2
+                  text_color: 0x065F46
+                  text: "LTO"
+              - label:
+                  id: iv_lto
+                  align: BOTTOM_MID
+                  y: -2
+                  text_color: 0x047857
+                  text: "-- %"
+        - obj:
+            x: 132
+            y: 168
+            width: 120
+            height: 46
+            bg_color: 0xEFF6FF
+            border_color: 0x93C5FD
+            border_width: 1
+            radius: 8
+            widgets:
+              - label:
+                  align: TOP_MID
+                  y: 2
+                  text_color: 0x1E3A8A
+                  text: "TULO T2"
+              - label:
+                  id: iv_t2
+                  align: BOTTOM_MID
+                  y: -2
+                  text_color: 0x1D4ED8
+                  text: "-- C"
+        - obj:
+            x: 772
+            y: 168
+            width: 120
+            height: 46
+            bg_color: 0xFEF2F2
+            border_color: 0xFCA5A5
+            border_width: 1
+            radius: 8
+            widgets:
+              - label:
+                  align: TOP_MID
+                  y: 2
+                  text_color: 0x991B1B
+                  text: "POIS T3"
+              - label:
+                  id: iv_t3
+                  align: BOTTOM_MID
+                  y: -2
+                  text_color: 0xB91C1C
+                  text: "-- C"
+        - label:
+            id: iv_co2
+            align: CENTER
+            y: -40
+            text_color: 0x1C1917
+            text: "CO2: -- ppm"
+        - label:
+            align: TOP_LEFT
+            x: 40
+            y: 300
+            text_color: 0x78716C
+            text: "Tulo"
+        - label:
+            id: iv_supply_pct
+            align: TOP_LEFT
+            x: 40
+            y: 322
+            text_color: 0x1D4ED8
+            text: "-- %"
+        - bar:
+            id: bar_iv_supply
+            align: TOP_LEFT
+            x: 40
+            y: 352
+            width: 440
+            height: 18
+            min_value: 25
+            max_value: 100
+            value: 25
+            bg_color: 0xE7E5E4
+            indicator:
+              bg_color: 0x0EA5E9
+        - label:
+            id: iv_supply_target
+            align: TOP_LEFT
+            x: 40
+            y: 376
+            text_color: 0x78716C
+            text: ""
+        - label:
+            align: TOP_LEFT
+            x: 544
+            y: 300
+            text_color: 0x78716C
+            text: "Poisto"
+        - label:
+            id: iv_exhaust_pct
+            align: TOP_LEFT
+            x: 544
+            y: 322
+            text_color: 0xB91C1C
+            text: "-- %"
+        - bar:
+            id: bar_iv_exhaust
+            align: TOP_LEFT
+            x: 544
+            y: 352
+            width: 440
+            height: 18
+            min_value: 25
+            max_value: 100
+            value: 25
+            bg_color: 0xE7E5E4
+            indicator:
+              bg_color: 0xEF4444
+        - label:
+            id: iv_exhaust_target
+            align: TOP_LEFT
+            x: 544
+            y: 376
+            text_color: 0x78716C
+            text: ""
+        - label:
+            id: iv_airfi
+            align: BOTTOM_MID
+            y: -52
+            text_color: 0x065F46
+            text: "AirFi --"
+        - label:
+            id: iv_mode
+            align: BOTTOM_LEFT
+            x: 24
+            y: -52
+            text_color: 0x44403C
+            text: "Automaatti"
+        - label:
+            id: iv_co2_band
+            align: BOTTOM_RIGHT
+            x: -24
+            y: -52
+            text_color: 0x44403C
+            text: ""
+
+    # --- 2. Pohjakuva ---
+    - id: floor_page
+      bg_color: 0xFAFAF9
+      bg_opa: cover
+      widgets:
+        - label:
+            align: TOP_LEFT
+            x: 20
+            y: 10
+            text_color: 0x1C1917
+            text: "Koti"
+        - label:
+            id: lv_dots_floor
+            align: TOP_MID
+            y: 10
+            text_color: 0x78716C
+            text: "IV  *Koti*  Sahko  WiFi"
+        - image:
+            align: TOP_MID
+            y: 44
+            src: floor_plan
+        - obj:
+            x: 452
+            y: 147
+            width: 96
+            height: 44
+            bg_color: 0xECFDF5
+            border_color: 0x6EE7B7
+            border_width: 1
+            radius: 8
+            widgets:
+              - label:
+                  align: TOP_MID
+                  y: 2
+                  text_color: 0x065F46
+                  text: "IV"
+              - label:
+                  id: lv_vent_room
+                  align: BOTTOM_MID
+                  y: -2
+                  text_color: 0x047857
+                  text: "--"
+        - obj:
+            x: 452
+            y: 315
+            width: 110
+            height: 48
+            bg_color: 0xEFF6FF
+            border_color: 0x93C5FD
+            border_width: 1
+            radius: 8
+            widgets:
+              - label:
+                  align: TOP_MID
+                  y: 2
+                  text_color: 0x1E3A8A
+                  text: "OLOHUONE"
+              - label:
+                  id: lv_co2
+                  align: CENTER
+                  text_color: 0x1D4ED8
+                  text: "-- ppm"
+              - label:
+                  id: lv_room
+                  align: BOTTOM_MID
+                  y: -2
+                  text_color: 0x64748B
+                  text: ""
+        - obj:
+            x: 162
+            y: 524
+            width: 700
+            height: 68
+            bg_color: 0xFFFFFF
+            border_color: 0xE7E5E4
+            border_width: 1
+            radius: 10
+            widgets:
+              - label:
+                  id: lv_hub_badge
+                  align: LEFT_MID
+                  x: 12
+                  text_color: 0x065F46
+                  text: "Hub online"
+              - label:
+                  id: lv_airfi
+                  align: LEFT_MID
+                  x: 150
+                  text_color: 0x065F46
+                  text: "AirFi --"
+              - label:
+                  id: lv_mode
+                  align: LEFT_MID
+                  x: 300
+                  text_color: 0x065F46
+                  text: "Automaatti"
+              - label:
+                  id: lv_co2_band
+                  align: LEFT_MID
+                  x: 470
+                  text_color: 0x065F46
+                  text: ""
+              - label:
+                  id: lv_timer
+                  align: RIGHT_MID
+                  x: -12
+                  text_color: 0xD97706
+                  text: ""
+
+    # --- 3. Sahkon hinta ---
+    - id: price_page
+      bg_color: 0xFAFAF9
+      bg_opa: cover
+      widgets:
+        - label:
+            align: TOP_LEFT
+            x: 20
+            y: 10
+            text_color: 0x1C1917
+            text: "Sahkon hinta"
+        - label:
+            id: lv_dots_price
+            align: TOP_MID
+            y: 10
+            text_color: 0x78716C
+            text: "IV  Koti  *Sahko*  WiFi"
+        - label:
+            align: TOP_LEFT
+            x: 24
+            y: 52
+            text_color: 0x78716C
+            text: "Hinta nyt"
+        - label:
+            id: price_now
+            align: TOP_LEFT
+            x: 24
+            y: 72
+            text_color: 0x1C1917
+            text: "-- c/kWh"
+        - label:
+            align: TOP_LEFT
+            x: 260
+            y: 52
+            text_color: 0x78716C
+            text: "Seuraava"
+        - label:
+            id: price_next
+            align: TOP_LEFT
+            x: 260
+            y: 72
+            text_color: 0x0369A1
+            text: "-- c/kWh"
+        - label:
+            align: TOP_LEFT
+            x: 500
+            y: 52
+            text_color: 0x78716C
+            text: "Halvin"
+        - label:
+            id: price_min
+            align: TOP_LEFT
+            x: 500
+            y: 72
+            text_color: 0x047857
+            text: "-- c/kWh"
+        - label:
+            align: TOP_LEFT
+            x: 24
+            y: 108
+            text_color: 0x78716C
+            text: "Keskihinta"
+        - label:
+            id: price_avg
+            align: TOP_LEFT
+            x: 24
+            y: 128
+            text_color: 0xB45309
+            text: "-- c/kWh"
+        - label:
+            align: TOP_LEFT
+            x: 260
+            y: 108
+            text_color: 0x78716C
+            text: "Kallein"
+        - label:
+            id: price_max
+            align: TOP_LEFT
+            x: 260
+            y: 128
+            text_color: 0xB91C1C
+            text: "-- c/kWh"
+        - label:
+            align: TOP_LEFT
+            x: 24
+            y: 168
+            text_color: 0x78716C
+            text: "Tanaan (c/kWh)"
+        - bar:
+            id: price_bar_0
+            x: 24
+            y: 430
+            width: 36
+            height: 80
+            min_value: 0
+            max_value: 100
+            value: 0
+            bg_color: 0xE7E5E4
+            indicator:
+              bg_color: 0x1A6B5C
+        - bar:
+            id: price_bar_1
+            x: 66
+            y: 430
+            width: 36
+            height: 80
+            min_value: 0
+            max_value: 100
+            value: 0
+            bg_color: 0xE7E5E4
+            indicator:
+              bg_color: 0x1A6B5C
+        - bar:
+            id: price_bar_2
+            x: 108
+            y: 430
+            width: 36
+            height: 80
+            min_value: 0
+            max_value: 100
+            value: 0
+            bg_color: 0xE7E5E4
+            indicator:
+              bg_color: 0x1A6B5C
+        - bar:
+            id: price_bar_3
+            x: 150
+            y: 430
+            width: 36
+            height: 80
+            min_value: 0
+            max_value: 100
+            value: 0
+            bg_color: 0xE7E5E4
+            indicator:
+              bg_color: 0x1A6B5C
+        - bar:
+            id: price_bar_4
+            x: 192
+            y: 430
+            width: 36
+            height: 80
+            min_value: 0
+            max_value: 100
+            value: 0
+            bg_color: 0xE7E5E4
+            indicator:
+              bg_color: 0x1A6B5C
+        - bar:
+            id: price_bar_5
+            x: 234
+            y: 430
+            width: 36
+            height: 80
+            min_value: 0
+            max_value: 100
+            value: 0
+            bg_color: 0xE7E5E4
+            indicator:
+              bg_color: 0x1A6B5C
+        - bar:
+            id: price_bar_6
+            x: 276
+            y: 430
+            width: 36
+            height: 80
+            min_value: 0
+            max_value: 100
+            value: 0
+            bg_color: 0xE7E5E4
+            indicator:
+              bg_color: 0x1A6B5C
+        - bar:
+            id: price_bar_7
+            x: 318
+            y: 430
+            width: 36
+            height: 80
+            min_value: 0
+            max_value: 100
+            value: 0
+            bg_color: 0xE7E5E4
+            indicator:
+              bg_color: 0x1A6B5C
+        - bar:
+            id: price_bar_8
+            x: 360
+            y: 430
+            width: 36
+            height: 80
+            min_value: 0
+            max_value: 100
+            value: 0
+            bg_color: 0xE7E5E4
+            indicator:
+              bg_color: 0x1A6B5C
+        - bar:
+            id: price_bar_9
+            x: 402
+            y: 430
+            width: 36
+            height: 80
+            min_value: 0
+            max_value: 100
+            value: 0
+            bg_color: 0xE7E5E4
+            indicator:
+              bg_color: 0x1A6B5C
+        - bar:
+            id: price_bar_10
+            x: 444
+            y: 430
+            width: 36
+            height: 80
+            min_value: 0
+            max_value: 100
+            value: 0
+            bg_color: 0xE7E5E4
+            indicator:
+              bg_color: 0x1A6B5C
+        - bar:
+            id: price_bar_11
+            x: 486
+            y: 430
+            width: 36
+            height: 80
+            min_value: 0
+            max_value: 100
+            value: 0
+            bg_color: 0xE7E5E4
+            indicator:
+              bg_color: 0x1A6B5C
+        - bar:
+            id: price_bar_12
+            x: 528
+            y: 430
+            width: 36
+            height: 80
+            min_value: 0
+            max_value: 100
+            value: 0
+            bg_color: 0xE7E5E4
+            indicator:
+              bg_color: 0x1A6B5C
+        - bar:
+            id: price_bar_13
+            x: 570
+            y: 430
+            width: 36
+            height: 80
+            min_value: 0
+            max_value: 100
+            value: 0
+            bg_color: 0xE7E5E4
+            indicator:
+              bg_color: 0x1A6B5C
+        - bar:
+            id: price_bar_14
+            x: 612
+            y: 430
+            width: 36
+            height: 80
+            min_value: 0
+            max_value: 100
+            value: 0
+            bg_color: 0xE7E5E4
+            indicator:
+              bg_color: 0x1A6B5C
+        - bar:
+            id: price_bar_15
+            x: 654
+            y: 430
+            width: 36
+            height: 80
+            min_value: 0
+            max_value: 100
+            value: 0
+            bg_color: 0xE7E5E4
+            indicator:
+              bg_color: 0x1A6B5C
+        - bar:
+            id: price_bar_16
+            x: 696
+            y: 430
+            width: 36
+            height: 80
+            min_value: 0
+            max_value: 100
+            value: 0
+            bg_color: 0xE7E5E4
+            indicator:
+              bg_color: 0x1A6B5C
+        - bar:
+            id: price_bar_17
+            x: 738
+            y: 430
+            width: 36
+            height: 80
+            min_value: 0
+            max_value: 100
+            value: 0
+            bg_color: 0xE7E5E4
+            indicator:
+              bg_color: 0x1A6B5C
+        - bar:
+            id: price_bar_18
+            x: 780
+            y: 430
+            width: 36
+            height: 80
+            min_value: 0
+            max_value: 100
+            value: 0
+            bg_color: 0xE7E5E4
+            indicator:
+              bg_color: 0x1A6B5C
+        - bar:
+            id: price_bar_19
+            x: 822
+            y: 430
+            width: 36
+            height: 80
+            min_value: 0
+            max_value: 100
+            value: 0
+            bg_color: 0xE7E5E4
+            indicator:
+              bg_color: 0x1A6B5C
+        - bar:
+            id: price_bar_20
+            x: 864
+            y: 430
+            width: 36
+            height: 80
+            min_value: 0
+            max_value: 100
+            value: 0
+            bg_color: 0xE7E5E4
+            indicator:
+              bg_color: 0x1A6B5C
+        - bar:
+            id: price_bar_21
+            x: 906
+            y: 430
+            width: 36
+            height: 80
+            min_value: 0
+            max_value: 100
+            value: 0
+            bg_color: 0xE7E5E4
+            indicator:
+              bg_color: 0x1A6B5C
+        - bar:
+            id: price_bar_22
+            x: 948
+            y: 430
+            width: 36
+            height: 80
+            min_value: 0
+            max_value: 100
+            value: 0
+            bg_color: 0xE7E5E4
+            indicator:
+              bg_color: 0x1A6B5C
+        - bar:
+            id: price_bar_23
+            x: 990
+            y: 430
+            width: 36
+            height: 80
+            min_value: 0
+            max_value: 100
+            value: 0
+            bg_color: 0xE7E5E4
+            indicator:
+              bg_color: 0x1A6B5C
+
+    # --- 4. WiFi (aina viimeinen) ---
+    - id: wifi_page
+      bg_color: 0xFAFAF9
+      bg_opa: cover
+      widgets:
+        - label:
+            align: TOP_LEFT
+            x: 20
+            y: 10
+            text_color: 0x1C1917
+            text: "WiFi / verkko"
+        - label:
+            id: lv_dots_wifi
+            align: TOP_MID
+            y: 10
+            text_color: 0x78716C
+            text: "IV  Koti  Sahko  *WiFi*"
+        - label:
+            align: TOP_LEFT
+            x: 24
+            y: 56
+            text_color: 0x78716C
+            text: "Verkko (SSID)"
+        - label:
+            id: lv_wifi_ssid
+            align: TOP_LEFT
+            x: 24
+            y: 80
+            text_color: 0x1C1917
+            text: "--"
+        - label:
+            align: TOP_LEFT
+            x: 24
+            y: 120
+            text_color: 0x78716C
+            text: "IP-osoite"
+        - label:
+            id: lv_wifi_ip
+            align: TOP_LEFT
+            x: 24
+            y: 144
+            text_color: 0x1C1917
+            text: "--"
+        - label:
+            align: TOP_LEFT
+            x: 24
+            y: 184
+            text_color: 0x78716C
+            text: "Asennus-AP"
+        - label:
+            id: lv_wifi_ap
+            align: TOP_LEFT
+            x: 24
+            y: 208
+            text_color: 0x1C1917
+            text: "Alykoti-Setup"
+        - label:
+            align: TOP_LEFT
+            x: 24
+            y: 248
+            text_color: 0x78716C
+            text: "Pilvi"
+        - label:
+            id: lv_hub_url
+            align: TOP_LEFT
+            x: 24
+            y: 272
+            text_color: 0x1C1917
+            text: "alykoti.vercel.app"
+        - label:
+            align: TOP_LEFT
+            x: 24
+            y: 312
+            text_color: 0x78716C
+            text: "Firmware"
+        - label:
+            id: lv_firmware
+            align: TOP_LEFT
+            x: 24
+            y: 336
+            text_color: 0x1C1917
+            text: "v1.6.0"
+        - label:
+            align: TOP_LEFT
+            x: 24
+            y: 380
+            text_color: 0x78716C
+            text: "Yhdista AP:hen ja avaa 192.168.4.1"
+        - label:
+            align: BOTTOM_MID
+            y: -16
+            text_color: 0xA8A29E
+            text: "Vierita vasemmalle takaisin"

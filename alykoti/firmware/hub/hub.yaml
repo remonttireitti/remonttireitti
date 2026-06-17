@@ -4,7 +4,7 @@
 substitutions:
   device_name: alykoti-hub
   friendly_name: "Alykoti keskusyksikko"
-  firmware_version: "1.2.1"
+  firmware_version: "1.6.0"
 
   upload_port: COM7
 
@@ -52,6 +52,8 @@ esphome:
       then:
         - delay: 2s
         - light.turn_on: display_backlight
+        - lvgl.page.show: iv_page
+        - script.execute: update_page_dots
 
 esp32:
   board: esp32-p4-evboard
@@ -106,6 +108,9 @@ wifi:
   fast_connect: true
   enable_on_boot: true
   min_auth_mode: WPA2
+  on_connect:
+    - delay: 3s
+    - script.execute: fetch_spot_prices
   ap:
     ssid: "Alykoti-Setup"
     password: !secret ota_password
@@ -120,6 +125,9 @@ wifi:
 
 preferences:
   flash_write_interval: 5min
+
+packages:
+  vent_display: !include packages/vent-display.yaml
 
 http_request:
   id: http_client
@@ -154,6 +162,22 @@ esp_ldo:
     voltage: 2.5V
     adjustable: true
 
+i2c:
+  - id: bus_a
+    sda: GPIO7
+    scl: GPIO8
+    frequency: 400kHz
+    sda_pullup_enabled: false
+    scl_pullup_enabled: false
+
+touchscreen:
+  - platform: gt911
+    id: hub_touch
+    i2c_id: bus_a
+    reset_pin: GPIO22
+    interrupt_pin: GPIO21
+    update_interval: 50ms
+
 output:
   - platform: ledc
     pin: GPIO23
@@ -178,54 +202,6 @@ display:
     auto_clear_enabled: false
     hsync_pulse_width: 20
 
-lvgl:
-  byte_order: little_endian
-  disp_bg_color: black
-  draw_rounding: 1
-  update_interval: 2s
-  displays:
-    - main_display
-  pages:
-    - id: status_page
-      bg_color: black
-      bg_opa: cover
-      widgets:
-        - label:
-            align: TOP_MID
-            y: 30
-            text_color: white
-            text: "Alykoti keskusyksikko"
-        - label:
-            id: lvgl_co2
-            align: CENTER
-            y: -20
-            text_color: white
-            text: "CO2: -- ppm"
-        - label:
-            id: lvgl_fan_supply
-            align: CENTER
-            y: -5
-            text_color: white
-            text: "Tulo: --%"
-        - label:
-            id: lvgl_fan_exhaust
-            align: CENTER
-            y: 25
-            text_color: white
-            text: "Poisto: --%"
-        - label:
-            id: lvgl_wifi
-            align: BOTTOM_MID
-            y: -70
-            text_color: white
-            text: "WiFi: yhdistetaan..."
-        - label:
-            id: lvgl_web
-            align: BOTTOM_MID
-            y: -30
-            text_color: white
-            text: "Web: Alykoti-Setup"
-
 text_sensor:
   - platform: wifi_info
     ip_address:
@@ -247,13 +223,6 @@ sensor:
     lambda: |-
       if (id(cloud_co2_ppm) > 0) return id(cloud_co2_ppm);
       return {};
-    on_value:
-      - lvgl.label.update:
-          id: lvgl_co2
-          text: !lambda |-
-            char buf[32];
-            snprintf(buf, sizeof(buf), "CO2: %d ppm", (int) x);
-            return std::string(buf);
 
   - platform: template
     name: "Tuloilma (AirFi)"
@@ -262,13 +231,6 @@ sensor:
     accuracy_decimals: 0
     update_interval: never
     lambda: "return {};"
-    on_value:
-      - lvgl.label.update:
-          id: lvgl_fan_supply
-          text: !lambda |-
-            char buf[32];
-            snprintf(buf, sizeof(buf), "Tulo: %d%%", (int) x);
-            return std::string(buf);
 
   - platform: template
     name: "Poistoilma (AirFi)"
@@ -277,13 +239,6 @@ sensor:
     accuracy_decimals: 0
     update_interval: never
     lambda: "return {};"
-    on_value:
-      - lvgl.label.update:
-          id: lvgl_fan_exhaust
-          text: !lambda |-
-            char buf[32];
-            snprintf(buf, sizeof(buf), "Poisto: %d%%", (int) x);
-            return std::string(buf);
 
   - platform: modbus_tcp_manager
     modbus_tcp_id: airfi_modbus
@@ -381,6 +336,25 @@ sensor:
     update_interval: 60s
     internal: true
 
+  - platform: template
+    name: "LTO lampohyoty"
+    id: lto_temp_eff
+    unit_of_measurement: "%"
+    accuracy_decimals: 0
+    update_interval: 30s
+    lambda: |-
+      if (!id(airfi_outdoor_temp).has_state() || !id(airfi_supply_hru_temp).has_state()) return {};
+      if (!id(airfi_exhaust_temp).has_state()) return {};
+      float outdoor = id(airfi_outdoor_temp).state;
+      float supply = id(airfi_supply_hru_temp).state;
+      float exhaust = id(airfi_exhaust_temp).state;
+      float delta = exhaust - outdoor;
+      if (fabsf(delta) < 0.3f || exhaust <= outdoor + 0.1f) return {};
+      float eff = (supply - outdoor) / delta * 100.0f;
+      if (eff < 0.0f) eff = 0.0f;
+      if (eff > 100.0f) eff = 100.0f;
+      return eff;
+
 # --- AirFi ohjaus: hub kirjoittaa Modbus TCP:lla, pilvi laskee tavoitteet ---
 
 globals:
@@ -404,6 +378,16 @@ globals:
     restore_value: no
     initial_value: "0"
 
+  - id: cloud_pm25
+    type: float
+    restore_value: no
+    initial_value: "0"
+
+  - id: display_co2_band
+    type: std::string
+    restore_value: no
+    initial_value: '""'
+
   - id: ack_cmd_1
     type: std::string
     restore_value: no
@@ -419,7 +403,417 @@ globals:
     restore_value: no
     initial_value: '""'
 
+  - id: display_mode_label
+    type: std::string
+    restore_value: no
+    initial_value: '"Automaatti"'
+
+  - id: display_timer_text
+    type: std::string
+    restore_value: no
+    initial_value: '""'
+
+  - id: fan_supply_target_g
+    type: int
+    restore_value: no
+    initial_value: "0"
+
+  - id: fan_exhaust_target_g
+    type: int
+    restore_value: no
+    initial_value: "0"
+
+  - id: display_page_idx
+    type: int
+    restore_value: no
+    initial_value: "0"
+
+  - id: el_price_now
+    type: float
+    restore_value: no
+    initial_value: "0"
+
+  - id: el_price_next
+    type: float
+    restore_value: no
+    initial_value: "0"
+
+  - id: el_price_min
+    type: float
+    restore_value: no
+    initial_value: "0"
+
+  - id: el_price_max
+    type: float
+    restore_value: no
+    initial_value: "0"
+
+  - id: el_price_avg
+    type: float
+    restore_value: no
+    initial_value: "0"
+
 script:
+  - id: update_page_dots
+    mode: restart
+    then:
+      - lvgl.label.update:
+          id: lv_dots_iv
+          text: !lambda |-
+            return id(display_page_idx) == 0 ? std::string("*IV*  Koti  Sahko  WiFi") : std::string("IV  Koti  Sahko  WiFi");
+      - lvgl.label.update:
+          id: lv_dots_floor
+          text: !lambda |-
+            return id(display_page_idx) == 1 ? std::string("IV  *Koti*  Sahko  WiFi") : std::string("IV  Koti  Sahko  WiFi");
+      - lvgl.label.update:
+          id: lv_dots_price
+          text: !lambda |-
+            return id(display_page_idx) == 2 ? std::string("IV  Koti  *Sahko*  WiFi") : std::string("IV  Koti  Sahko  WiFi");
+      - lvgl.label.update:
+          id: lv_dots_wifi
+          text: !lambda |-
+            return id(display_page_idx) == 3 ? std::string("IV  Koti  Sahko  *WiFi*") : std::string("IV  Koti  Sahko  WiFi");
+
+  - id: nav_page_next
+    mode: restart
+    then:
+      - if:
+          condition:
+            lambda: "return id(display_page_idx) < 3;"
+          then:
+            - lambda: "id(display_page_idx)++;"
+            - lvgl.page.next:
+                animation: MOVE_LEFT
+                time: 200ms
+            - script.execute: update_page_dots
+
+  - id: nav_page_prev
+    mode: restart
+    then:
+      - if:
+          condition:
+            lambda: "return id(display_page_idx) > 0;"
+          then:
+            - lambda: "id(display_page_idx)--;"
+            - lvgl.page.previous:
+                animation: MOVE_RIGHT
+                time: 200ms
+            - script.execute: update_page_dots
+
+  - id: fetch_spot_prices
+    mode: single
+    then:
+      - if:
+          condition:
+            wifi.connected:
+          then:
+            - http_request.get:
+                url: "https://api.spot-hinta.fi/Today?region=FI"
+                capture_response: true
+                max_response_buffer_size: 8192
+                on_response:
+                  - lambda: |-
+                      if (response->status_code != 200) return;
+
+                      float hours[24] = {0};
+                      int counts[24] = {0};
+                      float min_c = 9999.0f;
+                      float max_c = 0.0f;
+                      float sum_c = 0.0f;
+                      int sum_n = 0;
+                      time_t now_ts = ::time(nullptr);
+                      struct tm tm_now;
+                      localtime_r(&now_ts, &tm_now);
+
+                      JsonDocument doc = json::parse_json(body);
+                      if (doc.isNull() || doc.overflowed()) return;
+                      JsonArray arr = doc.as<JsonArray>();
+                      if (arr.isNull()) return;
+
+                      for (JsonObject row : arr) {
+                        const char *dt = row["DateTime"] | "";
+                        if (strlen(dt) < 13) continue;
+                        int hour = (dt[11] - '0') * 10 + (dt[12] - '0');
+                        if (hour < 0 || hour > 23) continue;
+                        float cents = row["PriceWithTax"].as<float>() * 100.0f;
+                        hours[hour] += cents;
+                        counts[hour]++;
+                        if (cents < min_c) min_c = cents;
+                        if (cents > max_c) max_c = cents;
+                        sum_c += cents;
+                        sum_n++;
+                      }
+
+                      for (int h = 0; h < 24; h++) {
+                        if (counts[h] > 0) hours[h] /= counts[h];
+                      }
+                      if (sum_n == 0) return;
+
+                      int cur_h = tm_now.tm_hour;
+                      int next_h = (cur_h + 1) % 24;
+                      id(el_price_now) = counts[cur_h] > 0 ? hours[cur_h] : hours[0];
+                      id(el_price_next) = counts[next_h] > 0 ? hours[next_h] : id(el_price_now);
+                      id(el_price_min) = min_c;
+                      id(el_price_max) = max_c;
+                      id(el_price_avg) = sum_c / sum_n;
+
+                      float span = max_c - min_c;
+                      if (span < 0.05f) span = 1.0f;
+
+                      auto set_bar = [&](int h, lv_obj_t *bar) {
+                        if (counts[h] <= 0) {
+                          lv_bar_set_value(bar, 0, LV_ANIM_OFF);
+                          return;
+                        }
+                        int v = (int) ((hours[h] - min_c) / span * 100.0f);
+                        if (v < 0) v = 0;
+                        if (v > 100) v = 100;
+                        lv_bar_set_value(bar, v, LV_ANIM_OFF);
+                      };
+
+                      set_bar(0, id(price_bar_0));
+                      set_bar(1, id(price_bar_1));
+                      set_bar(2, id(price_bar_2));
+                      set_bar(3, id(price_bar_3));
+                      set_bar(4, id(price_bar_4));
+                      set_bar(5, id(price_bar_5));
+                      set_bar(6, id(price_bar_6));
+                      set_bar(7, id(price_bar_7));
+                      set_bar(8, id(price_bar_8));
+                      set_bar(9, id(price_bar_9));
+                      set_bar(10, id(price_bar_10));
+                      set_bar(11, id(price_bar_11));
+                      set_bar(12, id(price_bar_12));
+                      set_bar(13, id(price_bar_13));
+                      set_bar(14, id(price_bar_14));
+                      set_bar(15, id(price_bar_15));
+                      set_bar(16, id(price_bar_16));
+                      set_bar(17, id(price_bar_17));
+                      set_bar(18, id(price_bar_18));
+                      set_bar(19, id(price_bar_19));
+                      set_bar(20, id(price_bar_20));
+                      set_bar(21, id(price_bar_21));
+                      set_bar(22, id(price_bar_22));
+                      set_bar(23, id(price_bar_23));
+
+                      auto fmt_price = [](char *buf, size_t len, float cents) {
+                        snprintf(buf, len, "%.2f c/kWh", cents);
+                      };
+                      char buf[32];
+                      fmt_price(buf, sizeof(buf), id(el_price_now));
+                      lv_label_set_text(id(price_now), buf);
+                      fmt_price(buf, sizeof(buf), id(el_price_next));
+                      lv_label_set_text(id(price_next), buf);
+                      fmt_price(buf, sizeof(buf), id(el_price_min));
+                      lv_label_set_text(id(price_min), buf);
+                      fmt_price(buf, sizeof(buf), id(el_price_max));
+                      lv_label_set_text(id(price_max), buf);
+                      fmt_price(buf, sizeof(buf), id(el_price_avg));
+                      lv_label_set_text(id(price_avg), buf);
+
+  - id: display_refresh
+    mode: restart
+    then:
+      - lvgl.label.update:
+          id: iv_timer
+          text: !lambda |-
+            if (id(display_timer_text).empty()) return std::string("");
+            return id(display_timer_text);
+      - lvgl.label.update:
+          id: lv_timer
+          text: !lambda |-
+            if (id(display_timer_text).empty()) return std::string("");
+            return id(display_timer_text);
+      - lvgl.label.update:
+          id: iv_t1
+          text: !lambda |-
+            if (!id(airfi_outdoor_temp).has_state()) return std::string("-- C");
+            char buf[16];
+            snprintf(buf, sizeof(buf), "%.1f C", id(airfi_outdoor_temp).state);
+            return std::string(buf);
+      - lvgl.label.update:
+          id: iv_t2
+          text: !lambda |-
+            if (!id(airfi_supply_hru_temp).has_state()) return std::string("-- C");
+            char buf[16];
+            snprintf(buf, sizeof(buf), "%.1f C", id(airfi_supply_hru_temp).state);
+            return std::string(buf);
+      - lvgl.label.update:
+          id: iv_t3
+          text: !lambda |-
+            if (!id(airfi_exhaust_temp).has_state()) return std::string("-- C");
+            char buf[16];
+            snprintf(buf, sizeof(buf), "%.1f C", id(airfi_exhaust_temp).state);
+            return std::string(buf);
+      - lvgl.label.update:
+          id: iv_t5
+          text: !lambda |-
+            if (!id(airfi_exhaust_hru_temp).has_state()) return std::string("-- C");
+            char buf[16];
+            snprintf(buf, sizeof(buf), "%.1f C", id(airfi_exhaust_hru_temp).state);
+            return std::string(buf);
+      - lvgl.label.update:
+          id: iv_lto
+          text: !lambda |-
+            if (!id(lto_temp_eff).has_state()) return std::string("-- %");
+            char buf[16];
+            snprintf(buf, sizeof(buf), "%.0f %%", id(lto_temp_eff).state);
+            return std::string(buf);
+      - lvgl.label.update:
+          id: iv_co2
+          text: !lambda |-
+            if (id(effective_co2).has_state()) {
+              char buf[32];
+              snprintf(buf, sizeof(buf), "CO2: %d ppm", (int) id(effective_co2).state);
+              return std::string(buf);
+            }
+            return std::string("CO2: -- ppm");
+      - lvgl.label.update:
+          id: iv_supply_pct
+          text: !lambda |-
+            float supply = NAN;
+            if (id(fan_supply_pct).has_state()) supply = id(fan_supply_pct).state;
+            else if (id(airfi_supply_fan).has_state()) supply = id(airfi_supply_fan).state;
+            if (isnan(supply)) return std::string("-- %");
+            char buf[16];
+            snprintf(buf, sizeof(buf), "%d %%", (int) supply);
+            return std::string(buf);
+      - lvgl.bar.update:
+          id: bar_iv_supply
+          value: !lambda |-
+            float supply = NAN;
+            if (id(fan_supply_pct).has_state()) supply = id(fan_supply_pct).state;
+            else if (id(airfi_supply_fan).has_state()) supply = id(airfi_supply_fan).state;
+            if (isnan(supply)) return 25;
+            int v = (int) supply;
+            if (v < 25) v = 25;
+            if (v > 100) v = 100;
+            return v;
+      - lvgl.label.update:
+          id: iv_supply_target
+          text: !lambda |-
+            if (id(fan_supply_target_g) <= 0) return std::string("");
+            char buf[24];
+            snprintf(buf, sizeof(buf), "Tavoite %d %%", id(fan_supply_target_g));
+            return std::string(buf);
+      - lvgl.label.update:
+          id: iv_exhaust_pct
+          text: !lambda |-
+            float exhaust = NAN;
+            if (id(fan_exhaust_pct).has_state()) exhaust = id(fan_exhaust_pct).state;
+            else if (id(airfi_exhaust_fan).has_state()) exhaust = id(airfi_exhaust_fan).state;
+            if (isnan(exhaust)) return std::string("-- %");
+            char buf[16];
+            snprintf(buf, sizeof(buf), "%d %%", (int) exhaust);
+            return std::string(buf);
+      - lvgl.bar.update:
+          id: bar_iv_exhaust
+          value: !lambda |-
+            float exhaust = NAN;
+            if (id(fan_exhaust_pct).has_state()) exhaust = id(fan_exhaust_pct).state;
+            else if (id(airfi_exhaust_fan).has_state()) exhaust = id(airfi_exhaust_fan).state;
+            if (isnan(exhaust)) return 25;
+            int v = (int) exhaust;
+            if (v < 25) v = 25;
+            if (v > 100) v = 100;
+            return v;
+      - lvgl.label.update:
+          id: iv_exhaust_target
+          text: !lambda |-
+            if (id(fan_exhaust_target_g) <= 0) return std::string("");
+            char buf[24];
+            snprintf(buf, sizeof(buf), "Tavoite %d %%", id(fan_exhaust_target_g));
+            return std::string(buf);
+      - lvgl.label.update:
+          id: iv_airfi
+          text: !lambda |-
+            if (id(airfi_connected).state) return std::string("AirFi online");
+            return std::string("AirFi offline");
+          text_color: !lambda |-
+            if (id(airfi_connected).state) return lv_color_hex(0x065F46);
+            return lv_color_hex(0xB45309);
+      - lvgl.label.update:
+          id: iv_mode
+          text: !lambda |-
+            return id(display_mode_label);
+      - lvgl.label.update:
+          id: iv_co2_band
+          text: !lambda |-
+            return id(display_co2_band);
+      - lvgl.label.update:
+          id: lv_vent_room
+          text: !lambda |-
+            float supply = NAN;
+            if (id(fan_supply_pct).has_state()) supply = id(fan_supply_pct).state;
+            else if (id(airfi_supply_fan).has_state()) supply = id(airfi_supply_fan).state;
+            if (isnan(supply)) return std::string("--");
+            char buf[24];
+            snprintf(buf, sizeof(buf), "Tulo %d%%", (int) supply);
+            return std::string(buf);
+      - lvgl.label.update:
+          id: lv_co2
+          text: !lambda |-
+            if (id(effective_co2).has_state()) {
+              char buf[32];
+              snprintf(buf, sizeof(buf), "%d ppm", (int) id(effective_co2).state);
+              return std::string(buf);
+            }
+            return std::string("-- ppm");
+      - lvgl.label.update:
+          id: lv_room
+          text: !lambda |-
+            if (id(cloud_temp_c) > 0) {
+              char buf[24];
+              snprintf(buf, sizeof(buf), "%.1f C", id(cloud_temp_c));
+              return std::string(buf);
+            }
+            if (id(cloud_humidity_pct) > 0) {
+              char buf[24];
+              snprintf(buf, sizeof(buf), "%.0f %%", id(cloud_humidity_pct));
+              return std::string(buf);
+            }
+            return std::string("");
+      - lvgl.label.update:
+          id: lv_hub_badge
+          text: !lambda |-
+            if (wifi::global_wifi_component->is_connected()) return std::string("Hub online");
+            return std::string("Hub offline");
+          text_color: !lambda |-
+            if (wifi::global_wifi_component->is_connected()) return lv_color_hex(0x065F46);
+            return lv_color_hex(0xB45309);
+      - lvgl.label.update:
+          id: lv_airfi
+          text: !lambda |-
+            if (id(airfi_connected).state) return std::string("AirFi (hub)");
+            return std::string("AirFi offline");
+          text_color: !lambda |-
+            if (id(airfi_connected).state) return lv_color_hex(0x065F46);
+            return lv_color_hex(0xB45309);
+      - lvgl.label.update:
+          id: lv_mode
+          text: !lambda |-
+            return id(display_mode_label);
+      - lvgl.label.update:
+          id: lv_co2_band
+          text: !lambda |-
+            return id(display_co2_band);
+      - lvgl.label.update:
+          id: lv_firmware
+          text: !lambda |-
+            return std::string("v") + "${firmware_version}";
+      - lvgl.label.update:
+          id: lv_wifi_ssid
+          text: !lambda |-
+            if (!wifi::global_wifi_component->is_connected()) return std::string("Ei yhteytta");
+            if (!id(wifi_ssid_connected).has_state()) return std::string("Yhdistetty");
+            return id(wifi_ssid_connected).state;
+      - lvgl.label.update:
+          id: lv_wifi_ip
+          text: !lambda |-
+            if (!wifi::global_wifi_component->is_connected()) return std::string("--");
+            if (!id(wifi_ip).has_state()) return std::string("Odottaa IP");
+            return id(wifi_ip).state;
+
   - id: airfi_apply_targets
     mode: single
     parameters:
@@ -493,6 +887,7 @@ script:
                           }
                           if (sensor.containsKey("humidity_pct")) id(cloud_humidity_pct) = sensor["humidity_pct"].as<float>();
                           if (sensor.containsKey("temperature_c")) id(cloud_temp_c) = sensor["temperature_c"].as<float>();
+                          if (sensor.containsKey("pm25_ugm3")) id(cloud_pm25) = sensor["pm25_ugm3"].as<float>();
                         }
 
                         JsonObject ventilation = root["ventilation"];
@@ -507,6 +902,12 @@ script:
                             id(fan_exhaust_pct).publish_state(pct);
                             ESP_LOGI("sync", "Poisto=%d%%", pct);
                           }
+                          if (ventilation.containsKey("fan_supply_target")) {
+                            id(fan_supply_target_g) = ventilation["fan_supply_target"].as<int>();
+                          }
+                          if (ventilation.containsKey("fan_exhaust_target")) {
+                            id(fan_exhaust_target_g) = ventilation["fan_exhaust_target"].as<int>();
+                          }
                           if (!ventilation.containsKey("fan_supply_pct") && ventilation.containsKey("fan_speed")) {
                             int pct = ventilation["fan_speed"].as<int>();
                             id(fan_supply_pct).publish_state(pct);
@@ -517,6 +918,23 @@ script:
                             int exhaust = ventilation["fan_exhaust_target"].as<int>();
                             bool fireplace = ventilation["fireplace_active"] | false;
                             id(airfi_apply_targets).execute(supply, exhaust, fireplace);
+                          }
+                        }
+
+                        JsonObject display = root["display"];
+                        if (!display.isNull()) {
+                          if (display.containsKey("mode_label")) {
+                            id(display_mode_label) = display["mode_label"].as<const char *>();
+                          }
+                          if (display.containsKey("timer_text") && !display["timer_text"].isNull()) {
+                            id(display_timer_text) = display["timer_text"].as<const char *>();
+                          } else {
+                            id(display_timer_text) = "";
+                          }
+                          if (display.containsKey("co2_band_label") && !display["co2_band_label"].isNull()) {
+                            id(display_co2_band) = display["co2_band_label"].as<const char *>();
+                          } else {
+                            id(display_co2_band) = "";
                           }
                         }
 
@@ -559,6 +977,7 @@ script:
                         }
                         return true;
                       });
+                  - script.execute: display_refresh
                   - if:
                       condition:
                         lambda: |-
@@ -568,32 +987,19 @@ script:
                         - script.execute: cloud_sync
 
 interval:
+  - interval: 3s
+    then:
+      - script.execute: display_refresh
+
   - interval: 60s
-    startup_delay: 15s
     then:
       - if:
           condition:
             wifi.connected:
           then:
-            - lvgl.label.update:
-                id: lvgl_wifi
-                text: !lambda |-
-                  if (!id(wifi_ip).has_state()) return std::string("WiFi: yhdistetty");
-                  return std::string("WiFi: ") + id(wifi_ip).state;
-            - lvgl.label.update:
-                id: lvgl_web
-                text: !lambda |-
-                  if (!id(wifi_ip).has_state()) return std::string("Web: odota IP");
-                  return std::string("Web: http://") + id(wifi_ip).state;
-          else:
-            - lvgl.label.update:
-                id: lvgl_wifi
-                text: "WiFi: yhdistetaan..."
-            - lvgl.label.update:
-                id: lvgl_web
-                text: "Web: odota verkkoa"
+            - script.execute: fetch_spot_prices
 
-  - interval: 60s
+  - interval: 20s
     startup_delay: 45s
     then:
       - script.execute: cloud_sync

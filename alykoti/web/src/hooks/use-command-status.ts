@@ -1,16 +1,21 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { CommandRow } from "@/app/api/device/commands/route";
 
-const POLL_MS = 5_000;
+const POLL_ACTIVE_MS = 1_500;
+const POLL_IDLE_MS = 30_000;
+
+export function isCommandActive(status: string): boolean {
+  return status === "pending" || status === "delivered";
+}
 
 export function commandStatusLabel(status: string): string {
   switch (status) {
     case "pending":
-      return "Odottaa hubia";
+      return "Odottaa";
     case "delivered":
-      return "Hubilla — suoritetaan";
+      return "Suoritetaan";
     case "acked":
       return "Suoritettu";
     case "failed":
@@ -50,19 +55,38 @@ export function useCommandStatus(trackIds?: string[]) {
     }
   }, []);
 
+  const active = useMemo(() => {
+    const inFlight = commands.filter((c) => isCommandActive(c.status));
+    if (trackIds && trackIds.length > 0) {
+      const tracked = inFlight.filter((c) => trackIds.includes(c.id));
+      return tracked.length > 0 ? tracked : inFlight;
+    }
+    return inFlight;
+  }, [commands, trackIds]);
+
+  const activeIds = useMemo(() => active.map((c) => c.id), [active]);
+
   useEffect(() => {
     void refresh();
-    const id = setInterval(() => void refresh(), POLL_MS);
-    return () => clearInterval(id);
-  }, [refresh]);
+  }, [refresh, trackIds]);
 
-  const tracked =
-    trackIds && trackIds.length > 0
-      ? commands.filter((c) => trackIds.includes(c.id))
-      : commands.slice(0, 3);
+  useEffect(() => {
+    const ms = active.length > 0 ? POLL_ACTIVE_MS : POLL_IDLE_MS;
+    const id = setInterval(() => void refresh(), ms);
+    return () => clearInterval(id);
+  }, [refresh, active.length]);
 
   const allAcked =
-    tracked.length > 0 && tracked.every((c) => c.status === "acked" || c.status === "failed");
+    trackIds != null &&
+    trackIds.length > 0 &&
+    trackIds.every(
+      (id) =>
+        !activeIds.includes(id) &&
+        commands.some(
+          (c) =>
+            c.id === id && (c.status === "acked" || c.status === "failed"),
+        ),
+    );
 
-  return { commands: tracked, allAcked, refresh };
+  return { commands: active, activeIds, allAcked, refresh };
 }
