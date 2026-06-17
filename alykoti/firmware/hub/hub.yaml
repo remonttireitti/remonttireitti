@@ -4,7 +4,7 @@
 substitutions:
   device_name: alykoti-hub
   friendly_name: "Alykoti keskusyksikko"
-  firmware_version: "1.7.6"
+  firmware_version: "1.7.7"
 
   upload_port: COM7
 
@@ -289,7 +289,7 @@ sensor:
     register_address: 4
     function_code: 4
     scale: 0.1
-    update_interval: 30s
+    update_interval: never
     internal: true
 
   - platform: modbus_tcp_manager
@@ -326,8 +326,8 @@ sensor:
     modbus_tcp_id: airfi_modbus
     id: airfi_exhaust_fan
     name: "AirFi poistonopeus"
-    register_address: 11
-    function_code: 4
+    register_address: 10
+    function_code: 3
     scale: 1.0
     update_interval: 30s
     internal: true
@@ -339,8 +339,8 @@ sensor:
     modbus_tcp_id: airfi_modbus
     id: airfi_supply_fan
     name: "AirFi tulonopeus"
-    register_address: 12
-    function_code: 4
+    register_address: 9
+    function_code: 3
     scale: 1.0
     update_interval: 30s
     internal: true
@@ -536,7 +536,6 @@ script:
           if (!ok && id(airfi_exhaust_temp).has_state() && valid_temp(id(airfi_exhaust_temp).state)) ok = true;
           if (!ok && id(airfi_supply_room_temp).has_state() && valid_temp(id(airfi_supply_room_temp).state)) ok = true;
           if (!ok && id(airfi_exhaust_hru_temp).has_state() && valid_temp(id(airfi_exhaust_hru_temp).state)) ok = true;
-          if (!ok && id(airfi_supply_hru_temp).has_state() && valid_temp(id(airfi_supply_hru_temp).state)) ok = true;
           if (!ok && id(airfi_supply_fan).has_state()) ok = true;
           if (!ok && id(airfi_exhaust_fan).has_state()) ok = true;
           if (!ok && id(fan_supply_pct).has_state()) ok = true;
@@ -546,27 +545,13 @@ script:
           if (!ok) {
             auto *modbus = id(airfi_modbus);
             if (modbus != nullptr) {
-              auto probe_temp = [&](uint16_t reg, esphome::sensor::Sensor *sens) -> bool {
+              auto probe_temp = [&](uint16_t reg) -> bool {
                 auto resp = modbus->read_register(reg, modbus_tcp::ModbusFunction::READ_INPUT_REGISTERS);
                 if (!resp.success || resp.data.empty()) return false;
                 float v = ((int16_t) resp.data[0]) * 0.1f;
-                if (!valid_temp(v)) return false;
-                if (sens != nullptr) sens->publish_state(v);
-                return true;
+                return valid_temp(v);
               };
-              auto probe_fan = [&](uint16_t reg, esphome::sensor::Sensor *sens) -> bool {
-                auto resp = modbus->read_register(reg, modbus_tcp::ModbusFunction::READ_INPUT_REGISTERS);
-                if (!resp.success || resp.data.empty()) return false;
-                float v = (float) ((int16_t) resp.data[0]);
-                if (v < 0.0f || v > 100.0f) return false;
-                if (sens != nullptr) sens->publish_state(v);
-                return true;
-              };
-              if (probe_temp(3, id(airfi_outdoor_temp)) || probe_temp(5, id(airfi_exhaust_temp)) ||
-                  probe_temp(7, id(airfi_supply_room_temp)) || probe_fan(12, id(airfi_supply_fan)) ||
-                  probe_fan(11, id(airfi_exhaust_fan))) {
-                ok = true;
-              }
+              if (probe_temp(3) || probe_temp(5) || probe_temp(7)) ok = true;
             }
           }
           id(airfi_online_flag) = ok;
@@ -811,6 +796,7 @@ script:
             if (!id(airfi_outdoor_temp).has_state()) return std::string("-- C");
             float v = id(airfi_outdoor_temp).state;
             if (v < -50.0f || v > 80.0f) return std::string("-- C");
+            if (id(fan_supply_pct).has_state() && fabsf(v - id(fan_supply_pct).state) < 0.6f) return std::string("-- C");
             char buf[16];
             snprintf(buf, sizeof(buf), "%.1f C", v);
             return std::string(buf);
@@ -820,6 +806,7 @@ script:
             if (!id(airfi_supply_room_temp).has_state()) return std::string("-- C");
             float v = id(airfi_supply_room_temp).state;
             if (v < -50.0f || v > 80.0f) return std::string("-- C");
+            if (id(fan_supply_pct).has_state() && fabsf(v - id(fan_supply_pct).state) < 0.6f) return std::string("-- C");
             char buf[16];
             snprintf(buf, sizeof(buf), "%.1f C", v);
             return std::string(buf);
@@ -959,10 +946,10 @@ script:
             ESP_LOGW("airfi", "Ei yhteytta - ohjaus ohitetaan");
             return;
           }
-          modbus->write_register(58, fireplace ? 1 : 0);
-          modbus->write_register(3, 1);
-          modbus->write_register(10, supply_pct);
-          modbus->write_register(11, exhaust_pct);
+          modbus->write_register(57, fireplace ? 1 : 0);
+          modbus->write_register(2, 1);
+          modbus->write_register(9, supply_pct);
+          modbus->write_register(10, exhaust_pct);
           ESP_LOGI("airfi", "Ohjaus: tulo=%d poisto=%d takka=%d", supply_pct, exhaust_pct, fireplace);
 
   - id: cloud_sync
@@ -997,11 +984,11 @@ script:
                   root["state"]["airfi_online"] = airfi_ok;
                   if (id(airfi_outdoor_temp).has_state()) {
                     float v = id(airfi_outdoor_temp).state;
-                    if (v >= -50.0f && v <= 80.0f) root["state"]["outdoor_temp_c"] = v;
-                  }
-                  if (id(airfi_supply_hru_temp).has_state()) {
-                    float v = id(airfi_supply_hru_temp).state;
-                    if (v >= -50.0f && v <= 80.0f) root["state"]["supply_hru_temp_c"] = v;
+                    if (v >= -50.0f && v <= 80.0f) {
+                      if (!id(fan_supply_pct).has_state() || fabsf(v - id(fan_supply_pct).state) >= 0.6f) {
+                        root["state"]["outdoor_temp_c"] = v;
+                      }
+                    }
                   }
                   if (id(airfi_exhaust_temp).has_state()) {
                     float v = id(airfi_exhaust_temp).state;
@@ -1009,7 +996,11 @@ script:
                   }
                   if (id(airfi_supply_room_temp).has_state()) {
                     float v = id(airfi_supply_room_temp).state;
-                    if (v >= -50.0f && v <= 80.0f) root["state"]["supply_room_temp_c"] = v;
+                    if (v >= -50.0f && v <= 80.0f) {
+                      if (!id(fan_supply_pct).has_state() || fabsf(v - id(fan_supply_pct).state) >= 0.6f) {
+                        root["state"]["supply_room_temp_c"] = v;
+                      }
+                    }
                   }
                   if (id(airfi_exhaust_hru_temp).has_state()) {
                     float v = id(airfi_exhaust_hru_temp).state;
@@ -1136,7 +1127,7 @@ script:
                               bool away = payload["away"] | false;
                               auto *modbus = id(airfi_modbus);
                               if (modbus != nullptr && id(airfi_online_flag)) {
-                                modbus->write_register(12, away ? 1 : 0);
+                                modbus->write_register(11, away ? 1 : 0);
                                 ESP_LOGI("airfi", "Poissa-tila: %d", away ? 1 : 0);
                               }
                               if (cmd_id[0] != '\0' && id(ack_cmd_1) == "") id(ack_cmd_1) = cmd_id;

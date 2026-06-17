@@ -27,7 +27,7 @@ export function VentilationDiagram({ hub, settingsHref }: Props) {
 
   const s = hub.state;
   const co2Band = s.co2_ppm != null ? getCo2Band(s.co2_ppm, hub.config) : null;
-  const supplyTemp = s.supply_room_temp_c ?? s.supply_hru_temp_c;
+  const supplyTemp = s.supply_room_temp_c;
 
   const hubOnline = status?.hub.online ?? isHubOnline(hub.last_seen_at);
   const airfiOnline =
@@ -113,7 +113,7 @@ export function VentilationDiagram({ hub, settingsHref }: Props) {
             onTrend={() => showTrend("exhaust_hru_temp_c")}
           />
           <DiagramBadge
-            label={s.supply_hru_temp_c != null ? "Tulo T2" : "Tulo T5"}
+            label="Tulo T5"
             value={formatTemp(supplyTemp)}
             left="22%"
             top="46%"

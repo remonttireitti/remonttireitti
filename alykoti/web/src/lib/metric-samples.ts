@@ -64,7 +64,7 @@ export function buildMetricSamples(
   controlMode: HubControlMode,
   extras?: { hub_online?: boolean; airfi_online?: boolean },
 ): SampleRow[] {
-  const supplyTemp = state.supply_room_temp_c ?? state.supply_hru_temp_c ?? null;
+  const supplyTemp = state.supply_room_temp_c ?? null;
   const rows: SampleRow[] = [
     { hub_id: hubId, metric: "outdoor_temp_c", value: num(state.outdoor_temp_c), value_text: null },
     { hub_id: hubId, metric: "supply_temp_c", value: num(supplyTemp), value_text: null },

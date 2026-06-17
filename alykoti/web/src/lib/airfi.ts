@@ -11,30 +11,28 @@ import {
 
 const SLAVE_ID = 1;
 
-/** AirFi IV rekisterikartta v2.9 — osoitteet 0-pohjaiset (modbus-serial). */
+/** AirFi IV rekisterikartta v2.9 — 0-pohjaiset osoitteet (30001/40001). */
 const INPUT = {
-  outdoor_temp: 3,
-  t2_reserved: 4,
-  exhaust_temp: 5,
-  exhaust_hru_temp: 6,
-  supply_room_temp: 7,
-  exhaust_fan_pct: 11,
-  supply_fan_pct: 12,
-  internal_humidity: 22,
-  fireplace_status: 15,
-  hood_flap_open: 40,
-  supply_airflow_m3h: 44,
-  exhaust_airflow_m3h: 45,
+  outdoor_temp: 3, // 3x00004 T1
+  exhaust_temp: 5, // 3x00006 T3
+  exhaust_hru_temp: 6, // 3x00007 T4
+  supply_room_temp: 7, // 3x00008 T5
+  fireplace_status: 14, // 3x00015 takka/painetasaus
+  internal_humidity: 22, // 3x00023
+  direct_fan_pct: 26, // 3x00027 suoraohjaus %
+  hood_flap_open: 39, // 3x00040 liesikuvun läppä
+  supply_airflow_m3h: 44, // 3x00045
+  exhaust_airflow_m3h: 45, // 3x00046
 } as const;
 
 const HOLDING = {
-  speed_level: 1,
-  emergency_stop: 2,
-  direct_control_enabled: 3,
-  supply_direct_pct: 10,
-  exhaust_direct_pct: 11,
-  away_mode: 12,
-  fireplace: 58,
+  speed_level: 0, // 4x00001
+  emergency_stop: 1, // 4x00002 pakko-ohjaus
+  direct_control_enabled: 2, // 4x00003
+  supply_direct_pct: 9, // 4x00010
+  exhaust_direct_pct: 10, // 4x00011
+  away_mode: 11, // 4x00012
+  fireplace: 57, // 4x00058
 } as const;
 
 export type AirfiState = {
@@ -145,10 +143,10 @@ async function readRegister(
 
 export async function fetchAirfiState(): Promise<AirfiState | null> {
   return withClient(async (client) => {
-    const core = await readInputBlock(client, INPUT.outdoor_temp, 10);
+    const core = await readInputBlock(client, INPUT.outdoor_temp, 5);
     const flows = await readInputBlock(client, INPUT.supply_airflow_m3h, 2);
     const hoodFlap = await readRegister(client, client.readInputRegisters, INPUT.hood_flap_open);
-    const humidity = core?.[INPUT.internal_humidity - INPUT.outdoor_temp] ?? null;
+    const humidity = await readRegister(client, client.readInputRegisters, INPUT.internal_humidity);
     const supplyTarget = await readRegister(client, client.readHoldingRegisters, HOLDING.supply_direct_pct);
     const exhaustTarget = await readRegister(client, client.readHoldingRegisters, HOLDING.exhaust_direct_pct);
     const directControl = await readRegister(client, client.readHoldingRegisters, HOLDING.direct_control_enabled);
@@ -156,14 +154,13 @@ export async function fetchAirfiState(): Promise<AirfiState | null> {
     const emergency = await readRegister(client, client.readHoldingRegisters, HOLDING.emergency_stop);
     const away = await readRegister(client, client.readHoldingRegisters, HOLDING.away_mode);
 
-    const supply = core?.[INPUT.supply_fan_pct - INPUT.outdoor_temp] ?? null;
-    const exhaust = core?.[INPUT.exhaust_fan_pct - INPUT.outdoor_temp] ?? null;
+    const supply = await readRegister(client, client.readHoldingRegisters, HOLDING.supply_direct_pct);
+    const exhaust = await readRegister(client, client.readHoldingRegisters, HOLDING.exhaust_direct_pct);
     const outdoor_temp_c = parseAirfiTempC(core?.[0] ?? null);
-    const supply_hru_temp_c = parseAirfiTempC(core?.[1] ?? null);
     const exhaust_temp_c = parseAirfiTempC(core?.[2] ?? null);
     const exhaust_hru_temp_c = parseAirfiTempC(core?.[3] ?? null);
     const supply_room_temp_c = parseAirfiTempC(core?.[4] ?? null);
-    const fireplaceStatus = core?.[INPUT.fireplace_status - INPUT.outdoor_temp] ?? null;
+    const fireplaceStatus = await readRegister(client, client.readInputRegisters, INPUT.fireplace_status);
 
     const supply_airflow_m3h =
       flows?.[0] != null && flows[0] > 0 ? flows[0] : null;
@@ -172,7 +169,7 @@ export async function fetchAirfiState(): Promise<AirfiState | null> {
 
     const lto = computeLtoEfficiency({
       outdoor_c: outdoor_temp_c,
-      supply_hru_c: supply_hru_temp_c,
+      supply_hru_c: null,
       supply_room_c: supply_room_temp_c,
       exhaust_c: exhaust_temp_c,
       supply_airflow_m3h,
@@ -196,7 +193,7 @@ export async function fetchAirfiState(): Promise<AirfiState | null> {
       supply_target_pct: supplyTarget,
       exhaust_target_pct: exhaustTarget,
       outdoor_temp_c,
-      supply_hru_temp_c,
+      supply_hru_temp_c: null,
       exhaust_temp_c,
       supply_room_temp_c,
       exhaust_hru_temp_c,
