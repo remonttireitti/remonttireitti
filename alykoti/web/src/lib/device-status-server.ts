@@ -16,13 +16,22 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 async function resolveAirfiConnectivity(
   hubOnline: boolean,
   airfiOnlineFromHub: boolean | null | undefined,
+  state?: { outdoor_temp_c?: number | null; exhaust_temp_c?: number | null; supply_room_temp_c?: number | null; exhaust_hru_temp_c?: number | null; fan_supply_pct?: number | null; fan_exhaust_pct?: number | null },
 ): Promise<AirfiConnectivity> {
   if (canPingAirfiFromRuntime()) {
     return { online: await pingAirfiFast(), source: "local_modbus" };
   }
 
+  const hasTelemetry =
+    state?.outdoor_temp_c != null ||
+    state?.exhaust_temp_c != null ||
+    state?.supply_room_temp_c != null ||
+    state?.exhaust_hru_temp_c != null ||
+    state?.fan_supply_pct != null ||
+    state?.fan_exhaust_pct != null;
+
   return {
-    online: hubOnline && airfiOnlineFromHub === true,
+    online: hubOnline && (airfiOnlineFromHub === true || hasTelemetry),
     source: "hub",
   };
 }
@@ -43,6 +52,7 @@ export async function getDeviceStatus(
   const airfiConn = await resolveAirfiConnectivity(
     hubOnline,
     hub.state.airfi_online,
+    hub.state,
   );
   const level = connectivityLevel(hubConn, airfiConn);
   const state = expireTimedModes(hub.state);

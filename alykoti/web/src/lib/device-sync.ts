@@ -152,6 +152,20 @@ export async function syncDevice(
     ...parseState(hub.state),
     ...parseState(body.state),
   });
+
+  const hubReportedAirfi = body.state?.airfi_online;
+  const hasAirfiTelemetry =
+    mergedState.outdoor_temp_c != null ||
+    mergedState.exhaust_temp_c != null ||
+    mergedState.supply_room_temp_c != null ||
+    mergedState.exhaust_hru_temp_c != null ||
+    mergedState.fan_supply_pct != null ||
+    mergedState.fan_exhaust_pct != null;
+  if (hasAirfiTelemetry || hubReportedAirfi === true) {
+    mergedState.airfi_online = true;
+  } else if (hubReportedAirfi === false) {
+    mergedState.airfi_online = false;
+  }
   const effectiveMode = effectiveControlMode(storedMode, mergedState);
   let dbControlMode = storedMode;
   if (

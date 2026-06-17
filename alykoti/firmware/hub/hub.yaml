@@ -4,7 +4,7 @@
 substitutions:
   device_name: alykoti-hub
   friendly_name: "Alykoti keskusyksikko"
-  firmware_version: "1.6.1"
+  firmware_version: "1.6.2"
 
   upload_port: COM7
 
@@ -153,6 +153,22 @@ binary_sensor:
     id: airfi_connected
     internal: true
 
+  - platform: template
+    name: "AirFi data ok"
+    id: airfi_data_ok
+    internal: true
+    lambda: |-
+      auto valid_temp = [](float v) {
+        return !isnan(v) && v >= -50.0f && v <= 80.0f;
+      };
+      if (id(airfi_outdoor_temp).has_state() && valid_temp(id(airfi_outdoor_temp).state)) return true;
+      if (id(airfi_exhaust_temp).has_state() && valid_temp(id(airfi_exhaust_temp).state)) return true;
+      if (id(airfi_supply_room_temp).has_state() && valid_temp(id(airfi_supply_room_temp).state)) return true;
+      if (id(airfi_exhaust_hru_temp).has_state() && valid_temp(id(airfi_exhaust_hru_temp).state)) return true;
+      if (id(airfi_supply_fan).has_state() && id(airfi_supply_fan).state > 0) return true;
+      if (id(airfi_exhaust_fan).has_state() && id(airfi_exhaust_fan).state > 0) return true;
+      return id(airfi_connected).state;
+
 # --- Naytto JC1060P470 (MIPI-DSI + taustavalo) ---
 # ASCII-only tekstit: laitefontti ei tue a/o/2-alaindeksia luotettavasti.
 
@@ -177,6 +193,10 @@ touchscreen:
     reset_pin: GPIO22
     interrupt_pin: GPIO21
     update_interval: 50ms
+    transform:
+      swap_xy: true
+      mirror_x: false
+      mirror_y: true
 
 output:
   - platform: ledc
@@ -477,6 +497,37 @@ script:
           text: !lambda |-
             return id(display_page_idx) == 3 ? std::string("IV  Koti  Sahko  *WiFi*") : std::string("IV  Koti  Sahko  WiFi");
 
+  - id: nav_goto
+    mode: restart
+    parameters:
+      page: int
+    then:
+      - lambda: |-
+          if (page < 0) page = 0;
+          if (page > 3) page = 3;
+          id(display_page_idx) = page;
+      - script.execute: update_page_dots
+      - if:
+          condition:
+            lambda: "return page == 0;"
+          then:
+            - lvgl.page.show: iv_page
+      - if:
+          condition:
+            lambda: "return page == 1;"
+          then:
+            - lvgl.page.show: floor_page
+      - if:
+          condition:
+            lambda: "return page == 2;"
+          then:
+            - lvgl.page.show: price_page
+      - if:
+          condition:
+            lambda: "return page == 3;"
+          then:
+            - lvgl.page.show: wifi_page
+
   - id: nav_page_next
     mode: restart
     then:
@@ -655,7 +706,7 @@ script:
             snprintf(buf, sizeof(buf), "%.1f C", v);
             return std::string(buf);
       - lvgl.label.update:
-          id: iv_t5
+          id: iv_t4
           text: !lambda |-
             if (!id(airfi_exhaust_hru_temp).has_state()) return std::string("-- C");
             float v = id(airfi_exhaust_hru_temp).state;
@@ -675,10 +726,10 @@ script:
           text: !lambda |-
             if (id(effective_co2).has_state()) {
               char buf[32];
-              snprintf(buf, sizeof(buf), "CO2: %d ppm", (int) id(effective_co2).state);
+              snprintf(buf, sizeof(buf), "%d ppm", (int) id(effective_co2).state);
               return std::string(buf);
             }
-            return std::string("CO2: -- ppm");
+            return std::string("-- ppm");
       - lvgl.label.update:
           id: iv_supply_pct
           text: !lambda |-
@@ -738,10 +789,10 @@ script:
       - lvgl.label.update:
           id: iv_airfi
           text: !lambda |-
-            if (id(airfi_connected).state) return std::string("AirFi online");
+            if (id(airfi_data_ok).state) return std::string("AirFi online");
             return std::string("AirFi offline");
           text_color: !lambda |-
-            if (id(airfi_connected).state) return lv_color_hex(0x065F46);
+            if (id(airfi_data_ok).state) return lv_color_hex(0x065F46);
             return lv_color_hex(0xB45309);
       - lvgl.label.update:
           id: iv_mode
@@ -795,10 +846,10 @@ script:
       - lvgl.label.update:
           id: lv_airfi
           text: !lambda |-
-            if (id(airfi_connected).state) return std::string("AirFi (hub)");
+            if (id(airfi_data_ok).state) return std::string("AirFi (hub)");
             return std::string("AirFi offline");
           text_color: !lambda |-
-            if (id(airfi_connected).state) return lv_color_hex(0x065F46);
+            if (id(airfi_data_ok).state) return lv_color_hex(0x065F46);
             return lv_color_hex(0xB45309);
       - lvgl.label.update:
           id: lv_mode
@@ -863,7 +914,7 @@ script:
                   if (id(ack_cmd_2) != "") root["acked_command_ids"].add(id(ack_cmd_2).c_str());
                   if (id(ack_cmd_3) != "") root["acked_command_ids"].add(id(ack_cmd_3).c_str());
                   if (id(effective_co2).has_state()) root["state"]["co2_ppm"] = id(effective_co2).state;
-                  root["state"]["airfi_online"] = id(airfi_connected).state;
+                  root["state"]["airfi_online"] = id(airfi_data_ok).state;
                   if (id(airfi_outdoor_temp).has_state()) {
                     float v = id(airfi_outdoor_temp).state;
                     if (v >= -50.0f && v <= 80.0f) root["state"]["outdoor_temp_c"] = v;
