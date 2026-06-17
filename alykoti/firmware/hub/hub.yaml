@@ -4,7 +4,7 @@
 substitutions:
   device_name: alykoti-hub
   friendly_name: "Alykoti keskusyksikko"
-  firmware_version: "1.7.9"
+  firmware_version: "1.8.0"
 
   upload_port: COM7
 
@@ -279,7 +279,7 @@ sensor:
     register_address: 3
     function_code: 4
     scale: 0.1
-    update_interval: 30s
+    update_interval: never
     internal: true
 
   - platform: modbus_tcp_manager
@@ -299,7 +299,7 @@ sensor:
     register_address: 5
     function_code: 4
     scale: 0.1
-    update_interval: 30s
+    update_interval: never
     internal: true
 
   - platform: modbus_tcp_manager
@@ -309,7 +309,7 @@ sensor:
     register_address: 6
     function_code: 4
     scale: 0.1
-    update_interval: 30s
+    update_interval: never
     internal: true
 
   - platform: modbus_tcp_manager
@@ -319,7 +319,7 @@ sensor:
     register_address: 7
     function_code: 4
     scale: 0.1
-    update_interval: 30s
+    update_interval: never
     internal: true
 
   - platform: modbus_tcp_manager
@@ -531,35 +531,39 @@ script:
           auto valid_temp = [](float v) {
             return !isnan(v) && v >= -50.0f && v <= 80.0f;
           };
+          auto looks_like_fan_pct = [&](float v) {
+            if (!valid_temp(v)) return true;
+            auto near = [](float a, float b) { return fabsf(a - b) < 0.6f; };
+            if (id(fan_supply_pct).has_state() && near(v, id(fan_supply_pct).state)) return true;
+            if (id(fan_exhaust_pct).has_state() && near(v, id(fan_exhaust_pct).state)) return true;
+            if (id(airfi_supply_fan).has_state() && near(v, id(airfi_supply_fan).state)) return true;
+            if (id(airfi_exhaust_fan).has_state() && near(v, id(airfi_exhaust_fan).state)) return true;
+            return false;
+          };
+          auto publish_temp = [&](float v, esphome::sensor::Sensor *sens) -> bool {
+            if (!valid_temp(v) || looks_like_fan_pct(v)) return false;
+            if (sens != nullptr) sens->publish_state(v);
+            return true;
+          };
           bool ok = false;
-          if (id(airfi_outdoor_temp).has_state() && valid_temp(id(airfi_outdoor_temp).state)) ok = true;
-          if (!ok && id(airfi_exhaust_temp).has_state() && valid_temp(id(airfi_exhaust_temp).state)) ok = true;
-          if (!ok && id(airfi_supply_room_temp).has_state() && valid_temp(id(airfi_supply_room_temp).state)) ok = true;
-          if (!ok && id(airfi_exhaust_hru_temp).has_state() && valid_temp(id(airfi_exhaust_hru_temp).state)) ok = true;
-          if (!ok && id(airfi_supply_fan).has_state()) ok = true;
-          if (!ok && id(airfi_exhaust_fan).has_state()) ok = true;
-          if (!ok && id(fan_supply_pct).has_state()) ok = true;
-          if (!ok && id(fan_exhaust_pct).has_state()) ok = true;
-          if (!ok && id(airfi_connected).state) ok = true;
 
           auto *modbus = id(airfi_modbus);
           if (modbus != nullptr) {
-            auto probe_temp = [&](uint16_t reg, esphome::sensor::Sensor *sens) -> bool {
-              auto resp = modbus->read_register(reg, modbus_tcp::ModbusFunction::READ_INPUT_REGISTERS);
-              if (!resp.success || resp.data.empty()) return false;
-              float v = ((int16_t) resp.data[0]) * 0.1f;
-              if (!valid_temp(v)) return false;
-              if (sens != nullptr) sens->publish_state(v);
-              return true;
-            };
-            bool need_probe = !id(airfi_outdoor_temp).has_state() || !id(airfi_exhaust_temp).has_state() ||
-                              !id(airfi_exhaust_hru_temp).has_state() || !id(airfi_supply_room_temp).has_state();
-            if (!ok || need_probe) {
-              if (probe_temp(3, id(airfi_outdoor_temp))) ok = true;
-              if (probe_temp(5, id(airfi_exhaust_temp))) ok = true;
-              if (probe_temp(6, id(airfi_exhaust_hru_temp))) ok = true;
-              if (probe_temp(7, id(airfi_supply_room_temp))) ok = true;
+            // Yksi lohkoluku rek 3-7 (T1, T2 varalla, T3, T4, T5) — AirFi v2.9 / virallinen sovellus
+            auto resp = modbus->read_registers(3, 5, modbus_tcp::ModbusFunction::READ_INPUT_REGISTERS);
+            if (resp.success && resp.data.size() >= 5) {
+              if (publish_temp(((int16_t) resp.data[0]) * 0.1f, id(airfi_outdoor_temp))) ok = true;
+              if (publish_temp(((int16_t) resp.data[2]) * 0.1f, id(airfi_exhaust_temp))) ok = true;
+              if (publish_temp(((int16_t) resp.data[3]) * 0.1f, id(airfi_exhaust_hru_temp))) ok = true;
+              if (publish_temp(((int16_t) resp.data[4]) * 0.1f, id(airfi_supply_room_temp))) ok = true;
             }
+          }
+
+          if (!ok) {
+            if (id(airfi_outdoor_temp).has_state() && publish_temp(id(airfi_outdoor_temp).state, nullptr)) ok = true;
+            if (!ok && id(airfi_exhaust_temp).has_state() && publish_temp(id(airfi_exhaust_temp).state, nullptr)) ok = true;
+            if (!ok && id(airfi_supply_room_temp).has_state() && publish_temp(id(airfi_supply_room_temp).state, nullptr)) ok = true;
+            if (!ok && id(airfi_exhaust_hru_temp).has_state() && publish_temp(id(airfi_exhaust_hru_temp).state, nullptr)) ok = true;
           }
           id(airfi_online_flag) = ok;
 
@@ -980,13 +984,7 @@ script:
                   auto valid_temp = [](float v) {
                     return !isnan(v) && v >= -50.0f && v <= 80.0f;
                   };
-                  bool airfi_ok = id(airfi_online_flag);
-                  if (!airfi_ok && id(fan_supply_pct).has_state()) airfi_ok = true;
-                  if (!airfi_ok && id(fan_exhaust_pct).has_state()) airfi_ok = true;
-                  if (!airfi_ok && id(airfi_outdoor_temp).has_state() && valid_temp(id(airfi_outdoor_temp).state)) airfi_ok = true;
-                  if (!airfi_ok && id(airfi_exhaust_temp).has_state() && valid_temp(id(airfi_exhaust_temp).state)) airfi_ok = true;
-                  if (!airfi_ok && id(airfi_supply_room_temp).has_state() && valid_temp(id(airfi_supply_room_temp).state)) airfi_ok = true;
-                  root["state"]["airfi_online"] = airfi_ok;
+                  root["state"]["airfi_online"] = id(airfi_online_flag);
                   if (id(airfi_outdoor_temp).has_state()) {
                     float v = id(airfi_outdoor_temp).state;
                     if (v >= -50.0f && v <= 80.0f) root["state"]["outdoor_temp_c"] = v;
