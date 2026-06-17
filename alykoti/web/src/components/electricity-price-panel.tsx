@@ -29,17 +29,18 @@ export function ElectricityPricePanel({ initial }: Props) {
     async function refresh() {
       try {
         const res = await fetch("/api/electricity/prices", { cache: "no-store" });
-        if (!res.ok) throw new Error("hintojen haku epäonnistui");
+        if (!res.ok) throw new Error("hintojen haku epaonnistui");
         const json = (await res.json()) as ElectricityPrices;
         if (!cancelled) {
           setData(json);
           setError(null);
         }
       } catch {
-        if (!cancelled) setError("Hintojen päivitys epäonnistui");
+        if (!cancelled) setError("Hintojen paivitys epaonnistui");
       }
     }
 
+    void refresh();
     const id = setInterval(refresh, 60_000);
     return () => {
       cancelled = true;
@@ -86,9 +87,9 @@ export function ElectricityPricePanel({ initial }: Props) {
   if (!data) {
     return (
       <section className="mt-8 rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
-        <h2 className="font-semibold text-stone-900">Sähkön hinta</h2>
+        <h2 className="font-semibold text-stone-900">Sahkon hinta</h2>
         <p className="mt-3 text-sm text-stone-500">
-          {error ?? "Ladataan pörssihintoja…"}
+          {error ?? "Ladataan porssihintoja..."}
         </p>
       </section>
     );
@@ -105,7 +106,7 @@ export function ElectricityPricePanel({ initial }: Props) {
         <div>
           <h2 className="font-semibold text-stone-900">Sähkön hinta</h2>
           <p className="mt-0.5 text-xs text-stone-500">
-            Nord Pool · {data.region} · {data.source}
+            Nord Pool · {data.region} · spot-hinta.fi
           </p>
         </div>
         <p className="text-xs text-stone-400">

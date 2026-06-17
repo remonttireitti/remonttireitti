@@ -1,4 +1,4 @@
-/** Nord Pool -pörssihinnat Suomelle (spot-hinta.fi, sama lähde kuin useissa HA-integraatioissa). */
+﻿/** Nord Pool -porssihinnat Suomelle (spot-hinta.fi, sama data kuin HA-integraatioissa). */
 
 export const ELECTRICITY_PRICE_REGION = "FI" as const;
 export const SPOT_HINTA_BASE = "https://api.spot-hinta.fi";
@@ -8,7 +8,7 @@ export type ElectricityPriceRegion = typeof ELECTRICITY_PRICE_REGION;
 export type SpotPriceSlot = {
   at: string;
   rank: number;
-  /** ALV:n kanssa, senttiä / kWh */
+  /** ALV:n kanssa, senttia / kWh */
   centsPerKwh: number;
 };
 
@@ -79,10 +79,10 @@ function dayLabel(dateKey: string): string {
   const tomorrowDate = new Date();
   tomorrowDate.setDate(tomorrowDate.getDate() + 1);
   const tomorrow = helsinkiDateKey(tomorrowDate.toISOString());
-  if (dateKey === today) return "Tänään";
+  if (dateKey === today) return "Tanaan";
   if (dateKey === tomorrow) return "Huomenna";
-  const [y, m, d] = dateKey.split("-").map(Number);
-  return new Date(y, m - 1, d).toLocaleDateString("fi-FI", {
+  const [y, m, day] = dateKey.split("-").map(Number);
+  return new Date(y, m - 1, day).toLocaleDateString("fi-FI", {
     day: "numeric",
     month: "short",
   });

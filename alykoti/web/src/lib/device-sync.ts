@@ -163,7 +163,7 @@ export async function syncDevice(
     mergedState.fan_exhaust_pct != null;
   if (hasAirfiTelemetry || hubReportedAirfi === true) {
     mergedState.airfi_online = true;
-  } else if (hubReportedAirfi === false) {
+  } else if (hubReportedAirfi === false && !hasAirfiTelemetry) {
     mergedState.airfi_online = false;
   }
   const effectiveMode = effectiveControlMode(storedMode, mergedState);

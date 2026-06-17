@@ -44,7 +44,9 @@ export function FloorPlanView({
           sizes="(max-width: 768px) 100vw, 1024px"
         />
 
-        {markers.map((marker) => (
+        {markers
+          .filter((marker) => marker.value != null || marker.sub != null)
+          .map((marker) => (
           <FloorPlanMarkerPin
             key={marker.id}
             marker={marker}

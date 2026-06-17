@@ -43,13 +43,13 @@ export default async function OverviewPage() {
         <HomeFloorPlan hub={primaryHub} />
       </div>
 
+      <ElectricityPricePanel initial={electricityPrices} />
+
       <div className="mt-6 grid gap-4 sm:grid-cols-3">
         <StatCard label="Keskusyksiköt" value={String(hubs.length)} />
         <StatCard label="Online" value={String(online)} />
         <StatCard label="CO₂ keskiarvo" value={avgCo2 != null ? `${avgCo2} ppm` : "—"} />
       </div>
-
-      <ElectricityPricePanel initial={electricityPrices} />
 
       {hubs.length === 0 && (
         <div className="mt-8 rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
