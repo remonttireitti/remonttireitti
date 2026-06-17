@@ -156,6 +156,19 @@ export async function syncDevice(
     }
   }
 
+  if (hubCommands.length > 0) {
+    const deliveredIds = hubCommands.map((c) => c.id);
+    await supabase
+      .from("commands")
+      .update({
+        status: "delivered",
+        delivered_at: new Date().toISOString(),
+      })
+      .eq("hub_id", hub.id)
+      .in("id", deliveredIds)
+      .eq("status", "pending");
+  }
+
   if (executedIds.length > 0) {
     await supabase
       .from("commands")

@@ -6,7 +6,12 @@ import { validateVentilationConfig } from "@/lib/hubs";
 import { DEFAULT_VENTILATION_CONFIG, type VentilationConfig } from "@/lib/types";
 import { createClient } from "@/lib/supabase/server";
 
-export type ActionState = { error?: string; ok?: string; deviceToken?: string };
+export type ActionState = {
+  error?: string;
+  ok?: string;
+  deviceToken?: string;
+  commandIds?: string[];
+};
 
 async function requireUser() {
   const supabase = await createClient();
@@ -97,12 +102,16 @@ async function queueCommand(
     return { error: "Keskusyksikköä ei löydy." };
   }
 
-  const { error } = await supabase.from("commands").insert({
-    hub_id: hubId,
-    user_id: user.id,
-    command,
-    payload,
-  });
+  const { data, error } = await supabase
+    .from("commands")
+    .insert({
+      hub_id: hubId,
+      user_id: user.id,
+      command,
+      payload,
+    })
+    .select("id")
+    .single();
 
   if (error) return { error: "Komennon lähetys epäonnistui." };
 
@@ -115,7 +124,7 @@ async function queueCommand(
 
   revalidatePath("/ilmanvaihto");
   revalidatePath("/ilmanvaihto/asetukset");
-  return { ok: "Komento lähetetty." };
+  return { ok: "Komento jonossa — hub noutaa sen seuraavassa synkissä.", commandIds: [String(data.id)] };
 }
 
 export async function setFanPct(
@@ -134,11 +143,16 @@ export async function setFanPct(
     return { error: "Virheellinen nopeus (25–100 %)." };
   }
   await queueCommand(hubId, "set_mode", { mode: "manual" });
-  return queueCommand(hubId, "set_fan_pct", {
+  const fan = await queueCommand(hubId, "set_fan_pct", {
     supply_pct: Math.round(supplyPct),
     exhaust_pct: Math.round(exhaustPct),
     fireplace: false,
   });
+  if (fan.error) return fan;
+  return {
+    ok: `Ohjaus ${Math.round(supplyPct)} % / ${Math.round(exhaustPct)} % jonossa. Hub suorittaa ~60 s kuluessa.`,
+    commandIds: fan.commandIds,
+  };
 }
 
 export async function setRunMode(

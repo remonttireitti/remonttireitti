@@ -5,7 +5,9 @@ import {
   setAwayMode,
   setFanPct,
   setRunMode,
+  type ActionState,
 } from "@/app/actions/hubs";
+import { CommandStatusPanel } from "@/components/command-status-panel";
 import { useMetricTrend } from "@/hooks/use-metric-trend";
 import type { Hub } from "@/lib/types";
 import { MIN_FAN_PCT } from "@/lib/ventilation-logic";
@@ -19,6 +21,8 @@ const MODE_LABELS = {
 
 export function VentilationControls({ hub }: { hub: Hub }) {
   const [pending, startTransition] = useTransition();
+  const [flash, setFlash] = useState<ActionState | null>(null);
+  const [trackIds, setTrackIds] = useState<string[]>([]);
   const state = hub.state;
   const { showTrend, modal } = useMetricTrend();
 
@@ -29,14 +33,33 @@ export function VentilationControls({ hub }: { hub: Hub }) {
     state.fan_exhaust_target ?? state.fan_exhaust_pct ?? 40,
   );
 
-  function run(action: () => Promise<unknown>) {
-    startTransition(() => void action());
+  function run(action: () => Promise<ActionState>) {
+    startTransition(async () => {
+      const result = await action();
+      setFlash(result);
+      if (result.commandIds?.length) {
+        setTrackIds((prev) => [...result.commandIds!, ...prev].slice(0, 6));
+      }
+    });
   }
 
   return (
     <>
       {modal}
       <div className="space-y-6">
+        {flash && (
+          <div
+            role="status"
+            className={`rounded-xl border px-4 py-3 text-sm ${
+              flash.error
+                ? "border-red-200 bg-red-50 text-red-950"
+                : "border-emerald-200 bg-emerald-50 text-emerald-950"
+            }`}
+          >
+            {flash.error ?? flash.ok}
+          </div>
+        )}
+        <CommandStatusPanel trackIds={trackIds.length > 0 ? trackIds : undefined} />
         <section className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
           <h2 className="font-semibold text-stone-900">Toimintatila</h2>
           <p className="mt-1 text-sm text-stone-600">

@@ -4,7 +4,7 @@
 substitutions:
   device_name: alykoti-hub
   friendly_name: "Alykoti keskusyksikko"
-  firmware_version: "1.2.0"
+  firmware_version: "1.2.1"
 
   upload_port: COM7
 
@@ -543,10 +543,29 @@ script:
                               else if (cmd_id[0] != '\0' && id(ack_cmd_2) == "") id(ack_cmd_2) = cmd_id;
                               else if (cmd_id[0] != '\0' && id(ack_cmd_3) == "") id(ack_cmd_3) = cmd_id;
                             }
+                            if (strcmp(command, "set_away") == 0) {
+                              JsonObject payload = cmd["payload"];
+                              bool away = payload["away"] | false;
+                              auto *modbus = id(airfi_modbus);
+                              if (modbus != nullptr && id(airfi_connected).state) {
+                                modbus->write_register(12, away ? 1 : 0);
+                                ESP_LOGI("airfi", "Poissa-tila: %d", away ? 1 : 0);
+                              }
+                              if (cmd_id[0] != '\0' && id(ack_cmd_1) == "") id(ack_cmd_1) = cmd_id;
+                              else if (cmd_id[0] != '\0' && id(ack_cmd_2) == "") id(ack_cmd_2) = cmd_id;
+                              else if (cmd_id[0] != '\0' && id(ack_cmd_3) == "") id(ack_cmd_3) = cmd_id;
+                            }
                           }
                         }
                         return true;
                       });
+                  - if:
+                      condition:
+                        lambda: |-
+                          return id(ack_cmd_1) != "" || id(ack_cmd_2) != "" || id(ack_cmd_3) != "";
+                      then:
+                        - delay: 2s
+                        - script.execute: cloud_sync
 
 interval:
   - interval: 60s
@@ -574,8 +593,8 @@ interval:
                 id: lvgl_web
                 text: "Web: odota verkkoa"
 
-  - interval: 120s
-    startup_delay: 90s
+  - interval: 60s
+    startup_delay: 45s
     then:
       - script.execute: cloud_sync
 
