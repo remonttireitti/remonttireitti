@@ -11,6 +11,7 @@ import {
   type AirfiState,
 } from "@/lib/airfi";
 import { recordHubMetrics } from "@/lib/metric-samples";
+import { effectiveControlMode, expireTimedModes } from "@/lib/mode-schedule";
 import { migrateLegacySpeedPct } from "@/lib/ventilation-logic";
 import {
   DEFAULT_VENTILATION_CONFIG,
@@ -96,10 +97,20 @@ export async function syncDevice(
       .in("status", ["pending", "delivered"]);
   }
 
-  const mergedState: HubState = {
+  const config = parseConfig(hub.config);
+  const storedMode = hub.control_mode as HubControlMode;
+  let mergedState = expireTimedModes({
     ...parseState(hub.state),
     ...parseState(body.state),
-  };
+  });
+  const effectiveMode = effectiveControlMode(storedMode, mergedState);
+  let dbControlMode = storedMode;
+  if (
+    effectiveMode === "auto" &&
+    (storedMode === "fireplace" || storedMode === "hood")
+  ) {
+    dbControlMode = "auto";
+  }
 
   const airthingsState = await fetchAirthingsState();
   if (airthingsState) {
@@ -116,9 +127,6 @@ export async function syncDevice(
     if (airthingsState.pm10_ugm3 != null) mergedState.pm10_ugm3 = airthingsState.pm10_ugm3;
     mergedState.airthings_source = "cloud";
   }
-
-  const config = parseConfig(hub.config);
-  const controlMode = hub.control_mode as HubControlMode;
 
   let airfiState: AirfiState | null = canPing
     ? await fetchAirfiState()
@@ -184,13 +192,13 @@ export async function syncDevice(
   let ventilationState: HubState | undefined;
 
   if (
-    controlMode === "auto" ||
-    controlMode === "fireplace" ||
-    controlMode === "hood"
+    effectiveMode === "auto" ||
+    effectiveMode === "fireplace" ||
+    effectiveMode === "hood"
   ) {
     if (canPing) {
       const applied = await applyVentilationControl(
-        controlMode,
+        effectiveMode,
         mergedState.co2_ppm,
         config,
         airfiState,
@@ -203,7 +211,7 @@ export async function syncDevice(
       }
     } else {
       const targets = computeVentilationTargets(
-        controlMode,
+        effectiveMode,
         mergedState.co2_ppm,
         config,
         airfiState,
@@ -213,7 +221,6 @@ export async function syncDevice(
       }
     }
   }
-
   if (canPing && airfiState) {
     Object.assign(mergedState, airfiToHubState(airfiState));
     mergedState.airfi_online = true;
@@ -222,22 +229,21 @@ export async function syncDevice(
 
   const hubUpdate: Record<string, unknown> = {
     state: mergedState,
+    control_mode: dbControlMode,
     last_seen_at: new Date().toISOString(),
-  };
-  if (body.firmware_version) {
+  };  if (body.firmware_version) {
     hubUpdate.firmware_version = body.firmware_version;
   }
 
   await supabase.from("hubs").update(hubUpdate).eq("id", hub.id);
 
-  void recordHubMetrics(hub.id, mergedState, controlMode, {
+  void recordHubMetrics(hub.id, mergedState, effectiveMode, {
     hub_online: true,
     airfi_online: mergedState.airfi_online === true,
   });
 
   return {
-    control_mode: controlMode,
-    config,
+    control_mode: effectiveMode,    config,
     commands: hubCommands,
     sensor: airthingsState ?? undefined,
     ventilation: ventilationState,

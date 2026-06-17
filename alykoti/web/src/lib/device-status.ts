@@ -28,6 +28,19 @@ export type DeviceStatus = {
   level: ConnectivityLevel;
   message: string | null;
   checked_at: string;
+  /** Live-tila ohjauspaneelia varten. */
+  live?: {
+    control_mode: string;
+    fan_supply_pct: number | null;
+    fan_exhaust_pct: number | null;
+    fan_supply_target: number | null;
+    fan_exhaust_target: number | null;
+    fireplace_until: string | null;
+    hood_until: string | null;
+    away_until: string | null;
+    away_unlimited: boolean;
+    away_mode: boolean;
+  };
 };
 
 export function isHubOnline(

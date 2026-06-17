@@ -3,7 +3,18 @@
 import { revalidatePath } from "next/cache";
 import { randomBytes } from "crypto";
 import { validateVentilationConfig } from "@/lib/hubs";
-import { DEFAULT_VENTILATION_CONFIG, type VentilationConfig } from "@/lib/types";
+import {
+  extendUntil,
+  formatRemaining,
+  remainingMs,
+  TIMED_MODE_STEP_MS,
+} from "@/lib/mode-schedule";
+import {
+  DEFAULT_VENTILATION_CONFIG,
+  type HubControlMode,
+  type HubState,
+  type VentilationConfig,
+} from "@/lib/types";
 import { createClient } from "@/lib/supabase/server";
 
 export type ActionState = {
@@ -19,6 +30,71 @@ async function requireUser() {
     data: { user },
   } = await supabase.auth.getUser();
   return { supabase, user };
+}
+
+async function getOwnedHubRow(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  hubId: string,
+  userId: string,
+) {
+  const { data } = await supabase
+    .from("hubs")
+    .select("id, state, config, control_mode")
+    .eq("id", hubId)
+    .eq("user_id", userId)
+    .maybeSingle();
+  return data;
+}
+
+async function patchHubState(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  hubId: string,
+  statePatch: Partial<HubState>,
+  controlMode?: HubControlMode,
+) {
+  const { data: hub } = await supabase
+    .from("hubs")
+    .select("state")
+    .eq("id", hubId)
+    .single();
+  const state: HubState = {
+    ...((hub?.state as HubState) ?? {}),
+    ...statePatch,
+  };
+  const update: { state: HubState; control_mode?: HubControlMode } = { state };
+  if (controlMode) update.control_mode = controlMode;
+  await supabase.from("hubs").update(update).eq("id", hubId);
+}
+
+async function queueFanCommand(
+  hubId: string,
+  config: VentilationConfig,
+  mode: HubControlMode,
+): Promise<ActionState> {
+  const supply =
+    mode === "fireplace"
+      ? config.fireplace_supply_pct
+      : mode === "hood"
+        ? config.hood_supply_pct
+        : null;
+  const exhaust =
+    mode === "fireplace"
+      ? config.fireplace_exhaust_pct
+      : mode === "hood"
+        ? config.hood_exhaust_pct
+        : null;
+  const modeCmd = await queueCommand(hubId, "set_mode", { mode });
+  if (supply == null || exhaust == null) return modeCmd;
+  const fanCmd = await queueCommand(hubId, "set_fan_pct", {
+    supply_pct: supply,
+    exhaust_pct: exhaust,
+    fireplace: mode === "fireplace",
+  });
+  if (fanCmd.error) return fanCmd;
+  return {
+    ok: fanCmd.ok,
+    commandIds: [...(modeCmd.commandIds ?? []), ...(fanCmd.commandIds ?? [])],
+  };
 }
 
 async function getOwnedHub(
@@ -132,6 +208,9 @@ export async function setFanPct(
   supplyPct: number,
   exhaustPct: number,
 ): Promise<ActionState> {
+  const { supabase, user } = await requireUser();
+  if (!user) return { error: "Kirjaudu sisään." };
+
   if (
     !Number.isFinite(supplyPct) ||
     !Number.isFinite(exhaustPct) ||
@@ -142,6 +221,17 @@ export async function setFanPct(
   ) {
     return { error: "Virheellinen nopeus (25–100 %)." };
   }
+
+  if (!(await getOwnedHub(supabase, hubId, user.id))) {
+    return { error: "Keskusyksikköä ei löydy." };
+  }
+
+  await patchHubState(
+    supabase,
+    hubId,
+    { fireplace_until: null, hood_until: null },
+    "manual",
+  );
   await queueCommand(hubId, "set_mode", { mode: "manual" });
   const fan = await queueCommand(hubId, "set_fan_pct", {
     supply_pct: Math.round(supplyPct),
@@ -155,11 +245,149 @@ export async function setFanPct(
   };
 }
 
+export async function setAutoMode(hubId: string): Promise<ActionState> {
+  const { supabase, user } = await requireUser();
+  if (!user) return { error: "Kirjaudu sisään." };
+  const hub = await getOwnedHubRow(supabase, hubId, user.id);
+  if (!hub) return { error: "Keskusyksikköä ei löydy." };
+
+  await patchHubState(
+    supabase,
+    hubId,
+    {
+      fireplace_until: null,
+      hood_until: null,
+      away_until: null,
+      away_unlimited: false,
+    },
+    "auto",
+  );
+  await queueCommand(hubId, "set_away", { away: false });
+  return queueCommand(hubId, "set_mode", { mode: "auto" });
+}
+
+export async function setManualMode(hubId: string): Promise<ActionState> {
+  const { supabase, user } = await requireUser();
+  if (!user) return { error: "Kirjaudu sisään." };
+  if (!(await getOwnedHub(supabase, hubId, user.id))) {
+    return { error: "Keskusyksikköä ei löydy." };
+  }
+  await patchHubState(
+    supabase,
+    hubId,
+    { fireplace_until: null, hood_until: null },
+    "manual",
+  );
+  return queueCommand(hubId, "set_mode", { mode: "manual" });
+}
+
+export async function extendFireplaceMode(hubId: string): Promise<ActionState> {
+  const { supabase, user } = await requireUser();
+  if (!user) return { error: "Kirjaudu sisään." };
+  const hub = await getOwnedHubRow(supabase, hubId, user.id);
+  if (!hub) return { error: "Keskusyksikköä ei löydy." };
+
+  const state = (hub.state as HubState) ?? {};
+  const until = extendUntil(state.fireplace_until, TIMED_MODE_STEP_MS);
+  await patchHubState(
+    supabase,
+    hubId,
+    { fireplace_until: until, hood_until: null },
+    "fireplace",
+  );
+  const config = (hub.config as VentilationConfig) ?? DEFAULT_VENTILATION_CONFIG;
+  const result = await queueFanCommand(hubId, config, "fireplace");
+  const left = formatRemaining(remainingMs(until) ?? TIMED_MODE_STEP_MS);
+  return {
+    ...result,
+    ok: `Takkatila +15 min (yhteensä ${left}).`,
+  };
+}
+
+export async function extendHoodMode(hubId: string): Promise<ActionState> {
+  const { supabase, user } = await requireUser();
+  if (!user) return { error: "Kirjaudu sisään." };
+  const hub = await getOwnedHubRow(supabase, hubId, user.id);
+  if (!hub) return { error: "Keskusyksikköä ei löydy." };
+
+  const state = (hub.state as HubState) ?? {};
+  const until = extendUntil(state.hood_until, TIMED_MODE_STEP_MS);
+  await patchHubState(
+    supabase,
+    hubId,
+    { hood_until: until, fireplace_until: null },
+    "hood",
+  );
+  const config = (hub.config as VentilationConfig) ?? DEFAULT_VENTILATION_CONFIG;
+  const result = await queueFanCommand(hubId, config, "hood");
+  const left = formatRemaining(remainingMs(until) ?? TIMED_MODE_STEP_MS);
+  return {
+    ...result,
+    ok: `Liesituuletin +15 min (yhteensä ${left}).`,
+  };
+}
+
+/** hours: null = rajaton kunnes lopetetaan */
+export async function setAwayScheduled(
+  hubId: string,
+  hours: number | null,
+): Promise<ActionState> {
+  const { supabase, user } = await requireUser();
+  if (!user) return { error: "Kirjaudu sisään." };
+  if (!(await getOwnedHub(supabase, hubId, user.id))) {
+    return { error: "Keskusyksikköä ei löydy." };
+  }
+
+  const until =
+    hours != null ? extendUntil(null, hours * 3_600_000) : null;
+  await patchHubState(supabase, hubId, {
+    away_until: until,
+    away_unlimited: hours == null,
+    away_mode: true,
+  });
+  const msg =
+    hours == null
+      ? "Poissa-tila päällä toistaiseksi."
+      : `Poissa-tila ${hours} h.`;
+  const away = await queueCommand(hubId, "set_away", { away: true });
+  return { ...away, ok: msg };
+}
+
+export async function clearAwayMode(hubId: string): Promise<ActionState> {
+  const { supabase, user } = await requireUser();
+  if (!user) return { error: "Kirjaudu sisään." };
+  if (!(await getOwnedHub(supabase, hubId, user.id))) {
+    return { error: "Keskusyksikköä ei löydy." };
+  }
+  await patchHubState(supabase, hubId, {
+    away_until: null,
+    away_unlimited: false,
+    away_mode: false,
+  });
+  return queueCommand(hubId, "set_away", { away: false });
+}
+
 export async function setRunMode(
   hubId: string,
   mode: "auto" | "manual" | "fireplace" | "hood",
 ): Promise<ActionState> {
-  return queueCommand(hubId, "set_mode", { mode });
+  if (mode === "auto") return setAutoMode(hubId);
+  if (mode === "manual") return setManualMode(hubId);
+  if (mode === "fireplace") return extendFireplaceMode(hubId);
+  return extendHoodMode(hubId);
+}
+
+/** @deprecated */
+export async function setAutoModeLegacy(hubId: string): Promise<ActionState> {
+  return setAutoMode(hubId);
+}
+
+export async function setAwayMode(
+  hubId: string,
+  away: boolean,
+): Promise<ActionState> {
+  if (away) return setAwayScheduled(hubId, null);
+  return clearAwayMode(hubId);
 }
 
 /** @deprecated */
@@ -169,17 +397,6 @@ export async function setFanSpeed(
 ): Promise<ActionState> {
   const pct = 25 + speed * 15;
   return setFanPct(hubId, pct, pct);
-}
-
-export async function setAutoMode(hubId: string): Promise<ActionState> {
-  return queueCommand(hubId, "set_mode", { mode: "auto" });
-}
-
-export async function setAwayMode(
-  hubId: string,
-  away: boolean,
-): Promise<ActionState> {
-  return queueCommand(hubId, "set_away", { away });
 }
 
 export async function deleteHub(hubId: string): Promise<ActionState> {

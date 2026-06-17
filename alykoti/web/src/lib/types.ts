@@ -84,6 +84,14 @@ export type HubState = {
   airfi_updated_at?: string | null;
   /** Hubin Modbus-lukema: onko AirFi tavoitettavissa lähiverkosta. */
   airfi_online?: boolean | null;
+  /** Takkatila päättyy (ISO). */
+  fireplace_until?: string | null;
+  /** Liesituuletin-tila päättyy (ISO). */
+  hood_until?: string | null;
+  /** Poissa-tila päättyy (ISO), tyhjä jos rajaton. */
+  away_until?: string | null;
+  /** Poissa kunnes käsin lopetetaan. */
+  away_unlimited?: boolean;
 };
 
 export type Hub = {

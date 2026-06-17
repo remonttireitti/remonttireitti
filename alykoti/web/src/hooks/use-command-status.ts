@@ -24,7 +24,8 @@ export function commandSummary(cmd: CommandRow): string {
   if (cmd.command === "set_fan_pct") {
     const supply = cmd.payload.supply_pct;
     const exhaust = cmd.payload.exhaust_pct;
-    return `Nopeus ${supply} % / ${exhaust} %`;
+    const fp = cmd.payload.fireplace === true ? " · takka" : "";
+    return `Nopeus ${supply} % / ${exhaust} %${fp}`;
   }
   if (cmd.command === "set_mode") {
     return `Tila: ${String(cmd.payload.mode ?? "?")}`;

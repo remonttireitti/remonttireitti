@@ -8,6 +8,7 @@ import {
   type AirfiConnectivity,
   type DeviceStatus,
 } from "@/lib/device-status";
+import { effectiveControlMode, expireTimedModes } from "@/lib/mode-schedule";
 import { recordHubMetrics } from "@/lib/metric-samples";
 import { fetchPrimaryHub } from "@/lib/hubs";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -44,6 +45,8 @@ export async function getDeviceStatus(
     hub.state.airfi_online,
   );
   const level = connectivityLevel(hubConn, airfiConn);
+  const state = expireTimedModes(hub.state);
+  const effectiveMode = effectiveControlMode(hub.control_mode, state);
 
   void recordHubMetrics(hub.id, hub.state, hub.control_mode, {
     hub_online: hubOnline,
@@ -57,5 +60,17 @@ export async function getDeviceStatus(
     level,
     message: buildOfflineMessage(hubConn, airfiConn),
     checked_at: new Date().toISOString(),
+    live: {
+      control_mode: effectiveMode,
+      fan_supply_pct: state.fan_supply_pct ?? null,
+      fan_exhaust_pct: state.fan_exhaust_pct ?? null,
+      fan_supply_target: state.fan_supply_target ?? null,
+      fan_exhaust_target: state.fan_exhaust_target ?? null,
+      fireplace_until: state.fireplace_until ?? null,
+      hood_until: state.hood_until ?? null,
+      away_until: state.away_until ?? null,
+      away_unlimited: state.away_unlimited ?? false,
+      away_mode: state.away_mode ?? false,
+    },
   };
 }
