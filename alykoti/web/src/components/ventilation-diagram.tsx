@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useDeviceStatus } from "@/hooks/use-device-status";
 import { useMetricTrend } from "@/hooks/use-metric-trend";
-import { hubLastSeenLabel, isHubOnline } from "@/lib/device-status";
+import { hubLastSeenLabel, isHubOnline, connectivityLevel } from "@/lib/device-status";
 import { inferAirfiOnline } from "@/lib/airfi-telemetry";
 import type { Hub } from "@/lib/types";
 import { getCo2BandLabel, getCo2Band } from "@/lib/ventilation-logic";
@@ -32,10 +32,17 @@ export function VentilationDiagram({ hub, settingsHref }: Props) {
   const hubOnline = status?.hub.online ?? isHubOnline(hub.last_seen_at);
   const airfiOnline =
     status?.airfi.online ??
-    inferAirfiOnline(hubOnline, hub.state, hub.state.airfi_online);
+    inferAirfiOnline(hubOnline, hub.state, hub.state.airfi_online, hub.last_seen_at);
   const level =
     status?.level ??
-    (hubOnline && airfiOnline ? "ok" : !hubOnline ? "degraded" : "offline");
+    connectivityLevel(
+      {
+        online: hubOnline,
+        last_seen_at: hub.last_seen_at,
+        last_seen_label: hubLastSeenLabel(hub.last_seen_at, hubOnline),
+      },
+      { online: airfiOnline, source: "hub" },
+    );
   const onlineLabel =
     status?.hub.last_seen_label ??
     hubLastSeenLabel(hub.last_seen_at, isHubOnline(hub.last_seen_at));

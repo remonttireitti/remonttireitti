@@ -1,3 +1,4 @@
+import { HUB_ONLINE_TIMEOUT_MS } from "@/lib/device-status";
 import type { HubState } from "@/lib/types";
 
 /** Onko tilassa mitään AirFi-lukemaa (ei pelkkä airfi_online-lippu). */
@@ -26,13 +27,19 @@ export function inferAirfiOnline(
   hubOnline: boolean,
   state: Partial<HubState> | null | undefined,
   hubReported?: boolean | null,
+  hubLastSeenAt?: string | null,
 ): boolean {
   if (!hubOnline) return false;
   if (hasAirfiTelemetry(state)) return true;
   if (hubReported === true) return true;
   if (state?.airfi_updated_at) {
     const age = Date.now() - new Date(state.airfi_updated_at).getTime();
-    if (age >= 0 && age < 10 * 60_000) return true;
+    if (age >= 0 && age < 30 * 60_000) return true;
+  }
+  // Aktiivinen hub + tuore synkka: älä merkitse offlineksi ilman eksplisiittistä false-lukemaa.
+  if (hubReported !== false && hubLastSeenAt) {
+    const hubAge = Date.now() - new Date(hubLastSeenAt).getTime();
+    if (hubAge >= 0 && hubAge < HUB_ONLINE_TIMEOUT_MS) return true;
   }
   return false;
 }

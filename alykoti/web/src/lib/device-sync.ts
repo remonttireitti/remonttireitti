@@ -158,7 +158,11 @@ export async function syncDevice(
   if (hasAirfiTelemetry(mergedState) || hubReportedAirfi === true) {
     mergedState.airfi_online = true;
     mergedState.airfi_updated_at = new Date().toISOString();
-  } else if (hubReportedAirfi === false && !hasAirfiTelemetry(mergedState)) {
+  } else if (
+    hubReportedAirfi === false &&
+    !hasAirfiTelemetry(mergedState) &&
+    !hasAirfiTelemetry(body.state ?? {})
+  ) {
     mergedState.airfi_online = false;
   }
   const effectiveMode = effectiveControlMode(storedMode, mergedState);

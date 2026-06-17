@@ -97,7 +97,7 @@ export function connectivityLevel(
   airfi: AirfiConnectivity,
 ): ConnectivityLevel {
   if (airfi.online && hub.online) return "ok";
-  if (airfi.online) return "degraded";
-  if (!hub.online) return "degraded";
+  if (airfi.online && !hub.online) return "degraded";
+  if (hub.online && !airfi.online) return "degraded";
   return "offline";
 }

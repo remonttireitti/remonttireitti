@@ -4,7 +4,7 @@ import Link from "next/link";
 import { FloorPlanView } from "@/components/floor-plan-view";
 import { useDeviceStatus } from "@/hooks/use-device-status";
 import { useMetricTrend } from "@/hooks/use-metric-trend";
-import { hubLastSeenLabel, isHubOnline } from "@/lib/device-status";
+import { hubLastSeenLabel, isHubOnline, connectivityLevel } from "@/lib/device-status";
 import { inferAirfiOnline } from "@/lib/airfi-telemetry";
 import { FLOOR_PLAN_ANCHORS, type FloorPlanMarker } from "@/lib/floor-plan";
 import type { Hub } from "@/lib/types";
@@ -30,10 +30,17 @@ export function VentilationFloorPlan({ hub, settingsHref }: Props) {
   const hubOnline = status?.hub.online ?? isHubOnline(hub.last_seen_at);
   const airfiOnline =
     status?.airfi.online ??
-    inferAirfiOnline(hubOnline, hub.state, hub.state.airfi_online);
+    inferAirfiOnline(hubOnline, hub.state, hub.state.airfi_online, hub.last_seen_at);
   const level =
     status?.level ??
-    (hubOnline && airfiOnline ? "ok" : !hubOnline ? "degraded" : "offline");
+    connectivityLevel(
+      {
+        online: hubOnline,
+        last_seen_at: hub.last_seen_at,
+        last_seen_label: hubLastSeenLabel(hub.last_seen_at, hubOnline),
+      },
+      { online: airfiOnline, source: "hub" },
+    );
   const co2Band = s.co2_ppm != null ? getCo2Band(s.co2_ppm, hub.config) : null;
 
   const markers: FloorPlanMarker[] = FLOOR_PLAN_ANCHORS.map((anchor) => {
@@ -69,7 +76,11 @@ export function VentilationFloorPlan({ hub, settingsHref }: Props) {
     status && level === "degraded" ? (
       <div className="border-b border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-950">
         <span className="font-semibold">
-          {!status.hub.online ? "Keskusyksikkö offline" : "Hub ei saa yhteyttä AirFiin"}
+          {!status.hub.online
+            ? "Keskusyksikkö offline"
+            : !airfiOnline
+              ? "Ei tuoretta AirFi-dataa"
+              : "Hub ei saa yhteyttä AirFiin"}
         </span>
         {status.message && <span className="ml-2">{status.message}</span>}
       </div>

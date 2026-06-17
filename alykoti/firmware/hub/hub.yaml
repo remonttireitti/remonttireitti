@@ -4,7 +4,7 @@
 substitutions:
   device_name: alykoti-hub
   friendly_name: "Alykoti keskusyksikko"
-  firmware_version: "1.8.0"
+  firmware_version: "1.8.1"
 
   upload_port: COM7
 
@@ -564,6 +564,14 @@ script:
             if (!ok && id(airfi_exhaust_temp).has_state() && publish_temp(id(airfi_exhaust_temp).state, nullptr)) ok = true;
             if (!ok && id(airfi_supply_room_temp).has_state() && publish_temp(id(airfi_supply_room_temp).state, nullptr)) ok = true;
             if (!ok && id(airfi_exhaust_hru_temp).has_state() && publish_temp(id(airfi_exhaust_hru_temp).state, nullptr)) ok = true;
+          }
+          if (!ok && modbus != nullptr) {
+            auto fan = modbus->read_registers(9, 2, modbus_tcp::ModbusFunction::READ_HOLDING_REGISTERS);
+            if (fan.success && fan.data.size() >= 2) {
+              int supply = fan.data[0];
+              int exhaust = fan.data[1];
+              if (supply >= 0 && supply <= 100 && exhaust >= 0 && exhaust <= 100) ok = true;
+            }
           }
           id(airfi_online_flag) = ok;
 

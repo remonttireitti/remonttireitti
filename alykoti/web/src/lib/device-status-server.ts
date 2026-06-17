@@ -20,13 +20,19 @@ async function resolveAirfiConnectivity(
   hubOnline: boolean,
   airfiOnlineFromHub: boolean | null | undefined,
   state?: Partial<HubState>,
+  hubLastSeenAt?: string | null,
 ): Promise<AirfiConnectivity> {
   if (canPingAirfiFromRuntime()) {
     return { online: await pingAirfiFast(), source: "local_modbus" };
   }
 
   return {
-    online: inferAirfiOnline(hubOnline, state, airfiOnlineFromHub),
+    online: inferAirfiOnline(
+      hubOnline,
+      state,
+      airfiOnlineFromHub,
+      hubLastSeenAt,
+    ),
     source: "hub",
   };
 }
@@ -48,6 +54,7 @@ export async function getDeviceStatus(
     hubOnline,
     hub.state.airfi_online,
     hub.state,
+    hub.last_seen_at,
   );
   const level = connectivityLevel(hubConn, airfiConn);
   const state = expireTimedModes(hub.state);
