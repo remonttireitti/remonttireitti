@@ -4,7 +4,7 @@
 substitutions:
   device_name: alykoti-hub
   friendly_name: "Alykoti keskusyksikko"
-  firmware_version: "1.7.8"
+  firmware_version: "1.7.9"
 
   upload_port: COM7
 
@@ -279,7 +279,7 @@ sensor:
     register_address: 3
     function_code: 4
     scale: 0.1
-    update_interval: never
+    update_interval: 30s
     internal: true
 
   - platform: modbus_tcp_manager
@@ -299,7 +299,7 @@ sensor:
     register_address: 5
     function_code: 4
     scale: 0.1
-    update_interval: never
+    update_interval: 30s
     internal: true
 
   - platform: modbus_tcp_manager
@@ -309,7 +309,7 @@ sensor:
     register_address: 6
     function_code: 4
     scale: 0.1
-    update_interval: never
+    update_interval: 30s
     internal: true
 
   - platform: modbus_tcp_manager
@@ -319,7 +319,7 @@ sensor:
     register_address: 7
     function_code: 4
     scale: 0.1
-    update_interval: never
+    update_interval: 30s
     internal: true
 
   - platform: modbus_tcp_manager
@@ -524,29 +524,6 @@ globals:
     initial_value: "0"
 
 script:
-  - id: refresh_airfi_temps
-    mode: restart
-    then:
-      - lambda: |-
-          auto *modbus = id(airfi_modbus);
-          if (modbus == nullptr) return;
-          auto resp = modbus->read_registers(3, 5, modbus_tcp::ModbusFunction::READ_INPUT_REGISTERS);
-          if (!resp.success || resp.data.size() < 5) {
-            ESP_LOGW("airfi", "Lampotilalohkon luku epaonnistui");
-            return;
-          }
-          auto to_c = [](uint16_t raw) -> float {
-            return ((int16_t) raw) * 0.1f;
-          };
-          auto publish = [](esphome::sensor::Sensor *s, float v) {
-            if (v < -50.0f || v > 80.0f) return;
-            s->publish_state(v);
-          };
-          publish(id(airfi_outdoor_temp), to_c(resp.data[0]));
-          publish(id(airfi_exhaust_temp), to_c(resp.data[2]));
-          publish(id(airfi_exhaust_hru_temp), to_c(resp.data[3]));
-          publish(id(airfi_supply_room_temp), to_c(resp.data[4]));
-
   - id: refresh_airfi_online
     mode: restart
     then:
@@ -565,16 +542,23 @@ script:
           if (!ok && id(fan_exhaust_pct).has_state()) ok = true;
           if (!ok && id(airfi_connected).state) ok = true;
 
-          if (!ok) {
-            auto *modbus = id(airfi_modbus);
-            if (modbus != nullptr) {
-              auto probe_temp = [&](uint16_t reg) -> bool {
-                auto resp = modbus->read_register(reg, modbus_tcp::ModbusFunction::READ_INPUT_REGISTERS);
-                if (!resp.success || resp.data.empty()) return false;
-                float v = ((int16_t) resp.data[0]) * 0.1f;
-                return valid_temp(v);
-              };
-              if (probe_temp(3) || probe_temp(5) || probe_temp(7)) ok = true;
+          auto *modbus = id(airfi_modbus);
+          if (modbus != nullptr) {
+            auto probe_temp = [&](uint16_t reg, esphome::sensor::Sensor *sens) -> bool {
+              auto resp = modbus->read_register(reg, modbus_tcp::ModbusFunction::READ_INPUT_REGISTERS);
+              if (!resp.success || resp.data.empty()) return false;
+              float v = ((int16_t) resp.data[0]) * 0.1f;
+              if (!valid_temp(v)) return false;
+              if (sens != nullptr) sens->publish_state(v);
+              return true;
+            };
+            bool need_probe = !id(airfi_outdoor_temp).has_state() || !id(airfi_exhaust_temp).has_state() ||
+                              !id(airfi_exhaust_hru_temp).has_state() || !id(airfi_supply_room_temp).has_state();
+            if (!ok || need_probe) {
+              if (probe_temp(3, id(airfi_outdoor_temp))) ok = true;
+              if (probe_temp(5, id(airfi_exhaust_temp))) ok = true;
+              if (probe_temp(6, id(airfi_exhaust_hru_temp))) ok = true;
+              if (probe_temp(7, id(airfi_supply_room_temp))) ok = true;
             }
           }
           id(airfi_online_flag) = ok;
@@ -807,7 +791,6 @@ script:
   - id: display_refresh
     mode: restart
     then:
-      - script.execute: refresh_airfi_temps
       - script.execute: refresh_airfi_online
       - lvgl.label.update:
           id: iv_timer
@@ -981,7 +964,6 @@ script:
           condition:
             wifi.connected:
           then:
-            - script.execute: refresh_airfi_temps
             - script.execute: refresh_airfi_online
             - http_request.post:
                 url: !secret sync_url
@@ -1163,10 +1145,6 @@ script:
                         - script.execute: cloud_sync
 
 interval:
-  - interval: 15s
-    then:
-      - script.execute: refresh_airfi_temps
-
   - interval: 5s
     then:
       - script.execute: refresh_airfi_online
