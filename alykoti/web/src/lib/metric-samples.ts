@@ -128,10 +128,17 @@ export async function recordHubMetrics(
   const samples = buildMetricSamples(hubId, state, controlMode, extras);
   if (samples.length === 0) return;
 
+  const payload = samples.map((row) => ({
+    hub_id: row.hub_id,
+    metric: row.metric,
+    value: row.value,
+    value_text: row.value_text,
+  }));
+
   const supabase = createAdminClient();
-  const { error } = await supabase.from("hub_metric_samples").insert(samples);
+  const { error } = await supabase.from("hub_metric_samples").insert(payload);
   if (error) {
-    console.warn("[metrics] Tallennus epäonnistui:", error.message);
+    console.warn("[metrics] Tallennus epäonnistui:", error.message ?? String(error));
     return;
   }
 
