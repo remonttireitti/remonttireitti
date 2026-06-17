@@ -4,7 +4,7 @@
 substitutions:
   device_name: alykoti-hub
   friendly_name: "Alykoti keskusyksikko"
-  firmware_version: "1.7.7"
+  firmware_version: "1.7.8"
 
   upload_port: COM7
 
@@ -279,7 +279,7 @@ sensor:
     register_address: 3
     function_code: 4
     scale: 0.1
-    update_interval: 30s
+    update_interval: never
     internal: true
 
   - platform: modbus_tcp_manager
@@ -299,7 +299,7 @@ sensor:
     register_address: 5
     function_code: 4
     scale: 0.1
-    update_interval: 30s
+    update_interval: never
     internal: true
 
   - platform: modbus_tcp_manager
@@ -309,7 +309,7 @@ sensor:
     register_address: 6
     function_code: 4
     scale: 0.1
-    update_interval: 30s
+    update_interval: never
     internal: true
 
   - platform: modbus_tcp_manager
@@ -319,7 +319,7 @@ sensor:
     register_address: 7
     function_code: 4
     scale: 0.1
-    update_interval: 30s
+    update_interval: never
     internal: true
 
   - platform: modbus_tcp_manager
@@ -524,6 +524,29 @@ globals:
     initial_value: "0"
 
 script:
+  - id: refresh_airfi_temps
+    mode: restart
+    then:
+      - lambda: |-
+          auto *modbus = id(airfi_modbus);
+          if (modbus == nullptr) return;
+          auto resp = modbus->read_registers(3, 5, modbus_tcp::ModbusFunction::READ_INPUT_REGISTERS);
+          if (!resp.success || resp.data.size() < 5) {
+            ESP_LOGW("airfi", "Lampotilalohkon luku epaonnistui");
+            return;
+          }
+          auto to_c = [](uint16_t raw) -> float {
+            return ((int16_t) raw) * 0.1f;
+          };
+          auto publish = [](esphome::sensor::Sensor *s, float v) {
+            if (v < -50.0f || v > 80.0f) return;
+            s->publish_state(v);
+          };
+          publish(id(airfi_outdoor_temp), to_c(resp.data[0]));
+          publish(id(airfi_exhaust_temp), to_c(resp.data[2]));
+          publish(id(airfi_exhaust_hru_temp), to_c(resp.data[3]));
+          publish(id(airfi_supply_room_temp), to_c(resp.data[4]));
+
   - id: refresh_airfi_online
     mode: restart
     then:
@@ -784,6 +807,7 @@ script:
   - id: display_refresh
     mode: restart
     then:
+      - script.execute: refresh_airfi_temps
       - script.execute: refresh_airfi_online
       - lvgl.label.update:
           id: iv_timer
@@ -796,7 +820,6 @@ script:
             if (!id(airfi_outdoor_temp).has_state()) return std::string("-- C");
             float v = id(airfi_outdoor_temp).state;
             if (v < -50.0f || v > 80.0f) return std::string("-- C");
-            if (id(fan_supply_pct).has_state() && fabsf(v - id(fan_supply_pct).state) < 0.6f) return std::string("-- C");
             char buf[16];
             snprintf(buf, sizeof(buf), "%.1f C", v);
             return std::string(buf);
@@ -806,7 +829,6 @@ script:
             if (!id(airfi_supply_room_temp).has_state()) return std::string("-- C");
             float v = id(airfi_supply_room_temp).state;
             if (v < -50.0f || v > 80.0f) return std::string("-- C");
-            if (id(fan_supply_pct).has_state() && fabsf(v - id(fan_supply_pct).state) < 0.6f) return std::string("-- C");
             char buf[16];
             snprintf(buf, sizeof(buf), "%.1f C", v);
             return std::string(buf);
@@ -959,6 +981,7 @@ script:
           condition:
             wifi.connected:
           then:
+            - script.execute: refresh_airfi_temps
             - script.execute: refresh_airfi_online
             - http_request.post:
                 url: !secret sync_url
@@ -984,11 +1007,7 @@ script:
                   root["state"]["airfi_online"] = airfi_ok;
                   if (id(airfi_outdoor_temp).has_state()) {
                     float v = id(airfi_outdoor_temp).state;
-                    if (v >= -50.0f && v <= 80.0f) {
-                      if (!id(fan_supply_pct).has_state() || fabsf(v - id(fan_supply_pct).state) >= 0.6f) {
-                        root["state"]["outdoor_temp_c"] = v;
-                      }
-                    }
+                    if (v >= -50.0f && v <= 80.0f) root["state"]["outdoor_temp_c"] = v;
                   }
                   if (id(airfi_exhaust_temp).has_state()) {
                     float v = id(airfi_exhaust_temp).state;
@@ -996,11 +1015,7 @@ script:
                   }
                   if (id(airfi_supply_room_temp).has_state()) {
                     float v = id(airfi_supply_room_temp).state;
-                    if (v >= -50.0f && v <= 80.0f) {
-                      if (!id(fan_supply_pct).has_state() || fabsf(v - id(fan_supply_pct).state) >= 0.6f) {
-                        root["state"]["supply_room_temp_c"] = v;
-                      }
-                    }
+                    if (v >= -50.0f && v <= 80.0f) root["state"]["supply_room_temp_c"] = v;
                   }
                   if (id(airfi_exhaust_hru_temp).has_state()) {
                     float v = id(airfi_exhaust_hru_temp).state;
@@ -1148,6 +1163,10 @@ script:
                         - script.execute: cloud_sync
 
 interval:
+  - interval: 15s
+    then:
+      - script.execute: refresh_airfi_temps
+
   - interval: 5s
     then:
       - script.execute: refresh_airfi_online
