@@ -24,6 +24,13 @@
 .DS_Store
 *.pem
 
+# IoT / ESPHome secrets
+alykoti/**/secrets.yaml
+alykoti/**/node_modules
+alykoti/web/.next
+alykoti/firmware/**/flash-*.txt
+alykoti/supabase/.temp
+
 # debug
 npm-debug.log*
 yarn-debug.log*
@@ -39,3 +46,5 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+.vercel

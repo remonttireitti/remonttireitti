@@ -1,0 +1,15 @@
+{
+  "name": "alykoti",
+  "private": true,
+  "scripts": {
+    "db:login": "supabase login",
+    "db:link": "supabase link",
+    "db:push": "supabase db push",
+    "db:status": "supabase projects list",
+    "web:dev": "npm run dev --prefix web",
+    "web:install": "npm install --prefix web"
+  },
+  "devDependencies": {
+    "supabase": "^2.100.0"
+  }
+}

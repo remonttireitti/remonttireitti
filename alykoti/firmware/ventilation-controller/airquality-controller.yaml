@@ -1,0 +1,364 @@
+# ESP32: Airthings BLE → AirFi Modbus → Supabase etäohjaus
+# Flash: esphome run airquality-controller.yaml
+
+substitutions:
+  device_name: alykoti-hub
+  friendly_name: "Älykoti keskusyksikkö"
+  firmware_version: "1.0.0"
+
+  # Guition JC-ESP32P4 — vahvista pinnit docs/hardware.md
+
+  # Guition JC-ESP32P4-M3 — GPIO16/17 varattu C6-yhteydelle, RS485 muille pineille
+  modbus_baud: "38400"
+  modbus_unit: "0x01"
+  uart_tx_pin: GPIO20
+  uart_rx_pin: GPIO21
+  rs485_de_pin: GPIO4
+  upload_port: COM7
+
+esphome:
+  name: ${device_name}
+  friendly_name: ${friendly_name}
+  min_version: 2025.1.0
+  platformio_options:
+    upload_port: ${upload_port}
+  on_boot:
+    priority: -100
+    then:
+      - logger.log: "Älykoti keskusyksikkö käynnistyi"
+
+esp32:
+  variant: esp32p4
+  flash_size: 16MB
+  cpu_frequency: 360MHz
+  framework:
+    type: esp-idf
+    advanced:
+      enable_idf_experimental_features: yes
+
+esp32_hosted:
+  variant: ESP32C6
+  reset_pin: GPIO54
+  cmd_pin: GPIO19
+  clk_pin: GPIO18
+  d0_pin: GPIO14
+  d1_pin: GPIO15
+  d2_pin: GPIO16
+  d3_pin: GPIO17
+  active_high: true
+
+logger:
+  level: INFO
+  hardware_uart: USB_SERIAL_JTAG
+
+api:
+  encryption:
+    key: !secret api_encryption_key
+
+ota:
+  - platform: esphome
+    password: !secret ota_password
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  ap:
+    ssid: "${device_name}-setup"
+    password: !secret ota_password
+
+captive_portal:
+
+http_request:
+  id: http_client
+  timeout: 15s
+
+# --- Airthings BLE ---
+
+esp32_ble_tracker:
+  scan_parameters:
+    active: true
+
+ble_client:
+  - mac_address: !secret airthings_mac
+    id: airthings_ble
+
+sensor:
+  - platform: airthings_wave_plus
+    ble_client_id: airthings_ble
+    update_interval: 5min
+    co2:
+      id: co2_ppm
+      name: "CO2"
+      unit_of_measurement: "ppm"
+      accuracy_decimals: 0
+      filters:
+        - throttle: 2min
+    humidity:
+      id: humidity_pct
+      name: "Kosteus"
+      unit_of_measurement: "%"
+    temperature:
+      id: temp_c
+      name: "Lämpötila"
+      unit_of_measurement: "°C"
+    tvoc:
+      id: tvoc_ppb
+      name: "VOC"
+
+  - platform: modbus_controller
+    modbus_controller_id: airfi
+    name: "AirFi hätäseis"
+    address: 16
+    register_type: read
+    value_type: U_WORD
+    id: airfi_emergency_stop
+
+  - platform: modbus_controller
+    modbus_controller_id: airfi
+    name: "AirFi vikatila"
+    address: 18
+    register_type: read
+    value_type: U_WORD
+    id: airfi_fault
+
+  - platform: modbus_controller
+    modbus_controller_id: airfi
+    name: "AirFi nykyinen nopeus"
+    address: 23
+    register_type: read
+    value_type: U_WORD
+    id: airfi_current_speed
+
+  - platform: modbus_controller
+    modbus_controller_id: airfi
+    name: "AirFi kotona poissa"
+    address: 15
+    register_type: read
+    value_type: U_WORD
+    id: airfi_away_mode
+
+# --- AirFi Modbus RTU ---
+
+uart:
+  id: modbus_uart
+  tx_pin: ${uart_tx_pin}
+  rx_pin: ${uart_rx_pin}
+  baud_rate: ${modbus_baud}
+  data_bits: 8
+  parity: NONE
+  stop_bits: 1
+
+modbus:
+  id: modbus_bus
+  uart_id: modbus_uart
+  flow_control_pin: ${rs485_de_pin}
+  send_wait_time: 200ms
+
+modbus_controller:
+  - id: airfi
+    address: ${modbus_unit}
+    modbus_id: modbus_bus
+    setup_priority: -10
+    update_interval: 30s
+
+number:
+  - platform: modbus_controller
+    modbus_controller_id: airfi
+    name: "AirFi nopeus"
+    address: 0
+    register_type: holding
+    value_type: U_WORD
+    min_value: 0
+    max_value: 5
+    step: 1
+    mode: box
+    id: airfi_speed_setpoint
+
+  - platform: modbus_controller
+    modbus_controller_id: airfi
+    name: "AirFi poissa-tila"
+    address: 11
+    register_type: holding
+    value_type: U_WORD
+    min_value: 0
+    max_value: 1
+    step: 1
+    id: airfi_away_setpoint
+
+# --- Ohjauslogiikka + Supabase-synkki ---
+
+globals:
+  - id: last_applied_speed
+    type: int
+    restore_value: no
+    initial_value: "-1"
+
+  - id: control_mode_auto
+    type: bool
+    restore_value: yes
+    initial_value: "true"
+
+  - id: cfg_co2_normal_max
+    type: int
+    restore_value: yes
+    initial_value: "800"
+
+  - id: cfg_co2_elevated_max
+    type: int
+    restore_value: yes
+    initial_value: "1000"
+
+  - id: cfg_co2_high_max
+    type: int
+    restore_value: yes
+    initial_value: "1200"
+
+  - id: cfg_speed_normal
+    type: int
+    restore_value: yes
+    initial_value: "2"
+
+  - id: cfg_speed_elevated
+    type: int
+    restore_value: yes
+    initial_value: "3"
+
+  - id: cfg_speed_high
+    type: int
+    restore_value: yes
+    initial_value: "4"
+
+  - id: cfg_speed_max
+    type: int
+    restore_value: yes
+    initial_value: "5"
+
+  - id: ack_cmd_1
+    type: std::string
+    restore_value: no
+    initial_value: '""'
+
+  - id: ack_cmd_2
+    type: std::string
+    restore_value: no
+    initial_value: '""'
+
+  - id: ack_cmd_3
+    type: std::string
+    restore_value: no
+    initial_value: '""'
+
+interval:
+  - interval: 30s
+    then:
+      - lambda: |-
+          if (id(airfi_emergency_stop).has_state() && id(airfi_emergency_stop).state > 0) return;
+          if (id(airfi_fault).has_state() && id(airfi_fault).state > 0) return;
+          if (!id(control_mode_auto)) return;
+          if (id(airfi_away_mode).has_state() && id(airfi_away_mode).state > 0) return;
+          if (!id(co2_ppm).has_state()) return;
+
+          const float co2 = id(co2_ppm).state;
+          int target_speed;
+
+          if (co2 < id(cfg_co2_normal_max)) {
+            target_speed = id(cfg_speed_normal);
+          } else if (co2 < id(cfg_co2_elevated_max)) {
+            target_speed = id(cfg_speed_elevated);
+          } else if (co2 < id(cfg_co2_high_max)) {
+            target_speed = id(cfg_speed_high);
+          } else {
+            target_speed = id(cfg_speed_max);
+          }
+
+          if (target_speed == id(last_applied_speed)) return;
+
+          ESP_LOGI("control", "CO2=%.0f → nopeus %d", co2, target_speed);
+          id(airfi_speed_setpoint).publish_state(target_speed);
+          id(last_applied_speed) = target_speed;
+
+  - interval: 60s
+    then:
+      - http_request.post:
+          url: !secret sync_url
+          request_headers:
+            Authorization: !secret device_auth
+            Content-Type: application/json
+          json: !lambda |-
+            root["firmware_version"] = "${firmware_version}";
+            if (id(ack_cmd_1) != "") root["acked_command_ids"].add(id(ack_cmd_1).c_str());
+            if (id(ack_cmd_2) != "") root["acked_command_ids"].add(id(ack_cmd_2).c_str());
+            if (id(ack_cmd_3) != "") root["acked_command_ids"].add(id(ack_cmd_3).c_str());
+            if (id(co2_ppm).has_state()) root["state"]["co2_ppm"] = id(co2_ppm).state;
+            if (id(humidity_pct).has_state()) root["state"]["humidity_pct"] = id(humidity_pct).state;
+            if (id(temp_c).has_state()) root["state"]["temperature_c"] = id(temp_c).state;
+            if (id(tvoc_ppb).has_state()) root["state"]["tvoc_ppb"] = id(tvoc_ppb).state;
+            if (id(airfi_current_speed).has_state()) root["state"]["fan_speed"] = (int) id(airfi_current_speed).state;
+            root["state"]["fan_speed_target"] = id(last_applied_speed);
+            if (id(airfi_away_mode).has_state()) root["state"]["away_mode"] = id(airfi_away_mode).state > 0;
+            if (id(airfi_emergency_stop).has_state()) root["state"]["emergency_stop"] = id(airfi_emergency_stop).state > 0;
+            if (id(airfi_fault).has_state()) root["state"]["fault"] = id(airfi_fault).state > 0;
+          capture_response: true
+          on_response:
+            - lambda: |-
+                id(ack_cmd_1) = "";
+                id(ack_cmd_2) = "";
+                id(ack_cmd_3) = "";
+
+                if (response->status_code != 200) {
+                  ESP_LOGW("sync", "Synkki epäonnistui: HTTP %d", response->status_code);
+                  return;
+                }
+
+                int ack_slot = 0;
+                auto store_ack = [&](const std::string &cmd_id) {
+                  if (cmd_id.empty()) return;
+                  if (ack_slot == 0) id(ack_cmd_1) = cmd_id;
+                  else if (ack_slot == 1) id(ack_cmd_2) = cmd_id;
+                  else if (ack_slot == 2) id(ack_cmd_3) = cmd_id;
+                  ack_slot++;
+                };
+
+                json::parse_json(body, [&](JsonObject root) -> bool {
+                  const char *mode = root["control_mode"] | "auto";
+                  id(control_mode_auto) = strcmp(mode, "auto") == 0;
+
+                  JsonObject config = root["config"];
+                  if (!config.isNull()) {
+                    if (config.containsKey("co2_normal_max")) id(cfg_co2_normal_max) = config["co2_normal_max"].as<int>();
+                    if (config.containsKey("co2_elevated_max")) id(cfg_co2_elevated_max) = config["co2_elevated_max"].as<int>();
+                    if (config.containsKey("co2_high_max")) id(cfg_co2_high_max) = config["co2_high_max"].as<int>();
+                    if (config.containsKey("speed_normal")) id(cfg_speed_normal) = config["speed_normal"].as<int>();
+                    if (config.containsKey("speed_elevated")) id(cfg_speed_elevated) = config["speed_elevated"].as<int>();
+                    if (config.containsKey("speed_high")) id(cfg_speed_high) = config["speed_high"].as<int>();
+                    if (config.containsKey("speed_max")) id(cfg_speed_max) = config["speed_max"].as<int>();
+                  }
+
+                  JsonArray commands = root["commands"];
+                  if (commands.isNull()) return true;
+
+                  for (JsonObject cmd : commands) {
+                    const char *cmd_id = cmd["id"] | "";
+                    const char *command = cmd["command"] | "";
+                    JsonObject payload = cmd["payload"];
+
+                    if (strcmp(command, "set_speed") == 0 && payload.containsKey("speed")) {
+                      int speed = payload["speed"].as<int>();
+                      id(control_mode_auto) = false;
+                      id(airfi_speed_setpoint).publish_state(speed);
+                      id(last_applied_speed) = speed;
+                      ESP_LOGI("sync", "Etakomento: nopeus %d", speed);
+                    } else if (strcmp(command, "set_mode") == 0 && payload.containsKey("mode")) {
+                      const char *m = payload["mode"] | "auto";
+                      id(control_mode_auto) = strcmp(m, "auto") == 0;
+                      ESP_LOGI("sync", "Etakomento: tila %s", m);
+                    } else if (strcmp(command, "set_away") == 0 && payload.containsKey("away")) {
+                      bool away = payload["away"].as<bool>();
+                      id(airfi_away_setpoint).publish_state(away ? 1 : 0);
+                      ESP_LOGI("sync", "Etakomento: poissa=%d", away);
+                    }
+
+                    store_ack(cmd_id);
+                  }
+                  return true;
+                });
