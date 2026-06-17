@@ -2,8 +2,9 @@ const { readFileSync } = require("fs");
 const { Client } = require("pg");
 const path = require("path");
 
+const migration = process.argv[2] ?? "20260615120000_hub_metric_samples.sql";
 const sql = readFileSync(
-  path.join(__dirname, "../../supabase/migrations/20260615100000_hubs.sql"),
+  path.join(__dirname, "../../supabase/migrations", migration),
   "utf8",
 );
 
@@ -26,15 +27,7 @@ const client = new Client({
   await client.connect();
   try {
     await client.query(sql);
-    const { rows } = await client.query(`
-      SELECT table_name
-      FROM information_schema.tables
-      WHERE table_schema = 'public'
-        AND table_name IN ('hubs', 'controllers', 'satellite_devices')
-      ORDER BY 1
-    `);
-    console.log("Tables:", rows.map((r) => r.table_name).join(", "));
-    console.log("Migration OK");
+    console.log(`Migration OK: ${migration}`);
   } catch (e) {
     console.error("Migration error:", e.message);
     process.exit(1);
