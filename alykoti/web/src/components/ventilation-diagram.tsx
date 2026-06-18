@@ -59,7 +59,9 @@ export function VentilationDiagram({ hub, settingsHref }: Props) {
             <span className="font-semibold">
               {!status.hub.online
                 ? "Keskusyksikkö offline"
-                : "Hub ei saa yhteyttä AirFiin"}
+                : !airfiOnline
+                  ? "Ei tuoretta AirFi-dataa"
+                  : "Hub ei saa yhteyttä AirFiin"}
             </span>
             {status.message && (
               <>
