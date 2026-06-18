@@ -36,8 +36,8 @@ export function inferAirfiOnline(
     const age = Date.now() - new Date(state.airfi_updated_at).getTime();
     if (age >= 0 && age < 30 * 60_000) return true;
   }
-  // Aktiivinen hub + tuore synkka: älä merkitse offlineksi ilman eksplisiittistä false-lukemaa.
-  if (hubReported !== false && hubLastSeenAt) {
+  // Aktiivinen hub synkkaa — yksittäinen Modbus-epäonnistuminen ei saa näyttää offlinea.
+  if (hubLastSeenAt) {
     const hubAge = Date.now() - new Date(hubLastSeenAt).getTime();
     if (hubAge >= 0 && hubAge < HUB_ONLINE_TIMEOUT_MS) return true;
   }

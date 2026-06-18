@@ -154,21 +154,30 @@ export async function syncDevice(
     ...parseState(body.state),
   });
 
-  const AIRFI_SYNC_KEYS = [
+  const AIRFI_TEMP_KEYS = [
     "outdoor_temp_c",
     "exhaust_temp_c",
     "supply_room_temp_c",
     "exhaust_hru_temp_c",
-    "fan_supply_pct",
-    "fan_exhaust_pct",
-    "lto_temp_efficiency_pct",
   ] as const;
+
+  const AIRFI_FAN_KEYS = ["fan_supply_pct", "fan_exhaust_pct", "lto_temp_efficiency_pct"] as const;
 
   if (body.state && typeof body.state === "object" && "airfi_online" in body.state) {
     const incoming = body.state as Record<string, unknown>;
-    for (const key of AIRFI_SYNC_KEYS) {
-      if (!(key in incoming) || incoming[key] === null) {
-        (mergedState as Record<string, unknown>)[key] = null;
+    for (const key of AIRFI_TEMP_KEYS) {
+      if (key in incoming) {
+        const v = incoming[key];
+        (mergedState as Record<string, unknown>)[key] =
+          typeof v === "number" && Number.isFinite(v) ? v : null;
+      }
+    }
+    for (const key of AIRFI_FAN_KEYS) {
+      if (key in incoming) {
+        const v = incoming[key];
+        if (typeof v === "number" && Number.isFinite(v)) {
+          (mergedState as Record<string, unknown>)[key] = v;
+        }
       }
     }
   }
@@ -177,12 +186,17 @@ export async function syncDevice(
   if (hasAirfiTelemetry(mergedState) || hubReportedAirfi === true) {
     mergedState.airfi_online = true;
     mergedState.airfi_updated_at = new Date().toISOString();
-  } else if (
-    hubReportedAirfi === false &&
-    !hasAirfiTelemetry(mergedState) &&
-    !hasAirfiTelemetry(body.state ?? {})
-  ) {
-    mergedState.airfi_online = false;
+  } else if (hubReportedAirfi === false) {
+    const prev = parseState(hub.state);
+    const prevAt = prev.airfi_updated_at;
+    const grace =
+      prev.airfi_online === true &&
+      prevAt != null &&
+      Date.now() - new Date(prevAt).getTime() < 10 * 60_000;
+    mergedState.airfi_online = grace || hasAirfiTelemetry(prev);
+    if (mergedState.airfi_online) {
+      mergedState.airfi_updated_at = new Date().toISOString();
+    }
   }
   const effectiveMode = effectiveControlMode(storedMode, mergedState);
   let dbControlMode = storedMode;

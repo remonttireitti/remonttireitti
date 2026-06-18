@@ -4,7 +4,7 @@
 substitutions:
   device_name: alykoti-hub
   friendly_name: "Alykoti keskusyksikko"
-  firmware_version: "1.8.2"
+  firmware_version: "1.8.3"
 
   upload_port: COM7
 
@@ -617,7 +617,7 @@ script:
           }
 
           bool ok = temps_ok;
-          if (!ok && id(airfi_snap_fan_supply) >= 0 && id(airfi_snap_fan_exhaust) >= 0) ok = true;
+          if (!ok && (id(airfi_snap_fan_supply) >= 0 || id(airfi_snap_fan_exhaust) >= 0)) ok = true;
           id(airfi_online_flag) = ok;
 
   - id: handle_swipe_release
