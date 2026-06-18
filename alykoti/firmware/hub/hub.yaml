@@ -4,7 +4,7 @@
 substitutions:
   device_name: alykoti-hub
   friendly_name: "Alykoti keskusyksikko"
-  firmware_version: "1.8.1"
+  firmware_version: "1.8.2"
 
   upload_port: COM7
 
@@ -329,7 +329,7 @@ sensor:
     register_address: 10
     function_code: 3
     scale: 1.0
-    update_interval: 30s
+    update_interval: never
     internal: true
     on_value:
       - lambda: |-
@@ -342,7 +342,7 @@ sensor:
     register_address: 9
     function_code: 3
     scale: 1.0
-    update_interval: 30s
+    update_interval: never
     internal: true
     on_value:
       - lambda: |-
@@ -468,6 +468,36 @@ globals:
     restore_value: no
     initial_value: "false"
 
+  - id: airfi_snap_t1
+    type: float
+    restore_value: no
+    initial_value: "-9999"
+
+  - id: airfi_snap_t3
+    type: float
+    restore_value: no
+    initial_value: "-9999"
+
+  - id: airfi_snap_t4
+    type: float
+    restore_value: no
+    initial_value: "-9999"
+
+  - id: airfi_snap_t5
+    type: float
+    restore_value: no
+    initial_value: "-9999"
+
+  - id: airfi_snap_fan_supply
+    type: int
+    restore_value: no
+    initial_value: "-1"
+
+  - id: airfi_snap_fan_exhaust
+    type: int
+    restore_value: no
+    initial_value: "-1"
+
   - id: swipe_active
     type: bool
     restore_value: no
@@ -528,51 +558,66 @@ script:
     mode: restart
     then:
       - lambda: |-
+          auto parse_temp = [](uint16_t raw) -> float {
+            return ((int16_t) raw) * 0.1f;
+          };
           auto valid_temp = [](float v) {
             return !isnan(v) && v >= -50.0f && v <= 80.0f;
           };
-          auto looks_like_fan_pct = [&](float v) {
-            if (!valid_temp(v)) return true;
-            auto near = [](float a, float b) { return fabsf(a - b) < 0.6f; };
-            if (id(fan_supply_pct).has_state() && near(v, id(fan_supply_pct).state)) return true;
-            if (id(fan_exhaust_pct).has_state() && near(v, id(fan_exhaust_pct).state)) return true;
-            if (id(airfi_supply_fan).has_state() && near(v, id(airfi_supply_fan).state)) return true;
-            if (id(airfi_exhaust_fan).has_state() && near(v, id(airfi_exhaust_fan).state)) return true;
-            return false;
-          };
-          auto publish_temp = [&](float v, esphome::sensor::Sensor *sens) -> bool {
-            if (!valid_temp(v) || looks_like_fan_pct(v)) return false;
-            if (sens != nullptr) sens->publish_state(v);
-            return true;
-          };
-          bool ok = false;
-
+          const float SNAP_INVALID = -9999.0f;
+          auto snap_ok = [&](float v) { return v > -9998.0f && valid_temp(v); };
+          bool temps_ok = false;
           auto *modbus = id(airfi_modbus);
           if (modbus != nullptr) {
-            // Yksi lohkoluku rek 3-7 (T1, T2 varalla, T3, T4, T5) — AirFi v2.9 / virallinen sovellus
             auto resp = modbus->read_registers(3, 5, modbus_tcp::ModbusFunction::READ_INPUT_REGISTERS);
             if (resp.success && resp.data.size() >= 5) {
-              if (publish_temp(((int16_t) resp.data[0]) * 0.1f, id(airfi_outdoor_temp))) ok = true;
-              if (publish_temp(((int16_t) resp.data[2]) * 0.1f, id(airfi_exhaust_temp))) ok = true;
-              if (publish_temp(((int16_t) resp.data[3]) * 0.1f, id(airfi_exhaust_hru_temp))) ok = true;
-              if (publish_temp(((int16_t) resp.data[4]) * 0.1f, id(airfi_supply_room_temp))) ok = true;
+              float t1 = parse_temp(resp.data[0]);
+              float t3 = parse_temp(resp.data[2]);
+              float t4 = parse_temp(resp.data[3]);
+              float t5 = parse_temp(resp.data[4]);
+              id(airfi_snap_t1) = valid_temp(t1) ? t1 : SNAP_INVALID;
+              id(airfi_snap_t3) = valid_temp(t3) ? t3 : SNAP_INVALID;
+              id(airfi_snap_t4) = valid_temp(t4) ? t4 : SNAP_INVALID;
+              id(airfi_snap_t5) = valid_temp(t5) ? t5 : SNAP_INVALID;
+              if (valid_temp(t1)) { id(airfi_outdoor_temp).publish_state(t1); temps_ok = true; }
+              else id(airfi_outdoor_temp).publish_state(NAN);
+              if (valid_temp(t3)) { id(airfi_exhaust_temp).publish_state(t3); temps_ok = true; }
+              else id(airfi_exhaust_temp).publish_state(NAN);
+              if (valid_temp(t4)) { id(airfi_exhaust_hru_temp).publish_state(t4); temps_ok = true; }
+              else id(airfi_exhaust_hru_temp).publish_state(NAN);
+              if (valid_temp(t5)) { id(airfi_supply_room_temp).publish_state(t5); temps_ok = true; }
+              else id(airfi_supply_room_temp).publish_state(NAN);
+              ESP_LOGI("airfi", "T1=%.1f T3=%.1f T4=%.1f T5=%.1f", t1, t3, t4, t5);
+            } else {
+              id(airfi_snap_t1) = SNAP_INVALID;
+              id(airfi_snap_t3) = SNAP_INVALID;
+              id(airfi_snap_t4) = SNAP_INVALID;
+              id(airfi_snap_t5) = SNAP_INVALID;
+              id(airfi_outdoor_temp).publish_state(NAN);
+              id(airfi_exhaust_temp).publish_state(NAN);
+              id(airfi_exhaust_hru_temp).publish_state(NAN);
+              id(airfi_supply_room_temp).publish_state(NAN);
             }
-          }
 
-          if (!ok) {
-            if (id(airfi_outdoor_temp).has_state() && publish_temp(id(airfi_outdoor_temp).state, nullptr)) ok = true;
-            if (!ok && id(airfi_exhaust_temp).has_state() && publish_temp(id(airfi_exhaust_temp).state, nullptr)) ok = true;
-            if (!ok && id(airfi_supply_room_temp).has_state() && publish_temp(id(airfi_supply_room_temp).state, nullptr)) ok = true;
-            if (!ok && id(airfi_exhaust_hru_temp).has_state() && publish_temp(id(airfi_exhaust_hru_temp).state, nullptr)) ok = true;
-          }
-          if (!ok && modbus != nullptr) {
             auto fan = modbus->read_registers(9, 2, modbus_tcp::ModbusFunction::READ_HOLDING_REGISTERS);
             if (fan.success && fan.data.size() >= 2) {
               int supply = fan.data[0];
               int exhaust = fan.data[1];
-              if (supply >= 0 && supply <= 100 && exhaust >= 0 && exhaust <= 100) ok = true;
+              if (supply >= 0 && supply <= 100) {
+                id(airfi_snap_fan_supply) = supply;
+                id(airfi_supply_fan).publish_state(supply);
+                id(fan_supply_pct).publish_state(supply);
+              }
+              if (exhaust >= 0 && exhaust <= 100) {
+                id(airfi_snap_fan_exhaust) = exhaust;
+                id(airfi_exhaust_fan).publish_state(exhaust);
+                id(fan_exhaust_pct).publish_state(exhaust);
+              }
             }
           }
+
+          bool ok = temps_ok;
+          if (!ok && id(airfi_snap_fan_supply) >= 0 && id(airfi_snap_fan_exhaust) >= 0) ok = true;
           id(airfi_online_flag) = ok;
 
   - id: handle_swipe_release
@@ -993,31 +1038,26 @@ script:
                     return !isnan(v) && v >= -50.0f && v <= 80.0f;
                   };
                   root["state"]["airfi_online"] = id(airfi_online_flag);
-                  if (id(airfi_outdoor_temp).has_state()) {
-                    float v = id(airfi_outdoor_temp).state;
-                    if (v >= -50.0f && v <= 80.0f) root["state"]["outdoor_temp_c"] = v;
+                  auto put_temp = [&](const char *key, float v) {
+                    if (v > -9998.0f && !isnan(v) && v >= -50.0f && v <= 80.0f) root["state"][key] = v;
+                    else root["state"][key] = nullptr;
+                  };
+                  put_temp("outdoor_temp_c", id(airfi_snap_t1));
+                  put_temp("exhaust_temp_c", id(airfi_snap_t3));
+                  put_temp("supply_room_temp_c", id(airfi_snap_t5));
+                  put_temp("exhaust_hru_temp_c", id(airfi_snap_t4));
+                  if (id(airfi_snap_fan_supply) >= 0) {
+                    root["state"]["fan_supply_pct"] = id(airfi_snap_fan_supply);
+                  } else {
+                    root["state"]["fan_supply_pct"] = nullptr;
                   }
-                  if (id(airfi_exhaust_temp).has_state()) {
-                    float v = id(airfi_exhaust_temp).state;
-                    if (v >= -50.0f && v <= 80.0f) root["state"]["exhaust_temp_c"] = v;
+                  if (id(airfi_snap_fan_exhaust) >= 0) {
+                    root["state"]["fan_exhaust_pct"] = id(airfi_snap_fan_exhaust);
+                  } else {
+                    root["state"]["fan_exhaust_pct"] = nullptr;
                   }
-                  if (id(airfi_supply_room_temp).has_state()) {
-                    float v = id(airfi_supply_room_temp).state;
-                    if (v >= -50.0f && v <= 80.0f) root["state"]["supply_room_temp_c"] = v;
-                  }
-                  if (id(airfi_exhaust_hru_temp).has_state()) {
-                    float v = id(airfi_exhaust_hru_temp).state;
-                    if (v >= -50.0f && v <= 80.0f) root["state"]["exhaust_hru_temp_c"] = v;
-                  }
-                  if (id(fan_supply_pct).has_state()) {
-                    root["state"]["fan_supply_pct"] = (int) id(fan_supply_pct).state;
-                  } else if (id(airfi_supply_fan).has_state()) {
-                    root["state"]["fan_supply_pct"] = (int) id(airfi_supply_fan).state;
-                  }
-                  if (id(fan_exhaust_pct).has_state()) {
-                    root["state"]["fan_exhaust_pct"] = (int) id(fan_exhaust_pct).state;
-                  } else if (id(airfi_exhaust_fan).has_state()) {
-                    root["state"]["fan_exhaust_pct"] = (int) id(airfi_exhaust_fan).state;
+                  if (id(lto_temp_eff).has_state()) {
+                    root["state"]["lto_temp_efficiency_pct"] = id(lto_temp_eff).state;
                   }
                   if (id(airfi_supply_airflow).has_state()) root["state"]["supply_airflow_m3h"] = (int) id(airfi_supply_airflow).state;
                   if (id(airfi_exhaust_airflow).has_state()) root["state"]["exhaust_airflow_m3h"] = (int) id(airfi_exhaust_airflow).state;
