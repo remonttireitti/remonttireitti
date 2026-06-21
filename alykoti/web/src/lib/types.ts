@@ -42,6 +42,8 @@ export type HubLightState = {
   name?: string;
 };
 
+export type ShellyDeviceRole = "em" | "switch";
+
 export type ShellyDeviceConfig = {
   id: string;
   host: string;
@@ -49,6 +51,7 @@ export type ShellyDeviceConfig = {
   name: string;
   model?: string;
   gen?: 1 | 2;
+  role?: ShellyDeviceRole;
 };
 
 export type ShellyDiscoveredDevice = {
@@ -56,6 +59,7 @@ export type ShellyDiscoveredDevice = {
   name: string;
   model?: string;
   gen?: 1 | 2;
+  role?: ShellyDeviceRole;
   online: boolean;
 };
 
@@ -95,6 +99,14 @@ export type HubHomeDevice = {
   node_id?: number;
   host?: string;
   channel?: number;
+  role?: ShellyDeviceRole;
+  model?: string;
+  /** Shelly EM — kokonaisteho W */
+  power_w?: number | null;
+  /** Shelly EM — energia Wh */
+  energy_wh?: number | null;
+  em_a_power_w?: number | null;
+  em_b_power_w?: number | null;
 };
 
 /** Web-käyttäjän asetukset laitteelle (ei Yellow-synkistä). */

@@ -2,7 +2,13 @@
 
 import { revalidateLaitteet } from "@/lib/revalidate-laitteet";
 import { fetchPrimaryHub } from "@/lib/hubs";
-import type { HubIntegrations, HubState, ShellyDeviceConfig, TasmotaDeviceConfig } from "@/lib/types";
+import type {
+  HubIntegrations,
+  HubState,
+  ShellyDeviceConfig,
+  ShellyDeviceRole,
+  TasmotaDeviceConfig,
+} from "@/lib/types";
 import { createClient } from "@/lib/supabase/server";
 
 export type DeviceActionState = {
@@ -16,8 +22,17 @@ function normalizeHost(raw: string): string | null {
   return host;
 }
 
-function shellyId(host: string, channel = 0): string {
+function shellyId(host: string, role: ShellyDeviceRole = "switch", channel = 0): string {
+  if (role === "em") return `shelly:${host}:em`;
   return `shelly:${host}:${channel}`;
+}
+
+function inferShellyRole(model?: string, role?: ShellyDeviceRole): ShellyDeviceRole {
+  if (role) return role;
+  if (!model) return "switch";
+  const m = model.toUpperCase();
+  if (m.includes("SPEM") || m.includes("SHEM") || m.includes("EM")) return "em";
+  return "switch";
 }
 
 async function requireHub() {
@@ -39,6 +54,7 @@ export async function addShellyDevice(
   channel = 0,
   gen: 1 | 2 = 2,
   model?: string,
+  role?: ShellyDeviceRole,
 ): Promise<DeviceActionState> {
   const host = normalizeHost(hostRaw);
   if (!host) return { error: "Virheellinen IP-osoite." };
@@ -46,22 +62,24 @@ export async function addShellyDevice(
   const ctx = await requireHub();
   if (ctx.error || !ctx.supabase || !ctx.hub) return { error: ctx.error ?? "Virhe." };
 
+  const deviceRole = inferShellyRole(model, role);
   const state = (ctx.hub.state as HubState) ?? {};
   const integrations: HubIntegrations = { ...(state.integrations ?? {}) };
   const devices = [...(integrations.shelly?.devices ?? [])];
-  const id = shellyId(host, channel);
+  const id = shellyId(host, deviceRole, channel);
 
-  if (devices.some((d) => d.id === id)) {
+  if (devices.some((d) => d.id === id || d.host === host)) {
     return { error: "Laite on jo listalla." };
   }
 
   const entry: ShellyDeviceConfig = {
     id,
     host,
-    channel,
+    channel: deviceRole === "em" ? 0 : channel,
     name: nameRaw.trim() || host,
     gen,
     model,
+    role: deviceRole,
   };
   devices.push(entry);
   integrations.shelly = { devices };
@@ -74,7 +92,8 @@ export async function addShellyDevice(
   if (error) return { error: "Tallennus epäonnistui." };
 
   revalidateLaitteet();
-  return { ok: "Shelly lisätty — Yellow hakee tilan seuraavassa synkissä." };
+  const label = deviceRole === "em" ? "Energiamittari" : "Valokytkin";
+  return { ok: `${label} lisätty — Yellow hakee tilan seuraavassa synkissä.` };
 }
 
 export async function removeShellyDevice(deviceId: string): Promise<DeviceActionState> {

@@ -29,8 +29,13 @@ export async function GET() {
       id: dev.id,
       name: dev.name,
       host: dev.host,
+      role: dev.role ?? d?.role ?? "switch",
       on: d?.on === true,
       reachable: Boolean(d),
+      power_w: d?.power_w ?? null,
+      energy_wh: d?.energy_wh ?? null,
+      em_a_power_w: d?.em_a_power_w ?? null,
+      em_b_power_w: d?.em_b_power_w ?? null,
     };
   });
 

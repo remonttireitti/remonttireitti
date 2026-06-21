@@ -8,14 +8,19 @@ import {
   removeShellyDevice,
   type DeviceActionState,
 } from "@/app/actions/integrations";
-import type { ShellyDeviceConfig, ShellyDiscoveredDevice } from "@/lib/types";
+import type { ShellyDeviceConfig, ShellyDeviceRole, ShellyDiscoveredDevice } from "@/lib/types";
 
 type ShellyLive = {
   id: string;
   name: string;
   on: boolean;
   host: string;
+  role: ShellyDeviceRole;
   reachable?: boolean;
+  power_w?: number | null;
+  energy_wh?: number | null;
+  em_a_power_w?: number | null;
+  em_b_power_w?: number | null;
 };
 
 type ShellyResponse = {
@@ -26,11 +31,38 @@ type ShellyResponse = {
   discovered?: ShellyDiscoveredDevice[];
 };
 
+function roleLabel(role?: ShellyDeviceRole): string {
+  return role === "em" ? "Energiamittari" : "Valokytkin";
+}
+
+function formatPower(w?: number | null): string | null {
+  if (w == null || !Number.isFinite(w)) return null;
+  return `${Math.round(w)} W`;
+}
+
+function formatEnergy(wh?: number | null): string | null {
+  if (wh == null || !Number.isFinite(wh)) return null;
+  if (wh >= 1000) return `${(wh / 1000).toFixed(1)} kWh`;
+  return `${Math.round(wh)} Wh`;
+}
+
+function emStatusText(live: ShellyLive | undefined): string {
+  if (!live?.reachable) return "Ei vastausta";
+  const total = formatPower(live.power_w);
+  const energy = formatEnergy(live.energy_wh);
+  const parts = [total, energy].filter(Boolean);
+  if (live.em_a_power_w != null && live.em_b_power_w != null) {
+    parts.push(`A ${Math.round(live.em_a_power_w)} W`, `B ${Math.round(live.em_b_power_w)} W`);
+  }
+  return parts.join(" · ") || "Online";
+}
+
 export function ShellyPanel() {
   const [data, setData] = useState<ShellyResponse | null>(null);
   const [flash, setFlash] = useState<DeviceActionState | null>(null);
   const [host, setHost] = useState("");
   const [name, setName] = useState("");
+  const [manualRole, setManualRole] = useState<ShellyDeviceRole>("switch");
   const [pending, startTransition] = useTransition();
 
   const load = useCallback(async () => {
@@ -63,6 +95,9 @@ export function ShellyPanel() {
   const discovered = data?.discovered ?? [];
   const configuredHosts = new Set(devices.map((d) => d.host));
 
+  const emDevices = devices.filter((d) => (d.role ?? "switch") === "em");
+  const switchDevices = devices.filter((d) => (d.role ?? "switch") !== "em");
+
   return (
     <div className="mt-6 space-y-6">
       {flash?.ok && (
@@ -85,8 +120,7 @@ export function ShellyPanel() {
       <section className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
         <h2 className="text-lg font-semibold text-stone-900">Etsi verkosta</h2>
         <p className="mt-1 text-sm text-stone-600">
-          Yellow skannaa paikallisen verkon (192.168.x.x) Shelly-laitteet. Tulokset tulevat ~30 s
-          kuluttua.
+          Löytää Pro EM -energiamittarit ja valokytkimet. Tulokset ~30 s kuluttua.
         </p>
         <button
           type="button"
@@ -113,7 +147,7 @@ export function ShellyPanel() {
                   <p className="text-xs text-stone-500">
                     {item.host}
                     {item.model && ` · ${item.model}`}
-                    {item.gen && ` · Gen${item.gen}`}
+                    {` · ${roleLabel(item.role)}`}
                   </p>
                 </div>
                 {configuredHosts.has(item.host) ? (
@@ -130,6 +164,7 @@ export function ShellyPanel() {
                           0,
                           item.gen ?? 2,
                           item.model,
+                          item.role,
                         ),
                       )
                     }
@@ -146,14 +181,11 @@ export function ShellyPanel() {
 
       <section className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
         <h2 className="text-lg font-semibold text-stone-900">Lisää IP:llä</h2>
-        <p className="mt-1 text-sm text-stone-600">
-          Voit testata yhteyden Yellowilta ennen lisäämistä.
-        </p>
         <form
           className="mt-4 flex flex-wrap gap-3"
           onSubmit={(e) => {
             e.preventDefault();
-            run(() => addShellyDevice(host, name || host));
+            run(() => addShellyDevice(host, name || host, 0, 2, undefined, manualRole));
           }}
         >
           <input
@@ -172,6 +204,14 @@ export function ShellyPanel() {
             onChange={(e) => setName(e.target.value)}
             className="min-w-[10rem] flex-1 rounded-xl border border-stone-200 px-3 py-2 text-sm"
           />
+          <select
+            value={manualRole}
+            onChange={(e) => setManualRole(e.target.value as ShellyDeviceRole)}
+            className="rounded-xl border border-stone-200 px-3 py-2 text-sm"
+          >
+            <option value="em">Energiamittari (Pro EM)</option>
+            <option value="switch">Valokytkin</option>
+          </select>
           <button
             type="button"
             disabled={pending || !host.trim()}
@@ -190,40 +230,86 @@ export function ShellyPanel() {
         </form>
       </section>
 
-      <section className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
-        <h2 className="text-lg font-semibold text-stone-900">Shelly-laitteet</h2>
-        {devices.length === 0 ? (
-          <p className="mt-3 text-sm text-stone-500">Ei Shelly-laitteita.</p>
-        ) : (
-          <ul className="mt-4 divide-y divide-stone-100">
-            {devices.map((dev) => {
-              const status = live.find((l) => l.id === dev.id);
-              const reachable = status?.reachable;
-              return (
-                <li key={dev.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
-                  <div>
-                    <p className="font-medium text-stone-900">{dev.name}</p>
-                    <p className="text-xs text-stone-500">
-                      {dev.host}
-                      {status && reachable && ` · ${status.on ? "Päällä" : "Pois"}`}
-                      {status && !reachable && " · Ei vastausta (Yellow ei tavoita)"}
-                      {!status && data?.hubOnline && " · Odottaa synkkiä"}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    disabled={pending}
-                    onClick={() => run(() => removeShellyDevice(dev.id))}
-                    className="rounded-lg border border-red-200 px-3 py-1.5 text-sm text-red-800"
-                  >
-                    Poista
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </section>
+      <DeviceList
+        title="Energiamittarit (Pro EM)"
+        empty="Ei energiamittareita — lisää 4 Pro EM -laitetta."
+        devices={emDevices}
+        live={live}
+        hubOnline={data?.hubOnline}
+        pending={pending}
+        onRemove={(id) => run(() => removeShellyDevice(id))}
+        statusText={(l) => emStatusText(l)}
+      />
+
+      <DeviceList
+        title="Valokytkimet"
+        empty="Ei valokytkimiä."
+        devices={switchDevices}
+        live={live}
+        hubOnline={data?.hubOnline}
+        pending={pending}
+        onRemove={(id) => run(() => removeShellyDevice(id))}
+        statusText={(l) => {
+          if (!l?.reachable) return "Ei vastausta";
+          return l.on ? "Päällä" : "Pois";
+        }}
+      />
     </div>
+  );
+}
+
+function DeviceList({
+  title,
+  empty,
+  devices,
+  live,
+  hubOnline,
+  pending,
+  onRemove,
+  statusText,
+}: {
+  title: string;
+  empty: string;
+  devices: ShellyDeviceConfig[];
+  live: ShellyLive[];
+  hubOnline?: boolean;
+  pending: boolean;
+  onRemove: (id: string) => void;
+  statusText: (live: ShellyLive | undefined) => string;
+}) {
+  return (
+    <section className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
+      <h2 className="text-lg font-semibold text-stone-900">{title}</h2>
+      {devices.length === 0 ? (
+        <p className="mt-3 text-sm text-stone-500">{empty}</p>
+      ) : (
+        <ul className="mt-4 divide-y divide-stone-100">
+          {devices.map((dev) => {
+            const status = live.find((l) => l.id === dev.id);
+            return (
+              <li key={dev.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
+                <div>
+                  <p className="font-medium text-stone-900">{dev.name}</p>
+                  <p className="text-xs text-stone-500">
+                    {dev.host}
+                    {dev.model && ` · ${dev.model}`}
+                    {status && ` · ${statusText(status)}`}
+                    {!status && hubOnline && " · Odottaa synkkiä"}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  disabled={pending}
+                  onClick={() => onRemove(dev.id)}
+                  className="rounded-lg border border-red-200 px-3 py-1.5 text-sm text-red-800"
+                >
+                  Poista
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </section>
   );
 }

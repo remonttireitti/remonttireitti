@@ -26,7 +26,7 @@ const INTEGRATIONS = [
   {
     id: "shelly",
     title: "Shelly",
-    description: "WiFi-releet ja dimmerit paikallisverkossa.",
+    description: "Pro EM energiamittarit ja valokytkimet.",
     href: LAITTEET.shelly,
   },
   {
