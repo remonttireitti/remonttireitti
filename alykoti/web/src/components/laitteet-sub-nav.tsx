@@ -10,6 +10,7 @@ const TABS: Array<{ href: string; label: string; exact?: boolean }> = [
   { href: LAITTEET.valot, label: "Valot" },
   { href: LAITTEET.keskusyksikko, label: "Keskusyksikkö" },
   { href: LAITTEET.shelly, label: "Shelly" },
+  { href: LAITTEET.tasmota, label: "Tasmota" },
 ];
 
 export function LaitteetSubNav() {

@@ -83,6 +83,15 @@ export default async function LaitteetHubDetailPage({
           </li>
           <li>
             <Link
+              href={LAITTEET.tasmota}
+              className="flex items-center justify-between rounded-xl border border-stone-200 px-4 py-3 hover:bg-stone-50"
+            >
+              <span className="font-medium">Tasmota (Sonoff)</span>
+              <span className="text-stone-400">→</span>
+            </Link>
+          </li>
+          <li>
+            <Link
               href={LAITTEET.shelly}
               className="flex items-center justify-between rounded-xl border border-stone-200 px-4 py-3 hover:bg-stone-50"
             >

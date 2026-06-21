@@ -8,7 +8,7 @@ export type HubLightDevice = {
   brightness: number | null;
   reachable: boolean;
   roomAnchorId: string | null;
-  protocol: "zigbee" | "zwave" | "shelly";
+  protocol: "zigbee" | "zwave" | "shelly" | "tasmota";
   kind: HubHomeDevice["kind"];
   room: string | null;
   controllable: boolean;
@@ -58,7 +58,9 @@ export function parseHubHomeDevices(
             ? "zwave"
             : d.protocol === "shelly"
               ? "shelly"
-              : "zigbee",
+              : d.protocol === "tasmota"
+                ? "tasmota"
+                : "zigbee",
         kind: d.kind ?? "other",
         room: o?.room ?? d.room ?? null,
         controllable: d.controllable === true,

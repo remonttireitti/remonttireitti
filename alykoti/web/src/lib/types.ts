@@ -59,14 +59,32 @@ export type ShellyDiscoveredDevice = {
   online: boolean;
 };
 
+export type TasmotaDeviceConfig = {
+  id: string;
+  host: string;
+  channel: number;
+  name: string;
+  model?: string;
+};
+
+export type TasmotaDiscoveredDevice = {
+  host: string;
+  name: string;
+  model?: string;
+  online: boolean;
+};
+
 export type HubIntegrations = {
   shelly?: {
     devices: ShellyDeviceConfig[];
   };
+  tasmota?: {
+    devices: TasmotaDeviceConfig[];
+  };
 };
 
 export type HubHomeDevice = {
-  protocol: "zigbee" | "zwave" | "shelly";
+  protocol: "zigbee" | "zwave" | "shelly" | "tasmota";
   kind: "light" | "switch" | "lock" | "fan" | "sensor" | "other";
   name: string;
   room?: string | null;
@@ -153,6 +171,8 @@ export type HubState = {
   integrations?: HubIntegrations;
   /** Yellow-verkkoscanin löytämät Shellyt. */
   shelly_discovered?: ShellyDiscoveredDevice[];
+  /** Yellow-verkkoscanin löytämät Tasmota-laitteet. */
+  tasmota_discovered?: TasmotaDiscoveredDevice[];
 };
 
 export type Hub = {

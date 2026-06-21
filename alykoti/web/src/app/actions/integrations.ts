@@ -2,7 +2,7 @@
 
 import { revalidateLaitteet } from "@/lib/revalidate-laitteet";
 import { fetchPrimaryHub } from "@/lib/hubs";
-import type { HubIntegrations, HubState, ShellyDeviceConfig } from "@/lib/types";
+import type { HubIntegrations, HubState, ShellyDeviceConfig, TasmotaDeviceConfig } from "@/lib/types";
 import { createClient } from "@/lib/supabase/server";
 
 export type DeviceActionState = {
@@ -132,4 +132,90 @@ export async function probeShellyHost(hostRaw: string): Promise<DeviceActionStat
   if (ctx.error || !ctx.supabase || !ctx.hub || !ctx.user) return { error: ctx.error ?? "Virhe." };
 
   return queueHubCommand(ctx.supabase, ctx.hub.id, ctx.user.id, "shelly_probe", { host });
+}
+
+function tasmotaId(host: string, channel = 0): string {
+  return `tasmota:${host}:${channel}`;
+}
+
+export async function addTasmotaDevice(
+  hostRaw: string,
+  nameRaw: string,
+  channel = 0,
+  model?: string,
+): Promise<DeviceActionState> {
+  const host = normalizeHost(hostRaw);
+  if (!host) return { error: "Virheellinen IP-osoite." };
+
+  const ctx = await requireHub();
+  if (ctx.error || !ctx.supabase || !ctx.hub) return { error: ctx.error ?? "Virhe." };
+
+  const state = (ctx.hub.state as HubState) ?? {};
+  const integrations: HubIntegrations = { ...(state.integrations ?? {}) };
+  const devices = [...(integrations.tasmota?.devices ?? [])];
+  const id = tasmotaId(host, channel);
+
+  if (devices.some((d) => d.id === id)) {
+    return { error: "Laite on jo listalla." };
+  }
+
+  const entry: TasmotaDeviceConfig = {
+    id,
+    host,
+    channel,
+    name: nameRaw.trim() || host,
+    model,
+  };
+  devices.push(entry);
+  integrations.tasmota = { devices };
+
+  const { error } = await ctx.supabase
+    .from("hubs")
+    .update({ state: { ...state, integrations } })
+    .eq("id", ctx.hub.id);
+
+  if (error) return { error: "Tallennus epäonnistui." };
+
+  revalidateLaitteet();
+  return { ok: "Tasmota lisätty — Yellow hakee tilan seuraavassa synkissä." };
+}
+
+export async function removeTasmotaDevice(deviceId: string): Promise<DeviceActionState> {
+  const ctx = await requireHub();
+  if (ctx.error || !ctx.supabase || !ctx.hub) return { error: ctx.error ?? "Virhe." };
+
+  const state = (ctx.hub.state as HubState) ?? {};
+  const integrations: HubIntegrations = { ...(state.integrations ?? {}) };
+  const devices = (integrations.tasmota?.devices ?? []).filter((d) => d.id !== deviceId);
+  integrations.tasmota = { devices };
+
+  const homeDevices = { ...(state.home_devices ?? {}) };
+  delete homeDevices[deviceId];
+
+  const { error } = await ctx.supabase
+    .from("hubs")
+    .update({ state: { ...state, integrations, home_devices: homeDevices } })
+    .eq("id", ctx.hub.id);
+
+  if (error) return { error: "Poisto epäonnistui." };
+
+  revalidateLaitteet();
+  return { ok: "Tasmota poistettu." };
+}
+
+export async function discoverTasmotaDevices(): Promise<DeviceActionState> {
+  const ctx = await requireHub();
+  if (ctx.error || !ctx.supabase || !ctx.hub || !ctx.user) return { error: ctx.error ?? "Virhe." };
+
+  return queueHubCommand(ctx.supabase, ctx.hub.id, ctx.user.id, "tasmota_discover", {});
+}
+
+export async function probeTasmotaHost(hostRaw: string): Promise<DeviceActionState> {
+  const host = normalizeHost(hostRaw);
+  if (!host) return { error: "Virheellinen IP-osoite." };
+
+  const ctx = await requireHub();
+  if (ctx.error || !ctx.supabase || !ctx.hub || !ctx.user) return { error: ctx.error ?? "Virhe." };
+
+  return queueHubCommand(ctx.supabase, ctx.hub.id, ctx.user.id, "tasmota_probe", { host });
 }

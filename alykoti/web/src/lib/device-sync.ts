@@ -172,8 +172,8 @@ export async function syncDevice(
     mergedState.home_devices = body.state.home_devices;
   }
 
-  if (Array.isArray(body.state?.shelly_discovered)) {
-    mergedState.shelly_discovered = body.state.shelly_discovered as HubState["shelly_discovered"];
+  if (Array.isArray(body.state?.tasmota_discovered)) {
+    mergedState.tasmota_discovered = body.state.tasmota_discovered as HubState["tasmota_discovered"];
   }
 
   const prevStored = parseState(hub.state);
@@ -276,6 +276,8 @@ export async function syncDevice(
     "rename_device",
     "shelly_discover",
     "shelly_probe",
+    "tasmota_discover",
+    "tasmota_probe",
   ]);
 
   for (const cmd of commands) {

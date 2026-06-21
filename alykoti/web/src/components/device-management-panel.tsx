@@ -16,7 +16,7 @@ type Device = {
   id: string;
   name: string;
   on: boolean;
-  protocol: "zigbee" | "zwave" | "shelly";
+  protocol: "zigbee" | "zwave" | "shelly" | "tasmota";
   kind: string;
   room: string | null;
   controllable: boolean;
@@ -196,7 +196,9 @@ export function DeviceManagementPanel() {
                           ? "Z-Wave"
                           : device.protocol === "shelly"
                             ? "Shelly"
-                            : "Zigbee"}{" "}
+                            : device.protocol === "tasmota"
+                              ? "Tasmota"
+                              : "Zigbee"}{" "}
                         ·{" "}
                         {kindLabel(device.kind as "light")}
                         {device.room ? ` · ${device.room}` : ""}

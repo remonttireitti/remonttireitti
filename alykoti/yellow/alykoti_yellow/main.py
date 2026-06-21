@@ -23,6 +23,12 @@ from alykoti_yellow.shelly import (
     probe_shelly,
     set_shelly_switch,
 )
+from alykoti_yellow.tasmota import (
+    discover_tasmota_devices,
+    fetch_tasmota_devices,
+    probe_tasmota,
+    set_tasmota_power,
+)
 from alykoti_yellow.sync import sync_post
 from alykoti_yellow.zwave_mqtt import fetch_zwave_devices, set_zwave_device
 
@@ -35,6 +41,7 @@ log = logging.getLogger("alykoti-yellow")
 pending_acks: list[str] = []
 cached_integrations: dict = {}
 cached_shelly_discovered: list[dict] = []
+cached_tasmota_discovered: list[dict] = []
 
 
 def execute_command(cmd: dict) -> bool:
@@ -110,6 +117,24 @@ def execute_command(cmd: dict) -> bool:
             pending_acks.append(cmd_id)
         return ok
 
+    if command == "tasmota_discover":
+        global cached_tasmota_discovered
+        subnet = payload.get("subnet")
+        prefix = subnet if isinstance(subnet, str) and subnet.strip() else None
+        cached_tasmota_discovered = discover_tasmota_devices(prefix)
+        if cmd_id:
+            pending_acks.append(cmd_id)
+        return True
+
+    if command == "tasmota_probe":
+        host = payload.get("host")
+        if not isinstance(host, str):
+            return False
+        ok = probe_tasmota(host) is not None
+        if ok and cmd_id:
+            pending_acks.append(cmd_id)
+        return ok
+
     if command in ("set_light", "set_device"):
         device_id = payload.get("id")
         on = payload.get("on")
@@ -135,6 +160,11 @@ def execute_command(cmd: dict) -> bool:
             if isinstance(host, str) and isinstance(channel, (int, float)):
                 gen_num = int(gen) if isinstance(gen, (int, float)) else 2
                 ok = set_shelly_switch(host, int(channel), on, gen=gen_num)
+        elif device_id.startswith("tasmota:"):
+            host = payload.get("host")
+            channel = payload.get("channel", 0)
+            if isinstance(host, str) and isinstance(channel, (int, float)):
+                ok = set_tasmota_power(host, int(channel), on)
         else:
             ok = set_light(config.MQTT_URL, config.MQTT_PREFIX, device_id, on)
 
@@ -199,7 +229,11 @@ def apply_ventilation(response: dict) -> None:
         )
 
 
-def build_state(integrations: dict | None = None, shelly_discovered: list[dict] | None = None) -> dict:
+def build_state(
+    integrations: dict | None = None,
+    shelly_discovered: list[dict] | None = None,
+    tasmota_discovered: list[dict] | None = None,
+) -> dict:
     state: dict = {}
 
     if config.AIRFI_ENABLED:
@@ -236,6 +270,13 @@ def build_state(integrations: dict | None = None, shelly_discovered: list[dict] 
         except Exception as exc:
             log.warning("Shelly read failed: %s", exc)
 
+    tasmota_cfg = (integrations or {}).get("tasmota", {}).get("devices") or []
+    if tasmota_cfg:
+        try:
+            home_devices.update(fetch_tasmota_devices(tasmota_cfg))
+        except Exception as exc:
+            log.warning("Tasmota read failed: %s", exc)
+
     if home_devices:
         state["home_devices"] = home_devices
         lights = {
@@ -253,11 +294,14 @@ def build_state(integrations: dict | None = None, shelly_discovered: list[dict] 
     if shelly_discovered:
         state["shelly_discovered"] = shelly_discovered
 
+    if tasmota_discovered:
+        state["tasmota_discovered"] = tasmota_discovered
+
     return state
 
 
 def run_loop() -> None:
-    global pending_acks, cached_integrations, cached_shelly_discovered
+    global pending_acks, cached_integrations, cached_shelly_discovered, cached_tasmota_discovered
 
     if not config.DEVICE_TOKEN:
         log.error("ALYKOTI_DEVICE_TOKEN puuttuu — luo hub webissä ja kopioi token .env")
@@ -273,7 +317,11 @@ def run_loop() -> None:
         acks = pending_acks[:]
         pending_acks = []
 
-        state = build_state(cached_integrations, cached_shelly_discovered)
+        state = build_state(
+            cached_integrations,
+            cached_shelly_discovered,
+            cached_tasmota_discovered,
+        )
         response = sync_post(
             config.SYNC_URL,
             config.DEVICE_TOKEN,
@@ -293,12 +341,12 @@ def run_loop() -> None:
             lights = sum(1 for d in devices.values() if d.get("kind") == "light")
             switches = sum(1 for d in devices.values() if d.get("kind") == "switch")
             log.info(
-                "Sync OK — devices=%s lights=%s switches=%s zwave=%s shelly=%s cmds=%s",
+                "Sync OK — devices=%s lights=%s zwave=%s shelly=%s tasmota=%s cmds=%s",
                 len(devices),
                 lights,
-                switches,
                 sum(1 for k in devices if k.startswith("zwave:")),
                 sum(1 for k in devices if k.startswith("shelly:")),
+                sum(1 for k in devices if k.startswith("tasmota:")),
                 len(response.get("commands") or []),
             )
         else:

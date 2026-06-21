@@ -29,6 +29,12 @@ const INTEGRATIONS = [
     description: "WiFi-releet ja dimmerit paikallisverkossa.",
     href: LAITTEET.shelly,
   },
+  {
+    id: "tasmota",
+    title: "Tasmota (Sonoff)",
+    description: "Muokatut Sonoff- ja Tasmota-WiFi-laitteet.",
+    href: LAITTEET.tasmota,
+  },
 ] as const;
 
 export default async function LaitteetOverviewPage() {
@@ -43,13 +49,15 @@ export default async function LaitteetOverviewPage() {
     ? Object.keys(hub.state.home_devices).length
     : 0;
   const shellyCount = hub?.state.integrations?.shelly?.devices?.length ?? 0;
+  const tasmotaCount = hub?.state.integrations?.tasmota?.devices?.length ?? 0;
 
   return (
     <div className="mt-6 space-y-6">
-      <section className="grid gap-4 sm:grid-cols-3">
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Stat label="Yellow" value={hub ? (hubOnline ? "Online" : "Offline") : "—"} />
         <Stat label="Laitteita" value={String(deviceCount)} />
         <Stat label="Shelly" value={String(shellyCount)} />
+        <Stat label="Tasmota" value={String(tasmotaCount)} />
       </section>
 
       <section className="grid gap-4 md:grid-cols-2">

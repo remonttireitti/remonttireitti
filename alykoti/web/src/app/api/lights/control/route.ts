@@ -43,6 +43,11 @@ export async function POST(request: Request) {
       if (typeof raw?.channel === "number") payload.channel = raw.channel;
       if (cfg?.gen) payload.gen = cfg.gen;
     }
+    if (device?.protocol === "tasmota") {
+      const raw = hub.state.home_devices?.[id];
+      if (raw?.host) payload.host = raw.host;
+      if (typeof raw?.channel === "number") payload.channel = raw.channel;
+    }
 
     const { error } = await supabase.from("commands").insert({
       hub_id: hub.id,
