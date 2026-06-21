@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { VentilationDiagram } from "@/components/ventilation-diagram";
 import { fetchPrimaryHub } from "@/lib/hubs";
+import { LAITTEET } from "@/lib/laitteet-paths";
 import { createClient } from "@/lib/supabase/server";
 
 function isMissingSchemaError(error: unknown): boolean {
@@ -57,7 +58,7 @@ export default async function VentilationPage() {
             Ilmanvaihto tarvitsee keskusyksikön. Lisää laite ensin.
           </p>
           <Link
-            href="/keskusyksikko"
+            href={LAITTEET.keskusyksikko}
             className="mt-4 inline-block rounded-xl bg-stone-900 px-4 py-2 text-sm font-semibold text-white"
           >
             Lisää keskusyksikkö →

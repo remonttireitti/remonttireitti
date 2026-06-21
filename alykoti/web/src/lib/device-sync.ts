@@ -20,6 +20,7 @@ import {
   type DeviceSyncRequest,
   type DeviceSyncResponse,
   type HubControlMode,
+  type HubIntegrations,
   type HubState,
   type VentilationConfig,
 } from "@/lib/types";
@@ -163,6 +164,29 @@ export async function syncDevice(
 
   const AIRFI_FAN_KEYS = ["fan_supply_pct", "fan_exhaust_pct", "lto_temp_efficiency_pct"] as const;
 
+  if (body.state?.lights && typeof body.state.lights === "object") {
+    mergedState.lights = body.state.lights;
+  }
+
+  if (body.state?.home_devices && typeof body.state.home_devices === "object") {
+    mergedState.home_devices = body.state.home_devices;
+  }
+
+  if (Array.isArray(body.state?.shelly_discovered)) {
+    mergedState.shelly_discovered = body.state.shelly_discovered as HubState["shelly_discovered"];
+  }
+
+  const prevStored = parseState(hub.state);
+  const prevOverrides = prevStored.device_overrides;
+  if (prevOverrides && typeof prevOverrides === "object") {
+    mergedState.device_overrides = prevOverrides;
+  }
+
+  const prevIntegrations = prevStored.integrations;
+  if (prevIntegrations && typeof prevIntegrations === "object") {
+    mergedState.integrations = prevIntegrations;
+  }
+
   if (body.state && typeof body.state === "object" && "airfi_online" in body.state) {
     const incoming = body.state as Record<string, unknown>;
     for (const key of AIRFI_TEMP_KEYS) {
@@ -243,8 +267,19 @@ export async function syncDevice(
   const executedIds: string[] = [];
   const hubCommands: DeviceSyncResponse["commands"] = [];
 
+  const hubOnlyCommands = new Set([
+    "set_light",
+    "set_device",
+    "zigbee_permit_join",
+    "zwave_start_inclusion",
+    "zwave_stop_inclusion",
+    "rename_device",
+    "shelly_discover",
+    "shelly_probe",
+  ]);
+
   for (const cmd of commands) {
-    if (canPing) {
+    if (canPing && !hubOnlyCommands.has(cmd.command)) {
       const ok = await executeAirfiCommand(
         cmd.command,
         (cmd.payload ?? {}) as Record<string, unknown>,
@@ -286,6 +321,9 @@ export async function syncDevice(
 
   let ventilationState: HubState | undefined;
 
+  const hubHasRealAirfi =
+    mergedState.airfi_online === true && hasAirfiTelemetry(mergedState);
+
   if (
     effectiveMode === "auto" ||
     effectiveMode === "fireplace" ||
@@ -304,7 +342,7 @@ export async function syncDevice(
       if (applied) {
         ventilationState = targetsToVentilationState(applied);
       }
-    } else {
+    } else if (hubHasRealAirfi) {
       const targets = computeVentilationTargets(
         effectiveMode,
         mergedState.co2_ppm,
@@ -337,6 +375,11 @@ export async function syncDevice(
     airfi_online: mergedState.airfi_online === true,
   });
 
+  const integrations: HubIntegrations | undefined =
+    mergedState.integrations && typeof mergedState.integrations === "object"
+      ? mergedState.integrations
+      : undefined;
+
   return {
     control_mode: effectiveMode,
     config,
@@ -344,5 +387,6 @@ export async function syncDevice(
     sensor: airthingsState ?? undefined,
     ventilation: ventilationState,
     display: buildSyncDisplay(effectiveMode, mergedState, config),
+    integrations,
   };
 }

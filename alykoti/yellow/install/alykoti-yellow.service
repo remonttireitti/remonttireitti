@@ -1,0 +1,16 @@
+[Unit]
+Description=Alykoti Yellow hub sync (Modbus + MQTT → Vercel)
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ek
+WorkingDirectory=/home/ek/alykoti-yellow
+EnvironmentFile=/home/ek/alykoti-yellow/.env
+ExecStart=/home/ek/alykoti-yellow/.venv/bin/python -m alykoti_yellow.main
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

@@ -36,6 +36,57 @@ export const DEFAULT_VENTILATION_CONFIG: VentilationConfig = {
   hood_exhaust_pct: 80,
 };
 
+export type HubLightState = {
+  on: boolean;
+  brightness: number | null;
+  name?: string;
+};
+
+export type ShellyDeviceConfig = {
+  id: string;
+  host: string;
+  channel: number;
+  name: string;
+  model?: string;
+  gen?: 1 | 2;
+};
+
+export type ShellyDiscoveredDevice = {
+  host: string;
+  name: string;
+  model?: string;
+  gen?: 1 | 2;
+  online: boolean;
+};
+
+export type HubIntegrations = {
+  shelly?: {
+    devices: ShellyDeviceConfig[];
+  };
+};
+
+export type HubHomeDevice = {
+  protocol: "zigbee" | "zwave" | "shelly";
+  kind: "light" | "switch" | "lock" | "fan" | "sensor" | "other";
+  name: string;
+  room?: string | null;
+  on?: boolean;
+  brightness?: number | null;
+  controllable?: boolean;
+  mqtt_set_topic?: string;
+  node_id?: number;
+  host?: string;
+  channel?: number;
+};
+
+/** Web-käyttäjän asetukset laitteelle (ei Yellow-synkistä). */
+export type HubDeviceOverride = {
+  display_name?: string;
+  room?: string | null;
+  floor_anchor?: string | null;
+  hidden?: boolean;
+};
+
 export type HubState = {
   co2_ppm?: number | null;
   humidity_pct?: number | null;
@@ -92,6 +143,16 @@ export type HubState = {
   away_until?: string | null;
   /** Poissa kunnes käsin lopetetaan. */
   away_unlimited?: boolean;
+  /** Zigbee-valot (Yellow → Zigbee2MQTT). Avain = friendly_name tai zigbee:nimi. */
+  lights?: Record<string, HubLightState>;
+  /** Kaikki kodin laitteet (Zigbee + Z-Wave). Avain = zigbee:nimi / zwave:nodeId. */
+  home_devices?: Record<string, HubHomeDevice>;
+  /** Nimet, huoneet, piilotus — web UI. */
+  device_overrides?: Record<string, HubDeviceOverride>;
+  /** Integraatioiden konfiguraatio (web → Yellow). */
+  integrations?: HubIntegrations;
+  /** Yellow-verkkoscanin löytämät Shellyt. */
+  shelly_discovered?: ShellyDiscoveredDevice[];
 };
 
 export type Hub = {
@@ -132,6 +193,7 @@ export type DeviceSyncResponse = {
   sensor?: HubState;
   ventilation?: HubState;
   display?: DeviceSyncDisplay;
+  integrations?: HubIntegrations;
 };
 
 export type ControlMode = HubControlMode;

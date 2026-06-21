@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { ElectricityPricePanel } from "@/components/electricity-price-panel";
 import { HomeFloorPlan } from "@/components/home-floor-plan";
+import { KotiSubNav } from "@/components/koti-sub-nav";
 import { fetchElectricityPrices } from "@/lib/electricity-prices";
 import { fetchHubs } from "@/lib/hubs";
 import { isHubOnline } from "@/lib/device-status";
+import { LAITTEET } from "@/lib/laitteet-paths";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function OverviewPage() {
@@ -35,8 +37,9 @@ export default async function OverviewPage() {
       <header>
         <h1 className="text-2xl font-bold tracking-tight">Koti</h1>
         <p className="mt-1 text-sm text-stone-600">
-          Pohjapiirros — valot, lämpötilat ja anturit kartalle myöhemmin.
+          Yleiskatsaus — laitteet ja integraatiot omalla sivullaan.
         </p>
+        <KotiSubNav />
       </header>
 
       <div className="mt-6">
@@ -57,10 +60,10 @@ export default async function OverviewPage() {
             Aloita lisäämällä keskusyksikkö.
           </p>
           <Link
-            href="/keskusyksikko"
+            href={LAITTEET.keskusyksikko}
             className="mt-3 inline-block text-sm font-medium text-stone-800 hover:underline"
           >
-            Keskusyksikkö →
+            Laitteet & integraatiot →
           </Link>
         </div>
       )}

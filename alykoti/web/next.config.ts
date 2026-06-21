@@ -14,6 +14,26 @@ const nextConfig: NextConfig = {
         destination: "/ilmanvaihto/:id",
         permanent: true,
       },
+      {
+        source: "/keskusyksikko",
+        destination: "/laitteet/keskusyksikko",
+        permanent: true,
+      },
+      {
+        source: "/keskusyksikko/:id",
+        destination: "/laitteet/keskusyksikko/:id",
+        permanent: true,
+      },
+      {
+        source: "/koti/valot",
+        destination: "/laitteet/valot",
+        permanent: true,
+      },
+      {
+        source: "/koti/laitteet",
+        destination: "/laitteet/luettelo",
+        permanent: true,
+      },
     ];
   },
 };

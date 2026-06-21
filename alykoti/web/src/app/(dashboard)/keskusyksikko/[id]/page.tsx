@@ -81,8 +81,21 @@ export default async function HubDetailPage({
             <li className="rounded-xl border border-dashed border-stone-200 px-4 py-3 text-sm text-stone-500">
               Lämmitys — tulossa
             </li>
-            <li className="rounded-xl border border-dashed border-stone-200 px-4 py-3 text-sm text-stone-500">
-              Valaistus — tulossa
+            <li>
+              <Link
+                href="/koti/valot"
+                className="flex items-center justify-between rounded-xl border border-stone-200 px-4 py-3 hover:bg-stone-50"
+              >
+                <span>
+                  <span className="font-medium">Valaistus</span>
+                  <span className="mt-0.5 block text-xs text-stone-500">
+                    Zigbee-valot (SkyConnect)
+                    {hub.state.lights &&
+                      ` · ${Object.keys(hub.state.lights).length} valoa`}
+                  </span>
+                </span>
+                <span className="text-stone-400">→</span>
+              </Link>
             </li>
           </ul>
         </section>
@@ -98,9 +111,10 @@ export default async function HubDetailPage({
       <section className="mt-6 rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
         <h2 className="font-semibold">Firmware</h2>
         <p className="mt-2 text-sm text-stone-600">
-          Aseta <code className="rounded bg-stone-100 px-1">device_token</code> tiedostoon{" "}
-          <code className="rounded bg-stone-100 px-1">alykoti/firmware/hub/secrets.yaml</code>{" "}
-          ja flashaa keskusyksikkö.
+          HA Yellow: aseta <code className="rounded bg-stone-100 px-1">ALYKOTI_DEVICE_TOKEN</code>{" "}
+          tiedostoon{" "}
+          <code className="rounded bg-stone-100 px-1">~/alykoti-yellow/.env</code> ja käynnistä{" "}
+          <code className="rounded bg-stone-100 px-1">alykoti-yellow</code>-palvelu.
         </p>
       </section>
     </div>

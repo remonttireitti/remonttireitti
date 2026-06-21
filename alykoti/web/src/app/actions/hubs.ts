@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { randomBytes } from "crypto";
+import { revalidateLaitteet } from "@/lib/revalidate-laitteet";
 import { validateVentilationConfig } from "@/lib/hubs";
 import {
   extendUntil,
@@ -133,7 +134,7 @@ export async function registerHub(
   if (error) return { error: "Keskusyksikön luonti epäonnistui." };
 
   revalidatePath("/");
-  revalidatePath("/keskusyksikko");
+  revalidateLaitteet();
   return {
     ok: "Keskusyksikkö luotu. Kopioi laiteavain firmware-asetuksiin.",
     deviceToken,
@@ -200,6 +201,9 @@ async function queueCommand(
 
   revalidatePath("/ilmanvaihto");
   revalidatePath("/ilmanvaihto/asetukset");
+  if (command === "set_light" || command === "set_device") {
+    revalidateLaitteet();
+  }
   return { ok: "Komento jonossa — hub noutaa sen seuraavassa synkissä.", commandIds: [String(data.id)] };
 }
 
@@ -412,7 +416,7 @@ export async function deleteHub(hubId: string): Promise<ActionState> {
   if (error) return { error: "Poisto epäonnistui." };
 
   revalidatePath("/");
-  revalidatePath("/keskusyksikko");
+  revalidateLaitteet();
   revalidatePath("/ilmanvaihto");
   return { ok: "Keskusyksikkö poistettu." };
 }

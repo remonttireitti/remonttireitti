@@ -11,12 +11,12 @@ import {
 
 const SLAVE_ID = 1;
 
-/** AirFi IV rekisterikartta v2.9 — 0-pohjaiset osoitteet (30001/40001). */
+/** AirFi IV rekisterikartta — sama osoitus kuin HA (input, int16 * 0.1). */
 const INPUT = {
-  outdoor_temp: 3, // 3x00004 T1
-  exhaust_temp: 5, // 3x00006 T3
-  exhaust_hru_temp: 6, // 3x00007 T4
-  supply_room_temp: 7, // 3x00008 T5
+  outdoor_temp: 4, // T1 ulkoilma
+  exhaust_temp: 6, // T3 poisto
+  exhaust_hru_temp: 7, // T4 jateilma
+  supply_room_temp: 8, // T5 tulo huoneeseen
   fireplace_status: 14, // 3x00015 takka/painetasaus
   internal_humidity: 22, // 3x00023
   direct_fan_pct: 26, // 3x00027 suoraohjaus %
