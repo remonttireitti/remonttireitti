@@ -1,17 +1,16 @@
-"""Shelly Gen1/Gen2 — discovery, EM metering, switch control."""
+"""Shelly Gen1/Gen2 — auto-detect switches, EM, all channels."""
 
 from __future__ import annotations
 
 import logging
+import re
 import socket
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Any, Literal
+from typing import Any
 
 import requests
 
 log = logging.getLogger(__name__)
-
-ShellyRole = Literal["em", "switch"]
 
 
 def _rpc(host: str, method: str, params: dict[str, Any] | None = None, timeout: float = 3.0) -> dict[str, Any] | None:
@@ -32,38 +31,33 @@ def _rpc(host: str, method: str, params: dict[str, Any] | None = None, timeout: 
 
 
 def _switch_status(result: dict[str, Any], channel: int) -> dict[str, Any] | None:
-    key = f"switch:{channel}"
-    switch = result.get(key)
+    switch = result.get(f"switch:{channel}")
     if isinstance(switch, dict):
         return switch
-    if channel == 0 and isinstance(result.get("switch:0"), dict):
-        return result["switch:0"]
     return None
 
 
-def _em_status(result: dict[str, Any], channel: int = 0) -> dict[str, Any] | None:
-    em = result.get(f"em:{channel}")
-    if isinstance(em, dict):
-        return em
-    if channel == 0 and isinstance(result.get("em:0"), dict):
-        return result["em:0"]
+def _em_status(result: dict[str, Any]) -> dict[str, Any] | None:
     for key, val in result.items():
         if key.startswith("em:") and isinstance(val, dict):
             return val
     return None
 
 
-def _is_em_model(model: str) -> bool:
+def _switch_channels(result: dict[str, Any]) -> list[int]:
+    channels: list[int] = []
+    for key in result:
+        match = re.fullmatch(r"switch:(\d+)", key)
+        if match:
+            channels.append(int(match.group(1)))
+    return sorted(channels)
+
+
+def _is_em_only_model(model: str) -> bool:
     m = model.upper()
-    return "SPEM" in m or "SHEM" in m or " PRO EM" in f" {m} " or m.endswith("EM")
-
-
-def classify_shelly(model: str, status: dict[str, Any] | None = None) -> ShellyRole:
-    if status and _em_status(status) is not None:
-        return "em"
-    if _is_em_model(model):
-        return "em"
-    return "switch"
+    if any(x in m for x in ("SPSW", "SNSW", "SHSW", "SHPLG", "SPDM", "DIMMER", "PRO 4", "4PM", "4 PRO")):
+        return False
+    return "SPEM" in m or "SHEM" in m or " PRO EM" in f" {m} "
 
 
 def _local_subnet_prefix() -> str:
@@ -78,6 +72,15 @@ def _local_subnet_prefix() -> str:
     except Exception:
         pass
     return "192.168.50"
+
+
+def _capabilities(model: str, switches: list[int], em: dict[str, Any] | None) -> list[str]:
+    caps: list[str] = []
+    if switches:
+        caps.append("switch")
+    if em and (_is_em_only_model(model) or not switches):
+        caps.append("em")
+    return caps
 
 
 def probe_shelly(host: str, timeout: float = 1.5) -> dict[str, Any] | None:
@@ -96,32 +99,32 @@ def probe_shelly(host: str, timeout: float = 1.5) -> dict[str, Any] | None:
         model = str(result.get("model") or result.get("app") or "Shelly")
         device_id = result.get("id")
         name = str(device_id) if device_id else host
-        role = classify_shelly(model, status_result)
+        switches = _switch_channels(status_result) if status_result else []
+        em = _em_status(status_result) if status_result else None
         return {
             "host": host,
             "name": name,
             "model": model,
             "gen": 2,
-            "role": role,
             "online": True,
+            "switch_channels": len(switches),
+            "capabilities": _capabilities(model, switches, em),
         }
 
     try:
         resp = requests.get(f"http://{host}/status", timeout=timeout)
         resp.raise_for_status()
         data = resp.json()
-        if isinstance(data, dict) and ("meters" in data or "emeters" in data):
-            emeters = data.get("emeters") or data.get("meters") or []
-            model = "SHEM"
-            if isinstance(emeters, list) and emeters:
-                return {
-                    "host": host,
-                    "name": str(data.get("wifi_sta", {}).get("ssid") or host),
-                    "model": model,
-                    "gen": 1,
-                    "role": "em",
-                    "online": True,
-                }
+        if isinstance(data, dict) and ("emeters" in data or "meters" in data):
+            return {
+                "host": host,
+                "name": host,
+                "model": "SHEM",
+                "gen": 1,
+                "online": True,
+                "switch_channels": 0,
+                "capabilities": ["em"],
+            }
     except Exception:
         pass
 
@@ -131,14 +134,19 @@ def probe_shelly(host: str, timeout: float = 1.5) -> dict[str, Any] | None:
         data = resp.json()
         if isinstance(data, dict) and data.get("type"):
             model = str(data.get("type"))
-            role: ShellyRole = "em" if _is_em_model(model) else "switch"
+            relays = data.get("num_relays") or data.get("relays") or []
+            switch_count = len(relays) if isinstance(relays, list) else 1
+            caps = ["switch"]
+            if _is_em_only_model(model):
+                caps = ["em"]
             return {
                 "host": host,
                 "name": str(data.get("id") or model or host),
                 "model": model,
                 "gen": 1,
-                "role": role,
                 "online": True,
+                "switch_channels": switch_count if "switch" in caps else 0,
+                "capabilities": caps,
             }
     except Exception:
         pass
@@ -155,14 +163,8 @@ def discover_shelly_devices(
     found: list[dict[str, Any]] = []
     seen: set[str] = set()
 
-    def check(ip: str) -> dict[str, Any] | None:
-        return probe_shelly(ip, timeout=timeout)
-
     with ThreadPoolExecutor(max_workers=workers) as pool:
-        futures = {
-            pool.submit(check, f"{prefix}.{host}"): host
-            for host in range(1, 255)
-        }
+        futures = {pool.submit(probe_shelly, f"{prefix}.{n}", timeout): n for n in range(1, 255)}
         for future in as_completed(futures):
             try:
                 item = future.result()
@@ -178,92 +180,86 @@ def discover_shelly_devices(
     return found
 
 
-def _gen1_relay_state(host: str, channel: int) -> bool | None:
-    try:
-        resp = requests.get(f"http://{host}/relay/{channel}", timeout=2.0)
-        resp.raise_for_status()
-        data = resp.json()
-        if isinstance(data, dict) and "ison" in data:
-            return data["ison"] is True
-    except Exception:
-        pass
-    return None
-
-
-def _gen1_em_read(host: str) -> dict[str, Any] | None:
-    try:
-        resp = requests.get(f"http://{host}/status", timeout=2.0)
-        resp.raise_for_status()
-        data = resp.json()
-        emeters = data.get("emeters") if isinstance(data, dict) else None
-        if not isinstance(emeters, list) or not emeters:
-            return None
-        total_power = sum(float(e.get("power") or 0) for e in emeters if isinstance(e, dict))
-        total_energy = sum(float(e.get("total") or 0) for e in emeters if isinstance(e, dict))
-        return {
-            "power_w": total_power,
-            "energy_wh": total_energy,
-            "em_a_power_w": float(emeters[0].get("power") or 0) if len(emeters) > 0 else None,
-            "em_b_power_w": float(emeters[1].get("power") or 0) if len(emeters) > 1 else None,
-        }
-    except Exception:
-        return None
-
-
-def _device_id(host: str, role: ShellyRole, channel: int) -> str:
-    if role == "em":
-        return f"shelly:{host}:em"
-    return f"shelly:{host}:{channel}"
-
-
-def fetch_shelly_devices(configured: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
-    out: dict[str, dict[str, Any]] = {}
+def _normalize_hosts(configured: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    hosts: dict[str, dict[str, Any]] = {}
     for dev in configured:
         host = dev.get("host")
         if not isinstance(host, str) or not host.strip():
             continue
         host = host.strip()
-        channel = dev.get("channel", 0)
-        if not isinstance(channel, int):
-            channel = 0
+        if host in hosts:
+            continue
         name = dev.get("name") if isinstance(dev.get("name"), str) else host
         gen = dev.get("gen", 2)
         model = str(dev.get("model") or "")
-        role: ShellyRole = dev.get("role") if dev.get("role") in ("em", "switch") else "switch"
-        device_id = dev.get("id") if isinstance(dev.get("id"), str) else _device_id(host, role, channel)
+        hosts[host] = {"host": host, "name": name, "gen": gen, "model": model}
+    return hosts
 
-        if gen == 1 and role == "em":
-            em = _gen1_em_read(host)
-            if not em:
-                continue
-            out[device_id] = {
-                "protocol": "shelly",
-                "kind": "sensor",
-                "name": name,
-                "controllable": False,
-                "host": host,
-                "channel": channel,
-                "role": "em",
-                "model": model or None,
-                **em,
-            }
-            continue
 
-        if gen == 1:
-            state = _gen1_relay_state(host, channel)
-            if state is None:
+def _channel_name(base: str, channel: int, total: int) -> str:
+    if total <= 1:
+        return base
+    return f"{base} kanava {channel + 1}"
+
+
+def _gen1_fetch(host: str, name: str, model: str) -> dict[str, dict[str, Any]]:
+    out: dict[str, dict[str, Any]] = {}
+    try:
+        resp = requests.get(f"http://{host}/status", timeout=3.0)
+        resp.raise_for_status()
+        data = resp.json()
+    except Exception:
+        return out
+
+    if not isinstance(data, dict):
+        return out
+
+    relays = data.get("relays")
+    if isinstance(relays, list) and relays:
+        for ch, relay in enumerate(relays):
+            if not isinstance(relay, dict):
                 continue
-            out[device_id] = {
+            out[f"shelly:{host}:{ch}"] = {
                 "protocol": "shelly",
-                "kind": "light",
-                "name": name,
-                "on": state,
+                "kind": "switch",
+                "name": _channel_name(name, ch, len(relays)),
+                "on": relay.get("ison") is True,
                 "brightness": None,
                 "controllable": True,
                 "host": host,
-                "channel": channel,
-                "role": "switch",
+                "channel": ch,
+                "gen": 1,
             }
+        return out
+
+    emeters = data.get("emeters")
+    if isinstance(emeters, list) and emeters:
+        total_power = sum(float(e.get("power") or 0) for e in emeters if isinstance(e, dict))
+        total_energy = sum(float(e.get("total") or 0) for e in emeters if isinstance(e, dict))
+        out[f"shelly:{host}:em"] = {
+            "protocol": "shelly",
+            "kind": "sensor",
+            "name": name,
+            "controllable": False,
+            "host": host,
+            "channel": 0,
+            "gen": 1,
+            "model": model or None,
+            "power_w": total_power,
+            "energy_wh": total_energy,
+        }
+    return out
+
+
+def fetch_shelly_devices(configured: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    out: dict[str, dict[str, Any]] = {}
+    for host, meta in _normalize_hosts(configured).items():
+        name = meta["name"]
+        gen = meta["gen"]
+        model = meta["model"]
+
+        if gen == 1:
+            out.update(_gen1_fetch(host, name, model))
             continue
 
         rpc = _rpc(host, "Shelly.GetStatus")
@@ -271,45 +267,43 @@ def fetch_shelly_devices(configured: list[dict[str, Any]]) -> dict[str, dict[str
         if not isinstance(result, dict):
             continue
 
-        detected_role = classify_shelly(model, result)
-        role = role if dev.get("role") in ("em", "switch") else detected_role
-
-        if role == "em" or detected_role == "em":
-            em = _em_status(result, 0)
-            if not em:
+        switches = _switch_channels(result)
+        for ch in switches:
+            sw = _switch_status(result, ch)
+            if not sw:
                 continue
+            out[f"shelly:{host}:{ch}"] = {
+                "protocol": "shelly",
+                "kind": "switch",
+                "name": _channel_name(name, ch, len(switches)),
+                "on": sw.get("output") is True,
+                "brightness": None,
+                "controllable": True,
+                "host": host,
+                "channel": ch,
+                "gen": 2,
+                "model": model or None,
+            }
+
+        em = _em_status(result)
+        if em and (_is_em_only_model(model) or not switches):
             a_power = em.get("a_act_power")
             b_power = em.get("b_act_power")
-            out[device_id] = {
+            out[f"shelly:{host}:em"] = {
                 "protocol": "shelly",
                 "kind": "sensor",
-                "name": name,
+                "name": name if not switches else f"{name} EM",
                 "controllable": False,
                 "host": host,
                 "channel": 0,
-                "role": "em",
+                "gen": 2,
                 "model": model or None,
                 "power_w": em.get("total_act_power"),
                 "energy_wh": em.get("total_act_energy"),
                 "em_a_power_w": a_power if isinstance(a_power, (int, float)) else None,
                 "em_b_power_w": b_power if isinstance(b_power, (int, float)) else None,
             }
-            continue
 
-        switch = _switch_status(result, channel)
-        if not switch:
-            continue
-        out[device_id] = {
-            "protocol": "shelly",
-            "kind": "light",
-            "name": name,
-            "on": switch.get("output") is True,
-            "brightness": None,
-            "controllable": True,
-            "host": host,
-            "channel": channel,
-            "role": "switch",
-        }
     return out
 
 

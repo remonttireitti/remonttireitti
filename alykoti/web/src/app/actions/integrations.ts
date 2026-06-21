@@ -2,13 +2,7 @@
 
 import { revalidateLaitteet } from "@/lib/revalidate-laitteet";
 import { fetchPrimaryHub } from "@/lib/hubs";
-import type {
-  HubIntegrations,
-  HubState,
-  ShellyDeviceConfig,
-  ShellyDeviceRole,
-  TasmotaDeviceConfig,
-} from "@/lib/types";
+import type { HubIntegrations, HubHomeDevice, HubState, ShellyDeviceConfig, TasmotaDeviceConfig } from "@/lib/types";
 import { createClient } from "@/lib/supabase/server";
 
 export type DeviceActionState = {
@@ -22,17 +16,19 @@ function normalizeHost(raw: string): string | null {
   return host;
 }
 
-function shellyId(host: string, role: ShellyDeviceRole = "switch", channel = 0): string {
-  if (role === "em") return `shelly:${host}:em`;
-  return `shelly:${host}:${channel}`;
+function wifiHostId(protocol: "shelly" | "tasmota", host: string): string {
+  return `${protocol}:${host}`;
 }
 
-function inferShellyRole(model?: string, role?: ShellyDeviceRole): ShellyDeviceRole {
-  if (role) return role;
-  if (!model) return "switch";
-  const m = model.toUpperCase();
-  if (m.includes("SPEM") || m.includes("SHEM") || m.includes("EM")) return "em";
-  return "switch";
+function purgeWifiHomeDevices(
+  home: Record<string, HubHomeDevice>,
+  protocol: "shelly" | "tasmota",
+  host: string,
+) {
+  const prefix = `${protocol}:${host}:`;
+  for (const key of Object.keys(home)) {
+    if (key.startsWith(prefix)) delete home[key];
+  }
 }
 
 async function requireHub() {
@@ -46,77 +42,6 @@ async function requireHub() {
   if (!hub) return { error: "Keskusyksikköä ei löydy." as const, supabase: null, hub: null, user: null };
 
   return { supabase, hub, user, error: null };
-}
-
-export async function addShellyDevice(
-  hostRaw: string,
-  nameRaw: string,
-  channel = 0,
-  gen: 1 | 2 = 2,
-  model?: string,
-  role?: ShellyDeviceRole,
-): Promise<DeviceActionState> {
-  const host = normalizeHost(hostRaw);
-  if (!host) return { error: "Virheellinen IP-osoite." };
-
-  const ctx = await requireHub();
-  if (ctx.error || !ctx.supabase || !ctx.hub) return { error: ctx.error ?? "Virhe." };
-
-  const deviceRole = inferShellyRole(model, role);
-  const state = (ctx.hub.state as HubState) ?? {};
-  const integrations: HubIntegrations = { ...(state.integrations ?? {}) };
-  const devices = [...(integrations.shelly?.devices ?? [])];
-  const id = shellyId(host, deviceRole, channel);
-
-  if (devices.some((d) => d.id === id || d.host === host)) {
-    return { error: "Laite on jo listalla." };
-  }
-
-  const entry: ShellyDeviceConfig = {
-    id,
-    host,
-    channel: deviceRole === "em" ? 0 : channel,
-    name: nameRaw.trim() || host,
-    gen,
-    model,
-    role: deviceRole,
-  };
-  devices.push(entry);
-  integrations.shelly = { devices };
-
-  const { error } = await ctx.supabase
-    .from("hubs")
-    .update({ state: { ...state, integrations } })
-    .eq("id", ctx.hub.id);
-
-  if (error) return { error: "Tallennus epäonnistui." };
-
-  revalidateLaitteet();
-  const label = deviceRole === "em" ? "Energiamittari" : "Valokytkin";
-  return { ok: `${label} lisätty — Yellow hakee tilan seuraavassa synkissä.` };
-}
-
-export async function removeShellyDevice(deviceId: string): Promise<DeviceActionState> {
-  const ctx = await requireHub();
-  if (ctx.error || !ctx.supabase || !ctx.hub) return { error: ctx.error ?? "Virhe." };
-
-  const state = (ctx.hub.state as HubState) ?? {};
-  const integrations: HubIntegrations = { ...(state.integrations ?? {}) };
-  const devices = (integrations.shelly?.devices ?? []).filter((d) => d.id !== deviceId);
-  integrations.shelly = { devices };
-
-  const homeDevices = { ...(state.home_devices ?? {}) };
-  delete homeDevices[deviceId];
-
-  const { error } = await ctx.supabase
-    .from("hubs")
-    .update({ state: { ...state, integrations, home_devices: homeDevices } })
-    .eq("id", ctx.hub.id);
-
-  if (error) return { error: "Poisto epäonnistui." };
-
-  revalidateLaitteet();
-  return { ok: "Shelly poistettu." };
 }
 
 async function queueHubCommand(
@@ -136,6 +61,66 @@ async function queueHubCommand(
   return { ok: "Komento lähetetty Yellowille." };
 }
 
+export async function addShellyDevice(
+  hostRaw: string,
+  nameRaw: string,
+  gen: 1 | 2 = 2,
+  model?: string,
+): Promise<DeviceActionState> {
+  const host = normalizeHost(hostRaw);
+  if (!host) return { error: "Virheellinen IP-osoite." };
+
+  const ctx = await requireHub();
+  if (ctx.error || !ctx.supabase || !ctx.hub) return { error: ctx.error ?? "Virhe." };
+
+  const state = (ctx.hub.state as HubState) ?? {};
+  const integrations: HubIntegrations = { ...(state.integrations ?? {}) };
+  const devices = [...(integrations.shelly?.devices ?? [])];
+  const id = wifiHostId("shelly", host);
+
+  if (devices.some((d) => d.host === host)) {
+    return { error: "Laite on jo listalla." };
+  }
+
+  const entry: ShellyDeviceConfig = { id, host, name: nameRaw.trim() || host, gen, model };
+  devices.push(entry);
+  integrations.shelly = { devices };
+
+  const { error } = await ctx.supabase
+    .from("hubs")
+    .update({ state: { ...state, integrations } })
+    .eq("id", ctx.hub.id);
+
+  if (error) return { error: "Tallennus epäonnistui." };
+
+  revalidateLaitteet();
+  return { ok: "Shelly lisätty — Yellow tunnistaa kanavat automaattisesti (~30 s)." };
+}
+
+export async function removeShellyDevice(deviceId: string): Promise<DeviceActionState> {
+  const ctx = await requireHub();
+  if (ctx.error || !ctx.supabase || !ctx.hub) return { error: ctx.error ?? "Virhe." };
+
+  const state = (ctx.hub.state as HubState) ?? {};
+  const integrations: HubIntegrations = { ...(state.integrations ?? {}) };
+  const removed = (integrations.shelly?.devices ?? []).find((d) => d.id === deviceId);
+  const devices = (integrations.shelly?.devices ?? []).filter((d) => d.id !== deviceId);
+  integrations.shelly = { devices };
+
+  const homeDevices = { ...(state.home_devices ?? {}) };
+  if (removed) purgeWifiHomeDevices(homeDevices, "shelly", removed.host);
+
+  const { error } = await ctx.supabase
+    .from("hubs")
+    .update({ state: { ...state, integrations, home_devices: homeDevices } })
+    .eq("id", ctx.hub.id);
+
+  if (error) return { error: "Poisto epäonnistui." };
+
+  revalidateLaitteet();
+  return { ok: "Shelly poistettu." };
+}
+
 export async function discoverShellyDevices(): Promise<DeviceActionState> {
   const ctx = await requireHub();
   if (ctx.error || !ctx.supabase || !ctx.hub || !ctx.user) return { error: ctx.error ?? "Virhe." };
@@ -153,14 +138,9 @@ export async function probeShellyHost(hostRaw: string): Promise<DeviceActionStat
   return queueHubCommand(ctx.supabase, ctx.hub.id, ctx.user.id, "shelly_probe", { host });
 }
 
-function tasmotaId(host: string, channel = 0): string {
-  return `tasmota:${host}:${channel}`;
-}
-
 export async function addTasmotaDevice(
   hostRaw: string,
   nameRaw: string,
-  channel = 0,
   model?: string,
 ): Promise<DeviceActionState> {
   const host = normalizeHost(hostRaw);
@@ -172,19 +152,13 @@ export async function addTasmotaDevice(
   const state = (ctx.hub.state as HubState) ?? {};
   const integrations: HubIntegrations = { ...(state.integrations ?? {}) };
   const devices = [...(integrations.tasmota?.devices ?? [])];
-  const id = tasmotaId(host, channel);
+  const id = wifiHostId("tasmota", host);
 
-  if (devices.some((d) => d.id === id)) {
+  if (devices.some((d) => d.host === host)) {
     return { error: "Laite on jo listalla." };
   }
 
-  const entry: TasmotaDeviceConfig = {
-    id,
-    host,
-    channel,
-    name: nameRaw.trim() || host,
-    model,
-  };
+  const entry: TasmotaDeviceConfig = { id, host, name: nameRaw.trim() || host, model };
   devices.push(entry);
   integrations.tasmota = { devices };
 
@@ -196,7 +170,7 @@ export async function addTasmotaDevice(
   if (error) return { error: "Tallennus epäonnistui." };
 
   revalidateLaitteet();
-  return { ok: "Tasmota lisätty — Yellow hakee tilan seuraavassa synkissä." };
+  return { ok: "Tasmota lisätty — Yellow tunnistaa kanavat automaattisesti (~30 s)." };
 }
 
 export async function removeTasmotaDevice(deviceId: string): Promise<DeviceActionState> {
@@ -205,11 +179,12 @@ export async function removeTasmotaDevice(deviceId: string): Promise<DeviceActio
 
   const state = (ctx.hub.state as HubState) ?? {};
   const integrations: HubIntegrations = { ...(state.integrations ?? {}) };
+  const removed = (integrations.tasmota?.devices ?? []).find((d) => d.id === deviceId);
   const devices = (integrations.tasmota?.devices ?? []).filter((d) => d.id !== deviceId);
   integrations.tasmota = { devices };
 
   const homeDevices = { ...(state.home_devices ?? {}) };
-  delete homeDevices[deviceId];
+  if (removed) purgeWifiHomeDevices(homeDevices, "tasmota", removed.host);
 
   const { error } = await ctx.supabase
     .from("hubs")

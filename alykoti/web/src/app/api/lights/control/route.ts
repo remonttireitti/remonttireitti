@@ -38,10 +38,9 @@ export async function POST(request: Request) {
     }
     if (device?.protocol === "shelly") {
       const raw = hub.state.home_devices?.[id];
-      const cfg = hub.state.integrations?.shelly?.devices?.find((d) => d.id === id);
       if (raw?.host) payload.host = raw.host;
       if (typeof raw?.channel === "number") payload.channel = raw.channel;
-      if (cfg?.gen) payload.gen = cfg.gen;
+      if (typeof raw?.gen === "number") payload.gen = raw.gen;
     }
     if (device?.protocol === "tasmota") {
       const raw = hub.state.home_devices?.[id];

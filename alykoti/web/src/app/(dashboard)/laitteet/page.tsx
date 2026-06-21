@@ -26,7 +26,7 @@ const INTEGRATIONS = [
   {
     id: "shelly",
     title: "Shelly",
-    description: "Pro EM energiamittarit ja valokytkimet.",
+    description: "Pro EM, Pro 4 ja muut — kanavat automaattisesti.",
     href: LAITTEET.shelly,
   },
   {

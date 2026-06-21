@@ -10,20 +10,28 @@ import {
 } from "@/app/actions/integrations";
 import type { TasmotaDeviceConfig, TasmotaDiscoveredDevice } from "@/lib/types";
 
-type TasmotaLive = {
+type ChannelLive = {
   id: string;
   name: string;
   on: boolean;
+  controllable: boolean;
+};
+
+type HostLive = {
+  id: string;
+  name: string;
   host: string;
-  reachable?: boolean;
+  model?: string;
+  channels: ChannelLive[];
+  reachable: boolean;
 };
 
 type TasmotaResponse = {
   configured: boolean;
   hubOnline?: boolean;
   devices: TasmotaDeviceConfig[];
-  live?: TasmotaLive[];
-  discovered?: TasmotaDiscoveredDevice[];
+  live?: HostLive[];
+  discovered?: Array<TasmotaDiscoveredDevice & { type_label?: string; switch_channels?: number }>;
 };
 
 export function TasmotaPanel() {
@@ -58,35 +66,29 @@ export function TasmotaPanel() {
     });
   }
 
-  const devices = data?.devices ?? [];
+  const configuredHosts = new Set((data?.devices ?? []).map((d) => d.host));
   const live = data?.live ?? [];
   const discovered = data?.discovered ?? [];
-  const configuredHosts = new Set(devices.map((d) => d.host));
 
   return (
     <div className="mt-6 space-y-6">
       {flash?.ok && (
-        <div className="rounded-xl border border-green-200 bg-green-50 p-3 text-sm text-green-900">
-          {flash.ok}
-        </div>
+        <div className="rounded-xl border border-green-200 bg-green-50 p-3 text-sm text-green-900">{flash.ok}</div>
       )}
       {flash?.error && (
-        <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-900">
-          {flash.error}
-        </div>
+        <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-900">{flash.error}</div>
       )}
 
       {data?.hubOnline === false && (
         <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950">
-          Yellow offline — haku ja ohjaus vaativat Pi-yhteyden.
+          Yellow offline — haku vaatii Pi-yhteyden.
         </div>
       )}
 
       <section className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
         <h2 className="text-lg font-semibold text-stone-900">Etsi verkosta</h2>
         <p className="mt-1 text-sm text-stone-600">
-          Yellow skannaa paikallisen verkon Tasmota-laitteet (Sonoff ym.). Tulokset tulevat ~30 s
-          kuluttua.
+          Tunnistaa Tasmota-laitteet ja kaikki relekanavat (esim. 4-kanavainen Sonoff).
         </p>
         <button
           type="button"
@@ -94,9 +96,7 @@ export function TasmotaPanel() {
           onClick={() =>
             run(async () => {
               const r = await discoverTasmotaDevices();
-              return r.ok
-                ? { ok: "Haku käynnissä Yellowilla — päivitä sivu hetken kuluttua." }
-                : r;
+              return r.ok ? { ok: "Haku käynnissä — päivitä ~30 s kuluttua." } : r;
             }, false)
           }
           className="mt-4 rounded-xl bg-stone-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
@@ -113,6 +113,7 @@ export function TasmotaPanel() {
                   <p className="text-xs text-stone-500">
                     {item.host}
                     {item.model && ` · ${item.model}`}
+                    {item.type_label && ` · ${item.type_label}`}
                   </p>
                 </div>
                 {configuredHosts.has(item.host) ? (
@@ -121,9 +122,7 @@ export function TasmotaPanel() {
                   <button
                     type="button"
                     disabled={pending}
-                    onClick={() =>
-                      run(() => addTasmotaDevice(item.host, item.name, 0, item.model))
-                    }
+                    onClick={() => run(() => addTasmotaDevice(item.host, item.name, item.model))}
                     className="rounded-lg border border-stone-200 px-3 py-1.5 text-sm hover:bg-stone-50"
                   >
                     Lisää
@@ -137,9 +136,6 @@ export function TasmotaPanel() {
 
       <section className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
         <h2 className="text-lg font-semibold text-stone-900">Lisää IP:llä</h2>
-        <p className="mt-1 text-sm text-stone-600">
-          Sonoff / Tasmota HTTP-API. Testaa yhteys Yellowilta ennen lisäämistä.
-        </p>
         <form
           className="mt-4 flex flex-wrap gap-3"
           onSubmit={(e) => {
@@ -149,7 +145,6 @@ export function TasmotaPanel() {
         >
           <input
             type="text"
-            inputMode="decimal"
             placeholder="192.168.50.120"
             value={host}
             onChange={(e) => setHost(e.target.value)}
@@ -167,7 +162,7 @@ export function TasmotaPanel() {
             type="button"
             disabled={pending || !host.trim()}
             onClick={() => run(() => probeTasmotaHost(host))}
-            className="rounded-xl border border-stone-200 px-4 py-2 text-sm font-medium disabled:opacity-50"
+            className="rounded-xl border border-stone-200 px-4 py-2 text-sm disabled:opacity-50"
           >
             Testaa
           </button>
@@ -183,22 +178,19 @@ export function TasmotaPanel() {
 
       <section className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
         <h2 className="text-lg font-semibold text-stone-900">Tasmota-laitteet</h2>
-        {devices.length === 0 ? (
-          <p className="mt-3 text-sm text-stone-500">Ei Tasmota-laitteita.</p>
+        {live.length === 0 ? (
+          <p className="mt-3 text-sm text-stone-500">Ei laitteita.</p>
         ) : (
           <ul className="mt-4 divide-y divide-stone-100">
-            {devices.map((dev) => {
-              const status = live.find((l) => l.id === dev.id);
-              const reachable = status?.reachable;
-              return (
-                <li key={dev.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
+            {live.map((dev) => (
+              <li key={dev.id} className="py-3">
+                <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <p className="font-medium text-stone-900">{dev.name}</p>
                     <p className="text-xs text-stone-500">
                       {dev.host}
-                      {status && reachable && ` · ${status.on ? "Päällä" : "Pois"}`}
-                      {status && !reachable && " · Ei vastausta (Yellow ei tavoita)"}
-                      {!status && data?.hubOnline && " · Odottaa synkkiä"}
+                      {dev.model && ` · ${dev.model}`}
+                      {!dev.reachable && " · Odottaa synkkiä"}
                     </p>
                   </div>
                   <button
@@ -209,9 +201,19 @@ export function TasmotaPanel() {
                   >
                     Poista
                   </button>
-                </li>
-              );
-            })}
+                </div>
+                {dev.channels.length > 0 && (
+                  <ul className="mt-2 space-y-1">
+                    {dev.channels.map((ch) => (
+                      <li key={ch.id} className="text-sm text-stone-700">
+                        {ch.name} · {ch.on ? "Päällä" : "Pois"}
+                        <span className="text-xs text-stone-400"> · Valot-sivulla</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </li>
+            ))}
           </ul>
         )}
       </section>

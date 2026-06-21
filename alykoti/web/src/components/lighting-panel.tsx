@@ -13,7 +13,7 @@ type Device = {
   brightness: number | null;
   reachable: boolean;
   roomAnchorId: string | null;
-  protocol: "zigbee" | "zwave";
+  protocol: "zigbee" | "zwave" | "shelly" | "tasmota";
   kind: string;
   room: string | null;
   controllable: boolean;
@@ -143,7 +143,7 @@ export function LightingPanel() {
 
       <DeviceSection
         title="Valot"
-        empty="Ei valoja — Zigbee (SkyConnect) + Z-Wave (Z-Pi 7)."
+        empty="Ei valoja — Zigbee, Z-Wave, Shelly ja Tasmota."
         devices={lights}
         pending={pending}
         busyId={busyId}
@@ -153,7 +153,7 @@ export function LightingPanel() {
 
       <DeviceSection
         title="Kytkimet"
-        empty="Ei kytkimiä — esim. Zigbee-valosäädin (MH valosäätin) tai Z-Wave-seinäkytkin."
+        empty="Ei ohjattavia kytkimiä — Shelly Pro 4, Tasmota 4-kanava jne."
         devices={switches}
         pending={pending}
         busyId={busyId}
@@ -223,7 +223,13 @@ function DeviceSection({
               <div className="min-w-0">
                 <p className="truncate font-medium text-stone-900">{device.name}</p>
                 <p className="truncate text-xs text-stone-500">
-                  {device.protocol === "zwave" ? "Z-Wave" : "Zigbee"}
+                  {device.protocol === "zwave"
+                    ? "Z-Wave"
+                    : device.protocol === "shelly"
+                      ? "Shelly"
+                      : device.protocol === "tasmota"
+                        ? "Tasmota"
+                        : "Zigbee"}
                   {device.room ? ` · ${device.room}` : ""}
                   {` · ${kindLabel(device.kind as "light")}`}
                 </p>

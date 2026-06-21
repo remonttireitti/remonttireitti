@@ -42,16 +42,13 @@ export type HubLightState = {
   name?: string;
 };
 
-export type ShellyDeviceRole = "em" | "switch";
-
 export type ShellyDeviceConfig = {
+  /** shelly:{host} */
   id: string;
   host: string;
-  channel: number;
   name: string;
   model?: string;
   gen?: 1 | 2;
-  role?: ShellyDeviceRole;
 };
 
 export type ShellyDiscoveredDevice = {
@@ -59,14 +56,15 @@ export type ShellyDiscoveredDevice = {
   name: string;
   model?: string;
   gen?: 1 | 2;
-  role?: ShellyDeviceRole;
   online: boolean;
+  switch_channels?: number;
+  capabilities?: string[];
 };
 
 export type TasmotaDeviceConfig = {
+  /** tasmota:{host} */
   id: string;
   host: string;
-  channel: number;
   name: string;
   model?: string;
 };
@@ -76,6 +74,8 @@ export type TasmotaDiscoveredDevice = {
   name: string;
   model?: string;
   online: boolean;
+  switch_channels?: number;
+  capabilities?: string[];
 };
 
 export type HubIntegrations = {
@@ -99,7 +99,7 @@ export type HubHomeDevice = {
   node_id?: number;
   host?: string;
   channel?: number;
-  role?: ShellyDeviceRole;
+  gen?: number;
   model?: string;
   /** Shelly EM — kokonaisteho W */
   power_w?: number | null;
