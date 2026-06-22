@@ -88,6 +88,8 @@ const EMPTY_FORM = {
   brightness_pct: 50,
 };
 
+type AutomationFormState = typeof EMPTY_FORM;
+
 const TARGET_SECTIONS: { key: keyof AutomationTargetGroups; title: string }[] = [
   { key: "lights", title: "Valot" },
   { key: "switches", title: "Kytkimet ja releet" },
@@ -113,7 +115,7 @@ export function AutomationPanel({
 
   const [data, setData] = useState<AutomationsResponse | null>(null);
   const [flash, setFlash] = useState<AutomationActionState | null>(null);
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<AutomationFormState>({
     ...EMPTY_FORM,
     trigger_device_id: initialTriggerDevice ?? "",
     trigger_mode: "action",

@@ -81,7 +81,12 @@ function buildTrigger(input: {
   if (!device_id?.includes(":")) return null;
   const mode = input.trigger_mode === "switch_state" ? "switch_state" : "action";
   const press = input.trigger_press;
-  if (mode === "action" && press !== "short" && press !== "long" && press !== "double") {
+  let resolvedPress: AutomationPressType;
+  if (mode === "switch_state") {
+    resolvedPress = "short";
+  } else if (press === "short" || press === "long" || press === "double") {
+    resolvedPress = press;
+  } else {
     return null;
   }
 
@@ -94,7 +99,7 @@ function buildTrigger(input: {
     kind: "device",
     device_id,
     mode,
-    press: mode === "switch_state" ? "short" : press,
+    press: resolvedPress,
     endpoint,
     button: input.trigger_button?.trim() || null,
     action: input.trigger_action?.trim() || null,

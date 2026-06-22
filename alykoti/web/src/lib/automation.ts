@@ -165,8 +165,13 @@ function parseTrigger(raw: Record<string, unknown>): AutomationTrigger | null {
   if (typeof raw.device_id !== "string") return null;
   const mode: AutomationTriggerMode =
     raw.mode === "switch_state" ? "switch_state" : "action";
-  const press = raw.press;
-  if (mode === "action" && press !== "short" && press !== "long" && press !== "double") {
+  const pressRaw = raw.press;
+  let press: AutomationPressType;
+  if (mode === "switch_state") {
+    press = "short";
+  } else if (pressRaw === "short" || pressRaw === "long" || pressRaw === "double") {
+    press = pressRaw;
+  } else {
     return null;
   }
 
@@ -179,7 +184,7 @@ function parseTrigger(raw: Record<string, unknown>): AutomationTrigger | null {
     kind: "device",
     device_id: raw.device_id,
     mode,
-    press: mode === "switch_state" ? "short" : press,
+    press,
     endpoint,
     button:
       typeof raw.button === "string" && raw.button.trim() ? raw.button.trim() : null,
