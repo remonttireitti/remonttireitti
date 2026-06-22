@@ -13,6 +13,8 @@ import { triggerHintToAutomationFields, type DeviceLiveEvent } from "@/lib/devic
 import { protocolLabel } from "@/lib/device-protocol";
 import { kindLabel, type HubLightDevice } from "@/lib/hub-lights";
 import { LAITTEET } from "@/lib/laitteet-paths";
+import type { ZwaveConfigParam, ZwaveNodeDetail, ZwaveNodeEndpoint, ZwaveProperty } from "@/lib/types";
+import { configParamOptions, formatZwaveValue } from "@/lib/zwave-detail";
 
 type Props = {
   protocol: "zigbee" | "zwave";
@@ -29,8 +31,17 @@ const HUE_PRESETS = [
   { label: "Violetti", hue: 213 },
 ];
 
+type DeviceResponse = {
+  device: HubLightDevice;
+  zwaveNode?: ZwaveNodeDetail | null;
+  zwaveSiblings?: HubLightDevice[];
+  recentEvents?: DeviceLiveEvent[];
+};
+
 export function DeviceDetailPanel({ protocol, deviceIdParam }: Props) {
   const [device, setDevice] = useState<HubLightDevice | null>(null);
+  const [zwaveNode, setZwaveNode] = useState<ZwaveNodeDetail | null>(null);
+  const [zwaveSiblings, setZwaveSiblings] = useState<HubLightDevice[]>([]);
   const [events, setEvents] = useState<DeviceLiveEvent[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [flash, setFlash] = useState<string | null>(null);
@@ -50,11 +61,10 @@ export function DeviceDetailPanel({ protocol, deviceIdParam }: Props) {
         setError("Laitetta ei löydy.");
         return;
       }
-      const json = (await res.json()) as {
-        device: HubLightDevice;
-        recentEvents?: DeviceLiveEvent[];
-      };
+      const json = (await res.json()) as DeviceResponse;
       setDevice(json.device);
+      setZwaveNode(json.zwaveNode ?? null);
+      setZwaveSiblings(json.zwaveSiblings ?? []);
       if (json.recentEvents?.length) {
         setEvents((prev) => {
           const merged = [...json.recentEvents!, ...prev];
@@ -118,9 +128,18 @@ export function DeviceDetailPanel({ protocol, deviceIdParam }: Props) {
     isButton &&
     (hasCapability(caps, "temperature") ||
       hasCapability(caps, "humidity") ||
-      device.kind === "sensor");
+      device?.kind === "sensor");
+
+  const zwaveEndpoints = useMemo(() => {
+    if (!zwaveNode?.endpoints?.length) return [];
+    return [...zwaveNode.endpoints].sort((a, b) => a.endpoint - b.endpoint);
+  }, [zwaveNode]);
+
+  const showMultiZwaveControls = protocol === "zwave" && zwaveEndpoints.length > 1;
+
   const hasWritableControl =
-    device.controllable &&
+    !showMultiZwaveControls &&
+    (device?.controllable ?? false) &&
     !isSensorWithButton &&
     (canSwitch || canDimmer || canColor || canLock);
 
@@ -134,14 +153,21 @@ export function DeviceDetailPanel({ protocol, deviceIdParam }: Props) {
     return listTriggerActionsForDevice(device, observed).slice(0, 24);
   }, [device, events]);
 
-  function control(body: Record<string, unknown>) {
-    if (!device) return;
+  function controlDevice(
+    targetId: string,
+    body: Record<string, unknown>,
+    mqttSetTopic?: string | null,
+    lockSetTopic?: string | null,
+  ) {
     startTransition(async () => {
       try {
+        const payload: Record<string, unknown> = { id: targetId, ...body };
+        if (mqttSetTopic) payload.mqtt_set_topic = mqttSetTopic;
+        if (lockSetTopic) payload.lock_set_topic = lockSetTopic;
         const res = await fetch("/api/lights/control", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id: device.id, ...body }),
+          body: JSON.stringify(payload),
         });
         const json = (await res.json()) as { ok?: boolean; error?: string };
         if (!json.ok) setFlash(json.error ?? "Ohjaus epäonnistui");
@@ -151,6 +177,32 @@ export function DeviceDetailPanel({ protocol, deviceIdParam }: Props) {
         }
       } catch {
         setFlash("Ohjaus epäonnistui");
+      }
+    });
+  }
+
+  function control(body: Record<string, unknown>) {
+    if (!device) return;
+    const sibling = zwaveSiblings.find((s) => s.id === device.id);
+    controlDevice(device.id, body, sibling?.mqttSetTopic ?? device.mqttSetTopic, device.lockSetTopic);
+  }
+
+  function setZwaveProperty(mqttTopic: string, value: unknown) {
+    startTransition(async () => {
+      try {
+        const res = await fetch("/api/devices/zwave/property", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ mqtt_topic: mqttTopic, value }),
+        });
+        const json = (await res.json()) as { ok?: boolean; error?: string };
+        if (!json.ok) setFlash(json.error ?? "Asetus epäonnistui");
+        else {
+          setFlash(null);
+          await loadDevice();
+        }
+      } catch {
+        setFlash("Asetus epäonnistui");
       }
     });
   }
@@ -172,6 +224,11 @@ export function DeviceDetailPanel({ protocol, deviceIdParam }: Props) {
     return <p className="mt-6 text-sm text-stone-500">Ladataan laitetta…</p>;
   }
 
+  const nodeProperties = zwaveNode?.properties ?? [];
+  const nodeConfig = zwaveNode?.config ?? [];
+  const displayName =
+    zwaveNode && zwaveEndpoints.length > 1 ? zwaveNode.name : device.name;
+
   return (
     <div className="mt-6 space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -179,10 +236,11 @@ export function DeviceDetailPanel({ protocol, deviceIdParam }: Props) {
           <Link href={listHref} className="text-xs font-medium text-stone-500 hover:text-stone-800">
             ← {protocolLabel(protocol)}-laitteet
           </Link>
-          <h2 className="mt-1 text-xl font-semibold text-stone-900">{device.name}</h2>
+          <h2 className="mt-1 text-xl font-semibold text-stone-900">{displayName}</h2>
           <p className="mt-0.5 text-sm text-stone-500">
             {protocolLabel(device.protocol)} · {device.capabilitiesLabel || kindLabel(device.kind)}
             {device.room ? ` · ${device.room}` : ""}
+            {zwaveEndpoints.length > 1 ? ` · ${zwaveEndpoints.length} kanavaa` : ""}
           </p>
           <p className="mt-1 font-mono text-[10px] text-stone-400">{device.id}</p>
         </div>
@@ -196,6 +254,26 @@ export function DeviceDetailPanel({ protocol, deviceIdParam }: Props) {
 
       {flash && (
         <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-900">{flash}</div>
+      )}
+
+      {showMultiZwaveControls && (
+        <section className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
+          <h3 className="text-lg font-semibold text-stone-900">Kanavat</h3>
+          <p className="mt-1 text-sm text-stone-600">
+            Löydetyt endpointit MQTT-skannauksesta — jokainen kanava ohjataan erikseen.
+          </p>
+          <div className="mt-4 space-y-4">
+            {zwaveEndpoints.map((ep) => (
+              <ZwaveEndpointControl
+                key={ep.endpoint}
+                endpoint={ep}
+                sibling={zwaveSiblings.find((s) => s.id === ep.device_id)}
+                pending={pending}
+                onControl={(id, body, mqttTopic) => controlDevice(id, body, mqttTopic)}
+              />
+            ))}
+          </div>
+        </section>
       )}
 
       {hasWritableControl && (
@@ -275,6 +353,38 @@ export function DeviceDetailPanel({ protocol, deviceIdParam }: Props) {
               </div>
             </div>
           )}
+        </section>
+      )}
+
+      {protocol === "zwave" && nodeProperties.length > 0 && (
+        <section className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
+          <h3 className="text-lg font-semibold text-stone-900">Ominaisuudet</h3>
+          <ul className="mt-4 divide-y divide-stone-100">
+            {nodeProperties.map((prop) => (
+              <ZwavePropertyRow
+                key={`${prop.cc}-${prop.endpoint}-${prop.property ?? ""}`}
+                prop={prop}
+                pending={pending}
+                onSet={setZwaveProperty}
+              />
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {protocol === "zwave" && nodeConfig.length > 0 && (
+        <section className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
+          <h3 className="text-lg font-semibold text-stone-900">Konfiguraatio (CC 112)</h3>
+          <ul className="mt-4 space-y-3">
+            {nodeConfig.map((cfg) => (
+              <ZwaveConfigRow
+                key={cfg.param}
+                cfg={cfg}
+                pending={pending}
+                onSet={setZwaveProperty}
+              />
+            ))}
+          </ul>
         </section>
       )}
 
@@ -366,7 +476,8 @@ export function DeviceDetailPanel({ protocol, deviceIdParam }: Props) {
 
       {(device.readingLabel ||
         device.temperature_c != null ||
-        device.humidity_pct != null) && (
+        device.humidity_pct != null ||
+        device.power_w != null) && (
         <section className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
           <h3 className="text-lg font-semibold text-stone-900">Tila</h3>
           <p className="mt-2 text-sm text-stone-700">
@@ -374,6 +485,7 @@ export function DeviceDetailPanel({ protocol, deviceIdParam }: Props) {
               [
                 device.temperature_c != null ? `${device.temperature_c.toFixed(1)} °C` : null,
                 device.humidity_pct != null ? `${Math.round(device.humidity_pct)} %` : null,
+                device.power_w != null ? `${Math.round(device.power_w)} W` : null,
               ]
                 .filter(Boolean)
                 .join(" · ")}
@@ -381,6 +493,163 @@ export function DeviceDetailPanel({ protocol, deviceIdParam }: Props) {
         </section>
       )}
     </div>
+  );
+}
+
+function ZwaveEndpointControl({
+  endpoint,
+  sibling,
+  pending,
+  onControl,
+}: {
+  endpoint: ZwaveNodeEndpoint;
+  sibling?: HubLightDevice;
+  pending: boolean;
+  onControl: (id: string, body: Record<string, unknown>, mqttTopic?: string | null) => void;
+}) {
+  const caps = endpoint.capabilities ?? sibling?.capabilities ?? [];
+  const canSwitch = canWrite(caps, "switch") || canWrite(caps, "relay");
+  const canLock = canWrite(caps, "lock");
+  const controllable =
+    endpoint.controllable === true || sibling?.controllable === true;
+  const deviceId = endpoint.device_id;
+  const mqttTopic = endpoint.mqtt_set_topic ?? sibling?.mqttSetTopic;
+  const on = endpoint.on ?? sibling?.on ?? false;
+
+  if (!controllable || (!canSwitch && !canLock)) {
+    return (
+      <div className="rounded-xl border border-stone-100 bg-stone-50 px-4 py-3">
+        <p className="font-medium text-stone-900">{endpoint.label}</p>
+        <p className="mt-1 text-sm text-stone-600">
+          {endpoint.properties?.length
+            ? endpoint.properties.map((p) => `${p.label}: ${formatZwaveValue(p.value)}`).join(" · ")
+            : "Ei ohjausta — vain lukuarvoja"}
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-xl border border-stone-200 px-4 py-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <p className="font-medium text-stone-900">{endpoint.label}</p>
+          <p className="text-xs text-stone-500">
+            {on ? "Päällä" : "Pois"}
+            {deviceId ? ` · ${deviceId}` : ""}
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {canSwitch && (
+            <>
+              <ControlButton
+                disabled={pending}
+                onClick={() => onControl(deviceId, { on: true }, mqttTopic)}
+              >
+                Päälle
+              </ControlButton>
+              <ControlButton
+                disabled={pending}
+                onClick={() => onControl(deviceId, { on: false }, mqttTopic)}
+              >
+                Pois
+              </ControlButton>
+            </>
+          )}
+          {canLock && (
+            <>
+              <ControlButton
+                disabled={pending}
+                onClick={() => onControl(deviceId, { on: true }, mqttTopic)}
+              >
+                Lukitse
+              </ControlButton>
+              <ControlButton
+                disabled={pending}
+                onClick={() => onControl(deviceId, { on: false }, mqttTopic)}
+              >
+                Avaa
+              </ControlButton>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ZwavePropertyRow({
+  prop,
+  pending,
+  onSet,
+}: {
+  prop: ZwaveProperty;
+  pending: boolean;
+  onSet: (topic: string, value: unknown) => void;
+}) {
+  const epLabel = prop.endpoint > 0 ? ` · EP ${prop.endpoint}` : "";
+  return (
+    <li className="flex flex-wrap items-center justify-between gap-3 py-2 text-sm">
+      <div>
+        <p className="font-medium text-stone-900">
+          {prop.label}
+          {epLabel}
+        </p>
+        <p className="text-xs text-stone-500">CC {prop.cc}</p>
+      </div>
+      <div className="flex items-center gap-2">
+        <span className="tabular-nums text-stone-700">{formatZwaveValue(prop.value)}</span>
+        {prop.writable && prop.mqtt_topic && (
+          <button
+            type="button"
+            disabled={pending}
+            onClick={() => onSet(prop.mqtt_topic, !(prop.value === true))}
+            className="rounded-lg border border-stone-200 px-2 py-1 text-xs hover:bg-stone-50 disabled:opacity-50"
+          >
+            Vaihda
+          </button>
+        )}
+      </div>
+    </li>
+  );
+}
+
+function ZwaveConfigRow({
+  cfg,
+  pending,
+  onSet,
+}: {
+  cfg: ZwaveConfigParam;
+  pending: boolean;
+  onSet: (topic: string, value: unknown) => void;
+}) {
+  const options = configParamOptions(cfg.param);
+
+  return (
+    <li className="rounded-xl border border-stone-100 bg-stone-50 px-4 py-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <p className="font-medium text-stone-900">{cfg.label}</p>
+          <p className="text-xs text-stone-500">Param {cfg.param}</p>
+        </div>
+        <span className="tabular-nums text-sm text-stone-700">{formatZwaveValue(cfg.value)}</span>
+      </div>
+      {options && cfg.mqtt_topic && (
+        <div className="mt-2 flex flex-wrap gap-2">
+          {options.map((opt) => (
+            <button
+              key={opt.value}
+              type="button"
+              disabled={pending}
+              onClick={() => onSet(cfg.mqtt_topic, opt.value)}
+              className="rounded-lg border border-stone-200 bg-white px-2 py-1 text-xs hover:bg-stone-100 disabled:opacity-50"
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </li>
   );
 }
 

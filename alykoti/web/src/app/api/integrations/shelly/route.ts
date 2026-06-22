@@ -69,14 +69,19 @@ export async function GET() {
 
   const configured = hub.state.integrations?.shelly?.devices ?? [];
   const home = hub.state.home_devices ?? {};
-  const live = configured.map((dev: ShellyDeviceConfig) => ({
-    id: dev.id,
-    name: dev.name,
-    host: dev.host,
-    model: dev.model,
-    channels: channelsForHost(dev.host, home),
-    reachable: channelsForHost(dev.host, home).length > 0,
-  }));
+  const live = configured.map((dev: ShellyDeviceConfig) => {
+    const channels = channelsForHost(dev.host, home);
+    return {
+      id: dev.id,
+      name: dev.name,
+      host: dev.host,
+      model: dev.model,
+      channels,
+      reachable: channels.length > 0,
+      configured: true,
+      awaitingSync: channels.length === 0 && isHubOnline(hub.last_seen_at),
+    };
+  });
 
   const discovered = (hub.state.shelly_discovered ?? []).map((item) => ({
     ...item,

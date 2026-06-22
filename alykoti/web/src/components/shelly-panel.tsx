@@ -29,6 +29,8 @@ type HostLive = {
   model?: string;
   channels: ChannelLive[];
   reachable: boolean;
+  configured?: boolean;
+  awaitingSync?: boolean;
 };
 
 type ShellyResponse = {
@@ -250,7 +252,8 @@ function HostList({
                   <p className="text-xs text-stone-500">
                     {dev.host}
                     {dev.model && ` · ${dev.model}`}
-                    {!dev.reachable && hubOnline && " · Odottaa synkkiä"}
+                    {dev.awaitingSync && " · Odottaa synkkiä (~30 s)"}
+                    {!dev.reachable && !dev.awaitingSync && hubOnline && " · Ei vastausta"}
                     {!dev.reachable && !hubOnline && " · Yellow offline"}
                   </p>
                 </div>

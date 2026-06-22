@@ -39,7 +39,11 @@ def _switch_status(result: dict[str, Any], channel: int) -> dict[str, Any] | Non
 
 def _em_status(result: dict[str, Any]) -> dict[str, Any] | None:
     for key, val in result.items():
-        if key.startswith("em:") and isinstance(val, dict):
+        if isinstance(val, dict) and (
+            key.startswith("em:")
+            or key.startswith("emdata:")
+            or re.fullmatch(r"em\d+(:0)?", key)
+        ):
             return val
     return None
 
@@ -314,12 +318,17 @@ def fetch_shelly_devices(configured: list[dict[str, Any]]) -> dict[str, dict[str
         model = meta["model"]
 
         if gen == 1:
-            out.update(_gen1_fetch(host, name, model))
-            continue
+            fetched = _gen1_fetch(host, name, model)
+            if fetched:
+                out.update(fetched)
+                continue
 
         rpc = _rpc(host, "Shelly.GetStatus")
         result = rpc.get("result") if rpc else None
         if not isinstance(result, dict):
+            fetched = _gen1_fetch(host, name, model)
+            if fetched:
+                out.update(fetched)
             continue
 
         switches = _switch_channels(result)
