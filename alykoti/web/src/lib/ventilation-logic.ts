@@ -20,9 +20,33 @@ const BAND_LABELS: Record<Co2Band, string> = {
 export type AutoFanInputs = {
   co2?: number | null;
   pm25?: number | null;
+  humidity?: number | null;
   indoorTempC?: number | null;
   outdoorTempC?: number | null;
 };
+
+export type HumidityBand = Co2Band;
+
+/** Korkein kosteus kaikista lähteistä (Zigbee-anturit, Airthings, AirFi). */
+export function collectVentilationHumidityPct(input: {
+  homeDevices?: Record<string, { humidity_pct?: number | null }> | null;
+  airthingsHumidity?: number | null;
+  airfiHumidity?: number | null;
+}): number | null {
+  const values: number[] = [];
+  const add = (v: number | null | undefined) => {
+    if (v != null && Number.isFinite(v) && v >= 0 && v <= 100) values.push(v);
+  };
+  add(input.airthingsHumidity);
+  add(input.airfiHumidity);
+  if (input.homeDevices) {
+    for (const device of Object.values(input.homeDevices)) {
+      add(device.humidity_pct);
+    }
+  }
+  if (values.length === 0) return null;
+  return Math.max(...values);
+}
 
 export function clampFanPct(value: number): number {
   return Math.max(MIN_FAN_PCT, Math.min(MAX_FAN_PCT, Math.round(value)));
@@ -69,6 +93,17 @@ export function getPm25BandLabel(band: Pm25Band): string {
   return BAND_LABELS[band];
 }
 
+export function getHumidityBand(humidity: number, config: VentilationConfig): HumidityBand {
+  if (humidity < config.humidity_normal_max) return "normal";
+  if (humidity < config.humidity_elevated_max) return "elevated";
+  if (humidity < config.humidity_high_max) return "high";
+  return "max";
+}
+
+export function getHumidityBandLabel(band: HumidityBand): string {
+  return BAND_LABELS[band];
+}
+
 function lerpPct(
   value: number,
   low: number,
@@ -106,6 +141,34 @@ export function computeBaseCo2FanPct(co2: number, config: VentilationConfig): nu
   }
   const over = co2 - config.co2_high_max;
   const extra = Math.min(over / 400, 1) * (config.speed_max_pct - config.speed_high_pct);
+  return config.speed_high_pct + extra;
+}
+
+/** Liukuva kosteus → % (25–100), sama kaava kuin CO₂. */
+export function computeBaseHumidityFanPct(humidity: number, config: VentilationConfig): number {
+  if (humidity <= config.humidity_normal_max) {
+    return config.speed_normal_pct;
+  }
+  if (humidity <= config.humidity_elevated_max) {
+    return lerpPct(
+      humidity,
+      config.humidity_normal_max,
+      config.humidity_elevated_max,
+      config.speed_normal_pct,
+      config.speed_elevated_pct,
+    );
+  }
+  if (humidity <= config.humidity_high_max) {
+    return lerpPct(
+      humidity,
+      config.humidity_elevated_max,
+      config.humidity_high_max,
+      config.speed_elevated_pct,
+      config.speed_high_pct,
+    );
+  }
+  const over = humidity - config.humidity_high_max;
+  const extra = Math.min(over / 15, 1) * (config.speed_max_pct - config.speed_high_pct);
   return config.speed_high_pct + extra;
 }
 
@@ -149,7 +212,7 @@ export function isHeatBoostActive(
   return indoor > HEAT_BOOST_INDOOR_MIN_C && outdoor > HEAT_BOOST_OUTDOOR_MIN_C;
 }
 
-/** Liukuva säätö: CO₂ ja PM2.5 erikseen → korkeampi voittaa; lämpöboost päivällä. */
+/** Liukuva säätö: CO₂, kosteus ja PM2.5 erikseen → korkeampi voittaa; lämpöboost päivällä. */
 export function computeAutoFanPct(
   inputs: AutoFanInputs | number,
   config: VentilationConfig,
@@ -161,6 +224,9 @@ export function computeAutoFanPct(
   const candidates: number[] = [];
   if (normalized.co2 != null && Number.isFinite(normalized.co2)) {
     candidates.push(computeBaseCo2FanPct(normalized.co2, config));
+  }
+  if (normalized.humidity != null && Number.isFinite(normalized.humidity)) {
+    candidates.push(computeBaseHumidityFanPct(normalized.humidity, config));
   }
   if (normalized.pm25 != null && Number.isFinite(normalized.pm25)) {
     candidates.push(computeBasePm25FanPct(normalized.pm25, config));

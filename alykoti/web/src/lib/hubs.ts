@@ -160,6 +160,15 @@ export function validateVentilationConfig(
   if (config.pm25_normal_max < 1 || config.pm25_high_max > 500) {
     return "PM2.5-rajat 1–500 µg/m³.";
   }
+  if (config.humidity_normal_max >= config.humidity_elevated_max) {
+    return "Kosteus normaali-rajan pitää olla alle kohonneen.";
+  }
+  if (config.humidity_elevated_max >= config.humidity_high_max) {
+    return "Kosteus kohonnut-rajan pitää olla alle korkean.";
+  }
+  if (config.humidity_normal_max < 30 || config.humidity_high_max > 100) {
+    return "Kosteusrajat 30–100 %.";
+  }
   for (const speed of [
     config.speed_normal_pct,
     config.speed_elevated_pct,

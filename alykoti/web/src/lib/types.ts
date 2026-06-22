@@ -8,6 +8,9 @@ export type VentilationConfig = {
   co2_normal_max: number;
   co2_elevated_max: number;
   co2_high_max: number;
+  humidity_normal_max: number;
+  humidity_elevated_max: number;
+  humidity_high_max: number;
   pm25_normal_max: number;
   pm25_elevated_max: number;
   pm25_high_max: number;
@@ -29,6 +32,9 @@ export const DEFAULT_VENTILATION_CONFIG: VentilationConfig = {
   co2_normal_max: 800,
   co2_elevated_max: 1000,
   co2_high_max: 1200,
+  humidity_normal_max: 55,
+  humidity_elevated_max: 65,
+  humidity_high_max: 75,
   pm25_normal_max: 12,
   pm25_elevated_max: 25,
   pm25_high_max: 50,
@@ -192,9 +198,53 @@ export type HubHomeDevice = {
   /** Shelly EM — kokonaisteho kW */
   power_kw?: number | null;
   em_phases?: EnergyPhases;
+  /** Z-Wave CC property readings on this endpoint (Yellow discovery). */
+  zwave_properties?: ZwaveProperty[];
   /** @deprecated käytä em_phases */
   em_a_power_w?: number | null;
   em_b_power_w?: number | null;
+};
+
+export type ZwaveProperty = {
+  cc: number;
+  endpoint: number;
+  property?: string | null;
+  label: string;
+  value?: unknown;
+  mqtt_topic: string;
+  writable?: boolean;
+};
+
+export type ZwaveConfigParam = {
+  param: number;
+  label: string;
+  value?: unknown;
+  mqtt_topic: string;
+  writable?: boolean;
+  states?: Array<{ text: string; value: number }>;
+};
+
+export type ZwaveNodeEndpoint = {
+  endpoint: number;
+  device_id: string;
+  label: string;
+  on?: boolean;
+  brightness?: number | null;
+  controllable?: boolean;
+  mqtt_set_topic?: string | null;
+  control_cc?: number | null;
+  capabilities?: DeviceCapability[];
+  properties?: ZwaveProperty[];
+};
+
+export type ZwaveNodeDetail = {
+  node_id: number;
+  name: string;
+  room?: string | null;
+  base_topic?: string | null;
+  endpoints: ZwaveNodeEndpoint[];
+  config: ZwaveConfigParam[];
+  properties: ZwaveProperty[];
 };
 
 /** Web-käyttäjän asetukset laitteelle (ei Yellow-synkistä). */
@@ -216,6 +266,8 @@ export type HubConfig = VentilationConfig & {
 export type HubState = {
   co2_ppm?: number | null;
   humidity_pct?: number | null;
+  /** Korkein kosteus kaikista IV-lähteistä (Zigbee, Airthings, AirFi). */
+  ventilation_humidity_pct?: number | null;
   temperature_c?: number | null;
   tvoc_ppb?: number | null;
   pm1_ugm3?: number | null;
@@ -307,6 +359,8 @@ export type HubState = {
   shelly_discovered?: ShellyDiscoveredDevice[];
   /** Yellow-verkkoscanin löytämät Tasmota-laitteet. */
   tasmota_discovered?: TasmotaDiscoveredDevice[];
+  /** Z-Wave node aggregate (Yellow MQTT discovery). Key = node id string. */
+  zwave_nodes?: Record<string, ZwaveNodeDetail>;
 };
 
 export type Hub = {

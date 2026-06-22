@@ -6,6 +6,8 @@ import type { VentilationConfig } from "@/lib/types";
 import {
   computeAutoFanPct,
   formatNightWindow,
+  getHumidityBand,
+  getHumidityBandLabel,
   getPm25Band,
   getPm25BandLabel,
   HEAT_BOOST_INDOOR_MIN_C,
@@ -21,6 +23,7 @@ type Props = {
   config: VentilationConfig;
   pm25Ugm3?: number | null;
   co2Ppm?: number | null;
+  humidityPct?: number | null;
   temperatureC?: number | null;
   outdoorTempC?: number | null;
 };
@@ -30,6 +33,7 @@ export function AutomationSettingsForm({
   config,
   pm25Ugm3,
   co2Ppm,
+  humidityPct,
   temperatureC,
   outdoorTempC,
 }: Props) {
@@ -39,14 +43,34 @@ export function AutomationSettingsForm({
   const nightActive = isNightMode(values);
   const pm25Band =
     pm25Ugm3 != null && Number.isFinite(pm25Ugm3) ? getPm25Band(pm25Ugm3, values) : null;
+  const humidityBand =
+    humidityPct != null && Number.isFinite(humidityPct)
+      ? getHumidityBand(humidityPct, values)
+      : null;
   const heatBoost = isHeatBoostActive(
     { indoorTempC: temperatureC, outdoorTempC },
     values,
   );
   const previewPct = computeAutoFanPct(
-    { co2: co2Ppm, pm25: pm25Ugm3, indoorTempC: temperatureC, outdoorTempC },
+    { co2: co2Ppm, pm25: pm25Ugm3, humidity: humidityPct, indoorTempC: temperatureC, outdoorTempC },
     values,
   );
+
+  function setHumidity(
+    field: "humidity_normal_max" | "humidity_elevated_max" | "humidity_high_max",
+    raw: number,
+  ) {
+    setValues((prev) => {
+      const next = { ...prev, [field]: raw };
+      if (next.humidity_normal_max >= next.humidity_elevated_max) {
+        next.humidity_elevated_max = Math.min(99, next.humidity_normal_max + 5);
+      }
+      if (next.humidity_elevated_max >= next.humidity_high_max) {
+        next.humidity_high_max = Math.min(100, next.humidity_elevated_max + 5);
+      }
+      return next;
+    });
+  }
 
   function patch(partial: Partial<VentilationConfig>) {
     setValues((prev) => ({ ...prev, ...partial }));
@@ -101,13 +125,26 @@ export function AutomationSettingsForm({
     >
       <h2 className="text-lg font-semibold text-stone-900">Automaatioasetukset</h2>
       <p className="mt-1 text-sm text-stone-600">
-        Liukuva CO₂- ja PM2.5-ohjaus 25–100 %. Korkeampi mittarin vaatima nopeus voittaa.
+        Liukuva CO₂-, kosteus- ja PM2.5-ohjaus 25–100 %. Korkeampi mittarin vaatima nopeus voittaa.
         Lämpöboost +{HEAT_BOOST_PCT} % kun sisällä &gt; {HEAT_BOOST_INDOOR_MIN_C} °C ja ulkona &gt;{" "}
         {HEAT_BOOST_OUTDOOR_MIN_C} °C (ei yöllä).
       </p>
 
-      {(pm25Ugm3 != null || co2Ppm != null || temperatureC != null || outdoorTempC != null) && (
+      {(pm25Ugm3 != null ||
+        co2Ppm != null ||
+        humidityPct != null ||
+        temperatureC != null ||
+        outdoorTempC != null) && (
         <div className="mt-4 flex flex-wrap gap-3 rounded-xl border border-stone-100 bg-stone-50 px-4 py-3 text-sm">
+          {humidityPct != null && Number.isFinite(humidityPct) && (
+            <span>
+              <span className="text-stone-500">Kosteus (max) </span>
+              <span className="font-semibold tabular-nums">{Math.round(humidityPct)} %</span>
+              {humidityBand && (
+                <span className="ml-2 text-stone-600">({getHumidityBandLabel(humidityBand)})</span>
+              )}
+            </span>
+          )}
           {pm25Ugm3 != null && Number.isFinite(pm25Ugm3) && (
             <span>
               <span className="text-stone-500">PM2.5 nyt </span>
@@ -229,11 +266,45 @@ export function AutomationSettingsForm({
           />
         </fieldset>
 
+        <fieldset className="space-y-5">
+          <legend className="text-sm font-semibold text-stone-800">Kosteusrajat (%)</legend>
+          <p className="text-xs text-stone-500">
+            Zigbee-anturit (esim. H&amp;T suihku), Airthings ja AirFi — korkein arvo ohjaa.
+          </p>
+          <ConfigSlider
+            label="Normaali alle"
+            value={values.humidity_normal_max}
+            onChange={(v) => setHumidity("humidity_normal_max", v)}
+            min={30}
+            max={90}
+            step={1}
+            unit=" %"
+          />
+          <ConfigSlider
+            label="Kohonnut alle"
+            value={values.humidity_elevated_max}
+            onChange={(v) => setHumidity("humidity_elevated_max", v)}
+            min={35}
+            max={95}
+            step={1}
+            unit=" %"
+          />
+          <ConfigSlider
+            label="Korkea alle"
+            value={values.humidity_high_max}
+            onChange={(v) => setHumidity("humidity_high_max", v)}
+            min={40}
+            max={100}
+            step={1}
+            unit=" %"
+          />
+        </fieldset>
+
         <fieldset className="space-y-5 rounded-xl border border-violet-100 bg-violet-50/40 p-4">
           <legend className="text-sm font-semibold text-violet-950">Liukuva säätö</legend>
           <p className="text-xs text-violet-900">
-            CO₂ ja PM2.5 laskevat oman nopeutensa liukuvasti rajojen välillä. Automaatti käyttää
-            korkeampaa arvoa. Nopeus muuttuu enintään 5 % per synkki (~2 min).
+            CO₂, kosteus ja PM2.5 laskevat oman nopeutensa liukuvasti rajojen välillä. Automaatti
+            käyttää korkeampaa arvoa. Nopeus muuttuu enintään 5 % per synkki (~2 min).
           </p>
           <p className="text-xs text-violet-900">
             Lämpöboost: sisälämpö &gt; {HEAT_BOOST_INDOOR_MIN_C} °C ja ulkolämpö &gt;{" "}

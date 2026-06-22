@@ -16,7 +16,7 @@ import { recordEnergySamples } from "@/lib/energy-samples";
 import { normalizeHomeDevices } from "@/lib/device-normalize";
 import { recordHubMetrics } from "@/lib/metric-samples";
 import { activeTimedMode, effectiveControlMode, expireTimedModes, formatRemaining, remainingMs } from "@/lib/mode-schedule";
-import { getCo2Band, getCo2BandLabel, type AutoFanInputs } from "@/lib/ventilation-logic";
+import { getCo2Band, getCo2BandLabel, collectVentilationHumidityPct, type AutoFanInputs } from "@/lib/ventilation-logic";
 import { enrichLtoFromHubState } from "@/lib/lto-efficiency";
 import { normalizeAutomationEvents } from "@/lib/automation-events";
 import { parseHubConfig } from "@/lib/hubs";
@@ -219,6 +219,14 @@ export async function syncDevice(
 
   if (Array.isArray(body.state?.tasmota_discovered)) {
     mergedState.tasmota_discovered = body.state.tasmota_discovered as HubState["tasmota_discovered"];
+  }
+
+  if (Array.isArray(body.state?.shelly_discovered)) {
+    mergedState.shelly_discovered = body.state.shelly_discovered as HubState["shelly_discovered"];
+  }
+
+  if (body.state?.zwave_nodes && typeof body.state.zwave_nodes === "object") {
+    mergedState.zwave_nodes = body.state.zwave_nodes as HubState["zwave_nodes"];
   }
 
   const prevStored = parseState(hub.state);
@@ -431,9 +439,19 @@ export async function syncDevice(
 
   let ventilationState: HubState | undefined;
 
+  const ventilationHumidity = collectVentilationHumidityPct({
+    homeDevices: mergedState.home_devices,
+    airthingsHumidity: airthingsState?.humidity_pct,
+    airfiHumidity: airfiState?.internal_humidity_pct ?? mergedState.humidity_pct,
+  });
+  if (ventilationHumidity != null) {
+    mergedState.ventilation_humidity_pct = ventilationHumidity;
+  }
+
   const fanInputs: AutoFanInputs = {
     co2: mergedState.co2_ppm,
     pm25: mergedState.pm25_ugm3,
+    humidity: ventilationHumidity,
     indoorTempC: mergedState.temperature_c,
     outdoorTempC: mergedState.outdoor_temp_c,
   };

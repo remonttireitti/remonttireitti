@@ -40,6 +40,7 @@ export default async function VentilationSettingsPage() {
             config={hub.config}
             co2Ppm={hub.state.co2_ppm}
             pm25Ugm3={hub.state.pm25_ugm3}
+            humidityPct={hub.state.ventilation_humidity_pct ?? hub.state.humidity_pct}
             temperatureC={hub.state.temperature_c}
             outdoorTempC={hub.state.outdoor_temp_c}
           />
