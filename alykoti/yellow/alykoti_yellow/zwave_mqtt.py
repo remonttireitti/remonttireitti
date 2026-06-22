@@ -23,7 +23,11 @@ CURRENT_VALUE_RE = re.compile(
 CURRENT_VALUE_NODE_RE = re.compile(
     r"^zwave/(nodeID_\d+)/(\d+)/(\d+)/currentValue$"
 )
-STATUS_RE = re.compile(r"^zwave/([^/]+)/([^/]+)/status$")
+# Named-topics gateway: multi-segment loc/name paths.
+CV_TV_RE = re.compile(r"^(.+)/(\d+)/(\d+)/(currentValue|targetValue)$")
+CONFIG_PARAM_RE = re.compile(r"^(.+)/112/0/(\d+)$")
+NAMED_VALUE_RE = re.compile(r"^(.+)/(\d+)/(\d+)/([^/]+)$")
+STATUS_SUFFIX_RE = re.compile(r"^(.+)/status$")
 
 CONTROL_IDS = {"switch", "dimmer", "lock", "relay", "fan", "cover"}
 
@@ -162,13 +166,52 @@ def _slug(text: str) -> str:
     return text.strip().replace(" ", "_")
 
 
+def _mqtt_device_path(loc: str, name: str) -> str:
+    """Z-Wave JS UI named-topics path: loc/name_parts with spaces → underscores."""
+    parts = [_slug(p) for p in name.split("/") if p.strip()]
+    loc = loc.strip()
+    if loc:
+        return f"{loc}/{'/'.join(parts)}"
+    return "/".join(parts)
+
+
 def _build_topic_paths(meta: dict[int, dict[str, str]]) -> dict[str, int]:
     paths: dict[str, int] = {}
     for node_id, info in meta.items():
-        if info.get("loc"):
-            paths[f"{info['loc']}/{_slug(info['name'])}"] = node_id
+        path = _mqtt_device_path(info.get("loc") or "", info["name"])
+        if path:
+            paths[path] = node_id
         paths[f"nodeID_{node_id}"] = node_id
     return paths
+
+
+def _resolve_node_from_topic(
+    rest: str,
+    topic_paths: dict[str, int],
+    topic_map: dict[int, str],
+    prefix: str,
+    payload_node_id: int | None = None,
+) -> tuple[int, str] | None:
+    """Match longest known MQTT base path inside topic rest segment."""
+    if isinstance(payload_node_id, int):
+        base = topic_map.get(payload_node_id)
+        if base:
+            base_rest = base.removeprefix(f"{prefix}/")
+            if rest == base_rest or rest.startswith(f"{base_rest}/"):
+                return payload_node_id, base
+
+    best_nid: int | None = None
+    best_path = ""
+    for path, node_id in topic_paths.items():
+        if path.startswith("nodeID_"):
+            continue
+        if rest == path or rest.startswith(f"{path}/"):
+            if len(path) > len(best_path):
+                best_nid = node_id
+                best_path = path
+    if best_nid is not None:
+        return best_nid, f"{prefix}/{best_path}"
+    return None
 
 
 def _classify(name: str, caps: list[dict[str, Any]]) -> str:
@@ -240,7 +283,7 @@ def _controllable(caps: list[dict[str, Any]]) -> bool:
 def _endpoint_label(caps: list[dict[str, Any]], endpoint: int) -> str:
     ids = {c["id"] for c in caps}
     if ids & {"switch", "dimmer", "relay"}:
-        return f"Kytkin {endpoint}"
+        return f"Kanava {endpoint}"
     if "temperature" in ids:
         return f"Lämpö {endpoint}"
     if "humidity" in ids:
@@ -375,13 +418,73 @@ def _request_node_refresh(
         log.debug("Z-Wave getState refresh failed node %s: %s", node_id, exc)
 
 
+def _property_label(cc: int, prop: str | None) -> str:
+    p = (prop or "").replace("_", " ")
+    if cc == 37:
+        return "Kytkin"
+    if cc == 38:
+        return "Himmennys"
+    if cc == 49:
+        pl = (prop or "").casefold()
+        if "humidity" in pl:
+            return "Kosteus"
+        if "temperature" in pl or "air" in pl:
+            return "Lämpötila"
+        if "luminance" in pl:
+            return "Valoisuus"
+        if "voltage" in pl:
+            return "Jännite"
+        return p or "Arvo"
+    if cc == 50:
+        return "Teho"
+    if cc == 112:
+        return f"Param {prop}"
+    return p or f"CC {cc}"
+
+
+def _config_param_label(param: int) -> str:
+    known = {
+        1: "Backlight",
+        2: "LED Indicator",
+        3: "State After Power Failure",
+        4: "Root Device Mapped Setting",
+    }
+    return known.get(param, f"Param {param}")
+
+
+def _mqtt_client(_broker_url: str) -> mqtt.Client:
+    try:
+        return mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
+    except AttributeError:
+        return mqtt.Client()
+
+
+def _publish_mqtt_value(broker_url: str, topic: str, value: Any) -> bool:
+    host, port = _parse_mqtt_url(broker_url)
+    payload = json.dumps({"value": value})
+    client = _mqtt_client(broker_url)
+    try:
+        client.connect(host, port, keepalive=30)
+        client.loop_start()
+        set_topic = topic if topic.endswith("/set") else f"{topic}/set"
+        client.publish(set_topic, payload)
+        time.sleep(0.3)
+        client.loop_stop()
+        client.disconnect()
+        return True
+    except Exception as exc:
+        log.warning("Z-Wave MQTT publish failed (%s): %s", topic, exc)
+        return False
+
+
 def fetch_zwave_devices(
     broker_url: str,
     prefix: str,
     nodes_json: str,
     timeout_sec: float = 8.0,
     gateway: str = "Mosquitto",
-) -> dict[str, dict[str, Any]]:
+) -> dict[str, Any]:
+    """Return {devices: home_devices dict, nodes: zwave_nodes dict}."""
     meta = _load_node_names(nodes_json)
     topic_paths = _build_topic_paths(meta)
     devices: dict[str, dict[str, Any]] = {}
@@ -389,7 +492,9 @@ def fetch_zwave_devices(
     node_caps: dict[tuple[int, int], dict[str, dict[str, Any]]] = {}
     endpoint_data: dict[tuple[int, int], dict[str, Any]] = {}
     node_endpoints: dict[int, set[int]] = {}
-    nodes_with_data: set[int] = set()
+    node_configs: dict[int, list[dict[str, Any]]] = {}
+    node_properties: dict[int, list[dict[str, Any]]] = {}
+    node_bases: dict[int, str] = {}
     host, port = _parse_mqtt_url(broker_url)
 
     def ensure_endpoint(node_id: int, endpoint: int) -> dict[str, Any]:
@@ -407,6 +512,7 @@ def fetch_zwave_devices(
                 "node_id": node_id,
                 "endpoint": endpoint,
                 "capabilities": [],
+                "zwave_properties": [],
             }
             node_caps[key] = {}
             node_endpoints.setdefault(node_id, set()).add(endpoint)
@@ -418,6 +524,56 @@ def fetch_zwave_devices(
         entries = _property_caps(cc, prop) or CC_DEFAULT.get(cc, [])
         for id_, read, write in entries:
             _merge_cap(caps_map, _cap(id_, read, write))
+
+    def add_property(
+        node_id: int,
+        endpoint: int,
+        cc: int,
+        prop: str | None,
+        value: Any,
+        mqtt_topic: str,
+        writable: bool,
+    ) -> None:
+        label = _property_label(cc, prop)
+        entry = {
+            "cc": cc,
+            "endpoint": endpoint,
+            "property": prop,
+            "label": label,
+            "value": value,
+            "mqtt_topic": mqtt_topic,
+            "writable": writable,
+        }
+        props = node_properties.setdefault(node_id, [])
+        key = (cc, endpoint, prop or "")
+        for i, existing in enumerate(props):
+            if (existing["cc"], existing["endpoint"], existing.get("property") or "") == key:
+                props[i] = entry
+                return
+        props.append(entry)
+
+        dev = ensure_endpoint(node_id, endpoint)
+        zprops: list[dict[str, Any]] = dev.setdefault("zwave_properties", [])
+        for i, existing in enumerate(zprops):
+            if (existing["cc"], existing["endpoint"], existing.get("property") or "") == key:
+                zprops[i] = entry
+                return
+        zprops.append(entry)
+
+    def add_config(node_id: int, param: int, value: Any, mqtt_topic: str) -> None:
+        entry = {
+            "param": param,
+            "label": _config_param_label(param),
+            "value": value,
+            "mqtt_topic": mqtt_topic,
+            "writable": True,
+        }
+        configs = node_configs.setdefault(node_id, [])
+        for i, existing in enumerate(configs):
+            if existing["param"] == param:
+                configs[i] = entry
+                return
+        configs.append(entry)
 
     def finalize_endpoint(node_id: int, endpoint: int) -> None:
         dev = ensure_endpoint(node_id, endpoint)
@@ -435,64 +591,150 @@ def fetch_zwave_devices(
         dev["kind"] = _classify(dev["name"], caps_list)
         dev["controllable"] = _controllable(caps_list)
 
+    def handle_value_topic(
+        node_id: int,
+        base: str,
+        cc: int,
+        ep: int,
+        prop_name: str | None,
+        payload: dict[str, Any],
+        mqtt_topic: str,
+        is_target: bool,
+    ) -> None:
+        topic_map[node_id] = base
+        node_bases[node_id] = base
+        add_cc_cap(node_id, ep, cc, prop_name)
+        dev = ensure_endpoint(node_id, ep)
+        _apply_cc_value(dev, cc, ep, prop_name, payload, base)
+        value = payload.get("value")
+        writable = is_target or cc in (37, 38, 62, 98)
+        set_topic = mqtt_topic
+        if not is_target and cc in (37, 38):
+            set_topic = mqtt_topic.replace("/currentValue", "/targetValue")
+        add_property(node_id, ep, cc, prop_name, value, set_topic, writable)
+        finalize_endpoint(node_id, ep)
+
     def on_message(_client, _userdata, msg):
         topic = msg.topic
         if not topic.startswith(f"{prefix}/"):
             return
+        rest = topic.removeprefix(f"{prefix}/")
         try:
             payload = json.loads(msg.payload.decode())
         except json.JSONDecodeError:
             payload = {}
-
         if not isinstance(payload, dict):
-            return
+            payload = {}
 
-        m = STATUS_RE.match(topic)
+        payload_node_id = payload.get("nodeId") if isinstance(payload.get("nodeId"), int) else None
+
+        m = STATUS_SUFFIX_RE.match(rest)
         if m:
-            node_id = payload.get("nodeId")
-            if isinstance(node_id, int):
-                topic_map[node_id] = f"{prefix}/{m.group(1)}/{m.group(2)}"
+            resolved = _resolve_node_from_topic(
+                m.group(1), topic_paths, topic_map, prefix, payload_node_id
+            )
+            if resolved:
+                node_id, base = resolved
+                topic_map[node_id] = base
+                node_bases[node_id] = base
             return
 
         prop = payload.get("property")
         prop_name = prop if isinstance(prop, str) else None
 
-        m = CURRENT_VALUE_RE.match(topic)
+        m = CV_TV_RE.match(rest)
+        if m:
+            resolved = _resolve_node_from_topic(
+                m.group(1), topic_paths, topic_map, prefix, payload_node_id
+            )
+            if resolved is None:
+                return
+            node_id, base = resolved
+            cc, ep = int(m.group(2)), int(m.group(3))
+            handle_value_topic(
+                node_id,
+                base,
+                cc,
+                ep,
+                prop_name,
+                payload,
+                topic,
+                m.group(4) == "targetValue",
+            )
+            return
+
+        m = CONFIG_PARAM_RE.match(rest)
+        if m:
+            resolved = _resolve_node_from_topic(
+                m.group(1), topic_paths, topic_map, prefix, payload_node_id
+            )
+            if resolved is None:
+                return
+            node_id, base = resolved
+            param = int(m.group(2))
+            topic_map[node_id] = base
+            node_bases[node_id] = base
+            add_config(node_id, param, payload.get("value"), topic)
+            return
+
+        m = NAMED_VALUE_RE.match(rest)
+        if m:
+            resolved = _resolve_node_from_topic(
+                m.group(1), topic_paths, topic_map, prefix, payload_node_id
+            )
+            if resolved is None:
+                return
+            node_id, base = resolved
+            cc, ep = int(m.group(2)), int(m.group(3))
+            prop_part = m.group(4)
+            if cc == 112:
+                return
+            prop_name = prop_part
+            topic_map[node_id] = base
+            node_bases[node_id] = base
+            add_cc_cap(node_id, ep, cc, prop_name)
+            dev = ensure_endpoint(node_id, ep)
+            _apply_cc_value(dev, cc, ep, prop_name, payload, base)
+            add_property(
+                node_id,
+                ep,
+                cc,
+                prop_name,
+                payload.get("value"),
+                topic,
+                cc in (37, 38, 62, 98),
+            )
+            finalize_endpoint(node_id, ep)
+            return
+
+        legacy = f"{prefix}/{rest}"
+        m = CURRENT_VALUE_RE.match(legacy)
         if m:
             loc, slug, cc, ep = m.group(1), m.group(2), int(m.group(3)), int(m.group(4))
             node_id = topic_paths.get(f"{loc}/{slug}")
             if node_id is None:
                 return
-            topic_map[node_id] = f"{prefix}/{loc}/{slug}"
-            nodes_with_data.add(node_id)
-            add_cc_cap(node_id, ep, cc, prop_name)
-            dev = ensure_endpoint(node_id, ep)
             base = f"{prefix}/{loc}/{slug}"
-            _apply_cc_value(dev, cc, ep, prop_name, payload, base)
-            finalize_endpoint(node_id, ep)
+            handle_value_topic(node_id, base, cc, ep, prop_name, payload, legacy, False)
             return
 
-        m = CURRENT_VALUE_NODE_RE.match(topic)
+        m = CURRENT_VALUE_NODE_RE.match(legacy)
         if m:
             node_slug, cc, ep = m.group(1), int(m.group(2)), int(m.group(3))
             nid_m = NODE_ID_RE.match(node_slug)
             if not nid_m:
                 return
             node_id = int(nid_m.group(1))
-            nodes_with_data.add(node_id)
-            add_cc_cap(node_id, ep, cc, prop_name)
-            dev = ensure_endpoint(node_id, ep)
             base = topic_map.get(node_id) or f"{prefix}/{node_slug}"
-            _apply_cc_value(dev, cc, ep, prop_name, payload, base)
-            finalize_endpoint(node_id, ep)
+            handle_value_topic(node_id, base, cc, ep, prop_name, payload, legacy, False)
 
-    client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
+    client = _mqtt_client(broker_url)
     client.on_message = on_message
     try:
         client.connect(host, port, keepalive=30)
     except Exception as exc:
         log.warning("Z-Wave MQTT connect failed: %s", exc)
-        return {}
+        return {"devices": {}, "nodes": {}}
 
     client.subscribe(f"{prefix}/#")
     client.loop_start()
@@ -509,12 +751,62 @@ def fetch_zwave_devices(
     client.loop_stop()
     client.disconnect()
 
+    zwave_nodes: dict[str, dict[str, Any]] = {}
+
     for node_id, info in meta.items():
         if info["name"].startswith("Node "):
             continue
 
         eps = sorted(node_endpoints.get(node_id, set()))
-        multi = len(eps) > 1
+        controllable_eps = [
+            e
+            for e in eps
+            if _controllable(sorted(node_caps.get((node_id, e), {}).values(), key=lambda c: c["id"]))
+        ]
+        multi = len(controllable_eps) > 1
+        base = node_bases.get(node_id) or topic_map.get(node_id)
+        if not base:
+            path = _mqtt_device_path(info.get("loc") or "", info["name"])
+            if path:
+                base = f"{prefix}/{path}"
+
+        endpoint_out: list[dict[str, Any]] = []
+        for ep in eps:
+            rec = endpoint_data[(node_id, ep)]
+            caps_list = rec.get("capabilities") or []
+            if ep == 0 and multi and not _controllable(caps_list):
+                continue
+            name = info["name"]
+            label = _endpoint_label(caps_list, ep) if multi else info["name"]
+            if multi:
+                name = f"{info['name']} ({label})"
+            dev_id = _device_id_for(node_id, ep, multi)
+            out = {
+                **rec,
+                "name": name,
+                "room": info["loc"] or None,
+                "node_id": node_id,
+                "endpoint": ep,
+            }
+            for internal in ("_ccs_seen", "_cc38_values", "_mqtt_topics"):
+                out.pop(internal, None)
+            devices[dev_id] = out
+            endpoint_out.append(
+                {
+                    "endpoint": ep,
+                    "device_id": dev_id,
+                    "label": label,
+                    "on": out.get("on", False),
+                    "brightness": out.get("brightness"),
+                    "controllable": out.get("controllable", False),
+                    "mqtt_set_topic": out.get("mqtt_set_topic"),
+                    "control_cc": out.get("control_cc"),
+                    "capabilities": out.get("capabilities") or [],
+                    "properties": out.get("zwave_properties") or [],
+                }
+            )
+
+        endpoint_out = [e for e in endpoint_out if e["controllable"] or e["endpoint"] != 0]
 
         if not eps:
             key = f"zwave:{node_id}"
@@ -531,31 +823,29 @@ def fetch_zwave_devices(
                 "endpoint": 0,
                 "capabilities": caps,
             }
-            continue
 
-        for ep in eps:
-            rec = endpoint_data[(node_id, ep)]
-            caps_list = rec.get("capabilities") or []
-            name = info["name"]
-            if multi:
-                name = f"{info['name']} ({_endpoint_label(caps_list, ep)})"
-            dev_id = _device_id_for(node_id, ep, multi)
-            out = {
-                **rec,
-                "name": name,
-                "room": info["loc"] or None,
-                "node_id": node_id,
-                "endpoint": ep,
-            }
-            for internal in ("_ccs_seen", "_cc38_values", "_mqtt_topics"):
-                out.pop(internal, None)
-            devices[dev_id] = out
+        zwave_nodes[str(node_id)] = {
+            "node_id": node_id,
+            "name": info["name"],
+            "room": info["loc"] or None,
+            "base_topic": base,
+            "endpoints": endpoint_out,
+            "config": sorted(node_configs.get(node_id, []), key=lambda c: c["param"]),
+            "properties": node_properties.get(node_id, []),
+        }
 
-    return {
+    filtered_devices = {
         k: v
         for k, v in devices.items()
         if not str(v.get("name", "")).startswith("Node ")
     }
+
+    return {"devices": filtered_devices, "nodes": zwave_nodes}
+
+
+def set_zwave_property(broker_url: str, mqtt_topic: str, value: Any) -> bool:
+    """Publish any Z-Wave value (switch, config param, etc.)."""
+    return _publish_mqtt_value(broker_url, mqtt_topic, value)
 
 
 def set_zwave_device(
@@ -564,35 +854,9 @@ def set_zwave_device(
     on: bool,
     brightness: int | None = None,
 ) -> bool:
-    host, port = _parse_mqtt_url(broker_url)
     value: bool | int = brightness if brightness is not None else on
-    payload = json.dumps({"value": value})
-    client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
-    try:
-        client.connect(host, port, keepalive=30)
-        client.loop_start()
-        client.publish(f"{mqtt_set_topic}/set", payload)
-        time.sleep(0.3)
-        client.loop_stop()
-        client.disconnect()
-        return True
-    except Exception as exc:
-        log.warning("Z-Wave set failed: %s", exc)
-        return False
+    return set_zwave_property(broker_url, mqtt_set_topic, value)
 
 
 def set_zwave_lock(broker_url: str, lock_set_topic: str, locked: bool) -> bool:
-    host, port = _parse_mqtt_url(broker_url)
-    payload = json.dumps({"value": locked})
-    client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
-    try:
-        client.connect(host, port, keepalive=30)
-        client.loop_start()
-        client.publish(f"{lock_set_topic}/set", payload)
-        time.sleep(0.3)
-        client.loop_stop()
-        client.disconnect()
-        return True
-    except Exception as exc:
-        log.warning("Z-Wave lock failed: %s", exc)
-        return False
+    return set_zwave_property(broker_url, lock_set_topic, locked)

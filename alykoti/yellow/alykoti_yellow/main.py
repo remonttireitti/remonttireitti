@@ -44,7 +44,7 @@ from alykoti_yellow.tasmota import (
     set_tasmota_power,
 )
 from alykoti_yellow.sync import sync_post
-from alykoti_yellow.zwave_mqtt import fetch_zwave_devices, set_zwave_device, set_zwave_lock
+from alykoti_yellow.zwave_mqtt import fetch_zwave_devices, set_zwave_device, set_zwave_lock, set_zwave_property
 
 logging.basicConfig(
     level=logging.INFO,
@@ -154,6 +154,16 @@ def execute_command(cmd: dict) -> bool:
         if ok and cmd_id:
             pending_acks.append(cmd_id)
         return ok
+
+    if command == "set_zwave_property":
+        mqtt_topic = payload.get("mqtt_topic")
+        value = payload.get("value")
+        if isinstance(mqtt_topic, str) and value is not None:
+            ok = set_zwave_property(config.MQTT_URL, mqtt_topic, value)
+            if ok and cmd_id:
+                pending_acks.append(cmd_id)
+            return ok
+        return False
 
     if command in ("set_light", "set_device"):
         device_id = payload.get("id")
@@ -362,15 +372,20 @@ def build_state(
         log.warning("Zigbee read failed: %s", exc)
 
     try:
-        home_devices.update(
-            fetch_zwave_devices(
-                config.MQTT_URL,
-                config.ZWAVE_PREFIX,
-                config.ZWAVE_NODES_JSON,
-                timeout_sec=8.0,
-                gateway=config.ZWAVE_GATEWAY,
-            )
+        zwave_result = fetch_zwave_devices(
+            config.MQTT_URL,
+            config.ZWAVE_PREFIX,
+            config.ZWAVE_NODES_JSON,
+            timeout_sec=8.0,
+            gateway=config.ZWAVE_GATEWAY,
         )
+        if isinstance(zwave_result, dict) and "devices" in zwave_result:
+            home_devices.update(zwave_result["devices"])
+            nodes = zwave_result.get("nodes")
+            if nodes:
+                state["zwave_nodes"] = nodes
+        else:
+            home_devices.update(zwave_result)
     except Exception as exc:
         log.warning("Z-Wave read failed: %s", exc)
 

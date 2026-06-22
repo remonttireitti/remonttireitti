@@ -1,4 +1,4 @@
-import { DeviceDetailPanel } from "@/components/device-detail-panel";
+import { ZwaveDeviceDetailPanel } from "@/components/zwave-device-detail-panel";
 
 type Props = {
   params: Promise<{ id: string }>;
@@ -6,5 +6,5 @@ type Props = {
 
 export default async function ZwaveDevicePage({ params }: Props) {
   const { id } = await params;
-  return <DeviceDetailPanel protocol="zwave" deviceIdParam={id} />;
+  return <ZwaveDeviceDetailPanel deviceIdParam={id} />;
 }

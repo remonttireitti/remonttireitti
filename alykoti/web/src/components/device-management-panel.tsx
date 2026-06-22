@@ -12,10 +12,12 @@ import {
 import {
   filterByProtocol,
   groupIdsByProtocol,
+  parseZwaveDeviceId,
   protocolLabel,
   type DeviceProtocol,
 } from "@/lib/device-protocol";
 import { kindLabel } from "@/lib/hub-lights";
+import { groupZwaveDevicesForList } from "@/lib/zwave-detail";
 import { FLOOR_PLAN_ANCHORS } from "@/lib/floor-plan";
 import { LAITTEET } from "@/lib/laitteet-paths";
 import Link from "next/link";
@@ -57,6 +59,8 @@ export function DeviceManagementPanel({
   const [data, setData] = useState<DevicesResponse | null>(null);
   const [flash, setFlash] = useState<DeviceActionState | null>(null);
   const [pending, startTransition] = useTransition();
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [controlFlash, setControlFlash] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [editRoom, setEditRoom] = useState("");
@@ -80,11 +84,38 @@ export function DeviceManagementPanel({
     });
   }
 
+  function toggleDevice(device: Device, on: boolean) {
+    if (!device.controllable || pending) return;
+    setBusyId(device.id);
+    startTransition(async () => {
+      try {
+        const res = await fetch("/api/lights/control", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: device.id, on }),
+        });
+        const json = (await res.json()) as { ok?: boolean; error?: string };
+        if (!json.ok) setControlFlash(json.error ?? "Ohjaus epäonnistui");
+        else {
+          setControlFlash(null);
+          await load();
+        }
+      } catch {
+        setControlFlash("Ohjaus epäonnistui");
+      } finally {
+        setBusyId(null);
+      }
+    });
+  }
+
   const allDevices = data?.devices ?? [];
 
   const visibleDevices = useMemo(() => {
-    if (!protocol) return allDevices;
-    return filterByProtocol(allDevices, protocol);
+    const filtered = !protocol ? allDevices : filterByProtocol(allDevices, protocol);
+    if (protocol === "zwave") {
+      return groupZwaveDevicesForList(filtered);
+    }
+    return filtered;
   }, [allDevices, protocol]);
 
   const grouped = useMemo(() => {
@@ -114,6 +145,11 @@ export function DeviceManagementPanel({
       {flash?.error && (
         <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-900">
           {flash.error}
+        </div>
+      )}
+      {controlFlash && (
+        <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-900">
+          {controlFlash}
         </div>
       )}
 
@@ -204,6 +240,8 @@ export function DeviceManagementPanel({
               }}
               onHide={(id) => run(() => updateDeviceOverride(id, { hidden: true }))}
               onRefresh={() => void load()}
+              onToggle={toggleDevice}
+              busyId={busyId}
             />
           ))
         )
@@ -238,6 +276,8 @@ export function DeviceManagementPanel({
           }}
           onHide={(id) => run(() => updateDeviceOverride(id, { hidden: true }))}
           onRefresh={() => void load()}
+          onToggle={toggleDevice}
+          busyId={busyId}
           emptyText={
             protocol
               ? `Ei ${protocolLabel(protocol)}-laitteita — odota synkkiä tai käynnistä paritus.`
@@ -260,6 +300,16 @@ export function DeviceManagementPanel({
         </p>
       </section>
     </div>
+  );
+}
+
+function isZwaveNodeAggregate(device: Device): boolean {
+  const parsed = parseZwaveDeviceId(device.id);
+  return (
+    device.protocol === "zwave" &&
+    parsed != null &&
+    parsed.endpoint === undefined &&
+    /\d+\s*kanavaa/.test(device.capabilitiesLabel ?? "")
   );
 }
 
@@ -293,6 +343,8 @@ function DeviceListSection({
   onSave,
   onHide,
   onRefresh,
+  onToggle,
+  busyId,
   emptyText,
 }: {
   title: string;
@@ -308,6 +360,8 @@ function DeviceListSection({
   onSave: (d: Device) => void;
   onHide: (id: string) => void;
   onRefresh: () => void;
+  onToggle?: (device: Device, on: boolean) => void;
+  busyId?: string | null;
   emptyText?: string;
 }) {
   return (
@@ -384,7 +438,27 @@ function DeviceListSection({
                     </p>
                     <p className="mt-0.5 font-mono text-[10px] text-stone-400">{device.id}</p>
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2">
+                    {device.controllable && onToggle && !isZwaveNodeAggregate(device) && (
+                      <>
+                        <button
+                          type="button"
+                          disabled={pending || busyId === device.id}
+                          onClick={() => onToggle(device, true)}
+                          className="rounded-lg bg-stone-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-stone-800 disabled:opacity-50"
+                        >
+                          Päälle
+                        </button>
+                        <button
+                          type="button"
+                          disabled={pending || busyId === device.id}
+                          onClick={() => onToggle(device, false)}
+                          className="rounded-lg border border-stone-300 px-3 py-1.5 text-xs font-semibold text-stone-800 hover:bg-stone-50 disabled:opacity-50"
+                        >
+                          Pois
+                        </button>
+                      </>
+                    )}
                     {(device.protocol === "zigbee" || device.protocol === "zwave") && (
                       <Link
                         href={
