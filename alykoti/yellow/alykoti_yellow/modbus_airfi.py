@@ -105,6 +105,7 @@ HOLDING = {
     "direct_control_enabled": 2,
     "direct_combined_pct": 3,
     "temp_setpoint": 4,
+    "constant_pressure_mode": 8,
     "supply_direct_pct": 10,
     "exhaust_direct_pct": 11,
     "away_mode": 12,
@@ -657,18 +658,28 @@ def _write_with_client(
         if supply is not None and exhaust is not None:
             supply = max(_MIN_FAN_PCT, min(100, int(supply)))
             exhaust = max(_MIN_FAN_PCT, min(100, int(exhaust)))
-            w1 = client.write_register(HOLDING["direct_control_enabled"], 1, device_id=unit)
+            # Valmistele kone: nollaa vakiopaine/pakko/suoraohjaus/poissa.
+            # ÄLÄ kirjoita h2=1 — tällä koneella se laukaisee hätäseis/E1:n.
+            prep = [
+                (HOLDING["constant_pressure_mode"], 0),
+                (HOLDING["emergency_stop"], 0),
+                (HOLDING["direct_control_enabled"], 0),
+                (HOLDING["away_mode"], 0),
+            ]
+            for addr, val in prep:
+                w = client.write_register(addr, val, device_id=unit)
+                if w.isError():
+                    log.warning("Modbus fan prep failed reg %s", addr)
             w2 = client.write_register(HOLDING["supply_direct_pct"], supply, device_id=unit)
             w3 = client.write_register(HOLDING["exhaust_direct_pct"], exhaust, device_id=unit)
-            e1, e2, e3 = w1.isError(), w2.isError(), w3.isError()
-            if e1 or e2 or e3:
+            e2, e3 = w2.isError(), w3.isError()
+            if e2 or e3:
                 log.warning(
-                    "Modbus fan write partial failure: direct=%s supply=%s exhaust=%s",
-                    e1,
+                    "Modbus fan write partial failure: supply=%s exhaust=%s",
                     e2,
                     e3,
                 )
-            return not (e1 or e2 or e3)
+            return not (e2 or e3)
         if away is not None:
             w = client.write_register(HOLDING["away_mode"], 1 if away else 0, device_id=unit)
             return not w.isError()
@@ -915,6 +926,7 @@ def ack_airfi_alarms(
         read_timeout=read_timeout,
         is_tcp=bool(host),
         writes=[
+            (HOLDING["constant_pressure_mode"], 0),
             (HOLDING["emergency_stop"], 0),
             (HOLDING["direct_control_enabled"], 0),
             (HOLDING["away_mode"], 0),

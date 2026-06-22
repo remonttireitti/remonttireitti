@@ -45,6 +45,7 @@ const HOLDING = {
   direct_control_enabled: 2, // 4x00003
   direct_combined_pct: 3, // 4x00004
   temp_setpoint: 4, // 4x00005 x10°C
+  constant_pressure_mode: 8, // 4x00009 vakiopainesäätö pois
   supply_direct_pct: 10, // 4x00011
   exhaust_direct_pct: 11, // 4x00012
   away_mode: 12, // 4x00013
@@ -314,7 +315,11 @@ export async function setDirectFanPct(
   const supply = clampFanPct(supplyPct);
   const exhaust = clampFanPct(exhaustPct);
   const result = await withClient(async (client) => {
-    await client.writeRegister(HOLDING.direct_control_enabled, 1);
+    await client.writeRegister(HOLDING.constant_pressure_mode, 0);
+    await client.writeRegister(HOLDING.emergency_stop, 0);
+    await client.writeRegister(HOLDING.direct_control_enabled, 0);
+    await client.writeRegister(HOLDING.away_mode, 0);
+    // h2=1 laukaisee hätäseis/E1 — riittää h10/h11.
     await client.writeRegister(HOLDING.supply_direct_pct, supply);
     await client.writeRegister(HOLDING.exhaust_direct_pct, exhaust);
     return true;
@@ -357,6 +362,7 @@ export async function setSaunaMode(active: boolean): Promise<boolean> {
 
 export async function ackAirfiAlarms(): Promise<boolean> {
   const result = await withClient(async (client) => {
+    await client.writeRegister(HOLDING.constant_pressure_mode, 0);
     await client.writeRegister(HOLDING.emergency_stop, 0);
     await client.writeRegister(HOLDING.direct_control_enabled, 0);
     await client.writeRegister(HOLDING.away_mode, 0);
