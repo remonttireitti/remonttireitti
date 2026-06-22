@@ -12,6 +12,7 @@ from alykoti_yellow.modbus_airfi import (
     AirfiPollState,
     ack_airfi_alarms,
     airfi_ventilation_blocked,
+    airfi_writes_pause_until_iso,
     read_airfi,
     write_away,
     write_fan_pct,
@@ -328,6 +329,9 @@ def build_state(
     if config.AIRFI_ENABLED:
         airfi = read_airfi(**config.airfi_kwargs(), poll_state=airfi_poll_state)
         state.update(airfi.state)
+        pause_until = airfi_writes_pause_until_iso()
+        if pause_until:
+            state["airfi_modbus_pause_until"] = pause_until
         if not airfi.ok and airfi_poll_state.should_poll():
             target = (
                 f"{config.AIRFI_MODBUS_HOST}:{config.AIRFI_MODBUS_PORT}"

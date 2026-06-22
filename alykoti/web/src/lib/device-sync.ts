@@ -149,6 +149,7 @@ export async function syncDevice(
     "sauna_mode",
     "forced_control",
     "emergency_stop",
+    "airfi_modbus_pause_until",
     "humidity_pct",
     "fault",
   ] as const;
@@ -247,6 +248,11 @@ export async function syncDevice(
       if (key === "temp_setpoint_c") {
         mergedState.temp_setpoint_c =
           typeof v === "number" && Number.isFinite(v) ? v : null;
+        continue;
+      }
+      if (key === "airfi_modbus_pause_until") {
+        mergedState.airfi_modbus_pause_until =
+          typeof v === "string" && v.trim() ? v.trim() : undefined;
         continue;
       }
       if (
@@ -377,12 +383,19 @@ export async function syncDevice(
   const hubHasRealAirfi =
     mergedState.airfi_online === true && hasAirfiTelemetry(mergedState);
 
+  const airfiWritesPaused =
+    typeof mergedState.airfi_modbus_pause_until === "string" &&
+    Number.isFinite(Date.parse(mergedState.airfi_modbus_pause_until)) &&
+    Date.now() < Date.parse(mergedState.airfi_modbus_pause_until);
+
   if (
     effectiveMode === "auto" ||
     effectiveMode === "fireplace" ||
     effectiveMode === "hood"
   ) {
-    if (canPing) {
+    if (airfiWritesPaused) {
+      // Yellow kuittauksen jälkeinen tauko — älä lähetä tuuletuskirjoituksia.
+    } else if (canPing) {
       const applied = await applyVentilationControl(
         effectiveMode,
         fanInputs,

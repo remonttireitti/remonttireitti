@@ -438,6 +438,8 @@ export function computeVentilationTargets(
   airfi: AirfiState | null,
 ): VentilationTargets | null {
   if (!airfi || airfi.emergency_stop || airfi.away_mode) return null;
+  if (airfi.machine_fault || airfi.freezing_alarm) return null;
+  if (airfi.airfi_errors.length > 0) return null;
 
   let supply: number;
   let exhaust: number;

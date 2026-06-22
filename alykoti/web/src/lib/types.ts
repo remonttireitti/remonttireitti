@@ -254,6 +254,8 @@ export type HubState = {
   fan_speed_target?: number | null;
   away_mode?: boolean;
   emergency_stop?: boolean;
+  /** Yellow: ei Modbus-kirjoituksia ennen tätä (ISO). */
+  airfi_modbus_pause_until?: string;
   /** Aktiiviset AirFi E-koodit (esim. E3). */
   airfi_errors?: string[];
   /** Error-info rekisteri 3x00032 (bitmask). */

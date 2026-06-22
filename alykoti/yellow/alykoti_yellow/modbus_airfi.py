@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import logging
+import os
 import socket
 import time
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, Protocol
 
 from pymodbus.client import ModbusSerialClient, ModbusTcpClient
@@ -13,18 +16,53 @@ from pymodbus.client import ModbusSerialClient, ModbusTcpClient
 log = logging.getLogger(__name__)
 
 # Kuittauksen jälkeen ei Modbus-tuuletuskirjoituksia — estää E1/hätäseis -kierteen.
-_ack_cooldown_until: float = 0.0
-ACK_COOLDOWN_SEC = 180.0
+_ack_until_wall: float = 0.0
+ACK_COOLDOWN_SEC = 1800.0
+
+
+def _cooldown_file() -> Path:
+    return Path(
+        os.environ.get(
+            "AIRFI_ACK_COOLDOWN_FILE",
+            "/home/ek/alykoti-yellow/.airfi_ack_until",
+        )
+    )
+
+
+def _sync_cooldown_from_disk() -> None:
+    global _ack_until_wall
+    try:
+        path = _cooldown_file()
+        if path.is_file():
+            _ack_until_wall = max(_ack_until_wall, float(path.read_text().strip()))
+    except Exception as exc:
+        log.debug("AirFi cooldown read: %s", exc)
 
 
 def mark_airfi_ack_cooldown(seconds: float = ACK_COOLDOWN_SEC) -> None:
-    global _ack_cooldown_until
-    _ack_cooldown_until = time.monotonic() + max(0.0, seconds)
+    global _ack_until_wall
+    _sync_cooldown_from_disk()
+    _ack_until_wall = max(_ack_until_wall, time.time() + max(0.0, seconds))
+    try:
+        _cooldown_file().write_text(f"{_ack_until_wall:.0f}")
+    except Exception as exc:
+        log.warning("AirFi cooldown write: %s", exc)
     log.info("AirFi Modbus-kirjoitustauko %.0fs (kuittaus)", seconds)
 
 
 def airfi_ack_cooldown_active() -> bool:
-    return time.monotonic() < _ack_cooldown_until
+    _sync_cooldown_from_disk()
+    return time.time() < _ack_until_wall
+
+
+def airfi_writes_pause_until_iso() -> str | None:
+    _sync_cooldown_from_disk()
+    if time.time() >= _ack_until_wall:
+        return None
+    return datetime.fromtimestamp(_ack_until_wall, tz=timezone.utc).isoformat()
+
+
+_sync_cooldown_from_disk()
 
 INPUT = {
     "outdoor_temp": 4,
@@ -648,6 +686,26 @@ def write_fan_pct(
     connect_timeout: float = 4.0,
     read_timeout: float = 5.0,
 ) -> bool:
+    snap = read_airfi(
+        host=host,
+        tcp_port=tcp_port,
+        serial=serial,
+        baud=baud,
+        unit=unit,
+        connect_timeout=connect_timeout,
+        read_timeout=read_timeout,
+        poll_state=None,
+    )
+    if not snap.ok:
+        log.warning("write_fan_pct estetty — AirFi ei vastaa")
+        return False
+    if airfi_ventilation_blocked(snap.state):
+        log.warning(
+            "write_fan_pct estetty — hätäseis/E1/tauko (errors=%s emergency=%s)",
+            snap.state.get("airfi_errors"),
+            snap.state.get("emergency_stop"),
+        )
+        return False
     client = _open_client(
         host=host,
         port=tcp_port,
