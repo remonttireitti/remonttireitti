@@ -10,10 +10,13 @@ import time
 from alykoti_yellow import config
 from alykoti_yellow.modbus_airfi import (
     AirfiPollState,
+    ack_airfi_alarms,
     read_airfi,
     write_away,
     write_fan_pct,
+    write_fireplace,
     write_sauna_mode,
+    write_speed_level,
     write_temp_setpoint,
 )
 from alykoti_yellow.device_commands import (
@@ -245,6 +248,30 @@ def execute_command(cmd: dict) -> bool:
         active = payload.get("active")
         if isinstance(active, bool):
             ok = write_sauna_mode(**config.airfi_write_kwargs(), active=active)
+            if ok and cmd_id:
+                pending_acks.append(cmd_id)
+            return ok
+        return False
+
+    if command == "ack_airfi_alarms" and config.AIRFI_WRITES:
+        ok = ack_airfi_alarms(**config.airfi_write_kwargs())
+        if ok and cmd_id:
+            pending_acks.append(cmd_id)
+        return ok
+
+    if command == "set_fireplace_mode" and config.AIRFI_WRITES:
+        active = payload.get("active")
+        if isinstance(active, bool):
+            ok = write_fireplace(**config.airfi_write_kwargs(), active=active)
+            if ok and cmd_id:
+                pending_acks.append(cmd_id)
+            return ok
+        return False
+
+    if command == "set_fan_speed_level" and config.AIRFI_WRITES:
+        level = payload.get("level")
+        if isinstance(level, (int, float)) and 0 <= int(level) <= 5:
+            ok = write_speed_level(**config.airfi_write_kwargs(), level=int(level))
             if ok and cmd_id:
                 pending_acks.append(cmd_id)
             return ok

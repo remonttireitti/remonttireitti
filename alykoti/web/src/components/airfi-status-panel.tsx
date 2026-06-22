@@ -21,6 +21,7 @@ function pickAirfiStatus(
     filter_change_per_year:
       live.filter_change_per_year ?? hubState.filter_change_per_year,
     sauna_mode: live.sauna_mode ?? hubState.sauna_mode,
+    emergency_stop: live.emergency_stop ?? hubState.emergency_stop,
     freezing_alarm: live.freezing_alarm ?? hubState.freezing_alarm,
     machine_fault: live.machine_fault ?? hubState.machine_fault,
     airfi_error_raw: live.airfi_error_raw ?? hubState.airfi_error_raw,
@@ -48,7 +49,9 @@ export function AirfiStatusPanel({ hub }: Props) {
 
   const hasCritical = state.machine_fault === true;
   const hasWarning =
-    state.freezing_alarm === true || errors.length > 0;
+    state.emergency_stop === true ||
+    state.freezing_alarm === true ||
+    errors.length > 0;
   const showBanner = hasCritical || hasWarning;
 
   if (
@@ -76,6 +79,7 @@ export function AirfiStatusPanel({ hub }: Props) {
             {hasCritical ? "Koneen vikatila" : "AirFi-hälytys"}
           </p>
           <ul className="mt-2 list-disc space-y-1 pl-5">
+            {state.emergency_stop && <li>Hätäseis aktiivinen</li>}
             {state.freezing_alarm && <li>Jäätymisvaara</li>}
             {state.machine_fault && <li>Koneen vikatila aktiivinen</li>}
             {errors.map((err) => (

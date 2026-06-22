@@ -89,6 +89,7 @@ export async function getDeviceStatus(
       away_until: state.away_until ?? null,
       away_unlimited: state.away_unlimited ?? false,
       away_mode: state.away_mode ?? false,
+      emergency_stop: state.emergency_stop ?? false,
       freezing_alarm: state.freezing_alarm ?? false,
       machine_fault: state.machine_fault ?? false,
       airfi_error_raw: state.airfi_error_raw ?? null,
@@ -97,6 +98,10 @@ export async function getDeviceStatus(
       temp_setpoint_c: state.temp_setpoint_c ?? null,
       filter_change_per_year: state.filter_change_per_year ?? null,
       sauna_mode: state.sauna_mode ?? false,
+      fireplace_active: state.fireplace_active ?? false,
+      outdoor_temp_c: state.outdoor_temp_c ?? null,
+      exhaust_temp_c: state.exhaust_temp_c ?? null,
+      supply_room_temp_c: state.supply_room_temp_c ?? null,
     },
   };
 }

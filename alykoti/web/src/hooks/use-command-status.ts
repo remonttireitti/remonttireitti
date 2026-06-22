@@ -44,6 +44,15 @@ export function commandSummary(cmd: CommandRow): string {
   if (cmd.command === "set_sauna_mode") {
     return cmd.payload.active ? "Saunatila päälle" : "Saunatila pois";
   }
+  if (cmd.command === "ack_airfi_alarms") {
+    return "Hälytysten kuittaus";
+  }
+  if (cmd.command === "set_fireplace_mode") {
+    return cmd.payload.active ? "Ohitus päälle" : "Ohitus pois";
+  }
+  if (cmd.command === "set_fan_speed_level") {
+    return `Nopeustaso ${String(cmd.payload.level ?? "?")}`;
+  }
   return cmd.command;
 }
 

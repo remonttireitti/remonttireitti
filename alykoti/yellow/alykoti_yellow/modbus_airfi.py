@@ -19,16 +19,21 @@ INPUT = {
     "supply_room_temp": 8,
     "fan_exhaust_pct": 11,
     "fan_supply_pct": 12,
-    "freezing_alarm": 17,
-    "machine_fault": 18,
-    "internal_humidity": 22,
-    "fan_speed_level": 23,
-    "forced_control": 24,
-    "direct_control_status": 25,
-    "direct_fan_pct": 26,
-    "temp_setpoint_read": 27,
-    "filter_interval": 30,
-    "error_info": 31,
+    "fireplace_status": 15,
+    "emergency_stop_status": 17,
+    "freezing_alarm": 18,
+    "machine_fault": 19,
+    "internal_humidity": 23,
+    "fan_speed_level": 24,
+    "forced_control": 25,
+    "direct_control_status": 26,
+    "direct_fan_pct": 27,
+    "temp_setpoint_read": 28,
+    "filter_interval": 31,
+    "error_info": 32,
+    "hood_flap_open": 40,
+    "supply_airflow_m3h": 45,
+    "exhaust_airflow_m3h": 46,
 }
 
 HOLDING = {
@@ -49,8 +54,8 @@ _MIN_FAN_PCT = 25
 
 _INPUT_CORE_START = INPUT["outdoor_temp"]
 _INPUT_CORE_COUNT = INPUT["fan_supply_pct"] - INPUT["outdoor_temp"] + 1
-_INPUT_STATUS_START = INPUT["freezing_alarm"]
-_INPUT_STATUS_COUNT = INPUT["error_info"] - INPUT["freezing_alarm"] + 1
+_INPUT_STATUS_START = INPUT["emergency_stop_status"]
+_INPUT_STATUS_COUNT = INPUT["error_info"] - INPUT["emergency_stop_status"] + 1
 _HOLDING_BLOCK_START = HOLDING["speed_level"]
 _HOLDING_BLOCK_COUNT = HOLDING["away_mode"] - HOLDING["speed_level"] + 1
 _HOLDING_EXTRA_START = HOLDING["away_temp_setpoint"]
@@ -354,7 +359,8 @@ def _read_snapshot(
 
     error_raw = _reg(inputs_status, _INPUT_STATUS_START, INPUT["error_info"])
     errors = decode_error_info(error_raw)
-    emergency_raw = _reg(holdings, _HOLDING_BLOCK_START, HOLDING["emergency_stop"])
+    emergency_holding = _reg(holdings, _HOLDING_BLOCK_START, HOLDING["emergency_stop"])
+    emergency_input = _reg(inputs_status, _INPUT_STATUS_START, INPUT["emergency_stop_status"])
     speed_raw = _reg(holdings, _HOLDING_BLOCK_START, HOLDING["speed_level"])
     temp_setpoint_raw = _reg(holdings, _HOLDING_BLOCK_START, HOLDING["temp_setpoint"])
     temp_setpoint_read = _reg(inputs_status, _INPUT_STATUS_START, INPUT["temp_setpoint_read"])
@@ -394,7 +400,7 @@ def _read_snapshot(
             "temp_setpoint_c": temp_c,
             "filter_change_per_year": filter_interval,
             "sauna_mode": (_reg(holdings_extra, _HOLDING_EXTRA_START, HOLDING["sauna_mode"]) or 0) > 0,
-            "emergency_stop": emergency_raw == 1,
+            "emergency_stop": (emergency_holding == 1) or (emergency_input or 0) > 0,
             "fault": (
                 (_reg(inputs_status, _INPUT_STATUS_START, INPUT["machine_fault"]) or 0) > 0
                 or len(errors) > 0
@@ -725,4 +731,131 @@ def write_sauna_mode(
         read_timeout=read_timeout,
         is_tcp=bool(host),
         sauna_mode=active,
+    )
+
+
+def _write_registers(
+    client: _ModbusClient,
+    unit: int,
+    *,
+    connect_timeout: float,
+    read_timeout: float,
+    is_tcp: bool,
+    writes: list[tuple[int, int]],
+) -> bool:
+    if is_tcp:
+        if not _connect_tcp(
+            client,
+            connect_timeout=connect_timeout,
+            read_timeout=read_timeout,
+        ):
+            return False
+    elif not client.connect():
+        return False
+    try:
+        for address, value in writes:
+            w = client.write_register(address, value, device_id=unit)
+            if w.isError():
+                log.warning("Modbus write failed: reg %s = %s", address, value)
+                return False
+        return True
+    except Exception as exc:
+        log.warning("Modbus write failed: %s", exc)
+        return False
+    finally:
+        _safe_close(client)
+
+
+def ack_airfi_alarms(
+    *,
+    host: str | None,
+    tcp_port: int,
+    serial: str | None,
+    baud: int,
+    unit: int,
+    connect_timeout: float = 4.0,
+    read_timeout: float = 5.0,
+) -> bool:
+    """Kuittaa hätäseis/E1 — nollaa pakko-ohjaus, poissa ja suoraohjaus."""
+    client = _open_client(
+        host=host,
+        port=tcp_port,
+        serial=serial,
+        baud=baud,
+        read_timeout=read_timeout,
+    )
+    if client is None:
+        return False
+    return _write_registers(
+        client,
+        unit,
+        connect_timeout=connect_timeout,
+        read_timeout=read_timeout,
+        is_tcp=bool(host),
+        writes=[
+            (HOLDING["emergency_stop"], 0),
+            (HOLDING["direct_control_enabled"], 0),
+            (HOLDING["away_mode"], 0),
+        ],
+    )
+
+
+def write_fireplace(
+    *,
+    host: str | None,
+    tcp_port: int,
+    serial: str | None,
+    baud: int,
+    unit: int,
+    active: bool,
+    connect_timeout: float = 4.0,
+    read_timeout: float = 5.0,
+) -> bool:
+    client = _open_client(
+        host=host,
+        port=tcp_port,
+        serial=serial,
+        baud=baud,
+        read_timeout=read_timeout,
+    )
+    if client is None:
+        return False
+    return _write_registers(
+        client,
+        unit,
+        connect_timeout=connect_timeout,
+        read_timeout=read_timeout,
+        is_tcp=bool(host),
+        writes=[(HOLDING["fireplace"], 1 if active else 0)],
+    )
+
+
+def write_speed_level(
+    *,
+    host: str | None,
+    tcp_port: int,
+    serial: str | None,
+    baud: int,
+    unit: int,
+    level: int,
+    connect_timeout: float = 4.0,
+    read_timeout: float = 5.0,
+) -> bool:
+    lv = max(0, min(5, int(level)))
+    client = _open_client(
+        host=host,
+        port=tcp_port,
+        serial=serial,
+        baud=baud,
+        read_timeout=read_timeout,
+    )
+    if client is None:
+        return False
+    return _write_registers(
+        client,
+        unit,
+        connect_timeout=connect_timeout,
+        read_timeout=read_timeout,
+        is_tcp=bool(host),
+        writes=[(HOLDING["speed_level"], lv)],
     )

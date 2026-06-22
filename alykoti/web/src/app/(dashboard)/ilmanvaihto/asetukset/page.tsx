@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { AirfiSettingsPanel } from "@/components/airfi-settings-panel";
 import { AutomationSettingsForm } from "@/components/automation-settings-form";
 import { DeviceOfflineAlert } from "@/components/device-offline-alert";
 import { VentilationControls } from "@/components/ventilation-controls";
@@ -30,6 +31,7 @@ export default async function VentilationSettingsPage() {
 
       <div className="mt-8 space-y-8">
         <DeviceOfflineAlert />
+        <AirfiSettingsPanel hub={hub} />
         <VentilationControls hub={hub} />
         <AutomationSettingsForm
           hubId={hub.id}

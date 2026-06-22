@@ -22,20 +22,21 @@ const INPUT = {
   supply_room_temp: 8, // T5 tulo huoneeseen
   fan_exhaust_pct: 11, // 3x00012 poistopuhaltimen %
   fan_supply_pct: 12, // 3x00013 tulopuhaltimen %
-  fireplace_status: 14, // 3x00015 takka/painetasaus
-  internal_humidity: 22, // 3x00023
-  freezing_alarm: 17, // 3x00018
-  machine_fault: 18, // 3x00019
-  fan_speed_level: 23, // 3x00024
-  forced_control: 24, // 3x00025
-  direct_control_status: 25, // 3x00026
-  direct_fan_pct: 26, // 3x00027
-  temp_setpoint_read: 27, // 3x00028 x10°C
-  filter_interval: 30, // 3x00031
-  error_info: 31, // 3x00032 bitmask E0-E9
-  hood_flap_open: 39, // 3x00040 liesikuvun läppä
-  supply_airflow_m3h: 44, // 3x00045
-  exhaust_airflow_m3h: 45, // 3x00046
+  fireplace_status: 15, // 3x00015 takka/painetasaus
+  emergency_stop_status: 17, // 3x00017 Hätäseis-tila (input)
+  internal_humidity: 23, // 3x00023
+  freezing_alarm: 18, // 3x00018 Jäätymisvaarahälytys
+  machine_fault: 19, // 3x00019
+  fan_speed_level: 24, // 3x00024
+  forced_control: 25, // 3x00025
+  direct_control_status: 26, // 3x00026
+  direct_fan_pct: 27, // 3x00027
+  temp_setpoint_read: 28, // 3x00028 x10°C
+  filter_interval: 31, // 3x00031
+  error_info: 32, // 3x00032 bitmask E0-E9
+  hood_flap_open: 40, // 3x00040 liesikuvun läppä
+  supply_airflow_m3h: 45, // 3x00045
+  exhaust_airflow_m3h: 46, // 3x00046
 } as const;
 
 const HOLDING = {
@@ -186,8 +187,8 @@ export async function fetchAirfiState(): Promise<AirfiState | null> {
     const core = await readInputBlock(client, INPUT.outdoor_temp, 5);
     const status = await readInputBlock(
       client,
-      INPUT.freezing_alarm,
-      INPUT.error_info - INPUT.freezing_alarm + 1,
+      INPUT.emergency_stop_status,
+      INPUT.error_info - INPUT.emergency_stop_status + 1,
     );
     const flows = await readInputBlock(client, INPUT.supply_airflow_m3h, 2);
     const hoodFlap = await readRegister(client, client.readInputRegisters, INPUT.hood_flap_open);
@@ -225,20 +226,22 @@ export async function fetchAirfiState(): Promise<AirfiState | null> {
     const saunaHold = reg(holdingExtra, HOLDING.away_temp_setpoint, HOLDING.sauna_mode);
     const tempSetpointHold = reg(holdingLow, HOLDING.speed_level, HOLDING.temp_setpoint);
 
-    const errorRaw = reg(status, INPUT.freezing_alarm, INPUT.error_info);
-    const tempSetpointRead = reg(status, INPUT.freezing_alarm, INPUT.temp_setpoint_read);
+    const statusBase = INPUT.emergency_stop_status;
+    const errorRaw = reg(status, statusBase, INPUT.error_info);
+    const tempSetpointRead = reg(status, statusBase, INPUT.temp_setpoint_read);
     const fanSpeedLevelRaw =
-      reg(status, INPUT.freezing_alarm, INPUT.fan_speed_level) ??
+      reg(status, statusBase, INPUT.fan_speed_level) ??
       reg(holdingLow, HOLDING.speed_level, HOLDING.speed_level);
     const fanSpeedLevel =
       fanSpeedLevelRaw != null && fanSpeedLevelRaw >= 0 && fanSpeedLevelRaw <= 5
         ? fanSpeedLevelRaw
         : null;
-    const humidity = reg(status, INPUT.freezing_alarm, INPUT.internal_humidity);
-    const filterInterval = reg(status, INPUT.freezing_alarm, INPUT.filter_interval);
-    const freezingAlarm = reg(status, INPUT.freezing_alarm, INPUT.freezing_alarm);
-    const machineFault = reg(status, INPUT.freezing_alarm, INPUT.machine_fault);
-    const forcedControl = reg(status, INPUT.freezing_alarm, INPUT.forced_control);
+    const humidity = reg(status, statusBase, INPUT.internal_humidity);
+    const filterInterval = reg(status, statusBase, INPUT.filter_interval);
+    const freezingAlarm = reg(status, statusBase, INPUT.freezing_alarm);
+    const machineFault = reg(status, statusBase, INPUT.machine_fault);
+    const forcedControl = reg(status, statusBase, INPUT.forced_control);
+    const emergencyInput = reg(status, statusBase, INPUT.emergency_stop_status);
 
     const supply_airflow_m3h =
       flows?.[0] != null && flows[0] > 0 ? flows[0] : null;
@@ -287,7 +290,7 @@ export async function fetchAirfiState(): Promise<AirfiState | null> {
       direct_control: (directControl ?? 0) > 0,
       fireplace_active: (fireplaceHold ?? fireplaceStatus ?? 0) > 0,
       hood_flap_open: (hoodFlap ?? 0) > 0,
-      emergency_stop: emergency === 1,
+      emergency_stop: emergency === 1 || (emergencyInput ?? 0) > 0,
       away_mode: (away ?? 0) > 0,
       freezing_alarm: (freezingAlarm ?? 0) > 0,
       machine_fault: (machineFault ?? 0) > 0,
@@ -345,6 +348,25 @@ export async function setTempSetpoint(tempC: number): Promise<boolean> {
 export async function setSaunaMode(active: boolean): Promise<boolean> {
   const result = await withClient(async (client) => {
     await client.writeRegister(HOLDING.sauna_mode, active ? 1 : 0);
+    return true;
+  });
+  return result === true;
+}
+
+export async function ackAirfiAlarms(): Promise<boolean> {
+  const result = await withClient(async (client) => {
+    await client.writeRegister(HOLDING.emergency_stop, 0);
+    await client.writeRegister(HOLDING.direct_control_enabled, 0);
+    await client.writeRegister(HOLDING.away_mode, 0);
+    return true;
+  });
+  return result === true;
+}
+
+export async function setFanSpeedLevel(level: number): Promise<boolean> {
+  const lv = Math.max(0, Math.min(5, Math.round(level)));
+  const result = await withClient(async (client) => {
+    await client.writeRegister(HOLDING.speed_level, lv);
     return true;
   });
   return result === true;
@@ -535,6 +557,15 @@ export async function executeAirfiCommand(
   }
   if (command === "set_sauna_mode" && typeof payload.active === "boolean") {
     return setSaunaMode(payload.active);
+  }
+  if (command === "ack_airfi_alarms") {
+    return ackAirfiAlarms();
+  }
+  if (command === "set_fireplace_mode" && typeof payload.active === "boolean") {
+    return setFireplaceMode(payload.active);
+  }
+  if (command === "set_fan_speed_level" && typeof payload.level === "number") {
+    return setFanSpeedLevel(payload.level);
   }
   if (command === "set_mode") {
     return true;

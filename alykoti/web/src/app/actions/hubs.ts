@@ -438,6 +438,51 @@ export async function setTempSetpoint(
   return queueCommand(hubId, "set_temp_setpoint", { temp_c: tempC });
 }
 
+export async function ackAirfiAlarms(hubId: string): Promise<ActionState> {
+  const { supabase, user } = await requireUser();
+  if (!user) return { error: "Kirjaudu sisään." };
+  if (!(await getOwnedHub(supabase, hubId, user.id))) {
+    return { error: "Keskusyksikköä ei löydy." };
+  }
+  await patchHubState(supabase, hubId, {
+    emergency_stop: false,
+    freezing_alarm: false,
+    machine_fault: false,
+    airfi_errors: [],
+    airfi_error_raw: 0,
+  });
+  return queueCommand(hubId, "ack_airfi_alarms", {});
+}
+
+export async function setFireplaceBypass(
+  hubId: string,
+  active: boolean,
+): Promise<ActionState> {
+  const { supabase, user } = await requireUser();
+  if (!user) return { error: "Kirjaudu sisään." };
+  if (!(await getOwnedHub(supabase, hubId, user.id))) {
+    return { error: "Keskusyksikköä ei löydy." };
+  }
+  await patchHubState(supabase, hubId, { fireplace_active: active });
+  return queueCommand(hubId, "set_fireplace_mode", { active });
+}
+
+export async function setFanSpeedLevel(
+  hubId: string,
+  level: number,
+): Promise<ActionState> {
+  const { supabase, user } = await requireUser();
+  if (!user) return { error: "Kirjaudu sisään." };
+  if (!Number.isFinite(level) || level < 0 || level > 5) {
+    return { error: "Nopeustaso 0–5." };
+  }
+  if (!(await getOwnedHub(supabase, hubId, user.id))) {
+    return { error: "Keskusyksikköä ei löydy." };
+  }
+  await patchHubState(supabase, hubId, { fan_speed_level: Math.round(level) });
+  return queueCommand(hubId, "set_fan_speed_level", { level: Math.round(level) });
+}
+
 export async function deleteHub(hubId: string): Promise<ActionState> {
   const { supabase, user } = await requireUser();
   if (!user) return { error: "Kirjaudu sisään." };
