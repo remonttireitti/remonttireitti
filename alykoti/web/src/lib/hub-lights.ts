@@ -5,6 +5,7 @@ import {
   normalizeCapabilities,
   sensorReadingLabel,
 } from "@/lib/capabilities";
+import { inferProtocolFromId } from "@/lib/device-protocol";
 import { anchorForLight } from "@/lib/lights-config";
 import type { DeviceCapability, HubDeviceOverride, HubHomeDevice, HubLightState, HubState } from "@/lib/types";
 
@@ -65,7 +66,7 @@ function mapDevice(
       typeof d.brightness === "number" && Number.isFinite(d.brightness) ? d.brightness : null,
     reachable: true,
     roomAnchorId: o?.floor_anchor ?? anchorForLight(zigbeeName) ?? null,
-    protocol: d.protocol ?? "zigbee",
+    protocol: inferProtocolFromId(id, d.protocol),
     kind,
     room: o?.room ?? d.room ?? null,
     controllable,

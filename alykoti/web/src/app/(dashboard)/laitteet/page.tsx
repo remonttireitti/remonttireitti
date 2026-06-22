@@ -1,6 +1,9 @@
 import Link from "next/link";
-import { fetchPrimaryHub } from "@/lib/hubs";
+import { countByProtocol } from "@/lib/device-protocol";
 import { isHubOnline } from "@/lib/device-status";
+import { normalizeHomeDevices } from "@/lib/device-normalize";
+import { parseHubHomeDevices } from "@/lib/hub-lights";
+import { fetchPrimaryHub } from "@/lib/hubs";
 import { LAITTEET } from "@/lib/laitteet-paths";
 import { createClient } from "@/lib/supabase/server";
 
@@ -15,13 +18,13 @@ const INTEGRATIONS = [
     id: "zigbee",
     title: "Zigbee (SkyConnect)",
     description: "Lamput ja anturit Zigbee2MQTT:n kautta.",
-    href: LAITTEET.luettelo,
+    href: LAITTEET.zigbee,
   },
   {
     id: "zwave",
     title: "Z-Wave (Z-Pi 7)",
     description: "Valot, kytkimet, lukot Z-Wave JS UI:n kautta.",
-    href: LAITTEET.luettelo,
+    href: LAITTEET.zwave,
   },
   {
     id: "shelly",
@@ -51,21 +54,30 @@ export default async function LaitteetOverviewPage() {
 
   const hub = user ? await fetchPrimaryHub(supabase, user.id) : null;
   const hubOnline = hub ? isHubOnline(hub.last_seen_at) : false;
-  const deviceCount = hub?.state.home_devices
-    ? Object.keys(hub.state.home_devices).length
-    : 0;
-  const shellyCount = hub?.state.integrations?.shelly?.devices?.length ?? 0;
-  const tasmotaCount = hub?.state.integrations?.tasmota?.devices?.length ?? 0;
-  const airthingsCount = hub?.state.integrations?.airthings?.devices?.length ?? 0;
+
+  const homeDevices = hub
+    ? normalizeHomeDevices(hub.state?.home_devices, {
+        integrations: hub.state?.integrations,
+        airthingsState: hub.state,
+      })
+    : undefined;
+  const parsed = parseHubHomeDevices(homeDevices, hub?.state?.lights, hub?.state?.device_overrides);
+  const protocolCounts = countByProtocol(parsed);
+
+  const deviceCount = parsed.length;
 
   return (
     <div className="mt-6 space-y-6">
-      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Stat label="Yellow" value={hub ? (hubOnline ? "Online" : "Offline") : "—"} />
-        <Stat label="Laitteita" value={String(deviceCount)} />
-        <Stat label="Shelly" value={String(shellyCount)} />
-        <Stat label="Tasmota" value={String(tasmotaCount)} />
-        <Stat label="Airthings" value={String(airthingsCount)} />
+        <Stat label="Yhteensä" value={String(deviceCount)} />
+        <Stat label="Zigbee" value={String(protocolCounts.zigbee)} />
+        <Stat label="Z-Wave" value={String(protocolCounts.zwave)} />
+      </section>
+      <section className="grid gap-4 sm:grid-cols-3">
+        <Stat label="Shelly" value={String(protocolCounts.shelly)} />
+        <Stat label="Tasmota" value={String(protocolCounts.tasmota)} />
+        <Stat label="Airthings" value={String(protocolCounts.airthings)} />
       </section>
 
       <section className="grid gap-4 md:grid-cols-2">

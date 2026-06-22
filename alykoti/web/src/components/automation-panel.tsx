@@ -14,8 +14,8 @@ import {
   type AutomationPressType,
   type LightAutomationRule,
 } from "@/lib/automation";
+import { protocolLabel } from "@/lib/device-protocol";
 import {
-  protocolLabel,
   type AutomationDeviceOption,
   type AutomationTargetGroups,
 } from "@/lib/automation-devices";

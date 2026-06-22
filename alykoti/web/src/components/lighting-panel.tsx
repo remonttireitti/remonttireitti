@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState, useTransition } from "react";
 import { FloorPlanView } from "@/components/floor-plan-view";
 import { LIGHT_ANCHORS } from "@/lib/lights-config";
 import type { FloorPlanMarker } from "@/lib/floor-plan";
+import { inferProtocolFromId, protocolLabel } from "@/lib/device-protocol";
 import { kindLabel } from "@/lib/hub-lights";
 
 type Device = {
@@ -207,21 +208,6 @@ export function LightingPanel() {
       )}
     </div>
   );
-}
-
-function protocolLabel(protocol: Device["protocol"]): string {
-  switch (protocol) {
-    case "zwave":
-      return "Z-Wave";
-    case "shelly":
-      return "Shelly";
-    case "tasmota":
-      return "Tasmota";
-    case "airthings":
-      return "Airthings";
-    default:
-      return "Zigbee";
-  }
 }
 
 function DeviceSection({

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { inferProtocolFromId } from "@/lib/device-protocol";
 import { parseHubHomeDevices } from "@/lib/hub-lights";
 import { normalizeHomeDevices } from "@/lib/device-normalize";
 import { fetchPrimaryHub } from "@/lib/hubs";
@@ -36,7 +37,7 @@ export async function GET() {
     id: d.id,
     name: d.name,
     on: d.on,
-    protocol: d.protocol,
+    protocol: inferProtocolFromId(d.id, d.protocol),
     kind: d.kind,
     room: d.room,
     controllable: d.controllable,

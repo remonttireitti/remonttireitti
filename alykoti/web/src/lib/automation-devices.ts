@@ -1,4 +1,5 @@
 import { canWrite, hasCapability } from "@/lib/capabilities";
+import { inferProtocolFromId } from "@/lib/device-protocol";
 import { kindLabel, type HubLightDevice } from "@/lib/hub-lights";
 
 export type AutomationDeviceOption = {
@@ -22,7 +23,7 @@ function toOption(device: HubLightDevice): AutomationDeviceOption {
   return {
     id: device.id,
     name: device.name,
-    protocol: device.protocol,
+    protocol: inferProtocolFromId(device.id, device.protocol),
     kind: device.kind,
     kindLabel: kindLabel(device.kind),
     controllable: device.controllable,
@@ -98,19 +99,4 @@ export function listAutomationTriggers(devices: HubLightDevice[]): AutomationDev
     .sort((a, b) => a.name.localeCompare(b.name, "fi"));
 }
 
-export function protocolLabel(protocol: string): string {
-  switch (protocol) {
-    case "zigbee":
-      return "Zigbee";
-    case "zwave":
-      return "Z-Wave";
-    case "shelly":
-      return "Shelly";
-    case "tasmota":
-      return "Tasmota";
-    case "airthings":
-      return "Airthings";
-    default:
-      return protocol;
-  }
-}
+export { protocolLabel } from "@/lib/device-protocol";
