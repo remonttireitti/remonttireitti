@@ -7,6 +7,8 @@ import {
 import {
   clampFanPct,
   computeAutoFanPct,
+  smoothRampFanPct,
+  type AutoFanInputs,
 } from "@/lib/ventilation-logic";
 
 const SLAVE_ID = 1;
@@ -295,7 +297,7 @@ export function hubStateToAirfiState(state: HubState): AirfiState | null {
 
 export function computeVentilationTargets(
   controlMode: HubControlMode,
-  co2Ppm: number | null | undefined,
+  inputs: AutoFanInputs,
   config: VentilationConfig,
   airfi: AirfiState | null,
 ): VentilationTargets | null {
@@ -318,14 +320,21 @@ export function computeVentilationTargets(
     case "manual":
       return null;
     case "auto":
-    default:
-      if (co2Ppm == null) return null;
-      const pct = computeAutoFanPct(co2Ppm, config);
+    default: {
+      const fanInputs: AutoFanInputs = {
+        ...inputs,
+        outdoorTempC: inputs.outdoorTempC ?? airfi.outdoor_temp_c,
+      };
+      const pct = computeAutoFanPct(fanInputs, config);
+      if (pct == null) return null;
       supply = pct;
       exhaust = pct;
       break;
+    }
   }
 
+  supply = smoothRampFanPct(airfi.supply_target_pct ?? airfi.supply_fan_pct, supply);
+  exhaust = smoothRampFanPct(airfi.exhaust_target_pct ?? airfi.exhaust_fan_pct, exhaust);
   supply = clampFanPct(supply);
   exhaust = clampFanPct(exhaust);
 
@@ -338,11 +347,11 @@ export function computeVentilationTargets(
 
 export async function applyVentilationControl(
   controlMode: HubControlMode,
-  co2Ppm: number | null | undefined,
+  inputs: AutoFanInputs,
   config: VentilationConfig,
   airfi: AirfiState | null,
 ): Promise<VentilationTargets | null> {
-  const targets = computeVentilationTargets(controlMode, co2Ppm, config, airfi);
+  const targets = computeVentilationTargets(controlMode, inputs, config, airfi);
   if (!targets) return null;
 
   if (targets.fireplace) await setFireplaceMode(true);

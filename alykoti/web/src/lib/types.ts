@@ -6,6 +6,9 @@ export type VentilationConfig = {
   co2_normal_max: number;
   co2_elevated_max: number;
   co2_high_max: number;
+  pm25_normal_max: number;
+  pm25_elevated_max: number;
+  pm25_high_max: number;
   speed_normal_pct: number;
   speed_elevated_pct: number;
   speed_high_pct: number;
@@ -24,6 +27,9 @@ export const DEFAULT_VENTILATION_CONFIG: VentilationConfig = {
   co2_normal_max: 800,
   co2_elevated_max: 1000,
   co2_high_max: 1200,
+  pm25_normal_max: 12,
+  pm25_elevated_max: 25,
+  pm25_high_max: 50,
   speed_normal_pct: 35,
   speed_elevated_pct: 50,
   speed_high_pct: 70,

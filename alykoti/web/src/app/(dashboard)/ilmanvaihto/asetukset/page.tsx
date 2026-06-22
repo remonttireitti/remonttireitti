@@ -31,7 +31,14 @@ export default async function VentilationSettingsPage() {
       <div className="mt-8 space-y-8">
         <DeviceOfflineAlert />
         <VentilationControls hub={hub} />
-        <AutomationSettingsForm hubId={hub.id} config={hub.config} />
+        <AutomationSettingsForm
+          hubId={hub.id}
+          config={hub.config}
+          co2Ppm={hub.state.co2_ppm}
+          pm25Ugm3={hub.state.pm25_ugm3}
+          temperatureC={hub.state.temperature_c}
+          outdoorTempC={hub.state.outdoor_temp_c}
+        />
       </div>
     </div>
   );

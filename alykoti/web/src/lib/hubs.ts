@@ -147,6 +147,15 @@ export function validateVentilationConfig(
   if (config.co2_normal_max < 400 || config.co2_high_max > 5000) {
     return "CO₂-rajat 400–5000 ppm.";
   }
+  if (config.pm25_normal_max >= config.pm25_elevated_max) {
+    return "PM2.5 normaali-rajan pitää olla alle kohonneen.";
+  }
+  if (config.pm25_elevated_max >= config.pm25_high_max) {
+    return "PM2.5 kohonnut-rajan pitää olla alle korkean.";
+  }
+  if (config.pm25_normal_max < 1 || config.pm25_high_max > 500) {
+    return "PM2.5-rajat 1–500 µg/m³.";
+  }
   for (const speed of [
     config.speed_normal_pct,
     config.speed_elevated_pct,

@@ -3,18 +3,50 @@
 import { useState, useTransition } from "react";
 import { saveVentilationConfig } from "@/app/actions/hubs";
 import type { VentilationConfig } from "@/lib/types";
-import { formatNightWindow, isNightMode, MIN_FAN_PCT } from "@/lib/ventilation-logic";
+import {
+  computeAutoFanPct,
+  formatNightWindow,
+  getPm25Band,
+  getPm25BandLabel,
+  HEAT_BOOST_INDOOR_MIN_C,
+  HEAT_BOOST_OUTDOOR_MIN_C,
+  HEAT_BOOST_PCT,
+  isHeatBoostActive,
+  isNightMode,
+  MIN_FAN_PCT,
+} from "@/lib/ventilation-logic";
 
 type Props = {
   hubId: string;
   config: VentilationConfig;
+  pm25Ugm3?: number | null;
+  co2Ppm?: number | null;
+  temperatureC?: number | null;
+  outdoorTempC?: number | null;
 };
 
-export function AutomationSettingsForm({ hubId, config }: Props) {
+export function AutomationSettingsForm({
+  hubId,
+  config,
+  pm25Ugm3,
+  co2Ppm,
+  temperatureC,
+  outdoorTempC,
+}: Props) {
   const [values, setValues] = useState(config);
   const [flash, setFlash] = useState<{ error?: string; ok?: string }>({});
   const [pending, startTransition] = useTransition();
   const nightActive = isNightMode(values);
+  const pm25Band =
+    pm25Ugm3 != null && Number.isFinite(pm25Ugm3) ? getPm25Band(pm25Ugm3, values) : null;
+  const heatBoost = isHeatBoostActive(
+    { indoorTempC: temperatureC, outdoorTempC },
+    values,
+  );
+  const previewPct = computeAutoFanPct(
+    { co2: co2Ppm, pm25: pm25Ugm3, indoorTempC: temperatureC, outdoorTempC },
+    values,
+  );
 
   function patch(partial: Partial<VentilationConfig>) {
     setValues((prev) => ({ ...prev, ...partial }));
@@ -31,6 +63,22 @@ export function AutomationSettingsForm({ hubId, config }: Props) {
       }
       if (next.co2_elevated_max >= next.co2_high_max) {
         next.co2_high_max = Math.min(5000, next.co2_elevated_max + 50);
+      }
+      return next;
+    });
+  }
+
+  function setPm25(
+    field: "pm25_normal_max" | "pm25_elevated_max" | "pm25_high_max",
+    raw: number,
+  ) {
+    setValues((prev) => {
+      const next = { ...prev, [field]: raw };
+      if (next.pm25_normal_max >= next.pm25_elevated_max) {
+        next.pm25_elevated_max = Math.min(500, next.pm25_normal_max + 5);
+      }
+      if (next.pm25_elevated_max >= next.pm25_high_max) {
+        next.pm25_high_max = Math.min(500, next.pm25_elevated_max + 5);
       }
       return next;
     });
@@ -53,8 +101,43 @@ export function AutomationSettingsForm({ hubId, config }: Props) {
     >
       <h2 className="text-lg font-semibold text-stone-900">Automaatioasetukset</h2>
       <p className="mt-1 text-sm text-stone-600">
-        Liukuva CO₂-ohjaus 25–100 %. Miniminopeus on aina 25 %.
+        Liukuva CO₂- ja PM2.5-ohjaus 25–100 %. Korkeampi mittarin vaatima nopeus voittaa.
+        Lämpöboost +{HEAT_BOOST_PCT} % kun sisällä &gt; {HEAT_BOOST_INDOOR_MIN_C} °C ja ulkona &gt;{" "}
+        {HEAT_BOOST_OUTDOOR_MIN_C} °C (ei yöllä).
       </p>
+
+      {(pm25Ugm3 != null || co2Ppm != null || temperatureC != null || outdoorTempC != null) && (
+        <div className="mt-4 flex flex-wrap gap-3 rounded-xl border border-stone-100 bg-stone-50 px-4 py-3 text-sm">
+          {pm25Ugm3 != null && Number.isFinite(pm25Ugm3) && (
+            <span>
+              <span className="text-stone-500">PM2.5 nyt </span>
+              <span className="font-semibold tabular-nums">{pm25Ugm3.toFixed(1)} µg/m³</span>
+              {pm25Band && (
+                <span className="ml-2 text-stone-600">({getPm25BandLabel(pm25Band)})</span>
+              )}
+            </span>
+          )}
+          {temperatureC != null && Number.isFinite(temperatureC) && (
+            <span>
+              <span className="text-stone-500">Sisällä </span>
+              <span className="font-semibold tabular-nums">{temperatureC.toFixed(1)} °C</span>
+            </span>
+          )}
+          {outdoorTempC != null && Number.isFinite(outdoorTempC) && (
+            <span>
+              <span className="text-stone-500">Ulkona </span>
+              <span className="font-semibold tabular-nums">{outdoorTempC.toFixed(1)} °C</span>
+            </span>
+          )}
+          {previewPct != null && (
+            <span>
+              <span className="text-stone-500">Esikatselu </span>
+              <span className="font-semibold tabular-nums">{previewPct} %</span>
+              {heatBoost && <span className="ml-1 text-amber-700">(+lämpö)</span>}
+            </span>
+          )}
+        </div>
+      )}
 
       <div className="mt-6 grid gap-6 lg:grid-cols-2">
         <fieldset className="space-y-5">
@@ -110,6 +193,52 @@ export function AutomationSettingsForm({ hubId, config }: Props) {
             value={values.speed_max_pct}
             onChange={(v) => patch({ speed_max_pct: v })}
           />
+        </fieldset>
+      </div>
+
+      <div className="mt-6 grid gap-6 lg:grid-cols-2">
+        <fieldset className="space-y-5">
+          <legend className="text-sm font-semibold text-stone-800">PM2.5-rajat (µg/m³)</legend>
+          <p className="text-xs text-stone-500">Airthings View Plus. Sama liukuva % -kaava kuin CO₂.</p>
+          <ConfigSlider
+            label="Normaali alle"
+            value={values.pm25_normal_max}
+            onChange={(v) => setPm25("pm25_normal_max", v)}
+            min={1}
+            max={200}
+            step={1}
+            unit=" µg/m³"
+          />
+          <ConfigSlider
+            label="Kohonnut alle"
+            value={values.pm25_elevated_max}
+            onChange={(v) => setPm25("pm25_elevated_max", v)}
+            min={5}
+            max={300}
+            step={1}
+            unit=" µg/m³"
+          />
+          <ConfigSlider
+            label="Korkea alle"
+            value={values.pm25_high_max}
+            onChange={(v) => setPm25("pm25_high_max", v)}
+            min={10}
+            max={500}
+            step={1}
+            unit=" µg/m³"
+          />
+        </fieldset>
+
+        <fieldset className="space-y-5 rounded-xl border border-violet-100 bg-violet-50/40 p-4">
+          <legend className="text-sm font-semibold text-violet-950">Liukuva säätö</legend>
+          <p className="text-xs text-violet-900">
+            CO₂ ja PM2.5 laskevat oman nopeutensa liukuvasti rajojen välillä. Automaatti käyttää
+            korkeampaa arvoa. Nopeus muuttuu enintään 5 % per synkki (~2 min).
+          </p>
+          <p className="text-xs text-violet-900">
+            Lämpöboost: sisälämpö &gt; {HEAT_BOOST_INDOOR_MIN_C} °C ja ulkolämpö &gt;{" "}
+            {HEAT_BOOST_OUTDOOR_MIN_C} °C lisää +{HEAT_BOOST_PCT} % (ei yöaikana).
+          </p>
         </fieldset>
       </div>
 

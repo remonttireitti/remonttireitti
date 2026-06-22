@@ -16,7 +16,7 @@ import { recordEnergySamples } from "@/lib/energy-samples";
 import { normalizeHomeDevices } from "@/lib/device-normalize";
 import { recordHubMetrics } from "@/lib/metric-samples";
 import { activeTimedMode, effectiveControlMode, expireTimedModes, formatRemaining, remainingMs } from "@/lib/mode-schedule";
-import { getCo2Band, getCo2BandLabel } from "@/lib/ventilation-logic";
+import { getCo2Band, getCo2BandLabel, type AutoFanInputs } from "@/lib/ventilation-logic";
 import { parseHubConfig } from "@/lib/hubs";
 import {
   type DeviceSyncRequest,
@@ -305,6 +305,13 @@ export async function syncDevice(
 
   let ventilationState: HubState | undefined;
 
+  const fanInputs: AutoFanInputs = {
+    co2: mergedState.co2_ppm,
+    pm25: mergedState.pm25_ugm3,
+    indoorTempC: mergedState.temperature_c,
+    outdoorTempC: mergedState.outdoor_temp_c,
+  };
+
   const hubHasRealAirfi =
     mergedState.airfi_online === true && hasAirfiTelemetry(mergedState);
 
@@ -316,7 +323,7 @@ export async function syncDevice(
     if (canPing) {
       const applied = await applyVentilationControl(
         effectiveMode,
-        mergedState.co2_ppm,
+        fanInputs,
         config,
         airfiState,
       );
@@ -329,7 +336,7 @@ export async function syncDevice(
     } else if (hubHasRealAirfi) {
       const targets = computeVentilationTargets(
         effectiveMode,
-        mergedState.co2_ppm,
+        fanInputs,
         config,
         airfiState,
       );
