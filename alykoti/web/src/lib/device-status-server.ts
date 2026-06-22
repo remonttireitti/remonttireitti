@@ -11,6 +11,7 @@ import {
 } from "@/lib/device-status";
 import { effectiveControlMode, expireTimedModes } from "@/lib/mode-schedule";
 import { recordHubMetrics } from "@/lib/metric-samples";
+import { enrichLtoFromHubState } from "@/lib/lto-efficiency";
 import { fetchPrimaryHub } from "@/lib/hubs";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -58,6 +59,11 @@ export async function getDeviceStatus(
   );
   const level = connectivityLevel(hubConn, airfiConn);
   const state = expireTimedModes(hub.state);
+  const lto = enrichLtoFromHubState(state);
+  if (lto.lto_temp_efficiency_pct != null) {
+    state.lto_temp_efficiency_pct = lto.lto_temp_efficiency_pct;
+    state.lto_energy_efficiency_pct = lto.lto_energy_efficiency_pct;
+  }
   const effectiveMode = effectiveControlMode(hub.control_mode, state);
 
   void recordHubMetrics(hub.id, hub.state, hub.control_mode, {
@@ -78,6 +84,8 @@ export async function getDeviceStatus(
       fan_exhaust_pct: state.fan_exhaust_pct ?? null,
       fan_supply_target: state.fan_supply_target ?? null,
       fan_exhaust_target: state.fan_exhaust_target ?? null,
+      lto_temp_efficiency_pct: state.lto_temp_efficiency_pct ?? null,
+      lto_energy_efficiency_pct: state.lto_energy_efficiency_pct ?? null,
       fireplace_until: state.fireplace_until ?? null,
       hood_until: state.hood_until ?? null,
       away_until: state.away_until ?? null,

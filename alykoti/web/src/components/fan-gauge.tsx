@@ -28,7 +28,7 @@ export function FanGauge({ label, value, target, onTrend }: Props) {
             {pct != null ? pct : "—"}
           </span>
           <span className="ml-0.5 text-sm text-stone-500">%</span>
-          <p className="text-xs text-stone-500">laite nyt</p>
+          <p className="text-xs text-stone-500">toteutunut</p>
         </div>
       </div>
       <div className="mt-3 h-3 overflow-hidden rounded-full bg-stone-200">
@@ -39,7 +39,7 @@ export function FanGauge({ label, value, target, onTrend }: Props) {
       </div>
       {target != null && (
         <p className="mt-2 text-xs text-stone-500">
-          Tavoite: <span className="font-semibold text-stone-700">{Math.round(target)} %</span>
+          Pyydetty: <span className="font-semibold text-stone-700">{Math.round(target)} %</span>
         </p>
       )}
     </div>

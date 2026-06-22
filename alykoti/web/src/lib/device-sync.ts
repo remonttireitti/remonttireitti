@@ -17,6 +17,7 @@ import { normalizeHomeDevices } from "@/lib/device-normalize";
 import { recordHubMetrics } from "@/lib/metric-samples";
 import { activeTimedMode, effectiveControlMode, expireTimedModes, formatRemaining, remainingMs } from "@/lib/mode-schedule";
 import { getCo2Band, getCo2BandLabel, type AutoFanInputs } from "@/lib/ventilation-logic";
+import { enrichLtoFromHubState } from "@/lib/lto-efficiency";
 import { parseHubConfig } from "@/lib/hubs";
 import {
   type DeviceSyncRequest,
@@ -349,6 +350,24 @@ export async function syncDevice(
     Object.assign(mergedState, airfiToHubState(airfiState));
     mergedState.airfi_online = true;
     mergedState.airfi_updated_at = new Date().toISOString();
+  }
+
+  if (ventilationState) {
+    mergedState.fan_supply_target = ventilationState.fan_supply_target;
+    mergedState.fan_exhaust_target = ventilationState.fan_exhaust_target;
+    mergedState.fan_speed_target = ventilationState.fan_speed_target;
+    if (ventilationState.fireplace_active != null) {
+      mergedState.fireplace_active = ventilationState.fireplace_active;
+    }
+    if (ventilationState.direct_control != null) {
+      mergedState.direct_control = ventilationState.direct_control;
+    }
+  }
+
+  const lto = enrichLtoFromHubState(mergedState);
+  if (lto.lto_temp_efficiency_pct != null) {
+    mergedState.lto_temp_efficiency_pct = lto.lto_temp_efficiency_pct;
+    mergedState.lto_energy_efficiency_pct = lto.lto_energy_efficiency_pct;
   }
 
   const hubUpdate: Record<string, unknown> = {

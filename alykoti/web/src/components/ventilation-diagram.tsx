@@ -25,7 +25,16 @@ export function VentilationDiagram({ hub, settingsHref }: Props) {
   const { status } = useDeviceStatus();
   const { showTrend, modal } = useMetricTrend();
 
-  const s = hub.state;
+  const live = status?.live;
+  const s = {
+    ...hub.state,
+    fan_supply_pct: live?.fan_supply_pct ?? hub.state.fan_supply_pct,
+    fan_exhaust_pct: live?.fan_exhaust_pct ?? hub.state.fan_exhaust_pct,
+    fan_supply_target: live?.fan_supply_target ?? hub.state.fan_supply_target,
+    fan_exhaust_target: live?.fan_exhaust_target ?? hub.state.fan_exhaust_target,
+    lto_temp_efficiency_pct: live?.lto_temp_efficiency_pct ?? hub.state.lto_temp_efficiency_pct,
+    lto_energy_efficiency_pct: live?.lto_energy_efficiency_pct ?? hub.state.lto_energy_efficiency_pct,
+  };
   const co2Band = s.co2_ppm != null ? getCo2Band(s.co2_ppm, hub.config) : null;
   const supplyTemp = s.supply_room_temp_c;
 
@@ -146,7 +155,7 @@ export function VentilationDiagram({ hub, settingsHref }: Props) {
             title="Näytä LTO-trendi"
           >
             <p className="text-[9px] font-semibold uppercase tracking-wide text-emerald-800 sm:text-[10px]">
-              LTO
+              LTO höytys
             </p>
             <p className="text-sm font-bold text-emerald-950 sm:text-lg">
               {s.lto_temp_efficiency_pct != null
@@ -161,24 +170,22 @@ export function VentilationDiagram({ hub, settingsHref }: Props) {
               )}
           </button>
 
-          <DiagramBadge
+          <FanSpeedBadge
             label="Tulo"
-            value={formatPct(s.fan_supply_pct)}
-            sub={s.fan_supply_target != null ? `→ ${s.fan_supply_target}%` : undefined}
+            requested={s.fan_supply_target}
+            actual={s.fan_supply_pct}
             left="16%"
             top="74%"
             tone="supply"
-            compact
             onTrend={() => showTrend("fan_supply_pct")}
           />
-          <DiagramBadge
+          <FanSpeedBadge
             label="Poisto"
-            value={formatPct(s.fan_exhaust_pct)}
-            sub={s.fan_exhaust_target != null ? `→ ${s.fan_exhaust_target}%` : undefined}
+            requested={s.fan_exhaust_target}
+            actual={s.fan_exhaust_pct}
             left="84%"
             top="74%"
             tone="extract"
-            compact
             onTrend={() => showTrend("fan_exhaust_pct")}
           />
 
@@ -225,6 +232,69 @@ export function VentilationDiagram({ hub, settingsHref }: Props) {
         </div>
       </section>
     </>
+  );
+}
+
+function FanSpeedBadge({
+  label,
+  requested,
+  actual,
+  left,
+  top,
+  tone,
+  onTrend,
+}: {
+  label: string;
+  requested: number | null | undefined;
+  actual: number | null | undefined;
+  left: string;
+  top: string;
+  tone: "supply" | "extract";
+  onTrend: () => void;
+}) {
+  const styles = {
+    supply: "border-blue-300 bg-blue-50/95 text-blue-950 hover:ring-blue-400",
+    extract: "border-red-300 bg-red-50/95 text-red-950 hover:ring-red-400",
+  }[tone];
+
+  return (
+    <button
+      type="button"
+      onClick={onTrend}
+      title="Näytä trendi"
+      className={`absolute z-10 min-w-[5.5rem] -translate-x-1/2 -translate-y-1/2 rounded-lg border px-2 py-1.5 text-left shadow-sm backdrop-blur transition hover:ring-2 sm:min-w-[6.5rem] sm:px-2.5 ${styles}`}
+      style={{ left, top }}
+    >
+      <p className="text-[8px] font-semibold uppercase tracking-wide opacity-80 sm:text-[9px]">
+        {label}
+      </p>
+      <FanSpeedRow kind="requested" value={requested} />
+      <FanSpeedRow kind="actual" value={actual} />
+    </button>
+  );
+}
+
+function FanSpeedRow({
+  kind,
+  value,
+}: {
+  kind: "requested" | "actual";
+  value: number | null | undefined;
+}) {
+  const label = kind === "requested" ? "Pyydetty" : "Toteutunut";
+  const pct = value != null && Number.isFinite(value) ? Math.round(value) : null;
+
+  return (
+    <div className="flex items-baseline justify-between gap-2 leading-tight">
+      <span className="text-[8px] opacity-75 sm:text-[9px]">{label}</span>
+      <span
+        className={`text-xs font-bold tabular-nums sm:text-sm ${
+          kind === "actual" ? "text-inherit" : "opacity-90"
+        }`}
+      >
+        {pct != null ? `${pct} %` : "—"}
+      </span>
+    </div>
   );
 }
 
@@ -327,10 +397,6 @@ function StatusDot({
 
 function formatTemp(c: number | null | undefined): string {
   return c != null ? `${c.toFixed(1)} °C` : "—";
-}
-
-function formatPct(p: number | null | undefined): string {
-  return p != null ? `${Math.round(p)} %` : "—";
 }
 
 function GearIcon() {

@@ -105,3 +105,31 @@ export function computeLtoEfficiency(input: {
 
   return { temp_pct, energy_pct: temp_pct, supply_c_used, flow_source: null };
 }
+
+/** Laske LTO hub-staten lämpötiloista ja puhaltimista (Yellow-synkki / Vercel). */
+export function enrichLtoFromHubState(state: {
+  outdoor_temp_c?: number | null;
+  exhaust_temp_c?: number | null;
+  supply_room_temp_c?: number | null;
+  supply_hru_temp_c?: number | null;
+  exhaust_hru_temp_c?: number | null;
+  supply_airflow_m3h?: number | null;
+  exhaust_airflow_m3h?: number | null;
+  fan_supply_pct?: number | null;
+  fan_exhaust_pct?: number | null;
+}): { lto_temp_efficiency_pct: number | null; lto_energy_efficiency_pct: number | null } {
+  const lto = computeLtoEfficiency({
+    outdoor_c: state.outdoor_temp_c ?? null,
+    supply_hru_c: state.supply_hru_temp_c ?? null,
+    supply_room_c: state.supply_room_temp_c ?? null,
+    exhaust_c: state.exhaust_temp_c ?? null,
+    supply_airflow_m3h: state.supply_airflow_m3h ?? null,
+    exhaust_airflow_m3h: state.exhaust_airflow_m3h ?? null,
+    supply_fan_pct: state.fan_supply_pct ?? null,
+    exhaust_fan_pct: state.fan_exhaust_pct ?? null,
+  });
+  return {
+    lto_temp_efficiency_pct: lto.temp_pct,
+    lto_energy_efficiency_pct: lto.energy_pct,
+  };
+}

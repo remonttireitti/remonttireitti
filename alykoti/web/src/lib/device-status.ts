@@ -35,6 +35,8 @@ export type DeviceStatus = {
     fan_exhaust_pct: number | null;
     fan_supply_target: number | null;
     fan_exhaust_target: number | null;
+    lto_temp_efficiency_pct: number | null;
+    lto_energy_efficiency_pct: number | null;
     fireplace_until: string | null;
     hood_until: string | null;
     away_until: string | null;
