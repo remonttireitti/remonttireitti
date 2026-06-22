@@ -323,10 +323,16 @@ export type Hub = {
   updated_at: string;
 };
 
+export type DeviceSyncFailedCommand = {
+  id: string;
+  message?: string;
+};
+
 export type DeviceSyncRequest = {
   state?: HubState;
   firmware_version?: string;
   acked_command_ids?: string[];
+  failed_commands?: DeviceSyncFailedCommand[];
 };
 
 export type DeviceSyncDisplay = {

@@ -122,6 +122,37 @@ export async function syncDevice(
       .in("status", ["pending", "delivered"]);
   }
 
+  const failedCommands = (body.failed_commands ?? []).filter(
+    (row): row is { id: string; message?: string } =>
+      typeof row === "object" &&
+      row != null &&
+      typeof (row as { id?: unknown }).id === "string" &&
+      (row as { id: string }).id.length > 0,
+  );
+
+  for (const row of failedCommands) {
+    await supabase
+      .from("commands")
+      .update({
+        status: "failed",
+        error_message: row.message?.trim() || "Ohjaus epäonnistui",
+      })
+      .eq("hub_id", hub.id)
+      .eq("id", row.id)
+      .in("status", ["pending", "delivered"]);
+  }
+
+  const commandStaleBefore = new Date(Date.now() - 15 * 60_000).toISOString();
+  await supabase
+    .from("commands")
+    .update({
+      status: "failed",
+      error_message: "Keskusyksikkö ei vahvistanut komentoa ajoissa",
+    })
+    .eq("hub_id", hub.id)
+    .eq("status", "delivered")
+    .lt("delivered_at", commandStaleBefore);
+
   const config = parseHubConfig(hub.config);
   const storedMode = hub.control_mode as HubControlMode;
   let mergedState = expireTimedModes({
@@ -305,15 +336,30 @@ export async function syncDevice(
     mergedState.airfi_updated_at = new Date().toISOString();
   }
 
-  const { data: pendingCommands } = await supabase
-    .from("commands")
-    .select("id, command, payload")
-    .eq("hub_id", hub.id)
-    .eq("status", "pending")
-    .order("created_at", { ascending: true })
-    .limit(10);
+  const commandRetryAfter = new Date(Date.now() - 15 * 60_000).toISOString();
 
-  const commands = pendingCommands ?? [];
+  const [{ data: pendingCommands }, { data: retryCommands }] = await Promise.all([
+    supabase
+      .from("commands")
+      .select("id, command, payload")
+      .eq("hub_id", hub.id)
+      .eq("status", "pending")
+      .order("created_at", { ascending: true })
+      .limit(10),
+    supabase
+      .from("commands")
+      .select("id, command, payload")
+      .eq("hub_id", hub.id)
+      .eq("status", "delivered")
+      .gte("delivered_at", commandRetryAfter)
+      .order("created_at", { ascending: true })
+      .limit(10),
+  ]);
+
+  const commands = [...(pendingCommands ?? []), ...(retryCommands ?? [])].slice(
+    0,
+    10,
+  );
   const executedIds: string[] = [];
   const hubCommands: DeviceSyncResponse["commands"] = [];
 
@@ -336,7 +382,19 @@ export async function syncDevice(
         cmd.command,
         (cmd.payload ?? {}) as Record<string, unknown>,
       );
-      if (ok) executedIds.push(cmd.id);
+      if (ok) {
+        executedIds.push(cmd.id);
+      } else {
+        await supabase
+          .from("commands")
+          .update({
+            status: "failed",
+            error_message: "AirFi-ohjaus epäonnistui",
+          })
+          .eq("hub_id", hub.id)
+          .eq("id", cmd.id)
+          .in("status", ["pending", "delivered"]);
+      }
     } else {
       hubCommands.push({
         id: cmd.id,

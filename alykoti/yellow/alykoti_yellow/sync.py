@@ -16,16 +16,19 @@ def sync_post(
     state: dict[str, Any],
     firmware_version: str,
     acked_ids: list[str],
+    failed_commands: list[dict[str, str]] | None = None,
 ) -> dict[str, Any] | None:
     headers = {
         "Authorization": f"Bearer {token}",
         "Content-Type": "application/json",
     }
-    body = {
+    body: dict[str, Any] = {
         "state": state,
         "firmware_version": firmware_version,
         "acked_command_ids": acked_ids,
     }
+    if failed_commands:
+        body["failed_commands"] = failed_commands
     try:
         resp = requests.post(url, json=body, headers=headers, timeout=20)
         resp.raise_for_status()

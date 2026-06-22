@@ -52,6 +52,7 @@ logging.basicConfig(
 log = logging.getLogger("alykoti-yellow")
 
 pending_acks: list[str] = []
+pending_fails: list[dict[str, str]] = []
 cached_integrations: dict = {}
 cached_automations: list[dict] = []
 cached_shelly_discovered: list[dict] = []
@@ -217,7 +218,10 @@ def execute_command(cmd: dict) -> bool:
         if isinstance(supply, (int, float)) and isinstance(exhaust, (int, float)):
             snap = read_airfi(**config.airfi_kwargs(), poll_state=None)
             if snap.ok and airfi_ventilation_blocked(snap.state):
-                log.warning("set_fan_pct estetty — AirFi hätäseis/vika")
+                msg = "Tuuletus estetty (hätäseis tai kuittauksen jälkeinen tauko)"
+                log.warning("set_fan_pct estetty — %s", msg)
+                if cmd_id:
+                    pending_fails.append({"id": cmd_id, "message": msg})
                 return False
             ok = write_fan_pct(
                 **config.airfi_write_kwargs(),
@@ -408,7 +412,7 @@ def build_state(
 
 
 def run_loop() -> None:
-    global pending_acks, cached_integrations, cached_automations, cached_shelly_discovered, cached_tasmota_discovered
+    global pending_acks, pending_fails, cached_integrations, cached_automations, cached_shelly_discovered, cached_tasmota_discovered
 
     engine = get_engine()
     engine.start()
@@ -426,6 +430,8 @@ def run_loop() -> None:
     while True:
         acks = pending_acks[:]
         pending_acks = []
+        fails = pending_fails[:]
+        pending_fails = []
 
         state = build_state(
             cached_integrations,
@@ -439,6 +445,7 @@ def run_loop() -> None:
             state,
             config.FIRMWARE_VERSION,
             acks,
+            fails,
         )
 
         if response:
@@ -458,7 +465,17 @@ def run_loop() -> None:
                 state.get("home_devices") if isinstance(state.get("home_devices"), dict) else None,
             )
             for cmd in response.get("commands") or []:
+                cmd_id = cmd.get("id", "")
+                ack_before = len(pending_acks)
                 execute_command(cmd)
+                if (
+                    cmd_id
+                    and len(pending_acks) == ack_before
+                    and not any(f.get("id") == cmd_id for f in pending_fails)
+                ):
+                    pending_fails.append(
+                        {"id": cmd_id, "message": "Ohjaus epäonnistui"},
+                    )
             apply_ventilation(response)
             devices = state.get("home_devices") or {}
             lights = sum(1 for d in devices.values() if d.get("kind") == "light")
