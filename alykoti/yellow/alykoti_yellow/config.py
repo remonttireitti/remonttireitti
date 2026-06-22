@@ -63,3 +63,16 @@ def airfi_kwargs() -> dict:
         "retry_count": AIRFI_RETRY_COUNT,
         "retry_delay_sec": AIRFI_RETRY_DELAY_SEC,
     }
+
+
+def airfi_write_kwargs() -> dict:
+    """Modbus-kirjoitus — ei retry_count (eri kuin read_airfi)."""
+    return {
+        "host": AIRFI_MODBUS_HOST,
+        "tcp_port": AIRFI_MODBUS_PORT,
+        "serial": AIRFI_SERIAL,
+        "baud": AIRFI_BAUD,
+        "unit": AIRFI_UNIT,
+        "connect_timeout": AIRFI_CONNECT_TIMEOUT_SEC,
+        "read_timeout": AIRFI_READ_TIMEOUT_SEC,
+    }

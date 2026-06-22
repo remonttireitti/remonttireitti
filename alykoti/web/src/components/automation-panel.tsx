@@ -24,6 +24,16 @@ import {
   mqttActionLabel,
   pressTypesForTrigger,
 } from "@/lib/automation-actions";
+import {
+  HUE_4BTN_BUTTONS,
+  HUE_4BTN_GESTURES_UI,
+  hueMqttActionLabel,
+  hueTriggerFields,
+  parseHueMqttAction,
+  triggerProfileForDevice,
+  type Hue4BtnButton,
+  type Hue4BtnGestureUi,
+} from "@/lib/automation-trigger-profiles";
 import { protocolLabel } from "@/lib/device-protocol";
 import {
   type AutomationDeviceOption,
@@ -59,6 +69,8 @@ const EMPTY_FORM = {
   trigger_press: "short" as AutomationPressType,
   trigger_button: "",
   trigger_action: "",
+  hue_button: "on" as Hue4BtnButton,
+  hue_gesture: "press" as Hue4BtnGestureUi,
   trigger_period_id: "",
   action_type: "toggle" as AutomationActionType,
   target_ids: [] as string[],
@@ -85,6 +97,14 @@ export function AutomationPanel({
   initialTriggerButton,
   initialTriggerAction,
 }: Props) {
+  const initialHueParsed = initialTriggerAction ? parseHueMqttAction(initialTriggerAction) : null;
+  const initialHueGesture: Hue4BtnGestureUi =
+    initialHueParsed?.gesture === "hold"
+      ? "hold"
+      : initialHueParsed?.gesture === "hold_release"
+        ? "hold_release"
+        : "press";
+
   const [data, setData] = useState<AutomationsResponse | null>(null);
   const [flash, setFlash] = useState<AutomationActionState | null>(null);
   const [form, setForm] = useState({
@@ -93,6 +113,8 @@ export function AutomationPanel({
     trigger_press: initialTriggerPress ?? "short",
     trigger_button: initialTriggerButton ?? "",
     trigger_action: initialTriggerAction ?? "",
+    hue_button: initialHueParsed?.button ?? "on",
+    hue_gesture: initialHueGesture,
   });
   const [editingId, setEditingId] = useState<string | null>(null);
   const [trackRuleId, setTrackRuleId] = useState<string | null>(null);
@@ -142,6 +164,23 @@ export function AutomationPanel({
     [selectedTriggerDevice],
   );
 
+  const hueFromEvents = useMemo(() => {
+    const events = data?.automationEvents ?? [];
+    return events.some(
+      (e) =>
+        e.device_id === form.trigger_device_id &&
+        e.mqtt_action &&
+        parseHueMqttAction(e.mqtt_action),
+    );
+  }, [data?.automationEvents, form.trigger_device_id]);
+
+  const triggerProfile = useMemo(() => {
+    if (selectedTriggerDevice && triggerProfileForDevice(selectedTriggerDevice) === "hue_4btn") {
+      return "hue_4btn" as const;
+    }
+    return hueFromEvents ? ("hue_4btn" as const) : ("generic" as const);
+  }, [selectedTriggerDevice, hueFromEvents]);
+
   useEffect(() => {
     if (!allowedActions.includes(form.action_type) && allowedActions.length > 0) {
       setForm((f) => ({ ...f, action_type: allowedActions[0]! }));
@@ -165,6 +204,8 @@ export function AutomationPanel({
         trigger_press: "short",
         trigger_button: "",
         trigger_action: "",
+        hue_button: "on",
+        hue_gesture: "press",
         trigger_period_id: rule.trigger.period_id,
         action_type: rule.action.type,
         target_ids: [...rule.action.target_ids],
@@ -172,6 +213,14 @@ export function AutomationPanel({
       });
       return;
     }
+
+    const hueParsed = rule.trigger.action ? parseHueMqttAction(rule.trigger.action) : null;
+    const hueGesture: Hue4BtnGestureUi =
+      hueParsed?.gesture === "hold"
+        ? "hold"
+        : hueParsed?.gesture === "hold_release"
+          ? "hold_release"
+          : "press";
 
     setForm({
       id: rule.id,
@@ -182,6 +231,8 @@ export function AutomationPanel({
       trigger_press: rule.trigger.press,
       trigger_button: rule.trigger.button ?? "",
       trigger_action: rule.trigger.action ?? "",
+      hue_button: hueParsed?.button ?? "on",
+      hue_gesture: hueGesture,
       trigger_period_id: "",
       action_type: rule.action.type,
       target_ids: [...rule.action.target_ids],
@@ -221,6 +272,21 @@ export function AutomationPanel({
   function deviceLabel(deviceId: string): string {
     const all = [...triggers, ...targets.lights, ...targets.switches, ...targets.locks, ...targets.other];
     return all.find((d) => d.id === deviceId)?.name ?? deviceId.replace(/^[^:]+:/, "");
+  }
+
+  function ruleTriggerSummary(rule: AutomationRule): string {
+    if (isElectricityPriceTrigger(rule.trigger)) {
+      const priceTrigger = rule.trigger;
+      const period = periods.find((p) => p.id === priceTrigger.period_id);
+      return triggerSummary(priceTrigger, "", period);
+    }
+    if (isDeviceTrigger(rule.trigger) && rule.trigger.action && parseHueMqttAction(rule.trigger.action)) {
+      return `${deviceLabel(rule.trigger.device_id)} · ${hueMqttActionLabel(rule.trigger.action)}`;
+    }
+    if (isDeviceTrigger(rule.trigger)) {
+      return triggerSummary(rule.trigger, deviceLabel(rule.trigger.device_id));
+    }
+    return "";
   }
 
   return (
@@ -324,54 +390,108 @@ export function AutomationPanel({
                 )}
               </label>
 
-              <label className="block">
-                <span className="text-sm font-medium text-stone-700">Painallustyyppi</span>
-                <select
-                  value={form.trigger_press}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, trigger_press: e.target.value as AutomationPressType }))
-                  }
-                  className="mt-1 w-full rounded-xl border border-stone-200 px-3 py-2 text-sm"
-                >
-                  {pressTypes.map((key) => (
-                    <option key={key} value={key}>
-                      {PRESS_LABELS[key]}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              {triggerProfile === "hue_4btn" ? (
+                <>
+                  <p className="sm:col-span-2 text-xs text-stone-600">
+                    Philips Hue -ohjain — valitse painike ja toiminto (ei tarvitse arpoa MQTT-actionia).
+                  </p>
+                  <label className="block">
+                    <span className="text-sm font-medium text-stone-700">Painike</span>
+                    <select
+                      value={form.hue_button}
+                      onChange={(e) =>
+                        setForm((f) => ({
+                          ...f,
+                          hue_button: e.target.value as Hue4BtnButton,
+                        }))
+                      }
+                      className="mt-1 w-full rounded-xl border border-stone-200 px-3 py-2 text-sm"
+                    >
+                      {HUE_4BTN_BUTTONS.map((b) => (
+                        <option key={b.id} value={b.id}>
+                          {b.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="block">
+                    <span className="text-sm font-medium text-stone-700">Toiminto</span>
+                    <select
+                      value={form.hue_gesture}
+                      onChange={(e) =>
+                        setForm((f) => ({
+                          ...f,
+                          hue_gesture: e.target.value as Hue4BtnGestureUi,
+                        }))
+                      }
+                      className="mt-1 w-full rounded-xl border border-stone-200 px-3 py-2 text-sm"
+                    >
+                      {HUE_4BTN_GESTURES_UI.map((g) => (
+                        <option key={g.id} value={g.id}>
+                          {g.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <p className="sm:col-span-2 text-xs text-stone-500">
+                    Tallennetaan:{" "}
+                    <code className="font-mono">
+                      {hueTriggerFields(form.hue_button, form.hue_gesture).action}
+                    </code>
+                  </p>
+                </>
+              ) : (
+                <>
+                  <label className="block">
+                    <span className="text-sm font-medium text-stone-700">Painallustyyppi</span>
+                    <select
+                      value={form.trigger_press}
+                      onChange={(e) =>
+                        setForm((f) => ({
+                          ...f,
+                          trigger_press: e.target.value as AutomationPressType,
+                        }))
+                      }
+                      className="mt-1 w-full rounded-xl border border-stone-200 px-3 py-2 text-sm"
+                    >
+                      {pressTypes.map((key) => (
+                        <option key={key} value={key}>
+                          {PRESS_LABELS[key]}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
 
-              <label className="block">
-                <span className="text-sm font-medium text-stone-700">Painike (valinnainen)</span>
-                <input
-                  type="text"
-                  value={form.trigger_button}
-                  onChange={(e) => setForm((f) => ({ ...f, trigger_button: e.target.value }))}
-                  placeholder="button_1, left…"
-                  className="mt-1 w-full rounded-xl border border-stone-200 px-3 py-2 text-sm"
-                />
-              </label>
+                  <label className="block">
+                    <span className="text-sm font-medium text-stone-700">Painike (valinnainen)</span>
+                    <input
+                      type="text"
+                      value={form.trigger_button}
+                      onChange={(e) => setForm((f) => ({ ...f, trigger_button: e.target.value }))}
+                      placeholder="button_1, left…"
+                      className="mt-1 w-full rounded-xl border border-stone-200 px-3 py-2 text-sm"
+                    />
+                  </label>
 
-              <label className="block sm:col-span-2">
-                <span className="text-sm font-medium text-stone-700">
-                  Tarkka MQTT-action (valinnainen)
-                </span>
-                <select
-                  value={form.trigger_action}
-                  onChange={(e) => setForm((f) => ({ ...f, trigger_action: e.target.value }))}
-                  className="mt-1 w-full rounded-xl border border-stone-200 px-3 py-2 text-sm"
-                >
-                  <option value="">Mikä tahansa valitun painallustyypin mukainen</option>
-                  {KNOWN_MQTT_ACTIONS.map((action) => (
-                    <option key={action} value={action}>
-                      {action} — {mqttActionLabel(action)}
-                    </option>
-                  ))}
-                </select>
-                <p className="mt-1 text-xs text-stone-500">
-                  Kopioi arvo laitesivun live-tapahtumista (esim. single, hold).
-                </p>
-              </label>
+                  <label className="block sm:col-span-2">
+                    <span className="text-sm font-medium text-stone-700">
+                      Tarkka MQTT-action (valinnainen)
+                    </span>
+                    <select
+                      value={form.trigger_action}
+                      onChange={(e) => setForm((f) => ({ ...f, trigger_action: e.target.value }))}
+                      className="mt-1 w-full rounded-xl border border-stone-200 px-3 py-2 text-sm"
+                    >
+                      <option value="">Mikä tahansa valitun painallustyypin mukainen</option>
+                      {KNOWN_MQTT_ACTIONS.map((action) => (
+                        <option key={action} value={action}>
+                          {action} — {mqttActionLabel(action)}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </>
+              )}
             </>
           ) : (
             <label className="block sm:col-span-2">
@@ -480,7 +600,15 @@ export function AutomationPanel({
               (form.trigger_kind === "device" && !form.trigger_device_id) ||
               (form.trigger_kind === "electricity_price" && !form.trigger_period_id)
             }
-            onClick={() =>
+            onClick={() => {
+              const trigger =
+                form.trigger_kind === "device" && triggerProfile === "hue_4btn"
+                  ? hueTriggerFields(form.hue_button, form.hue_gesture)
+                  : {
+                      press: form.trigger_press,
+                      button: form.trigger_button || null,
+                      action: form.trigger_action || null,
+                    };
               run(() =>
                 saveAutomationRule({
                   id: form.id || undefined,
@@ -488,16 +616,16 @@ export function AutomationPanel({
                   enabled: form.enabled,
                   trigger_kind: form.trigger_kind,
                   trigger_device_id: form.trigger_device_id,
-                  trigger_press: form.trigger_press,
-                  trigger_button: form.trigger_button || null,
-                  trigger_action: form.trigger_action || null,
+                  trigger_press: trigger.press,
+                  trigger_button: trigger.button,
+                  trigger_action: trigger.action,
                   trigger_period_id: form.trigger_period_id,
                   action_type: form.action_type,
                   target_ids: form.target_ids,
                   brightness_pct: form.brightness_pct,
                 }),
-              )
-            }
+              );
+            }}
             className="rounded-xl bg-stone-900 px-4 py-2 text-sm font-semibold text-white hover:bg-stone-800 disabled:opacity-50"
           >
             {pending ? "Tallennetaan…" : editingId ? "Tallenna muutokset" : "Lisää sääntö"}
@@ -555,7 +683,7 @@ export function AutomationPanel({
                   {e.mqtt_action && (
                     <span className="font-mono text-stone-600">
                       {e.mqtt_button ? `${e.mqtt_button} · ` : ""}
-                      action:{e.mqtt_action}
+                      {hueMqttActionLabel(e.mqtt_action)}
                     </span>
                   )}
                   {e.target_id && (
@@ -575,13 +703,7 @@ export function AutomationPanel({
         ) : (
           <ul className="mt-4 space-y-3">
             {rules.map((rule) => {
-              const priceTrigger = isElectricityPriceTrigger(rule.trigger) ? rule.trigger : null;
-              const period = priceTrigger
-                ? periods.find((p) => p.id === priceTrigger.period_id)
-                : undefined;
-              const summary = isDeviceTrigger(rule.trigger)
-                ? triggerSummary(rule.trigger, deviceLabel(rule.trigger.device_id))
-                : triggerSummary(rule.trigger, "", period);
+              const summary = ruleTriggerSummary(rule);
 
               return (
                 <li

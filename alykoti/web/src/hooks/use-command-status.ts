@@ -38,6 +38,12 @@ export function commandSummary(cmd: CommandRow): string {
   if (cmd.command === "set_away") {
     return cmd.payload.away ? "Poissa-tila päälle" : "Kotona-tila";
   }
+  if (cmd.command === "set_temp_setpoint") {
+    return `Lämpötila-asetus ${String(cmd.payload.temp_c ?? "?")} °C`;
+  }
+  if (cmd.command === "set_sauna_mode") {
+    return cmd.payload.active ? "Saunatila päälle" : "Saunatila pois";
+  }
   return cmd.command;
 }
 

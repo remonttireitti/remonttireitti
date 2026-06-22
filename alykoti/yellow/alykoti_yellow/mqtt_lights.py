@@ -173,6 +173,21 @@ def _device_topic_name(prefix: str, topic: str) -> str | None:
     return name or None
 
 
+def _device_meta(dev: dict[str, Any]) -> dict[str, str | None]:
+    definition = dev.get("definition") if isinstance(dev.get("definition"), dict) else {}
+    model = dev.get("model_id") or definition.get("model")
+    manufacturer = definition.get("vendor") or dev.get("manufacturer")
+    description = definition.get("description") or ""
+    out: dict[str, str | None] = {}
+    if model:
+        out["model"] = str(model)
+    if manufacturer:
+        out["manufacturer"] = str(manufacturer)
+    if description:
+        out["description"] = str(description)
+    return out
+
+
 def fetch_zigbee_home(
     broker_url: str, prefix: str, timeout_sec: float = 5.0
 ) -> dict[str, dict[str, Any]]:
@@ -180,6 +195,7 @@ def fetch_zigbee_home(
     raw = fetch_lights(broker_url, prefix, timeout_sec)
     out: dict[str, dict[str, Any]] = {}
     device_caps: dict[str, list[dict[str, Any]]] = {}
+    device_meta: dict[str, dict[str, str | None]] = {}
 
     host, port = _parse_mqtt_url(broker_url)
 
@@ -199,6 +215,7 @@ def fetch_zigbee_home(
             if not name:
                 continue
             device_caps[str(name)] = _discover_capabilities(dev)
+            device_meta[str(name)] = _device_meta(dev)
 
     client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
     client.on_message = on_devices
@@ -223,6 +240,7 @@ def fetch_zigbee_home(
             "brightness": state.get("brightness"),
             "controllable": _controllable(caps),
             "capabilities": caps,
+            **(device_meta.get(name) or {}),
         }
 
     switches: dict[str, dict[str, Any]] = {}
@@ -243,6 +261,7 @@ def fetch_zigbee_home(
             if not name or _is_light(dev) or not _is_remote_or_switch(dev):
                 continue
             caps = _discover_capabilities(dev)
+            device_meta[str(name)] = _device_meta(dev)
             key = f"zigbee:{name}"
             switches[key] = {
                 "protocol": "zigbee",
@@ -252,6 +271,7 @@ def fetch_zigbee_home(
                 "brightness": None,
                 "controllable": False,
                 "capabilities": caps or [{"id": "button", "read": True, "write": False}],
+                **(device_meta.get(str(name)) or {}),
             }
 
     client2 = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
@@ -296,6 +316,7 @@ def fetch_zigbee_home(
                 "name": str(name),
                 "controllable": False,
                 "capabilities": caps,
+                **(device_meta.get(str(name)) or _device_meta(dev)),
             }
 
     client3 = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)

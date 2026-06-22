@@ -19,21 +19,68 @@ INPUT = {
     "supply_room_temp": 8,
     "fan_exhaust_pct": 11,
     "fan_supply_pct": 12,
+    "freezing_alarm": 17,
+    "machine_fault": 18,
+    "internal_humidity": 22,
+    "fan_speed_level": 23,
+    "forced_control": 24,
+    "direct_control_status": 25,
+    "direct_fan_pct": 26,
+    "temp_setpoint_read": 27,
+    "filter_interval": 30,
+    "error_info": 31,
 }
 
 HOLDING = {
+    "speed_level": 0,
+    "emergency_stop": 1,
     "direct_control_enabled": 2,
-    "supply_direct_pct": 9,
-    "exhaust_direct_pct": 10,
-    "away_mode": 11,
+    "direct_combined_pct": 3,
+    "temp_setpoint": 4,
+    "supply_direct_pct": 10,
+    "exhaust_direct_pct": 11,
+    "away_mode": 12,
+    "away_temp_setpoint": 51,
+    "sauna_mode": 56,
     "fireplace": 57,
 }
 
-# Lyhyet yhteydet: vähemmän Modbus-viestejä per poll (Mille Wire -modeemi herkkä).
-_INPUT_BLOCK_START = INPUT["outdoor_temp"]
-_INPUT_BLOCK_COUNT = INPUT["fan_supply_pct"] - INPUT["outdoor_temp"] + 1
-_HOLDING_BLOCK_START = HOLDING["direct_control_enabled"]
-_HOLDING_BLOCK_COUNT = HOLDING["away_mode"] - HOLDING["direct_control_enabled"] + 1
+_MIN_FAN_PCT = 25
+
+_INPUT_CORE_START = INPUT["outdoor_temp"]
+_INPUT_CORE_COUNT = INPUT["fan_supply_pct"] - INPUT["outdoor_temp"] + 1
+_INPUT_STATUS_START = INPUT["freezing_alarm"]
+_INPUT_STATUS_COUNT = INPUT["error_info"] - INPUT["freezing_alarm"] + 1
+_HOLDING_BLOCK_START = HOLDING["speed_level"]
+_HOLDING_BLOCK_COUNT = HOLDING["away_mode"] - HOLDING["speed_level"] + 1
+_HOLDING_EXTRA_START = HOLDING["away_temp_setpoint"]
+_HOLDING_EXTRA_COUNT = HOLDING["fireplace"] - HOLDING["away_temp_setpoint"] + 1
+
+AIRFI_ERROR_BITS = [
+    ("E0", 1, "Yleishälytys"),
+    ("E1", 2, "Koneen puhaltimien ulkopuolinen pysäytys"),
+    ("E2", 4, "Ohituspellin toimintahäiriö"),
+    ("E3", 8, "Tulopuhallin ei pyöri"),
+    ("E4", 16, "Poistopuhallin ei pyöri"),
+    ("E5", 32, "Vesipatterin jäätymissuoja"),
+    ("E6", 64, "Anturivirhe"),
+    ("E7", 128, "Huurtumissuojan painelähetin rikki"),
+    ("E8", 256, "Tulo- ja poistopuhaltimen lämpötilat virheellisiä"),
+    ("E9", 512, "Vakiopainesäätö-hälytys"),
+]
+
+
+def decode_error_info(raw: int | None) -> list[dict[str, str]]:
+    if raw is None:
+        return []
+    value = int(raw)
+    if value <= 0:
+        return []
+    return [
+        {"code": code, "label": label}
+        for code, bit, label in AIRFI_ERROR_BITS
+        if value & bit
+    ]
 
 
 class _ModbusClient(Protocol):
@@ -108,6 +155,15 @@ def _parse_pct(raw: int | None) -> int | None:
         return None
     v = int(raw)
     if v < 0 or v > 100:
+        return None
+    return v
+
+
+def _parse_speed_level(raw: int | None) -> int | None:
+    if raw is None:
+        return None
+    v = int(raw)
+    if v < 0 or v > 5:
         return None
     return v
 
@@ -252,12 +308,19 @@ def _read_snapshot(
         return AirfiSnapshot(ok=False, state={"airfi_online": False})
 
     try:
-        inputs = _read_registers(
+        inputs_core = _read_registers(
             client,
             unit,
             read_fn=client.read_input_registers,
-            address=_INPUT_BLOCK_START,
-            count=_INPUT_BLOCK_COUNT,
+            address=_INPUT_CORE_START,
+            count=_INPUT_CORE_COUNT,
+        )
+        inputs_status = _read_registers(
+            client,
+            unit,
+            read_fn=client.read_input_registers,
+            address=_INPUT_STATUS_START,
+            count=_INPUT_STATUS_COUNT,
         )
         holdings = _read_registers(
             client,
@@ -266,31 +329,47 @@ def _read_snapshot(
             address=_HOLDING_BLOCK_START,
             count=_HOLDING_BLOCK_COUNT,
         )
-        fireplace_regs = _read_registers(
+        holdings_extra = _read_registers(
             client,
             unit,
             read_fn=client.read_holding_registers,
-            address=HOLDING["fireplace"],
-            count=1,
+            address=_HOLDING_EXTRA_START,
+            count=_HOLDING_EXTRA_COUNT,
         )
     except Exception as exc:
         log.warning("Modbus read failed: %s", exc)
         _safe_close(client)
         return AirfiSnapshot(ok=False, state={"airfi_online": False})
 
-    outdoor = _parse_temp(_reg(inputs, _INPUT_BLOCK_START, INPUT["outdoor_temp"]))
-    exhaust = _parse_temp(_reg(inputs, _INPUT_BLOCK_START, INPUT["exhaust_temp"]))
-    exhaust_hru = _parse_temp(_reg(inputs, _INPUT_BLOCK_START, INPUT["exhaust_hru_temp"]))
-    supply_room = _parse_temp(_reg(inputs, _INPUT_BLOCK_START, INPUT["supply_room_temp"]))
-    fan_supply = _parse_pct(_reg(inputs, _INPUT_BLOCK_START, INPUT["fan_supply_pct"])) or _parse_pct(
+    outdoor = _parse_temp(_reg(inputs_core, _INPUT_CORE_START, INPUT["outdoor_temp"]))
+    exhaust = _parse_temp(_reg(inputs_core, _INPUT_CORE_START, INPUT["exhaust_temp"]))
+    exhaust_hru = _parse_temp(_reg(inputs_core, _INPUT_CORE_START, INPUT["exhaust_hru_temp"]))
+    supply_room = _parse_temp(_reg(inputs_core, _INPUT_CORE_START, INPUT["supply_room_temp"]))
+    fan_supply = _parse_pct(_reg(inputs_core, _INPUT_CORE_START, INPUT["fan_supply_pct"])) or _parse_pct(
         _reg(holdings, _HOLDING_BLOCK_START, HOLDING["supply_direct_pct"])
     )
-    fan_exhaust = _parse_pct(_reg(inputs, _INPUT_BLOCK_START, INPUT["fan_exhaust_pct"])) or _parse_pct(
+    fan_exhaust = _parse_pct(_reg(inputs_core, _INPUT_CORE_START, INPUT["fan_exhaust_pct"])) or _parse_pct(
         _reg(holdings, _HOLDING_BLOCK_START, HOLDING["exhaust_direct_pct"])
     )
 
+    error_raw = _reg(inputs_status, _INPUT_STATUS_START, INPUT["error_info"])
+    errors = decode_error_info(error_raw)
+    emergency_raw = _reg(holdings, _HOLDING_BLOCK_START, HOLDING["emergency_stop"])
+    speed_raw = _reg(holdings, _HOLDING_BLOCK_START, HOLDING["speed_level"])
+    temp_setpoint_raw = _reg(holdings, _HOLDING_BLOCK_START, HOLDING["temp_setpoint"])
+    temp_setpoint_read = _reg(inputs_status, _INPUT_STATUS_START, INPUT["temp_setpoint_read"])
+    fan_speed_level = _parse_speed_level(
+        _reg(inputs_status, _INPUT_STATUS_START, INPUT["fan_speed_level"])
+    )
+    if fan_speed_level is None:
+        fan_speed_level = _parse_speed_level(speed_raw)
+
     if outdoor is None and exhaust is None and supply_room is None:
         return AirfiSnapshot(ok=False, state={"airfi_online": False})
+
+    temp_c = _parse_temp(temp_setpoint_read if temp_setpoint_read is not None else temp_setpoint_raw)
+    filter_interval = _reg(inputs_status, _INPUT_STATUS_START, INPUT["filter_interval"])
+    humidity = _reg(inputs_status, _INPUT_STATUS_START, INPUT["internal_humidity"])
 
     return AirfiSnapshot(
         ok=True,
@@ -302,9 +381,24 @@ def _read_snapshot(
             "supply_room_temp_c": supply_room,
             "fan_supply_pct": fan_supply,
             "fan_exhaust_pct": fan_exhaust,
+            "humidity_pct": humidity if humidity is not None and 0 <= humidity <= 100 else None,
             "direct_control": (_reg(holdings, _HOLDING_BLOCK_START, HOLDING["direct_control_enabled"]) or 0) > 0,
             "away_mode": (_reg(holdings, _HOLDING_BLOCK_START, HOLDING["away_mode"]) or 0) > 0,
-            "fireplace_active": (fireplace_regs[0] if fireplace_regs else 0) > 0,
+            "fireplace_active": (_reg(holdings_extra, _HOLDING_EXTRA_START, HOLDING["fireplace"]) or 0) > 0,
+            "freezing_alarm": (_reg(inputs_status, _INPUT_STATUS_START, INPUT["freezing_alarm"]) or 0) > 0,
+            "machine_fault": (_reg(inputs_status, _INPUT_STATUS_START, INPUT["machine_fault"]) or 0) > 0,
+            "airfi_error_raw": error_raw,
+            "airfi_errors": [e["code"] for e in errors],
+            "fan_speed_level": fan_speed_level,
+            "forced_control": _reg(inputs_status, _INPUT_STATUS_START, INPUT["forced_control"]),
+            "temp_setpoint_c": temp_c,
+            "filter_change_per_year": filter_interval,
+            "sauna_mode": (_reg(holdings_extra, _HOLDING_EXTRA_START, HOLDING["sauna_mode"]) or 0) > 0,
+            "emergency_stop": emergency_raw == 1,
+            "fault": (
+                (_reg(inputs_status, _INPUT_STATUS_START, INPUT["machine_fault"]) or 0) > 0
+                or len(errors) > 0
+            ),
         },
     )
 
@@ -466,6 +560,8 @@ def _write_with_client(
     supply: int | None = None,
     exhaust: int | None = None,
     away: bool | None = None,
+    temp_setpoint_c: float | None = None,
+    sauna_mode: bool | None = None,
 ) -> bool:
     if is_tcp:
         if not _connect_tcp(
@@ -478,14 +574,29 @@ def _write_with_client(
         return False
     try:
         if supply is not None and exhaust is not None:
-            supply = max(0, min(100, int(supply)))
-            exhaust = max(0, min(100, int(exhaust)))
+            supply = max(_MIN_FAN_PCT, min(100, int(supply)))
+            exhaust = max(_MIN_FAN_PCT, min(100, int(exhaust)))
             w1 = client.write_register(HOLDING["direct_control_enabled"], 1, device_id=unit)
             w2 = client.write_register(HOLDING["supply_direct_pct"], supply, device_id=unit)
             w3 = client.write_register(HOLDING["exhaust_direct_pct"], exhaust, device_id=unit)
-            return not (w1.isError() or w2.isError() or w3.isError())
+            e1, e2, e3 = w1.isError(), w2.isError(), w3.isError()
+            if e1 or e2 or e3:
+                log.warning(
+                    "Modbus fan write partial failure: direct=%s supply=%s exhaust=%s",
+                    e1,
+                    e2,
+                    e3,
+                )
+            return not (e1 or e2 or e3)
         if away is not None:
             w = client.write_register(HOLDING["away_mode"], 1 if away else 0, device_id=unit)
+            return not w.isError()
+        if temp_setpoint_c is not None:
+            raw = max(50, min(260, int(round(float(temp_setpoint_c) * 10))))
+            w = client.write_register(HOLDING["temp_setpoint"], raw, device_id=unit)
+            return not w.isError()
+        if sauna_mode is not None:
+            w = client.write_register(HOLDING["sauna_mode"], 1 if sauna_mode else 0, device_id=unit)
             return not w.isError()
         return False
     except Exception as exc:
@@ -554,4 +665,64 @@ def write_away(
         read_timeout=read_timeout,
         is_tcp=bool(host),
         away=away,
+    )
+
+
+def write_temp_setpoint(
+    *,
+    host: str | None,
+    tcp_port: int,
+    serial: str | None,
+    baud: int,
+    unit: int,
+    temp_c: float,
+    connect_timeout: float = 4.0,
+    read_timeout: float = 5.0,
+) -> bool:
+    client = _open_client(
+        host=host,
+        port=tcp_port,
+        serial=serial,
+        baud=baud,
+        read_timeout=read_timeout,
+    )
+    if client is None:
+        return False
+    return _write_with_client(
+        client,
+        unit,
+        connect_timeout=connect_timeout,
+        read_timeout=read_timeout,
+        is_tcp=bool(host),
+        temp_setpoint_c=temp_c,
+    )
+
+
+def write_sauna_mode(
+    *,
+    host: str | None,
+    tcp_port: int,
+    serial: str | None,
+    baud: int,
+    unit: int,
+    active: bool,
+    connect_timeout: float = 4.0,
+    read_timeout: float = 5.0,
+) -> bool:
+    client = _open_client(
+        host=host,
+        port=tcp_port,
+        serial=serial,
+        baud=baud,
+        read_timeout=read_timeout,
+    )
+    if client is None:
+        return False
+    return _write_with_client(
+        client,
+        unit,
+        connect_timeout=connect_timeout,
+        read_timeout=read_timeout,
+        is_tcp=bool(host),
+        sauna_mode=active,
     )

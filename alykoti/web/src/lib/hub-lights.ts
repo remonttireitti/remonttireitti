@@ -30,6 +30,9 @@ export type HubLightDevice = {
   humidity_pct: number | null;
   co2_ppm: number | null;
   power_w: number | null;
+  model?: string | null;
+  manufacturer?: string | null;
+  description?: string | null;
 };
 
 const KIND_LABEL: Record<HubHomeDevice["kind"], string> = {
@@ -82,6 +85,9 @@ function mapDevice(
       typeof d.humidity_pct === "number" && Number.isFinite(d.humidity_pct) ? d.humidity_pct : null,
     co2_ppm: typeof d.co2_ppm === "number" && Number.isFinite(d.co2_ppm) ? d.co2_ppm : null,
     power_w: typeof d.power_w === "number" && Number.isFinite(d.power_w) ? d.power_w : null,
+    model: d.model ?? null,
+    manufacturer: d.manufacturer ?? null,
+    description: d.description ?? null,
   };
 }
 

@@ -65,6 +65,14 @@ LONG_PRESS = frozenset(
         "right_hold",
     }
 )
+HOLD_RELEASE = frozenset(
+    {
+        "hold_release",
+        "hold_released",
+        "press_release",
+    }
+)
+HUE_BUTTONS = frozenset({"on", "off", "up", "down"})
 DOUBLE_PRESS = frozenset(
     {
         "double",
@@ -111,12 +119,39 @@ def _match_action(incoming: str, press: str) -> bool:
     return False
 
 
-def _match_button(incoming_button: str | None, rule_button: str | None) -> bool:
+_HUE_ACTION_RE = re.compile(
+    r"^(on|off|up|down)_(press|hold|press_release|hold_release|hold_released)$",
+    re.I,
+)
+
+
+def _parse_hue_action(action: str) -> tuple[str, str] | None:
+    normalized = action.strip().casefold().replace("-", "_")
+    m = _HUE_ACTION_RE.match(normalized)
+    if not m:
+        return None
+    gesture = m.group(2).casefold()
+    if gesture == "hold_released":
+        gesture = "hold_release"
+    return m.group(1).casefold(), gesture
+
+
+def _match_button(
+    incoming_button: str | None,
+    rule_button: str | None,
+    *,
+    incoming_action: str | None = None,
+) -> bool:
     if not rule_button:
         return True
-    if not incoming_button:
-        return False
-    return incoming_button.strip().casefold() == rule_button.strip().casefold()
+    rb = rule_button.strip().casefold()
+    if incoming_button and incoming_button.strip().casefold() == rb:
+        return True
+    if incoming_action:
+        parsed = _parse_hue_action(incoming_action)
+        if parsed and parsed[0] == rb:
+            return True
+    return False
 
 
 def _button_index(button: str | None) -> str | None:
@@ -126,27 +161,58 @@ def _button_index(button: str | None) -> str | None:
     return m.group(1) if m else None
 
 
+def _hue_gesture_matches_press(gesture: str, press: str) -> bool:
+    if press == "short":
+        return gesture in ("press", "press_release")
+    if press == "long":
+        return gesture in ("hold", "hold_release")
+    if press == "double":
+        return False
+    return False
+
+
 def _match_rule_action(
     incoming: str,
     button: str | None,
     press: str,
     rule_action: str | None,
+    rule_button: str | None = None,
 ) -> bool:
-    """Täsmää action ja painallustyyppi — tukee 2_click, button_2 + click jne."""
+    """Täsmää action ja painallustyyppi — tukee Hue on_press, 2_click, button_2 + click jne."""
     action = incoming.strip().casefold()
     if not action:
         return False
+
+    hue = _parse_hue_action(action)
+    rb = rule_button.strip().casefold() if rule_button and rule_button.strip() else None
 
     if rule_action and str(rule_action).strip():
         ra = str(rule_action).strip().casefold()
         if action == ra:
             return True
+        if hue:
+            btn, gesture = hue
+            if ra == f"{btn}_{gesture}":
+                return True
+            if rb and btn == rb and ra == gesture:
+                return True
+            if not rb and ra == gesture:
+                return True
         idx = _button_index(button)
         if idx and action == f"{idx}_{ra}":
             return True
-        if action.endswith(f"_{ra}"):
+        if hue and ra in ("press", "hold", "press_release", "hold_release"):
+            if hue[1] == ra and (not rb or hue[0] == rb):
+                return True
+        if not hue and action.endswith(f"_{ra}"):
             return True
         return False
+
+    if hue:
+        btn, gesture = hue
+        if rb and btn != rb:
+            return False
+        return _hue_gesture_matches_press(gesture, press)
 
     return _match_action(action, press)
 
@@ -331,9 +397,19 @@ class AutomationEngine:
             rule_button_str = str(rule_button) if isinstance(rule_button, str) and rule_button.strip() else None
             rule_action = trigger.get("action")
             rule_action_str = str(rule_action) if isinstance(rule_action, str) and rule_action.strip() else None
-            if not _match_rule_action(action, button, press, rule_action_str):
+            if not _match_rule_action(
+                action,
+                button,
+                press,
+                rule_action_str,
+                rule_button_str,
+            ):
                 continue
-            if not _match_button(button, rule_button_str):
+            if not _match_button(
+                button,
+                rule_button_str,
+                incoming_action=action,
+            ):
                 continue
             act = rule.get("action") if isinstance(rule.get("action"), dict) else {}
             targets = act.get("target_ids")

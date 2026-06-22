@@ -42,6 +42,14 @@ export type DeviceStatus = {
     away_until: string | null;
     away_unlimited: boolean;
     away_mode: boolean;
+    freezing_alarm: boolean;
+    machine_fault: boolean;
+    airfi_error_raw: number | null;
+    airfi_errors: string[];
+    fan_speed_level: number | null;
+    temp_setpoint_c: number | null;
+    filter_change_per_year: number | null;
+    sauna_mode: boolean;
   };
 };
 

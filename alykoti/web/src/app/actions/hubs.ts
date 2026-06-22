@@ -409,6 +409,35 @@ export async function setFanSpeed(
   return setFanPct(hubId, pct, pct);
 }
 
+export async function setSaunaMode(
+  hubId: string,
+  active: boolean,
+): Promise<ActionState> {
+  const { supabase, user } = await requireUser();
+  if (!user) return { error: "Kirjaudu sisään." };
+  if (!(await getOwnedHub(supabase, hubId, user.id))) {
+    return { error: "Keskusyksikköä ei löydy." };
+  }
+  await patchHubState(supabase, hubId, { sauna_mode: active });
+  return queueCommand(hubId, "set_sauna_mode", { active });
+}
+
+export async function setTempSetpoint(
+  hubId: string,
+  tempC: number,
+): Promise<ActionState> {
+  const { supabase, user } = await requireUser();
+  if (!user) return { error: "Kirjaudu sisään." };
+  if (!Number.isFinite(tempC) || tempC < 5 || tempC > 26) {
+    return { error: "Lämpötila-asetus 5–26 °C." };
+  }
+  if (!(await getOwnedHub(supabase, hubId, user.id))) {
+    return { error: "Keskusyksikköä ei löydy." };
+  }
+  await patchHubState(supabase, hubId, { temp_setpoint_c: tempC });
+  return queueCommand(hubId, "set_temp_setpoint", { temp_c: tempC });
+}
+
 export async function deleteHub(hubId: string): Promise<ActionState> {
   const { supabase, user } = await requireUser();
   if (!user) return { error: "Kirjaudu sisään." };

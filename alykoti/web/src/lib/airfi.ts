@@ -1,5 +1,6 @@
 import ModbusRTU from "modbus-serial";
 import type { HubControlMode, HubState, VentilationConfig } from "@/lib/types";
+import { airfiErrorCodes } from "@/lib/airfi-errors";
 import {
   computeLtoEfficiency,
   parseAirfiTempC,
@@ -19,9 +20,19 @@ const INPUT = {
   exhaust_temp: 6, // T3 poisto
   exhaust_hru_temp: 7, // T4 jateilma
   supply_room_temp: 8, // T5 tulo huoneeseen
+  fan_exhaust_pct: 11, // 3x00012 poistopuhaltimen %
+  fan_supply_pct: 12, // 3x00013 tulopuhaltimen %
   fireplace_status: 14, // 3x00015 takka/painetasaus
   internal_humidity: 22, // 3x00023
-  direct_fan_pct: 26, // 3x00027 suoraohjaus %
+  freezing_alarm: 17, // 3x00018
+  machine_fault: 18, // 3x00019
+  fan_speed_level: 23, // 3x00024
+  forced_control: 24, // 3x00025
+  direct_control_status: 25, // 3x00026
+  direct_fan_pct: 26, // 3x00027
+  temp_setpoint_read: 27, // 3x00028 x10°C
+  filter_interval: 30, // 3x00031
+  error_info: 31, // 3x00032 bitmask E0-E9
   hood_flap_open: 39, // 3x00040 liesikuvun läppä
   supply_airflow_m3h: 44, // 3x00045
   exhaust_airflow_m3h: 45, // 3x00046
@@ -29,12 +40,16 @@ const INPUT = {
 
 const HOLDING = {
   speed_level: 0, // 4x00001
-  emergency_stop: 1, // 4x00002 pakko-ohjaus
+  emergency_stop: 1, // 4x00002
   direct_control_enabled: 2, // 4x00003
-  supply_direct_pct: 9, // 4x00010
-  exhaust_direct_pct: 10, // 4x00011
-  away_mode: 11, // 4x00012
-  fireplace: 57, // 4x00058
+  direct_combined_pct: 3, // 4x00004
+  temp_setpoint: 4, // 4x00005 x10°C
+  supply_direct_pct: 10, // 4x00011
+  exhaust_direct_pct: 11, // 4x00012
+  away_mode: 12, // 4x00013
+  away_temp_setpoint: 51, // 4x00052
+  sauna_mode: 56, // 4x00057
+  fireplace: 57, // 4x00058 Painetasaus/Takka
 } as const;
 
 export type AirfiState = {
@@ -57,6 +72,15 @@ export type AirfiState = {
   hood_flap_open: boolean;
   emergency_stop: boolean;
   away_mode: boolean;
+  freezing_alarm: boolean;
+  machine_fault: boolean;
+  airfi_errors: string[];
+  airfi_error_raw: number | null;
+  fan_speed_level: number | null;
+  forced_control: number | null;
+  temp_setpoint_c: number | null;
+  filter_change_per_year: number | null;
+  sauna_mode: boolean;
 };
 
 function envHost(): string {
@@ -129,6 +153,20 @@ async function readInputBlock(
   }
 }
 
+async function readHoldingBlock(
+  client: ModbusRTU,
+  address: number,
+  length: number,
+): Promise<number[] | null> {
+  try {
+    const result = await client.readHoldingRegisters(address, length);
+    return result.data ?? null;
+  } catch (error) {
+    console.warn(`[airfi] Holding ${address}..${address + length - 1} epaonnistui:`, error);
+    return null;
+  }
+}
+
 async function readRegister(
   client: ModbusRTU,
   readFn: (address: number, length: number) => Promise<{ data: number[] }>,
@@ -146,23 +184,61 @@ async function readRegister(
 export async function fetchAirfiState(): Promise<AirfiState | null> {
   return withClient(async (client) => {
     const core = await readInputBlock(client, INPUT.outdoor_temp, 5);
+    const status = await readInputBlock(
+      client,
+      INPUT.freezing_alarm,
+      INPUT.error_info - INPUT.freezing_alarm + 1,
+    );
     const flows = await readInputBlock(client, INPUT.supply_airflow_m3h, 2);
     const hoodFlap = await readRegister(client, client.readInputRegisters, INPUT.hood_flap_open);
-    const humidity = await readRegister(client, client.readInputRegisters, INPUT.internal_humidity);
-    const supplyTarget = await readRegister(client, client.readHoldingRegisters, HOLDING.supply_direct_pct);
-    const exhaustTarget = await readRegister(client, client.readHoldingRegisters, HOLDING.exhaust_direct_pct);
-    const directControl = await readRegister(client, client.readHoldingRegisters, HOLDING.direct_control_enabled);
-    const fireplaceHold = await readRegister(client, client.readHoldingRegisters, HOLDING.fireplace);
-    const emergency = await readRegister(client, client.readHoldingRegisters, HOLDING.emergency_stop);
-    const away = await readRegister(client, client.readHoldingRegisters, HOLDING.away_mode);
+    const holdingLow = await readHoldingBlock(
+      client,
+      HOLDING.speed_level,
+      HOLDING.away_mode - HOLDING.speed_level + 1,
+    );
+    const holdingExtra = await readHoldingBlock(
+      client,
+      HOLDING.away_temp_setpoint,
+      HOLDING.fireplace - HOLDING.away_temp_setpoint + 1,
+    );
 
-    const supply = await readRegister(client, client.readHoldingRegisters, HOLDING.supply_direct_pct);
-    const exhaust = await readRegister(client, client.readHoldingRegisters, HOLDING.exhaust_direct_pct);
+    const reg = (block: number[] | null, base: number, addr: number) => {
+      if (!block) return null;
+      const idx = addr - base;
+      return idx >= 0 && idx < block.length ? block[idx] : null;
+    };
+
+    const supply = await readRegister(client, client.readInputRegisters, INPUT.fan_supply_pct);
+    const exhaust = await readRegister(client, client.readInputRegisters, INPUT.fan_exhaust_pct);
     const outdoor_temp_c = parseAirfiTempC(core?.[0] ?? null);
     const exhaust_temp_c = parseAirfiTempC(core?.[2] ?? null);
     const exhaust_hru_temp_c = parseAirfiTempC(core?.[3] ?? null);
     const supply_room_temp_c = parseAirfiTempC(core?.[4] ?? null);
     const fireplaceStatus = await readRegister(client, client.readInputRegisters, INPUT.fireplace_status);
+
+    const supplyTarget = reg(holdingLow, HOLDING.speed_level, HOLDING.supply_direct_pct);
+    const exhaustTarget = reg(holdingLow, HOLDING.speed_level, HOLDING.exhaust_direct_pct);
+    const directControl = reg(holdingLow, HOLDING.speed_level, HOLDING.direct_control_enabled);
+    const emergency = reg(holdingLow, HOLDING.speed_level, HOLDING.emergency_stop);
+    const away = reg(holdingLow, HOLDING.speed_level, HOLDING.away_mode);
+    const fireplaceHold = reg(holdingExtra, HOLDING.away_temp_setpoint, HOLDING.fireplace);
+    const saunaHold = reg(holdingExtra, HOLDING.away_temp_setpoint, HOLDING.sauna_mode);
+    const tempSetpointHold = reg(holdingLow, HOLDING.speed_level, HOLDING.temp_setpoint);
+
+    const errorRaw = reg(status, INPUT.freezing_alarm, INPUT.error_info);
+    const tempSetpointRead = reg(status, INPUT.freezing_alarm, INPUT.temp_setpoint_read);
+    const fanSpeedLevelRaw =
+      reg(status, INPUT.freezing_alarm, INPUT.fan_speed_level) ??
+      reg(holdingLow, HOLDING.speed_level, HOLDING.speed_level);
+    const fanSpeedLevel =
+      fanSpeedLevelRaw != null && fanSpeedLevelRaw >= 0 && fanSpeedLevelRaw <= 5
+        ? fanSpeedLevelRaw
+        : null;
+    const humidity = reg(status, INPUT.freezing_alarm, INPUT.internal_humidity);
+    const filterInterval = reg(status, INPUT.freezing_alarm, INPUT.filter_interval);
+    const freezingAlarm = reg(status, INPUT.freezing_alarm, INPUT.freezing_alarm);
+    const machineFault = reg(status, INPUT.freezing_alarm, INPUT.machine_fault);
+    const forcedControl = reg(status, INPUT.freezing_alarm, INPUT.forced_control);
 
     const supply_airflow_m3h =
       flows?.[0] != null && flows[0] > 0 ? flows[0] : null;
@@ -189,6 +265,10 @@ export async function fetchAirfiState(): Promise<AirfiState | null> {
       return null;
     }
 
+    const temp_setpoint_c = parseAirfiTempC(
+      tempSetpointRead ?? tempSetpointHold ?? null,
+    );
+
     return {
       supply_fan_pct: supply,
       exhaust_fan_pct: exhaust,
@@ -207,8 +287,17 @@ export async function fetchAirfiState(): Promise<AirfiState | null> {
       direct_control: (directControl ?? 0) > 0,
       fireplace_active: (fireplaceHold ?? fireplaceStatus ?? 0) > 0,
       hood_flap_open: (hoodFlap ?? 0) > 0,
-      emergency_stop: (emergency ?? 0) > 0,
+      emergency_stop: emergency === 1,
       away_mode: (away ?? 0) > 0,
+      freezing_alarm: (freezingAlarm ?? 0) > 0,
+      machine_fault: (machineFault ?? 0) > 0,
+      airfi_errors: airfiErrorCodes(errorRaw ?? 0),
+      airfi_error_raw: errorRaw,
+      fan_speed_level: fanSpeedLevel,
+      forced_control: forcedControl,
+      temp_setpoint_c,
+      filter_change_per_year: filterInterval,
+      sauna_mode: (saunaHold ?? 0) > 0,
     };
   });
 }
@@ -239,6 +328,23 @@ export async function setFireplaceMode(active: boolean): Promise<boolean> {
 export async function setAirfiAway(away: boolean): Promise<boolean> {
   const result = await withClient(async (client) => {
     await client.writeRegister(HOLDING.away_mode, away ? 1 : 0);
+    return true;
+  });
+  return result === true;
+}
+
+export async function setTempSetpoint(tempC: number): Promise<boolean> {
+  const raw = Math.max(50, Math.min(260, Math.round(tempC * 10)));
+  const result = await withClient(async (client) => {
+    await client.writeRegister(HOLDING.temp_setpoint, raw);
+    return true;
+  });
+  return result === true;
+}
+
+export async function setSaunaMode(active: boolean): Promise<boolean> {
+  const result = await withClient(async (client) => {
+    await client.writeRegister(HOLDING.sauna_mode, active ? 1 : 0);
     return true;
   });
   return result === true;
@@ -292,6 +398,15 @@ export function hubStateToAirfiState(state: HubState): AirfiState | null {
     hood_flap_open: state.hood_active ?? false,
     emergency_stop: state.emergency_stop ?? false,
     away_mode: state.away_mode ?? false,
+    freezing_alarm: state.freezing_alarm ?? false,
+    machine_fault: state.machine_fault ?? false,
+    airfi_errors: state.airfi_errors ?? [],
+    airfi_error_raw: state.airfi_error_raw ?? null,
+    fan_speed_level: state.fan_speed_level ?? null,
+    forced_control: state.forced_control ?? null,
+    temp_setpoint_c: state.temp_setpoint_c ?? null,
+    filter_change_per_year: state.filter_change_per_year ?? null,
+    sauna_mode: state.sauna_mode ?? false,
   };
 }
 
@@ -383,7 +498,20 @@ export function airfiToHubState(airfi: AirfiState): Partial<HubState> {
     hood_active: airfi.hood_flap_open,
     away_mode: airfi.away_mode,
     emergency_stop: airfi.emergency_stop,
-    fault: false,
+    freezing_alarm: airfi.freezing_alarm,
+    machine_fault: airfi.machine_fault,
+    airfi_errors: airfi.airfi_errors,
+    airfi_error_raw: airfi.airfi_error_raw,
+    fan_speed_level: airfi.fan_speed_level,
+    forced_control: airfi.forced_control,
+    temp_setpoint_c: airfi.temp_setpoint_c,
+    filter_change_per_year: airfi.filter_change_per_year,
+    sauna_mode: airfi.sauna_mode,
+    humidity_pct: airfi.internal_humidity_pct,
+    fault:
+      airfi.machine_fault ||
+      airfi.freezing_alarm ||
+      airfi.airfi_errors.length > 0,
   };
 }
 
@@ -401,6 +529,12 @@ export async function executeAirfiCommand(
   }
   if (command === "set_away" && typeof payload.away === "boolean") {
     return setAirfiAway(payload.away);
+  }
+  if (command === "set_temp_setpoint" && typeof payload.temp_c === "number") {
+    return setTempSetpoint(payload.temp_c);
+  }
+  if (command === "set_sauna_mode" && typeof payload.active === "boolean") {
+    return setSaunaMode(payload.active);
   }
   if (command === "set_mode") {
     return true;

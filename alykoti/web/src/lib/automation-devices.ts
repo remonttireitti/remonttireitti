@@ -10,6 +10,8 @@ export type AutomationDeviceOption = {
   kindLabel: string;
   controllable: boolean;
   capabilitiesLabel: string;
+  model?: string | null;
+  manufacturer?: string | null;
 };
 
 export type AutomationTargetGroups = {
@@ -28,6 +30,8 @@ function toOption(device: HubLightDevice): AutomationDeviceOption {
     kindLabel: kindLabel(device.kind),
     controllable: device.controllable,
     capabilitiesLabel: device.capabilitiesLabel,
+    model: device.model ?? null,
+    manufacturer: device.manufacturer ?? null,
   };
 }
 

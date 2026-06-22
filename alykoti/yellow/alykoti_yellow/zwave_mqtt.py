@@ -140,6 +140,29 @@ def _classify(name: str, caps: list[dict[str, Any]]) -> str:
     return "other"
 
 
+def _infer_caps_from_name(name: str) -> list[dict[str, Any]]:
+    """Kun MQTT-skannaus ei saa currentValue-viestejä (nukkuvat anturit jne.)."""
+    kind = _classify(name, [])
+    if kind == "lock":
+        return [_cap("lock", True, True)]
+    if kind == "light":
+        return [_cap("switch", True, True), _cap("dimmer", True, True)]
+    if kind in {"switch", "fan"}:
+        return [_cap("switch", True, True)]
+    if kind == "sensor":
+        n = name.casefold()
+        if "ovikello" in n or "motion" in n or "liike" in n:
+            return [_cap("motion", True, False)]
+        if "ovi" in n or "contact" in n:
+            return [_cap("contact", True, False)]
+        if "co2" in n:
+            return [_cap("co2", True, False)]
+        if "kosteus" in n:
+            return [_cap("humidity", True, False)]
+        return [_cap("temperature", True, False)]
+    return [_cap("button", True, False)]
+
+
 def _controllable(caps: list[dict[str, Any]]) -> bool:
     return any(c.get("write") and c["id"] in CONTROL_IDS for c in caps)
 
@@ -330,17 +353,14 @@ def fetch_zwave_devices(
         if info["name"].startswith("Node "):
             continue
         dev = ensure(node_id)
-        finalize(node_id)
         if not dev.get("capabilities"):
-            kind = _classify(info["name"], [])
-            dev["kind"] = kind
-            dev["controllable"] = kind in {"light", "switch", "fan"}
+            dev["capabilities"] = _infer_caps_from_name(info["name"])
+        finalize(node_id)
 
     return {
         k: v
         for k, v in devices.items()
         if not str(v.get("name", "")).startswith("Node ")
-        and v.get("capabilities")
     }
 
 

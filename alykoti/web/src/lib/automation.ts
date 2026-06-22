@@ -1,6 +1,7 @@
 /** Automaatiosäännöt — laite- ja sähköhintalaukaisimet. */
 
 import type { ElectricityPricePeriod } from "@/lib/electricity-price-periods";
+import { hueMqttActionLabel, parseHueMqttAction } from "@/lib/automation-trigger-profiles";
 
 export type AutomationPressType = "short" | "long" | "double";
 
@@ -239,7 +240,10 @@ export function triggerSummary(
   }
   const parts = [deviceName, PRESS_LABELS[trigger.press]];
   if (trigger.button) parts.push(trigger.button);
-  if (trigger.action) parts.push(`action: ${trigger.action}`);
+  if (trigger.action) {
+    const hue = parseHueMqttAction(trigger.action);
+    parts.push(hue ? hueMqttActionLabel(trigger.action) : `action: ${trigger.action}`);
+  }
   return parts.join(" · ");
 }
 

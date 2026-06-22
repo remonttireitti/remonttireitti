@@ -4,7 +4,7 @@
 substitutions:
   device_name: alykoti-hub
   friendly_name: "Alykoti keskusyksikko"
-  firmware_version: "1.8.3"
+  firmware_version: "1.8.7"
 
   upload_port: COM7
 
@@ -139,9 +139,10 @@ http_request:
   watchdog_timeout: 30s
 
 external_components:
-  - source: github://Gucioo/esphome_modbus_tcp_master
+  - source:
+      type: local
+      path: components
     components: [modbus_tcp_manager]
-    refresh: 0s
 
 # --- AirFi Modbus TCP (hub toimii siltana pilven ja lähiverkon välillä) ---
 modbus_tcp_manager:
@@ -276,7 +277,7 @@ sensor:
     modbus_tcp_id: airfi_modbus
     id: airfi_outdoor_temp
     name: "AirFi T1 ulkoilma"
-    register_address: 3
+    register_address: 4
     function_code: 4
     scale: 0.1
     update_interval: never
@@ -286,7 +287,7 @@ sensor:
     modbus_tcp_id: airfi_modbus
     id: airfi_supply_hru_temp
     name: "AirFi T2 varalla"
-    register_address: 4
+    register_address: 5
     function_code: 4
     scale: 0.1
     update_interval: never
@@ -296,7 +297,7 @@ sensor:
     modbus_tcp_id: airfi_modbus
     id: airfi_exhaust_temp
     name: "AirFi T3 poisto"
-    register_address: 5
+    register_address: 6
     function_code: 4
     scale: 0.1
     update_interval: never
@@ -306,7 +307,7 @@ sensor:
     modbus_tcp_id: airfi_modbus
     id: airfi_exhaust_hru_temp
     name: "AirFi T4 jateilma"
-    register_address: 6
+    register_address: 7
     function_code: 4
     scale: 0.1
     update_interval: never
@@ -316,7 +317,7 @@ sensor:
     modbus_tcp_id: airfi_modbus
     id: airfi_supply_room_temp
     name: "AirFi T5 tulo asuntoon"
-    register_address: 7
+    register_address: 8
     function_code: 4
     scale: 0.1
     update_interval: never
@@ -326,8 +327,8 @@ sensor:
     modbus_tcp_id: airfi_modbus
     id: airfi_exhaust_fan
     name: "AirFi poistonopeus"
-    register_address: 10
-    function_code: 3
+    register_address: 11
+    function_code: 4
     scale: 1.0
     update_interval: never
     internal: true
@@ -339,8 +340,8 @@ sensor:
     modbus_tcp_id: airfi_modbus
     id: airfi_supply_fan
     name: "AirFi tulonopeus"
-    register_address: 9
-    function_code: 3
+    register_address: 12
+    function_code: 4
     scale: 1.0
     update_interval: never
     internal: true
@@ -355,7 +356,7 @@ sensor:
     register_address: 44
     function_code: 4
     scale: 1.0
-    update_interval: 60s
+    update_interval: never
     internal: true
 
   - platform: modbus_tcp_manager
@@ -365,7 +366,7 @@ sensor:
     register_address: 45
     function_code: 4
     scale: 1.0
-    update_interval: 60s
+    update_interval: never
     internal: true
 
   - platform: template
@@ -463,6 +464,16 @@ globals:
     restore_value: no
     initial_value: "0"
 
+  - id: modbus_scan_done
+    type: bool
+    restore_value: no
+    initial_value: "false"
+
+  - id: airfi_writes_enabled
+    type: bool
+    restore_value: no
+    initial_value: "false"
+
   - id: airfi_online_flag
     type: bool
     restore_value: no
@@ -554,6 +565,26 @@ globals:
     initial_value: "0"
 
 script:
+  - id: scan_airfi_registers
+    mode: single
+    then:
+      - lambda: |-
+          auto *modbus = id(airfi_modbus);
+          if (modbus == nullptr) return;
+          auto parse_temp = [](uint16_t raw) -> float {
+            return ((int16_t) raw) * 0.1f;
+          };
+          ESP_LOGI("scan", "AirFi input register scan (int16 * 0.1)");
+          for (uint16_t addr = 0; addr <= 30; addr++) {
+            auto r = modbus->read_registers(addr, 1, modbus_tcp::ModbusFunction::READ_INPUT_REGISTERS);
+            if (r.success && !r.data.empty()) {
+              float t = parse_temp(r.data[0]);
+              if (t >= -30.0f && t <= 50.0f) {
+                ESP_LOGI("scan", "  input[%u] = %.1f C (raw %d)", addr, t, (int16_t) r.data[0]);
+              }
+            }
+          }
+
   - id: refresh_airfi_online
     mode: restart
     then:
@@ -566,29 +597,37 @@ script:
           };
           const float SNAP_INVALID = -9999.0f;
           auto snap_ok = [&](float v) { return v > -9998.0f && valid_temp(v); };
-          bool temps_ok = false;
           auto *modbus = id(airfi_modbus);
+          auto read_input_temp = [&](uint16_t addr, float &out) -> bool {
+            auto r = modbus->read_registers(addr, 1, modbus_tcp::ModbusFunction::READ_INPUT_REGISTERS);
+            if (!r.success || r.data.empty()) return false;
+            out = parse_temp(r.data[0]);
+            return valid_temp(out);
+          };
+          bool temps_ok = false;
           if (modbus != nullptr) {
-            auto resp = modbus->read_registers(3, 5, modbus_tcp::ModbusFunction::READ_INPUT_REGISTERS);
-            if (resp.success && resp.data.size() >= 5) {
-              float t1 = parse_temp(resp.data[0]);
-              float t3 = parse_temp(resp.data[2]);
-              float t4 = parse_temp(resp.data[3]);
-              float t5 = parse_temp(resp.data[4]);
-              id(airfi_snap_t1) = valid_temp(t1) ? t1 : SNAP_INVALID;
-              id(airfi_snap_t3) = valid_temp(t3) ? t3 : SNAP_INVALID;
-              id(airfi_snap_t4) = valid_temp(t4) ? t4 : SNAP_INVALID;
-              id(airfi_snap_t5) = valid_temp(t5) ? t5 : SNAP_INVALID;
-              if (valid_temp(t1)) { id(airfi_outdoor_temp).publish_state(t1); temps_ok = true; }
+            float t1 = NAN, t3 = NAN, t4 = NAN, t5 = NAN;
+            bool got1 = read_input_temp(4, t1);
+            bool got3 = read_input_temp(6, t3);
+            bool got4 = read_input_temp(7, t4);
+            bool got5 = read_input_temp(8, t5);
+            if (got1 || got3 || got4 || got5) {
+              temps_ok = true;
+              id(airfi_snap_t1) = got1 ? t1 : SNAP_INVALID;
+              id(airfi_snap_t3) = got3 ? t3 : SNAP_INVALID;
+              id(airfi_snap_t4) = got4 ? t4 : SNAP_INVALID;
+              id(airfi_snap_t5) = got5 ? t5 : SNAP_INVALID;
+              if (got1) id(airfi_outdoor_temp).publish_state(t1);
               else id(airfi_outdoor_temp).publish_state(NAN);
-              if (valid_temp(t3)) { id(airfi_exhaust_temp).publish_state(t3); temps_ok = true; }
+              if (got3) id(airfi_exhaust_temp).publish_state(t3);
               else id(airfi_exhaust_temp).publish_state(NAN);
-              if (valid_temp(t4)) { id(airfi_exhaust_hru_temp).publish_state(t4); temps_ok = true; }
+              if (got4) id(airfi_exhaust_hru_temp).publish_state(t4);
               else id(airfi_exhaust_hru_temp).publish_state(NAN);
-              if (valid_temp(t5)) { id(airfi_supply_room_temp).publish_state(t5); temps_ok = true; }
+              if (got5) id(airfi_supply_room_temp).publish_state(t5);
               else id(airfi_supply_room_temp).publish_state(NAN);
-              ESP_LOGI("airfi", "T1=%.1f T3=%.1f T4=%.1f T5=%.1f", t1, t3, t4, t5);
+              ESP_LOGI("airfi", "T1=%.1f T3=%.1f T4=%.1f T5=%.1f (regs 4,6,7,8)", t1, t3, t4, t5);
             } else {
+              ESP_LOGW("airfi", "Modbus temp read failed (input 4,6,7,8)");
               id(airfi_snap_t1) = SNAP_INVALID;
               id(airfi_snap_t3) = SNAP_INVALID;
               id(airfi_snap_t4) = SNAP_INVALID;
@@ -599,10 +638,10 @@ script:
               id(airfi_supply_room_temp).publish_state(NAN);
             }
 
-            auto fan = modbus->read_registers(9, 2, modbus_tcp::ModbusFunction::READ_HOLDING_REGISTERS);
+            auto fan = modbus->read_registers(11, 2, modbus_tcp::ModbusFunction::READ_INPUT_REGISTERS);
             if (fan.success && fan.data.size() >= 2) {
-              int supply = fan.data[0];
-              int exhaust = fan.data[1];
+              int exhaust = fan.data[0];
+              int supply = fan.data[1];
               if (supply >= 0 && supply <= 100) {
                 id(airfi_snap_fan_supply) = supply;
                 id(airfi_supply_fan).publish_state(supply);
@@ -1004,14 +1043,19 @@ script:
     then:
       - lambda: |-
           auto *modbus = id(airfi_modbus);
-          if (modbus == nullptr || !id(airfi_online_flag)) {
+          if (modbus == nullptr || !id(airfi_writes_enabled)) {
+            ESP_LOGW("airfi", "Ohjaus pois kaytosta - ei kirjoiteta Modbusia");
+            return;
+          }
+          if (!id(airfi_online_flag)) {
             ESP_LOGW("airfi", "Ei yhteytta - ohjaus ohitetaan");
             return;
           }
-          modbus->write_register(57, fireplace ? 1 : 0);
           modbus->write_register(2, 1);
-          modbus->write_register(9, supply_pct);
-          modbus->write_register(10, exhaust_pct);
+          modbus->write_register(10, supply_pct);
+          modbus->write_register(11, exhaust_pct);
+          if (fireplace) modbus->write_register(57, 1);
+          else modbus->write_register(57, 0);
           ESP_LOGI("airfi", "Ohjaus: tulo=%d poisto=%d takka=%d", supply_pct, exhaust_pct, fireplace);
 
   - id: cloud_sync
@@ -1091,11 +1135,6 @@ script:
 
                         JsonObject ventilation = root["ventilation"];
                         if (!ventilation.isNull()) {
-                          if (ventilation.containsKey("fan_supply_pct") ||
-                              ventilation.containsKey("fan_exhaust_pct") ||
-                              ventilation.containsKey("fan_speed")) {
-                            id(airfi_online_flag) = true;
-                          }
                           if (ventilation.containsKey("fan_supply_pct")) {
                             int pct = ventilation["fan_supply_pct"].as<int>();
                             id(fan_supply_pct).publish_state(pct);
@@ -1118,10 +1157,7 @@ script:
                             id(fan_exhaust_pct).publish_state(pct);
                           }
                           if (ventilation.containsKey("fan_supply_target") && ventilation.containsKey("fan_exhaust_target")) {
-                            int supply = ventilation["fan_supply_target"].as<int>();
-                            int exhaust = ventilation["fan_exhaust_target"].as<int>();
-                            bool fireplace = ventilation["fireplace_active"] | false;
-                            id(airfi_apply_targets).execute(supply, exhaust, fireplace);
+                            // Ohjaus pois: pilvi ei saa kirjoittaa AirFiin ennen kuin Modbus-lukema toimii.
                           }
                         }
 
@@ -1156,23 +1192,13 @@ script:
                               else if (cmd_id[0] != '\0' && id(ack_cmd_3) == "") id(ack_cmd_3) = cmd_id;
                             }
                             if (strcmp(command, "set_fan_pct") == 0) {
-                              JsonObject payload = cmd["payload"];
-                              int supply = payload["supply_pct"] | 0;
-                              int exhaust = payload["exhaust_pct"] | 0;
-                              bool fireplace = payload["fireplace"] | false;
-                              id(airfi_apply_targets).execute(supply, exhaust, fireplace);
+                              ESP_LOGW("airfi", "set_fan_pct ohitetaan - ohjaus pois kaytosta");
                               if (cmd_id[0] != '\0' && id(ack_cmd_1) == "") id(ack_cmd_1) = cmd_id;
                               else if (cmd_id[0] != '\0' && id(ack_cmd_2) == "") id(ack_cmd_2) = cmd_id;
                               else if (cmd_id[0] != '\0' && id(ack_cmd_3) == "") id(ack_cmd_3) = cmd_id;
                             }
                             if (strcmp(command, "set_away") == 0) {
-                              JsonObject payload = cmd["payload"];
-                              bool away = payload["away"] | false;
-                              auto *modbus = id(airfi_modbus);
-                              if (modbus != nullptr && id(airfi_online_flag)) {
-                                modbus->write_register(11, away ? 1 : 0);
-                                ESP_LOGI("airfi", "Poissa-tila: %d", away ? 1 : 0);
-                              }
+                              ESP_LOGW("airfi", "set_away ohitetaan - ohjaus pois kaytosta");
                               if (cmd_id[0] != '\0' && id(ack_cmd_1) == "") id(ack_cmd_1) = cmd_id;
                               else if (cmd_id[0] != '\0' && id(ack_cmd_2) == "") id(ack_cmd_2) = cmd_id;
                               else if (cmd_id[0] != '\0' && id(ack_cmd_3) == "") id(ack_cmd_3) = cmd_id;
@@ -1191,9 +1217,18 @@ script:
                         - script.execute: cloud_sync
 
 interval:
-  - interval: 5s
+  - interval: 15s
     then:
       - script.execute: refresh_airfi_online
+
+  - interval: 60s
+    then:
+      - if:
+          condition:
+            lambda: 'return !id(modbus_scan_done);'
+          then:
+            - lambda: 'id(modbus_scan_done) = true;'
+            - script.execute: scan_airfi_registers
 
   - interval: 3s
     then:

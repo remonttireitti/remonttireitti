@@ -1,5 +1,17 @@
 /** LTO-höytysuhde lämpötiloista ja ilmamääristä / nopeuksista. */
 
+/** Alle tämän puhaltimen %-nopeuden LTO ei ole mielekäs (ei ilmavirtaa). */
+const MIN_FAN_PCT_FOR_LTO = 10;
+
+export function fansActiveForLto(
+  supply_fan_pct?: number | null,
+  exhaust_fan_pct?: number | null,
+): boolean {
+  const supply = supply_fan_pct ?? 0;
+  const exhaust = exhaust_fan_pct ?? 0;
+  return supply >= MIN_FAN_PCT_FOR_LTO && exhaust >= MIN_FAN_PCT_FOR_LTO;
+}
+
 export type LtoEfficiencyResult = {
   /** Lämpöhöytys η_T = (T_tulo − T_ulo) / (T_poisto − T_ulo) */
   temp_pct: number | null;
@@ -53,6 +65,10 @@ export function computeLtoEfficiency(input: {
   supply_fan_pct?: number | null;
   exhaust_fan_pct?: number | null;
 }): LtoEfficiencyResult {
+  if (!fansActiveForLto(input.supply_fan_pct, input.exhaust_fan_pct)) {
+    return { temp_pct: null, energy_pct: null, supply_c_used: null, flow_source: null };
+  }
+
   const supply_c_used = input.supply_room_c ?? input.supply_hru_c;
   if (
     input.outdoor_c == null ||

@@ -171,6 +171,8 @@ export type HubHomeDevice = {
   channel?: number;
   gen?: number;
   model?: string;
+  manufacturer?: string;
+  description?: string;
   /** Anturiarvot */
   temperature_c?: number | null;
   humidity_pct?: number | null;
@@ -245,6 +247,17 @@ export type HubState = {
   fan_speed_target?: number | null;
   away_mode?: boolean;
   emergency_stop?: boolean;
+  /** Aktiiviset AirFi E-koodit (esim. E3). */
+  airfi_errors?: string[];
+  /** Error-info rekisteri 3x00032 (bitmask). */
+  airfi_error_raw?: number | null;
+  freezing_alarm?: boolean;
+  machine_fault?: boolean;
+  fan_speed_level?: number | null;
+  temp_setpoint_c?: number | null;
+  filter_change_per_year?: number | null;
+  sauna_mode?: boolean;
+  forced_control?: number | null;
   fault?: boolean;
   satellite_count?: number;
   airthings_source?: "ble" | "cloud";

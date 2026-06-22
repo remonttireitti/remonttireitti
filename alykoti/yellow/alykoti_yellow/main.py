@@ -8,7 +8,14 @@ import sys
 import time
 
 from alykoti_yellow import config
-from alykoti_yellow.modbus_airfi import AirfiPollState, read_airfi, write_away, write_fan_pct
+from alykoti_yellow.modbus_airfi import (
+    AirfiPollState,
+    read_airfi,
+    write_away,
+    write_fan_pct,
+    write_sauna_mode,
+    write_temp_setpoint,
+)
 from alykoti_yellow.device_commands import (
     zigbee_permit_join,
     zigbee_rename,
@@ -204,7 +211,7 @@ def execute_command(cmd: dict) -> bool:
         exhaust = payload.get("exhaust_pct")
         if isinstance(supply, (int, float)) and isinstance(exhaust, (int, float)):
             ok = write_fan_pct(
-                **config.airfi_kwargs(),
+                **config.airfi_write_kwargs(),
                 supply=int(supply),
                 exhaust=int(exhaust),
             )
@@ -216,7 +223,28 @@ def execute_command(cmd: dict) -> bool:
     if command == "set_away" and config.AIRFI_WRITES:
         away = payload.get("away")
         if isinstance(away, bool):
-            ok = write_away(**config.airfi_kwargs(), away=away)
+            ok = write_away(**config.airfi_write_kwargs(), away=away)
+            if ok and cmd_id:
+                pending_acks.append(cmd_id)
+            return ok
+        return False
+
+    if command == "set_temp_setpoint" and config.AIRFI_WRITES:
+        temp_c = payload.get("temp_c")
+        if isinstance(temp_c, (int, float)):
+            ok = write_temp_setpoint(
+                **config.airfi_write_kwargs(),
+                temp_c=float(temp_c),
+            )
+            if ok and cmd_id:
+                pending_acks.append(cmd_id)
+            return ok
+        return False
+
+    if command == "set_sauna_mode" and config.AIRFI_WRITES:
+        active = payload.get("active")
+        if isinstance(active, bool):
+            ok = write_sauna_mode(**config.airfi_write_kwargs(), active=active)
             if ok and cmd_id:
                 pending_acks.append(cmd_id)
             return ok
@@ -240,11 +268,18 @@ def apply_ventilation(response: dict) -> None:
     supply = vent.get("fan_supply_target")
     exhaust = vent.get("fan_exhaust_target")
     if isinstance(supply, (int, float)) and isinstance(exhaust, (int, float)):
-        write_fan_pct(
-            **config.airfi_kwargs(),
-            supply=int(supply),
-            exhaust=int(exhaust),
-        )
+        try:
+            ok = write_fan_pct(
+                **config.airfi_write_kwargs(),
+                supply=int(supply),
+                exhaust=int(exhaust),
+            )
+            if ok:
+                log.info("AirFi tuuletus kirjoitettu: tulo %s%% poisto %s%%", supply, exhaust)
+            else:
+                log.warning("AirFi tuuletus kirjoitus epäonnistui: %s/%s", supply, exhaust)
+        except Exception as exc:
+            log.warning("AirFi tuuletus virhe: %s", exc)
 
 
 def build_state(

@@ -1,3 +1,4 @@
+import { parseHueMqttAction, hueMqttActionLabel } from "@/lib/automation-trigger-profiles";
 import {
   actionsForPress,
   DOUBLE_PRESS_ACTIONS,
@@ -22,7 +23,13 @@ export type DeviceLiveEvent = {
 };
 
 function pressForAction(action: string): AutomationPressType | undefined {
-  const a = action.trim().toLowerCase();
+  const normalized = action.trim().replace(/-/g, "_");
+  const hue = parseHueMqttAction(normalized);
+  if (hue) {
+    if (hue.gesture === "hold" || hue.gesture === "hold_release") return "long";
+    if (hue.gesture === "press" || hue.gesture === "press_release") return "short";
+  }
+  const a = normalized.toLowerCase();
   if (SHORT_PRESS_ACTIONS.has(a)) return "short";
   if (LONG_PRESS_ACTIONS.has(a)) return "long";
   if (DOUBLE_PRESS_ACTIONS.has(a)) return "double";
@@ -50,16 +57,23 @@ export function formatZigbeeEvent(payload: Record<string, unknown>): DeviceLiveE
   const at = new Date().toISOString();
 
   if (typeof payload.action === "string" && payload.action.trim()) {
-    const action = payload.action.trim();
+    const action = payload.action.trim().replace(/-/g, "_");
+    const hue = parseHueMqttAction(action);
     const button =
       typeof payload.button === "string" && payload.button.trim()
         ? payload.button.trim()
         : typeof payload.click === "string"
           ? payload.click.trim()
-          : null;
+          : hue
+            ? hue.button
+            : null;
     const press = pressForAction(action);
-    const pressLabel = press ? PRESS_LABELS[press] : action;
-    const label = button ? `${button} · ${pressLabel}` : `action: ${action}`;
+    const pressLabel = hue
+      ? hueMqttActionLabel(action)
+      : press
+        ? PRESS_LABELS[press]
+        : action;
+    const label = button && !hue ? `${button} · ${pressLabel}` : pressLabel;
 
     return {
       at,

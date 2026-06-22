@@ -60,10 +60,8 @@ export async function getDeviceStatus(
   const level = connectivityLevel(hubConn, airfiConn);
   const state = expireTimedModes(hub.state);
   const lto = enrichLtoFromHubState(state);
-  if (lto.lto_temp_efficiency_pct != null) {
-    state.lto_temp_efficiency_pct = lto.lto_temp_efficiency_pct;
-    state.lto_energy_efficiency_pct = lto.lto_energy_efficiency_pct;
-  }
+  state.lto_temp_efficiency_pct = lto.lto_temp_efficiency_pct;
+  state.lto_energy_efficiency_pct = lto.lto_energy_efficiency_pct;
   const effectiveMode = effectiveControlMode(hub.control_mode, state);
 
   void recordHubMetrics(hub.id, hub.state, hub.control_mode, {
@@ -91,6 +89,14 @@ export async function getDeviceStatus(
       away_until: state.away_until ?? null,
       away_unlimited: state.away_unlimited ?? false,
       away_mode: state.away_mode ?? false,
+      freezing_alarm: state.freezing_alarm ?? false,
+      machine_fault: state.machine_fault ?? false,
+      airfi_error_raw: state.airfi_error_raw ?? null,
+      airfi_errors: state.airfi_errors ?? [],
+      fan_speed_level: state.fan_speed_level ?? null,
+      temp_setpoint_c: state.temp_setpoint_c ?? null,
+      filter_change_per_year: state.filter_change_per_year ?? null,
+      sauna_mode: state.sauna_mode ?? false,
     },
   };
 }

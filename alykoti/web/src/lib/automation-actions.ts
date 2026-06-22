@@ -117,7 +117,11 @@ export const KNOWN_MQTT_ACTIONS = [
   "stop",
 ] as const;
 
+import { hueMqttActionLabel, parseHueMqttAction } from "@/lib/automation-trigger-profiles";
+
 export function mqttActionLabel(action: string): string {
+  const hue = parseHueMqttAction(action);
+  if (hue) return hueMqttActionLabel(action);
   const a = action.toLowerCase();
   if (a === "single" || a === "single_click" || a === "click") return "Lyhyt painallus (single)";
   if (a === "hold" || a === "long" || a === "long_press") return "Pitkä painallus (hold)";

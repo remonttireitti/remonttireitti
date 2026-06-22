@@ -138,6 +138,21 @@ export async function syncDevice(
 
   const AIRFI_FAN_KEYS = ["fan_supply_pct", "fan_exhaust_pct", "lto_temp_efficiency_pct"] as const;
 
+  const AIRFI_STATUS_KEYS = [
+    "airfi_errors",
+    "airfi_error_raw",
+    "freezing_alarm",
+    "machine_fault",
+    "fan_speed_level",
+    "temp_setpoint_c",
+    "filter_change_per_year",
+    "sauna_mode",
+    "forced_control",
+    "emergency_stop",
+    "humidity_pct",
+    "fault",
+  ] as const;
+
   if (body.state?.lights && typeof body.state.lights === "object") {
     mergedState.lights = body.state.lights;
   }
@@ -210,6 +225,43 @@ export async function syncDevice(
         if (typeof v === "number" && Number.isFinite(v)) {
           (mergedState as Record<string, unknown>)[key] = v;
         }
+      }
+    }
+    for (const key of AIRFI_STATUS_KEYS) {
+      if (!(key in incoming)) continue;
+      const v = incoming[key];
+      if (key === "airfi_errors" && Array.isArray(v)) {
+        mergedState.airfi_errors = v.filter((c) => typeof c === "string");
+        continue;
+      }
+      if (key === "airfi_error_raw") {
+        mergedState.airfi_error_raw =
+          typeof v === "number" && Number.isFinite(v) ? v : null;
+        continue;
+      }
+      if (key === "fan_speed_level" || key === "forced_control" || key === "filter_change_per_year") {
+        (mergedState as Record<string, unknown>)[key] =
+          typeof v === "number" && Number.isFinite(v) ? v : null;
+        continue;
+      }
+      if (key === "temp_setpoint_c") {
+        mergedState.temp_setpoint_c =
+          typeof v === "number" && Number.isFinite(v) ? v : null;
+        continue;
+      }
+      if (
+        key === "freezing_alarm" ||
+        key === "machine_fault" ||
+        key === "sauna_mode" ||
+        key === "emergency_stop" ||
+        key === "fault"
+      ) {
+        (mergedState as Record<string, unknown>)[key] = v === true;
+        continue;
+      }
+      if (key === "humidity_pct") {
+        mergedState.humidity_pct =
+          typeof v === "number" && Number.isFinite(v) ? v : null;
       }
     }
   }
@@ -378,10 +430,8 @@ export async function syncDevice(
   }
 
   const lto = enrichLtoFromHubState(mergedState);
-  if (lto.lto_temp_efficiency_pct != null) {
-    mergedState.lto_temp_efficiency_pct = lto.lto_temp_efficiency_pct;
-    mergedState.lto_energy_efficiency_pct = lto.lto_energy_efficiency_pct;
-  }
+  mergedState.lto_temp_efficiency_pct = lto.lto_temp_efficiency_pct;
+  mergedState.lto_energy_efficiency_pct = lto.lto_energy_efficiency_pct;
 
   const hubUpdate: Record<string, unknown> = {
     state: mergedState,

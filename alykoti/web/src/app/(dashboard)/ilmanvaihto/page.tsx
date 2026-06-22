@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { AirfiStatusPanel } from "@/components/airfi-status-panel";
 import { VentilationDiagram } from "@/components/ventilation-diagram";
 import { fetchPrimaryHub } from "@/lib/hubs";
 import { LAITTEET } from "@/lib/laitteet-paths";
@@ -65,7 +66,8 @@ export default async function VentilationPage() {
           </Link>
         </div>
       ) : hub ? (
-        <div className="mt-6">
+        <div className="mt-6 space-y-4">
+          <AirfiStatusPanel hub={hub} />
           <VentilationDiagram hub={hub} settingsHref="/ilmanvaihto/asetukset" />
         </div>
       ) : null}

@@ -162,6 +162,11 @@ export function VentilationDiagram({ hub, settingsHref }: Props) {
                 ? `${s.lto_temp_efficiency_pct.toFixed(0)} %`
                 : "—"}
             </p>
+            {s.lto_temp_efficiency_pct == null &&
+              (s.fan_supply_pct == null || s.fan_supply_pct < 10) &&
+              (s.fan_exhaust_pct == null || s.fan_exhaust_pct < 10) && (
+                <p className="text-[9px] text-emerald-700 sm:text-[10px]">Tuuletus seis</p>
+              )}
             {s.lto_energy_efficiency_pct != null &&
               s.lto_energy_efficiency_pct !== s.lto_temp_efficiency_pct && (
                 <p className="text-[9px] text-emerald-800 sm:text-[10px]">
