@@ -239,7 +239,12 @@ export async function setFanPct(
   await patchHubState(
     supabase,
     hubId,
-    { fireplace_until: null, hood_until: null },
+    {
+      fireplace_until: null,
+      hood_until: null,
+      fan_supply_target: Math.round(supplyPct),
+      fan_exhaust_target: Math.round(exhaustPct),
+    },
     "manual",
   );
   await queueCommand(hubId, "set_mode", { mode: "manual" });

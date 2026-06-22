@@ -86,6 +86,23 @@ export function VentilationControls({ hub: initialHub }: { hub: Hub }) {
   }
 
   const manualActive = effectiveMode === "manual";
+  const commandInFlight = pending || activeCount > 0;
+
+  useEffect(() => {
+    if (commandInFlight) return;
+    if (!manualActive) return;
+    if (state.fan_supply_target != null) {
+      setSupply(state.fan_supply_target);
+    }
+    if (state.fan_exhaust_target != null) {
+      setExhaust(state.fan_exhaust_target);
+    }
+  }, [
+    state.fan_supply_target,
+    state.fan_exhaust_target,
+    manualActive,
+    commandInFlight,
+  ]);
 
   return (
     <>

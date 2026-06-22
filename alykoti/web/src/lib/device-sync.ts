@@ -495,9 +495,17 @@ export async function syncDevice(
       mergedState.direct_control = ventilationState.direct_control;
     }
   } else if (effectiveMode === "manual") {
-    // Älä näytä vanhaa automaatiotavoitetta manuaalitilassa
-    mergedState.fan_supply_target = mergedState.fan_supply_pct ?? null;
-    mergedState.fan_exhaust_target = mergedState.fan_exhaust_pct ?? null;
+    const pendingFan = commands.find((c) => c.command === "set_fan_pct");
+    if (pendingFan?.payload) {
+      const s = pendingFan.payload.supply_pct;
+      const e = pendingFan.payload.exhaust_pct;
+      if (typeof s === "number" && Number.isFinite(s)) {
+        mergedState.fan_supply_target = Math.round(s);
+      }
+      if (typeof e === "number" && Number.isFinite(e)) {
+        mergedState.fan_exhaust_target = Math.round(e);
+      }
+    }
   }
 
   const lto = enrichLtoFromHubState(mergedState);

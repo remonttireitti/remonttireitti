@@ -300,6 +300,8 @@ def execute_command(cmd: dict) -> bool:
 def apply_ventilation(response: dict, airfi_state: dict | None = None) -> None:
     if not config.AIRFI_WRITES:
         return
+    if response.get("control_mode") == "manual":
+        return
     snap = read_airfi(**config.airfi_kwargs(), poll_state=None)
     if not snap.ok or airfi_auto_ventilation_blocked(snap.state):
         log.info("AirFi tuuletus ohitetaan — hätäseis/vika tai kuittauksen jälkeinen tauko")
