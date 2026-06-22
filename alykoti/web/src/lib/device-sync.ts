@@ -371,6 +371,10 @@ export async function syncDevice(
     if (ventilationState.direct_control != null) {
       mergedState.direct_control = ventilationState.direct_control;
     }
+  } else if (effectiveMode === "manual") {
+    // Älä näytä vanhaa automaatiotavoitetta manuaalitilassa
+    mergedState.fan_supply_target = mergedState.fan_supply_pct ?? null;
+    mergedState.fan_exhaust_target = mergedState.fan_exhaust_pct ?? null;
   }
 
   const lto = enrichLtoFromHubState(mergedState);
