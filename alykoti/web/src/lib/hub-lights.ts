@@ -106,6 +106,10 @@ function mapDevice(
     model: d.model ?? null,
     manufacturer: d.manufacturer ?? null,
     description: d.description ?? null,
+    ...(typeof (d as { battery_pct?: number }).battery_pct === "number" &&
+    Number.isFinite((d as { battery_pct?: number }).battery_pct)
+      ? { battery_pct: (d as { battery_pct?: number }).battery_pct }
+      : {}),
   };
 }
 
@@ -197,6 +201,11 @@ export function groupDevices(devices: HubLightDevice[]) {
 
     if (ids.has("lock") || device.kind === "lock") {
       locks.push(device);
+    } else if (
+      ids.has("button") &&
+      (ids.has("temperature") || ids.has("humidity") || device.kind === "sensor")
+    ) {
+      sensors.push(device);
     } else if (ids.has("button") || (device.kind === "switch" && !device.controllable)) {
       switches.push(device);
     } else if (ids.has("dimmer") || ids.has("color")) {

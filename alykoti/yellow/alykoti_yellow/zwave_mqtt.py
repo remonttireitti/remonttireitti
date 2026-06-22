@@ -27,10 +27,13 @@ STATUS_RE = re.compile(r"^zwave/([^/]+)/([^/]+)/status$")
 
 CONTROL_IDS = {"switch", "dimmer", "lock", "relay", "fan", "cover"}
 
+# CC 38 reports 0/1/99/255 on many binary switches — not true dimmer range.
+CC38_BINARY_VALUES = frozenset({0, 1, 99, 255})
+
 # CC → capability mapping (property name overrides in _property_caps)
 CC_DEFAULT: dict[int, list[tuple[str, bool, bool]]] = {
     37: [("switch", True, True)],
-    38: [("dimmer", True, True), ("switch", True, True)],
+    38: [("dimmer", True, True)],
     98: [("lock", True, True)],
     49: [("temperature", True, False)],
     48: [("contact", True, False)],
@@ -208,7 +211,10 @@ def _infer_caps_from_name(name: str) -> list[dict[str, Any]]:
     if kind == "lock":
         return [_cap("lock", True, True)]
     if kind == "light":
-        return [_cap("switch", True, True), _cap("dimmer", True, True)]
+        n = name.casefold()
+        if "himmenn" in n or "dimmer" in n:
+            return [_cap("switch", True, True), _cap("dimmer", True, True)]
+        return [_cap("switch", True, True)]
     if kind in {"switch", "fan"}:
         return [_cap("switch", True, True)]
     if kind == "sensor":
@@ -256,6 +262,31 @@ def _device_id_for(node_id: int, endpoint: int, multi: bool) -> str:
     return f"zwave:{node_id}"
 
 
+def _cc38_values_binary(values: set[int]) -> bool:
+    return not values or values.issubset(CC38_BINARY_VALUES)
+
+
+def _resolve_control_cc(dev: dict[str, Any]) -> int | None:
+    ccs: set[int] = dev.get("_ccs_seen") or set()
+    if 37 in ccs:
+        return 37
+    if 38 in ccs:
+        return 38
+    return None
+
+
+def _trim_switch_caps(dev: dict[str, Any], caps_map: dict[str, dict[str, Any]]) -> None:
+    ccs: set[int] = dev.get("_ccs_seen") or set()
+    cc38_values: set[int] = dev.get("_cc38_values") or set()
+    cc38_binary = _cc38_values_binary(cc38_values)
+
+    if 37 in ccs:
+        caps_map.pop("dimmer", None)
+    elif 38 in ccs and cc38_values and cc38_binary:
+        caps_map.pop("dimmer", None)
+        _merge_cap(caps_map, _cap("switch", True, True))
+
+
 def _apply_cc_value(
     dev: dict[str, Any],
     cc: int,
@@ -266,13 +297,17 @@ def _apply_cc_value(
 ) -> None:
     value = payload.get("value")
     if cc in (37, 38):
+        dev.setdefault("_ccs_seen", set()).add(cc)
+        topics: dict[int, str] = dev.setdefault("_mqtt_topics", {})
+        topics[cc] = f"{base}/{cc}/{ep}/targetValue"
         if isinstance(value, bool):
             dev["on"] = value
         elif isinstance(value, (int, float)):
             dev["on"] = value > 0
             if cc == 38:
-                dev["brightness"] = int(value)
-        dev["mqtt_set_topic"] = f"{base}/{cc}/{ep}/targetValue"
+                dev.setdefault("_cc38_values", set()).add(int(value))
+                if not _cc38_values_binary(dev["_cc38_values"]):
+                    dev["brightness"] = int(value)
     elif cc == 98:
         if isinstance(value, bool):
             dev["locked"] = value
@@ -383,7 +418,16 @@ def fetch_zwave_devices(
 
     def finalize_endpoint(node_id: int, endpoint: int) -> None:
         dev = ensure_endpoint(node_id, endpoint)
-        caps_list = sorted(node_caps.get((node_id, endpoint), {}).values(), key=lambda c: c["id"])
+        key = (node_id, endpoint)
+        caps_map = node_caps.get(key, {})
+        _trim_switch_caps(dev, caps_map)
+        control_cc = _resolve_control_cc(dev)
+        if control_cc is not None:
+            topic = (dev.get("_mqtt_topics") or {}).get(control_cc)
+            if topic:
+                dev["mqtt_set_topic"] = topic
+            dev["control_cc"] = control_cc
+        caps_list = sorted(caps_map.values(), key=lambda c: c["id"])
         dev["capabilities"] = caps_list
         dev["kind"] = _classify(dev["name"], caps_list)
         dev["controllable"] = _controllable(caps_list)
@@ -493,13 +537,16 @@ def fetch_zwave_devices(
             if multi:
                 name = f"{info['name']} ({_endpoint_label(caps_list, ep)})"
             dev_id = _device_id_for(node_id, ep, multi)
-            devices[dev_id] = {
+            out = {
                 **rec,
                 "name": name,
                 "room": info["loc"] or None,
                 "node_id": node_id,
                 "endpoint": ep,
             }
+            for internal in ("_ccs_seen", "_cc38_values", "_mqtt_topics"):
+                out.pop(internal, None)
+            devices[dev_id] = out
 
     return {
         k: v

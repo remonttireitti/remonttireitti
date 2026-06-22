@@ -15,6 +15,20 @@ log = logging.getLogger(__name__)
 
 CONTROL_IDS = {"switch", "dimmer", "color", "lock", "relay", "fan", "cover"}
 
+# Ei valo-/kytkinohjausta (esim. Aqara W100 thermostat_mode).
+_SKIP_SWITCH_NAMES = frozenset(
+    {
+        "thermostat_mode",
+        "system_mode",
+        "sensor",
+        "identify",
+        "auto_hide_middle_line",
+    }
+)
+_SKIP_BINARY_NAMES = _SKIP_SWITCH_NAMES
+
+_W100_MODELS = frozenset({"TH-S04D"})
+
 # Estää Z2M "timed out after 10000ms" kun komentoja tulvii peräkkäin.
 _MIN_PUBLISH_INTERVAL_SEC = 0.45
 _last_publish: dict[str, float] = {}
@@ -49,6 +63,23 @@ def _access_rw(access: int | None, default_write: bool = False) -> tuple[bool, b
     return can_read, can_write
 
 
+def _device_model(device: dict[str, Any]) -> str:
+    definition = device.get("definition") if isinstance(device.get("definition"), dict) else {}
+    return str(device.get("model_id") or definition.get("model") or "").upper()
+
+
+def _device_description(device: dict[str, Any]) -> str:
+    definition = device.get("definition") if isinstance(device.get("definition"), dict) else {}
+    return str(definition.get("description") or "").upper()
+
+
+def _is_w100_climate_sensor(device: dict[str, Any]) -> bool:
+    model = _device_model(device)
+    if model in _W100_MODELS:
+        return True
+    return "W100" in _device_description(device) or "CLIMATE SENSOR W100" in _device_description(device)
+
+
 def _discover_capabilities(device: dict[str, Any]) -> list[dict[str, Any]]:
     if device.get("type") == "Coordinator":
         return []
@@ -71,9 +102,13 @@ def _discover_capabilities(device: dict[str, Any]) -> list[dict[str, Any]]:
                 access_val = int(access) if isinstance(access, (int, float)) else None
             can_read, can_write = _access_rw(access_val, default_write=t in ("light", "switch", "lock", "cover"))
 
+            if name in _SKIP_SWITCH_NAMES:
+                continue
             if t == "light":
                 add("switch", can_read, can_write)
                 add("dimmer", can_read, can_write)
+            elif t == "climate":
+                pass
             elif t == "switch" or name == "state":
                 add("switch", can_read, can_write)
             elif t == "lock":
@@ -90,6 +125,8 @@ def _discover_capabilities(device: dict[str, Any]) -> list[dict[str, Any]]:
                 "smoke",
                 "gas",
             ):
+                if name in _SKIP_BINARY_NAMES:
+                    continue
                 if name in ("contact", "contact_sensor") or "contact" in name:
                     add("contact", True, False)
                 elif name in ("occupancy", "presence"):
@@ -135,6 +172,11 @@ def _discover_capabilities(device: dict[str, Any]) -> list[dict[str, Any]]:
 
 def _infer_kind(caps: list[dict[str, Any]]) -> str:
     ids = {c["id"] for c in caps}
+    has_env = bool(
+        ids & {"temperature", "humidity", "co2", "contact", "motion", "occupancy", "tvoc", "pm", "battery"}
+    )
+    if "button" in ids and has_env:
+        return "sensor"
     if "lock" in ids:
         return "lock"
     if "color" in ids or "dimmer" in ids:
@@ -143,7 +185,7 @@ def _infer_kind(caps: list[dict[str, Any]]) -> str:
         return "switch"
     if "fan" in ids:
         return "fan"
-    if ids & {"temperature", "humidity", "co2", "contact", "motion", "occupancy", "tvoc", "pm", "battery"}:
+    if has_env:
         return "sensor"
     if "button" in ids:
         return "switch"
@@ -155,8 +197,12 @@ def _controllable(caps: list[dict[str, Any]]) -> bool:
 
 
 def _is_light(device: dict[str, Any]) -> bool:
+    if _is_w100_climate_sensor(device):
+        return False
     caps = _discover_capabilities(device)
     ids = {c["id"] for c in caps}
+    if "button" in ids and ids & {"temperature", "humidity"}:
+        return False
     return bool(ids & {"switch", "dimmer", "relay", "color"})
 
 
@@ -337,7 +383,88 @@ def fetch_zigbee_home(
         pass
 
     out.update(sensor_devices)
+
+    sensor_names = {
+        key[len("zigbee:") :]
+        for key, meta in out.items()
+        if key.startswith("zigbee:") and meta.get("kind") == "sensor"
+    }
+    if sensor_names:
+        try:
+            readings = _fetch_sensor_states(broker_url, prefix, sensor_names, timeout_sec=timeout_sec)
+            for name, state in readings.items():
+                key = f"zigbee:{name}"
+                if key in out and state:
+                    _apply_sensor_payload(out[key], state)
+        except Exception as exc:
+            log.debug("Zigbee sensor state read failed: %s", exc)
+
     return out
+
+
+def _apply_sensor_payload(device: dict[str, Any], state: dict[str, Any]) -> None:
+    temp = state.get("temperature")
+    if temp is None:
+        temp = state.get("local_temperature")
+    if isinstance(temp, (int, float)):
+        device["temperature_c"] = float(temp)
+    hum = state.get("humidity")
+    if isinstance(hum, (int, float)):
+        device["humidity_pct"] = float(hum)
+    batt = state.get("battery")
+    if isinstance(batt, (int, float)):
+        device["battery_pct"] = float(batt)
+
+
+def _fetch_sensor_states(
+    broker_url: str,
+    prefix: str,
+    sensor_names: set[str],
+    timeout_sec: float = 5.0,
+) -> dict[str, dict[str, Any]]:
+    """Lukee lämpö-/kosteusarvot Zigbee2MQTT-tilaviestistä."""
+    if not sensor_names:
+        return {}
+
+    readings: dict[str, dict[str, Any]] = {name: {} for name in sensor_names}
+    devices_ready = threading.Event()
+    host, port = _parse_mqtt_url(broker_url)
+
+    def on_message(_client, _userdata, msg):
+        topic = msg.topic
+        if topic == f"{prefix}/bridge/devices":
+            devices_ready.set()
+            return
+        name = _device_topic_name(prefix, topic)
+        if not name or name not in sensor_names:
+            return
+        try:
+            state = json.loads(msg.payload.decode())
+        except json.JSONDecodeError:
+            return
+        if not isinstance(state, dict):
+            return
+        bucket = readings.setdefault(name, {})
+        for key in ("temperature", "local_temperature", "humidity", "battery"):
+            if key in state:
+                bucket[key] = state[key]
+
+    client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
+    client.on_message = on_message
+    try:
+        client.connect(host, port, keepalive=30)
+    except Exception as exc:
+        log.warning("MQTT connect failed (sensors): %s", exc)
+        return {}
+
+    client.subscribe(f"{prefix}/bridge/devices")
+    client.subscribe(f"{prefix}/#")
+    client.loop_start()
+    devices_ready.wait(timeout=timeout_sec)
+    time.sleep(0.5)
+    client.loop_stop()
+    client.disconnect()
+    return readings
 
 
 def fetch_lights(broker_url: str, prefix: str, timeout_sec: float = 5.0) -> dict[str, dict]:

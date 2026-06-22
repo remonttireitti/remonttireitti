@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
-import { hasCapability } from "@/lib/capabilities";
+import { canWrite, hasCapability } from "@/lib/capabilities";
 import { pressTypesForTrigger } from "@/lib/automation-actions";
 import { PRESS_LABELS } from "@/lib/automation";
 import {
@@ -109,11 +109,20 @@ export function DeviceDetailPanel({ protocol, deviceIdParam }: Props) {
   }, [encodedParam, protocol, loadDevice]);
 
   const caps = device?.capabilities ?? [];
-  const hasSwitch = hasCapability(caps, "switch") || hasCapability(caps, "relay");
-  const hasDimmer = hasCapability(caps, "dimmer");
-  const hasColor = hasCapability(caps, "color");
-  const hasLock = hasCapability(caps, "lock");
+  const canSwitch = canWrite(caps, "switch") || canWrite(caps, "relay");
+  const canDimmer = canWrite(caps, "dimmer");
+  const canColor = canWrite(caps, "color");
+  const canLock = canWrite(caps, "lock");
   const isButton = hasCapability(caps, "button");
+  const isSensorWithButton =
+    isButton &&
+    (hasCapability(caps, "temperature") ||
+      hasCapability(caps, "humidity") ||
+      device.kind === "sensor");
+  const hasWritableControl =
+    device.controllable &&
+    !isSensorWithButton &&
+    (canSwitch || canDimmer || canColor || canLock);
 
   const pressTypes = useMemo(() => pressTypesForTrigger(caps), [caps]);
 
@@ -189,11 +198,11 @@ export function DeviceDetailPanel({ protocol, deviceIdParam }: Props) {
         <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-900">{flash}</div>
       )}
 
-      {(hasSwitch || hasDimmer || hasColor || hasLock) && device.controllable && (
+      {hasWritableControl && (
         <section className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
           <h3 className="text-lg font-semibold text-stone-900">Ohjaus</h3>
           <div className="mt-4 flex flex-wrap gap-2">
-            {hasSwitch && (
+            {canSwitch && (
               <>
                 <ControlButton disabled={pending} onClick={() => control({ on: true })}>
                   Päälle
@@ -203,7 +212,7 @@ export function DeviceDetailPanel({ protocol, deviceIdParam }: Props) {
                 </ControlButton>
               </>
             )}
-            {hasLock && (
+            {canLock && (
               <>
                 <ControlButton disabled={pending} onClick={() => control({ on: true })}>
                   Lukitse
@@ -215,7 +224,7 @@ export function DeviceDetailPanel({ protocol, deviceIdParam }: Props) {
             )}
           </div>
 
-          {hasDimmer && (
+          {canDimmer && (
             <div className="mt-4">
               <label className="block text-sm font-medium text-stone-700">
                 Kirkkaus {brightness} %
@@ -243,7 +252,7 @@ export function DeviceDetailPanel({ protocol, deviceIdParam }: Props) {
             </div>
           )}
 
-          {hasColor && (
+          {canColor && (
             <div className="mt-4">
               <p className="text-sm font-medium text-stone-700">Väri</p>
               <div className="mt-2 flex flex-wrap gap-2">
@@ -279,7 +288,7 @@ export function DeviceDetailPanel({ protocol, deviceIdParam }: Props) {
           alla olevia arvoja automaation laukaisimena.
         </p>
 
-        {(isButton || device.kind === "switch" || protocol === "zwave") && (
+        {(isButton || isSensorWithButton || device.kind === "switch" || protocol === "zwave") && (
           <div className="mt-4 rounded-xl border border-stone-100 bg-stone-50 p-3 text-xs text-stone-600">
             <p className="font-semibold text-stone-800">Laukaisuactionit automaatiossa</p>
             <p className="mt-1 flex flex-wrap gap-1">
@@ -355,10 +364,20 @@ export function DeviceDetailPanel({ protocol, deviceIdParam }: Props) {
         )}
       </section>
 
-      {device.readingLabel && (
+      {(device.readingLabel ||
+        device.temperature_c != null ||
+        device.humidity_pct != null) && (
         <section className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
           <h3 className="text-lg font-semibold text-stone-900">Tila</h3>
-          <p className="mt-2 text-sm text-stone-700">{device.readingLabel}</p>
+          <p className="mt-2 text-sm text-stone-700">
+            {device.readingLabel ??
+              [
+                device.temperature_c != null ? `${device.temperature_c.toFixed(1)} °C` : null,
+                device.humidity_pct != null ? `${Math.round(device.humidity_pct)} %` : null,
+              ]
+                .filter(Boolean)
+                .join(" · ")}
+          </p>
         </section>
       )}
     </div>

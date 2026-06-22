@@ -79,12 +79,9 @@ export function canWrite(caps: DeviceCapability[] | undefined, id: DeviceCapabil
 }
 
 export function inferKindFromCapabilities(caps: DeviceCapability[]): HubHomeDevice["kind"] {
-  const ids = new Set(caps.map((c) => c.id));
-  if (ids.has("lock")) return "lock";
-  if (ids.has("color") || ids.has("dimmer")) return "light";
-  if (ids.has("switch") || ids.has("relay")) return "switch";
-  if (ids.has("fan")) return "fan";
-  if (
+  const normalized = normalizeCapabilities(caps);
+  const ids = new Set(normalized.map((c) => c.id));
+  const hasEnv =
     ids.has("temperature") ||
     ids.has("humidity") ||
     ids.has("co2") ||
@@ -95,10 +92,15 @@ export function inferKindFromCapabilities(caps: DeviceCapability[]): HubHomeDevi
     ids.has("occupancy") ||
     ids.has("tvoc") ||
     ids.has("pm") ||
-    ids.has("illuminance")
-  ) {
-    return "sensor";
-  }
+    ids.has("illuminance") ||
+    ids.has("battery");
+  if (ids.has("button") && hasEnv) return "sensor";
+  if (ids.has("lock")) return "lock";
+  if (canWrite(normalized, "color") || canWrite(normalized, "dimmer")) return "light";
+  if (canWrite(normalized, "switch") || canWrite(normalized, "relay")) return "switch";
+  if (ids.has("switch") || ids.has("relay")) return "switch";
+  if (ids.has("fan")) return "fan";
+  if (hasEnv) return "sensor";
   if (ids.has("button")) return "switch";
   return "other";
 }
@@ -132,6 +134,11 @@ export function groupByCapabilities(
 
     if (ids.has("lock")) {
       groups.locks.push(device);
+    } else if (
+      ids.has("button") &&
+      (ids.has("temperature") || ids.has("humidity") || device.kind === "sensor")
+    ) {
+      groups.sensors.push(device);
     } else if (ids.has("button") || (device.kind === "switch" && !inferControllable(caps))) {
       groups.switches.push(device);
     } else if (ids.has("dimmer") || ids.has("color")) {
@@ -190,6 +197,10 @@ export function sensorReadingLabel(device: HubHomeDevice): string | null {
   }
   if (device.humidity_pct != null && Number.isFinite(device.humidity_pct)) {
     parts.push(`${Math.round(device.humidity_pct)} %`);
+  }
+  const batteryPct = (device as { battery_pct?: number | null }).battery_pct;
+  if (batteryPct != null && Number.isFinite(batteryPct)) {
+    parts.push(`Akku ${Math.round(batteryPct)} %`);
   }
   if (device.co2_ppm != null && Number.isFinite(device.co2_ppm)) {
     parts.push(`${Math.round(device.co2_ppm)} ppm CO₂`);

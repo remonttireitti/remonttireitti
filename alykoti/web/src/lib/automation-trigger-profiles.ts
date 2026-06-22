@@ -91,7 +91,7 @@ export function isHue4ButtonRemote(
   return false;
 }
 
-export type AutomationTriggerProfile = "hue_4btn" | "zigbee_button" | "zwave" | "generic";
+export type AutomationTriggerProfile = "hue_4btn" | "w100_3btn" | "zigbee_button" | "zwave" | "generic";
 
 export function triggerProfileForDevice(device: {
   id?: string | null;
@@ -103,6 +103,9 @@ export function triggerProfileForDevice(device: {
 }): AutomationTriggerProfile {
   if (isHue4ButtonRemote(device.model, device.manufacturer, device.description)) {
     return "hue_4btn";
+  }
+  if (isW100ClimateSensor(device.model, device.manufacturer, device.description)) {
+    return "w100_3btn";
   }
   const id = device.id ?? "";
   const protocol = (device.protocol ?? "").toLowerCase();
@@ -159,4 +162,75 @@ export function hueMqttActionLabel(action: string): string {
   const ges =
     HUE_4BTN_GESTURES.find((g) => g.id === parsed.gesture)?.label ?? parsed.gesture;
   return `${btn} · ${ges}`;
+}
+
+/** Aqara W100 / TH-S04D — kolmipainike (+ / keskus / −). */
+
+export const W100_BUTTONS = [
+  { id: "plus", label: "+" },
+  { id: "center", label: "Keskus" },
+  { id: "minus", label: "−" },
+] as const;
+
+export const W100_GESTURES = [
+  { id: "single", label: "Lyhyt" },
+  { id: "double", label: "Tupla" },
+  { id: "hold", label: "Pito" },
+  { id: "release", label: "Päästä" },
+] as const;
+
+export type W100Button = (typeof W100_BUTTONS)[number]["id"];
+export type W100Gesture = (typeof W100_GESTURES)[number]["id"];
+
+const W100_MODELS = new Set(["TH-S04D"]);
+
+const W100_ACTION_RE =
+  /^(single|double|hold|release)_(plus|center|minus)$|^W100_PMTSD_request$/i;
+
+export const W100_MQTT_ACTIONS: string[] = [
+  "W100_PMTSD_request",
+  ...W100_BUTTONS.flatMap((btn) =>
+    W100_GESTURES.map((g) => `${g.id}_${btn.id}`),
+  ),
+];
+
+export function parseW100MqttAction(
+  action: string,
+): { button: W100Button; gesture: W100Gesture } | null {
+  const normalized = action.trim().replace(/-/g, "_");
+  if (/^W100_PMTSD_request$/i.test(normalized)) return null;
+  const m = /^(single|double|hold|release)_(plus|center|minus)$/i.exec(normalized);
+  if (!m) return null;
+  return {
+    gesture: m[1].toLowerCase() as W100Gesture,
+    button: m[2].toLowerCase() as W100Button,
+  };
+}
+
+export function w100MqttActionLabel(action: string): string {
+  if (/^W100_PMTSD_request$/i.test(action.trim())) return "PMTSD-pyyntö";
+  const parsed = parseW100MqttAction(action);
+  if (!parsed) return action;
+  const btn = W100_BUTTONS.find((b) => b.id === parsed.button)?.label ?? parsed.button;
+  const ges = W100_GESTURES.find((g) => g.id === parsed.gesture)?.label ?? parsed.gesture;
+  return `${btn} · ${ges}`;
+}
+
+export function isW100ClimateSensor(
+  model?: string | null,
+  manufacturer?: string | null,
+  description?: string | null,
+): boolean {
+  const m = (model ?? "").toUpperCase().replace(/\s/g, "");
+  if (W100_MODELS.has(m)) return true;
+  const desc = (description ?? "").toUpperCase();
+  if (desc.includes("W100") || desc.includes("CLIMATE SENSOR W100")) return true;
+  const mf = (manufacturer ?? "").toLowerCase();
+  return mf.includes("aqara") && desc.includes("CLIMATE");
+}
+
+export function w100GestureToPress(gesture: W100Gesture): "short" | "long" | "double" {
+  if (gesture === "hold") return "long";
+  if (gesture === "double") return "double";
+  return "short";
 }

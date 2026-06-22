@@ -9,6 +9,9 @@ import {
   HUE_4BTN_MQTT_ACTIONS,
   hueMqttActionLabel,
   parseHueMqttAction,
+  W100_MQTT_ACTIONS,
+  w100MqttActionLabel,
+  parseW100MqttAction,
 } from "@/lib/automation-trigger-profiles";
 
 const ALL_ACTIONS = Object.keys(ACTION_LABELS) as AutomationActionType[];
@@ -91,6 +94,7 @@ export function pressTypesForTrigger(caps: DeviceCapability[] | undefined): Auto
 /** Tunnetut MQTT-action-arvot (Zigbee2MQTT). */
 export const KNOWN_MQTT_ACTIONS = [
   ...HUE_4BTN_MQTT_ACTIONS,
+  ...W100_MQTT_ACTIONS,
   "single",
   "single_click",
   "click",
@@ -124,6 +128,8 @@ export const KNOWN_MQTT_ACTIONS = [
 ] as const;
 
 export function mqttActionLabel(action: string): string {
+  const w100 = parseW100MqttAction(action);
+  if (w100 || /^W100_PMTSD_request$/i.test(action.trim())) return w100MqttActionLabel(action);
   const hue = parseHueMqttAction(action);
   if (hue) return hueMqttActionLabel(action);
   const a = action.toLowerCase();

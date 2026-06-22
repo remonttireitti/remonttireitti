@@ -1,5 +1,5 @@
 import { hasCapability } from "@/lib/capabilities";
-import { inferProtocolFromId } from "@/lib/device-protocol";
+import { inferProtocolFromId, parseZwaveDeviceId } from "@/lib/device-protocol";
 import type { DeviceCapability } from "@/lib/types";
 import type { AutomationPressType } from "@/lib/automation";
 import {
@@ -13,6 +13,10 @@ import {
   HUE_4BTN_MQTT_ACTIONS,
   hueMqttActionLabel,
   parseHueMqttAction,
+  W100_MQTT_ACTIONS,
+  w100MqttActionLabel,
+  parseW100MqttAction,
+  w100GestureToPress,
   triggerProfileForDevice,
   type AutomationTriggerProfile,
 } from "@/lib/automation-trigger-profiles";
@@ -27,13 +31,17 @@ export type TriggerDeviceLike = {
   id: string;
   protocol?: string | null;
   kind?: string | null;
+  endpoint?: number | null;
   capabilities?: DeviceCapability[];
   model?: string | null;
   manufacturer?: string | null;
   description?: string | null;
 };
 
-const ZWAVE_SWITCH_ENDPOINTS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] as const;
+const ZWAVE_FALLBACK_SWITCH_ACTIONS: TriggerActionOption[] = [
+  { id: "on", label: "ON", group: "Z-Wave kytkin" },
+  { id: "off", label: "POIS", group: "Z-Wave kytkin" },
+];
 
 const ZWAVE_SENSOR_ACTIONS: TriggerActionOption[] = [
   { id: "value_true", label: "Arvo päällä / true", group: "Z-Wave anturi" },
@@ -72,16 +80,35 @@ const ZIGBEE_BUTTON_PREFIXES = [
   "off",
 ] as const;
 
-function zwaveSwitchActions(): TriggerActionOption[] {
-  const out: TriggerActionOption[] = [
-    { id: "on", label: "ON (mikä tahansa kanava)", group: "Z-Wave kytkin" },
-    { id: "off", label: "POIS (mikä tahansa kanava)", group: "Z-Wave kytkin" },
-  ];
-  for (const ep of ZWAVE_SWITCH_ENDPOINTS) {
-    out.push({ id: `ep${ep}_on`, label: `Kanava ${ep} ON`, group: "Z-Wave kytkin" });
-    out.push({ id: `ep${ep}_off`, label: `Kanava ${ep} POIS`, group: "Z-Wave kytkin" });
+function zwaveSwitchActionsForDevice(device: TriggerDeviceLike): TriggerActionOption[] {
+  const parsed = parseZwaveDeviceId(device.id);
+  const endpoint = parsed?.endpoint ?? device.endpoint;
+
+  const out: TriggerActionOption[] = [...ZWAVE_FALLBACK_SWITCH_ACTIONS];
+
+  if (endpoint != null && parsed?.endpoint != null) {
+    out.push(
+      { id: `ep${endpoint}_on`, label: `Kanava ${endpoint} ON`, group: "Z-Wave kytkin" },
+      { id: `ep${endpoint}_off`, label: `Kanava ${endpoint} POIS`, group: "Z-Wave kytkin" },
+    );
   }
+
   return out;
+}
+
+function zwaveSensorOnly(device: TriggerDeviceLike, caps: DeviceCapability[] | undefined): boolean {
+  const isSensor =
+    device.kind === "sensor" ||
+    hasCapability(caps, "contact") ||
+    hasCapability(caps, "motion") ||
+    hasCapability(caps, "occupancy");
+  const isSwitch =
+    device.kind === "switch" ||
+    device.kind === "light" ||
+    hasCapability(caps, "switch") ||
+    hasCapability(caps, "relay") ||
+    hasCapability(caps, "dimmer");
+  return isSensor && !isSwitch;
 }
 
 function zigbeeButtonActionIds(): string[] {
@@ -107,6 +134,8 @@ function dedupeOptions(options: TriggerActionOption[]): TriggerActionOption[] {
 
 export function triggerPressForAction(action: string): AutomationPressType {
   const normalized = action.trim().replace(/-/g, "_");
+  const w100 = parseW100MqttAction(normalized);
+  if (w100) return w100GestureToPress(w100.gesture);
   const hue = parseHueMqttAction(normalized);
   if (hue) {
     if (hue.gesture === "hold") return "long";
@@ -128,6 +157,8 @@ export function triggerPressForAction(action: string): AutomationPressType {
 }
 
 export function triggerButtonForAction(action: string): string | null {
+  const w100 = parseW100MqttAction(action);
+  if (w100) return w100.button;
   const hue = parseHueMqttAction(action);
   if (hue) return null;
   const m = /^(\d+|left|right|up|down|on|off)_/i.exec(action.trim());
@@ -135,6 +166,8 @@ export function triggerButtonForAction(action: string): string | null {
 }
 
 export function labelTriggerAction(action: string): string {
+  const w100 = parseW100MqttAction(action);
+  if (w100 || /^W100_PMTSD_request$/i.test(action.trim())) return w100MqttActionLabel(action);
   const hue = parseHueMqttAction(action);
   if (hue) return hueMqttActionLabel(action);
   if (/^ep\d+_(on|off)$/i.test(action)) {
@@ -170,6 +203,12 @@ export function listTriggerActionsForDevice(
       label: hueMqttActionLabel(id),
       group: "Philips Hue",
     }));
+  } else if (profile === "w100_3btn") {
+    base = W100_MQTT_ACTIONS.map((id) => ({
+      id,
+      label: w100MqttActionLabel(id),
+      group: "Aqara W100",
+    }));
   } else if (protocol === "zwave") {
     const isSensor =
       device.kind === "sensor" ||
@@ -177,12 +216,20 @@ export function listTriggerActionsForDevice(
       hasCapability(caps, "motion") ||
       hasCapability(caps, "occupancy");
     const isSwitch =
-      device.kind === "switch" || hasCapability(caps, "switch") || hasCapability(caps, "relay");
+      device.kind === "switch" ||
+      device.kind === "light" ||
+      hasCapability(caps, "switch") ||
+      hasCapability(caps, "relay") ||
+      hasCapability(caps, "dimmer");
 
-    if (isSwitch) base.push(...zwaveSwitchActions());
-    if (isSensor) base.push(...ZWAVE_SENSOR_ACTIONS);
-    if (base.length === 0) {
-      base = [...zwaveSwitchActions(), ...ZWAVE_SENSOR_ACTIONS];
+    if (zwaveSensorOnly(device, caps)) {
+      base.push(...ZWAVE_SENSOR_ACTIONS);
+    } else if (isSwitch) {
+      base.push(...zwaveSwitchActionsForDevice(device));
+    } else if (isSensor) {
+      base.push(...ZWAVE_SENSOR_ACTIONS);
+    } else {
+      base = [...ZWAVE_FALLBACK_SWITCH_ACTIONS];
     }
   } else {
     base = zigbeeButtonActionIds().map((id) => ({

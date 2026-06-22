@@ -1,4 +1,4 @@
-import { parseHueMqttAction, hueMqttActionLabel } from "@/lib/automation-trigger-profiles";
+import { parseHueMqttAction, hueMqttActionLabel, parseW100MqttAction, w100MqttActionLabel } from "@/lib/automation-trigger-profiles";
 import {
   labelTriggerAction,
   triggerButtonForAction,
@@ -41,22 +41,27 @@ export function formatZigbeeEvent(payload: Record<string, unknown>): DeviceLiveE
 
   if (typeof payload.action === "string" && payload.action.trim()) {
     const action = payload.action.trim().replace(/-/g, "_");
+    const w100 = parseW100MqttAction(action);
     const hue = parseHueMqttAction(action);
     const button =
       typeof payload.button === "string" && payload.button.trim()
         ? payload.button.trim()
         : typeof payload.click === "string"
           ? payload.click.trim()
-          : hue
-            ? hue.button
-            : null;
+          : w100
+            ? w100.button
+            : hue
+              ? hue.button
+              : null;
     const press = pressForAction(action);
-    const pressLabel = hue
-      ? hueMqttActionLabel(action)
-      : press
-        ? PRESS_LABELS[press]
-        : action;
-    const label = button && !hue ? `${button} · ${pressLabel}` : pressLabel;
+    const pressLabel = w100
+      ? w100MqttActionLabel(action)
+      : hue
+        ? hueMqttActionLabel(action)
+        : press
+          ? PRESS_LABELS[press]
+          : action;
+    const label = button && !hue && !w100 ? `${button} · ${pressLabel}` : pressLabel;
 
     return {
       at,

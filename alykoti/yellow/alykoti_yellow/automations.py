@@ -137,6 +137,10 @@ _HUE_ACTION_RE = re.compile(
     r"^(on|off|up|down)_(press|hold|press_release|hold_release|hold_released)$",
     re.I,
 )
+_W100_ACTION_RE = re.compile(
+    r"^(single|double|hold|release)_(plus|center|minus)$|^w100_pmtsd_request$",
+    re.I,
+)
 
 
 def _parse_hue_action(action: str) -> tuple[str, str] | None:
@@ -185,6 +189,24 @@ def _hue_gesture_matches_press(gesture: str, press: str) -> bool:
     return False
 
 
+def _parse_w100_action(action: str) -> tuple[str, str] | None:
+    """Palauttaa (painike, ele) esim. single_plus → (plus, single)."""
+    m = re.match(r"^(single|double|hold|release)_(plus|center|minus)$", action.strip(), re.I)
+    if not m:
+        return None
+    return m.group(2).casefold(), m.group(1).casefold()
+
+
+def _w100_gesture_matches_press(gesture: str, press: str) -> bool:
+    if press == "short":
+        return gesture in ("single", "release")
+    if press == "long":
+        return gesture == "hold"
+    if press == "double":
+        return gesture == "double"
+    return False
+
+
 def _match_rule_action(
     incoming: str,
     button: str | None,
@@ -212,6 +234,17 @@ def _match_rule_action(
                 return True
             if not rb and ra == gesture:
                 return True
+        w100 = _parse_w100_action(action)
+        if w100:
+            btn, gesture = w100
+            if action == ra:
+                return True
+            if ra == f"{gesture}_{btn}":
+                return True
+            if rb and btn == rb and ra == gesture:
+                return True
+            if not rb and ra == gesture:
+                return True
         idx = _button_index(button)
         if idx and action == f"{idx}_{ra}":
             return True
@@ -227,6 +260,13 @@ def _match_rule_action(
         if rb and btn != rb:
             return False
         return _hue_gesture_matches_press(gesture, press)
+
+    w100 = _parse_w100_action(action)
+    if w100:
+        btn, gesture = w100
+        if rb and btn != rb:
+            return False
+        return _w100_gesture_matches_press(gesture, press)
 
     return _match_action(action, press)
 
@@ -271,7 +311,18 @@ class AutomationEngine:
         button: str | None = None,
     ) -> None:
         raw: dict[str, Any] = {}
-        for key in ("action", "button", "state", "brightness", "color", "click"):
+        for key in (
+            "action",
+            "button",
+            "state",
+            "brightness",
+            "color",
+            "click",
+            "temperature",
+            "local_temperature",
+            "humidity",
+            "battery",
+        ):
             if key in payload:
                 raw[key] = payload[key]
         entry = {
@@ -382,6 +433,25 @@ class AutomationEngine:
                     button=button_str,
                 )
                 self._handle_action(device_key, action, button_str)
+                return
+
+            sensor_keys = ("temperature", "local_temperature", "humidity", "battery")
+            if any(key in payload for key in sensor_keys):
+                self._record_device_event(device_key, payload)
+                with self._lock:
+                    meta = self._home_devices.get(device_key)
+                    if isinstance(meta, dict):
+                        temp = payload.get("temperature")
+                        if temp is None:
+                            temp = payload.get("local_temperature")
+                        if isinstance(temp, (int, float)):
+                            meta["temperature_c"] = float(temp)
+                        hum = payload.get("humidity")
+                        if isinstance(hum, (int, float)):
+                            meta["humidity_pct"] = float(hum)
+                        batt = payload.get("battery")
+                        if isinstance(batt, (int, float)):
+                            meta["battery_pct"] = float(batt)
                 return
 
             if "state" in payload or "brightness" in payload:
