@@ -453,7 +453,6 @@ class AutomationEngine:
                         button=str(endpoint),
                     )
                     self._handle_switch_state(device_key, on, endpoint=endpoint)
-                    self._handle_action(device_key, action_id, str(endpoint))
             return
 
         if cc in (48, 113):
@@ -663,6 +662,8 @@ class AutomationEngine:
                     and self._zwave_trigger_matches(trigger_id, node_id, None)
                 ):
                     continue
+            if self._trigger_mode(trigger) == "switch_state":
+                continue
             press = str(trigger.get("press", "short"))
             rule_button = trigger.get("button")
             rule_button_str = str(rule_button) if isinstance(rule_button, str) and rule_button.strip() else None
