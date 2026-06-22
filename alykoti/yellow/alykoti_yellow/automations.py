@@ -582,32 +582,33 @@ class AutomationEngine:
             for i, target_id in enumerate(targets):
                 if not isinstance(target_id, str) or target_id == device_key:
                     continue
-                if i > 0:
-                    time.sleep(MULTI_TARGET_DELAY_SEC)
-                st = self._get_light_state(target_id)
-                if bool(st.get("on")) == on:
-                    self._log_event(
-                        "skipped",
-                        rule_id=rule_id,
-                        target_id=target_id,
-                        message="Jo oikeassa tilassa",
+                for j, expanded_id in enumerate(self._expand_targets(target_id)):
+                    if i > 0 or j > 0:
+                        time.sleep(MULTI_TARGET_DELAY_SEC)
+                    st = self._get_light_state(expanded_id)
+                    if bool(st.get("on")) == on:
+                        self._log_event(
+                            "skipped",
+                            rule_id=rule_id,
+                            target_id=expanded_id,
+                            message="Jo oikeassa tilassa",
+                        )
+                        continue
+                    if self._command_on_cooldown(expanded_id, "mirror"):
+                        continue
+                    ok = self._apply(
+                        expanded_id,
+                        on,
+                        int(st.get("brightness") or 200) if on else 0,
                     )
-                    continue
-                if self._command_on_cooldown(target_id, "mirror"):
-                    continue
-                ok = self._apply(
-                    target_id,
-                    on,
-                    int(st.get("brightness") or 200) if on else 0,
-                )
-                self._log_event(
-                    "ok" if ok else "failed",
-                    rule_id=rule_id,
-                    rule_name=rule_name,
-                    target_id=target_id,
-                    action_type="mirror",
-                    message="OK" if ok else "Ohjaus epäonnistui",
-                )
+                    self._log_event(
+                        "ok" if ok else "failed",
+                        rule_id=rule_id,
+                        rule_name=rule_name,
+                        target_id=expanded_id,
+                        action_type="mirror",
+                        message="OK" if ok else "Ohjaus epäonnistui",
+                    )
 
         if not matched:
             with self._lock:
@@ -775,21 +776,59 @@ class AutomationEngine:
                 st["brightness"] = brightness
 
     def _resolve_target_id(self, target_id: str) -> str | None:
-        """Hyväksy vain protocol:id — korjaa vanhat pelkät Z-Wave node-numerot."""
+        """Hyväksy protocol:id ja pelkät Z-Wave node-numerot (myös monikanavaiset)."""
         if ":" in target_id:
             return target_id
         if target_id.isdigit():
             zid = f"zwave:{target_id}"
             if zid in self._home_devices:
                 return zid
+            if any(k.startswith(f"zwave:{target_id}:e") for k in self._home_devices):
+                return zid
         return None
 
-    def _execute_target(self, device_id: str, action_type: str, act: dict[str, Any]) -> bool:
-        resolved = self._resolve_target_id(device_id)
+    def _expand_targets(self, target_id: str) -> list[str]:
+        """Laajenna zwave:N kaikkiin ohjattaviin endpointeihin jos juuritunnusta ei ole."""
+        resolved = self._resolve_target_id(target_id)
         if resolved is None:
+            return []
+        if not resolved.startswith("zwave:"):
+            return [resolved]
+        try:
+            node_id, ep = parse_zwave_device_id(resolved)
+        except ValueError:
+            return [resolved]
+        if ep is not None or resolved in self._home_devices:
+            return [resolved]
+        prefix = f"zwave:{node_id}:e"
+        endpoints = sorted(
+            k
+            for k in self._home_devices
+            if k.startswith(prefix)
+            and isinstance(meta := self._home_devices.get(k), dict)
+            and (
+                meta.get("controllable")
+                or (isinstance(meta.get("mqtt_set_topic"), str) and meta["mqtt_set_topic"].strip())
+                or (isinstance(meta.get("lock_set_topic"), str) and meta["lock_set_topic"].strip())
+            )
+        )
+        return endpoints if endpoints else [resolved]
+
+    def _execute_target(self, device_id: str, action_type: str, act: dict[str, Any]) -> bool:
+        expanded = self._expand_targets(device_id)
+        if not expanded:
             log.warning("Automaatio: virheellinen kohde-ID %r", device_id)
             return False
-        device_id = resolved
+        if len(expanded) == 1:
+            return self._execute_target_one(expanded[0], action_type, act)
+        ok_all = True
+        for i, device_id in enumerate(expanded):
+            if i > 0:
+                time.sleep(MULTI_TARGET_DELAY_SEC)
+            ok_all = self._execute_target_one(device_id, action_type, act) and ok_all
+        return ok_all
+
+    def _execute_target_one(self, device_id: str, action_type: str, act: dict[str, Any]) -> bool:
 
         st = self._get_light_state(device_id)
         brightness = int(st.get("brightness") or 128)
