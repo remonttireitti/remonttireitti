@@ -11,9 +11,8 @@ import {
   setManualMode,
   type ActionState,
 } from "@/app/actions/hubs";
-import { CommandStatusPanel } from "@/components/command-status-panel";
+import { useHubCommandStatus } from "@/components/command-status-provider";
 import { FanGauge, FanTargetSlider } from "@/components/fan-gauge";
-import { useCommandStatus } from "@/hooks/use-command-status";
 import { useDeviceStatus } from "@/hooks/use-device-status";
 import { useMetricTrend } from "@/hooks/use-metric-trend";
 import { PING_INTERVAL_MS } from "@/lib/device-status";
@@ -32,13 +31,11 @@ const AWAY_HOURS = [2, 4, 8, 12] as const;
 export function VentilationControls({ hub: initialHub }: { hub: Hub }) {
   const [pending, startTransition] = useTransition();
   const [flash, setFlash] = useState<ActionState | null>(null);
-  const [trackIds, setTrackIds] = useState<string[]>([]);
   const [pressedKey, setPressedKey] = useState<string | null>(null);
   const [showAwayPicker, setShowAwayPicker] = useState(false);
-  const { commands: activeCommands, refresh: refreshCommands } =
-    useCommandStatus(trackIds.length > 0 ? trackIds : undefined);
+  const { trackCommandIds, activeCount } = useHubCommandStatus();
   const { status } = useDeviceStatus(
-    activeCommands.length > 0 ? 2_000 : PING_INTERVAL_MS,
+    activeCount > 0 ? 2_000 : PING_INTERVAL_MS,
   );
   const { showTrend, modal } = useMetricTrend();
   const [, tick] = useState(0);
@@ -83,8 +80,7 @@ export function VentilationControls({ hub: initialHub }: { hub: Hub }) {
       const result = await action();
       setFlash(result);
       if (result.commandIds?.length) {
-        setTrackIds((prev) => [...result.commandIds!, ...prev].slice(0, 4));
-        void refreshCommands();
+        trackCommandIds(result.commandIds);
       }
     });
   }
@@ -126,8 +122,6 @@ export function VentilationControls({ hub: initialHub }: { hub: Hub }) {
             onTrend={() => showTrend("fan_exhaust_pct")}
           />
         </section>
-
-        <CommandStatusPanel commands={activeCommands} />
 
         <section className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
           <h2 className="font-semibold text-stone-900">Toimintatila</h2>

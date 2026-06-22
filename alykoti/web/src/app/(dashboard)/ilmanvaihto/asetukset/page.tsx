@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { AirfiSettingsPanel } from "@/components/airfi-settings-panel";
 import { AutomationSettingsForm } from "@/components/automation-settings-form";
+import { CommandStatusProvider } from "@/components/command-status-provider";
 import { DeviceOfflineAlert } from "@/components/device-offline-alert";
 import { VentilationControls } from "@/components/ventilation-controls";
 import { fetchPrimaryHub } from "@/lib/hubs";
@@ -31,16 +32,18 @@ export default async function VentilationSettingsPage() {
 
       <div className="mt-8 space-y-8">
         <DeviceOfflineAlert />
-        <AirfiSettingsPanel hub={hub} />
-        <VentilationControls hub={hub} />
-        <AutomationSettingsForm
-          hubId={hub.id}
-          config={hub.config}
-          co2Ppm={hub.state.co2_ppm}
-          pm25Ugm3={hub.state.pm25_ugm3}
-          temperatureC={hub.state.temperature_c}
-          outdoorTempC={hub.state.outdoor_temp_c}
-        />
+        <CommandStatusProvider>
+          <AirfiSettingsPanel hub={hub} />
+          <VentilationControls hub={hub} />
+          <AutomationSettingsForm
+            hubId={hub.id}
+            config={hub.config}
+            co2Ppm={hub.state.co2_ppm}
+            pm25Ugm3={hub.state.pm25_ugm3}
+            temperatureC={hub.state.temperature_c}
+            outdoorTempC={hub.state.outdoor_temp_c}
+          />
+        </CommandStatusProvider>
       </div>
     </div>
   );

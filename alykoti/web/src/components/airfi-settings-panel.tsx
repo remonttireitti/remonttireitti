@@ -9,8 +9,7 @@ import {
   setTempSetpoint,
   type ActionState,
 } from "@/app/actions/hubs";
-import { CommandStatusPanel } from "@/components/command-status-panel";
-import { useCommandStatus } from "@/hooks/use-command-status";
+import { useHubCommandStatus } from "@/components/command-status-provider";
 import { useDeviceStatus } from "@/hooks/use-device-status";
 import { PING_INTERVAL_MS } from "@/lib/device-status";
 import { decodeAirfiErrors, AIRFI_ERROR_BITS } from "@/lib/airfi-errors";
@@ -58,11 +57,9 @@ function formatTemp(value: number | null | undefined): string {
 export function AirfiSettingsPanel({ hub }: Props) {
   const [pending, startTransition] = useTransition();
   const [flash, setFlash] = useState<ActionState | null>(null);
-  const [trackIds, setTrackIds] = useState<string[]>([]);
-  const { commands: activeCommands, refresh: refreshCommands } =
-    useCommandStatus(trackIds.length > 0 ? trackIds : undefined);
+  const { trackCommandIds, activeCount } = useHubCommandStatus();
   const { status } = useDeviceStatus(
-    activeCommands.length > 0 ? 2_000 : PING_INTERVAL_MS,
+    activeCount > 0 ? 2_000 : PING_INTERVAL_MS,
   );
 
   const state = pickAirfiState(hub.state, status?.live);
@@ -113,8 +110,7 @@ export function AirfiSettingsPanel({ hub }: Props) {
       const result = await action();
       setFlash(result);
       if (result.commandIds?.length) {
-        setTrackIds((prev) => [...result.commandIds!, ...prev].slice(0, 6));
-        void refreshCommands();
+        trackCommandIds(result.commandIds);
       }
     });
   }
@@ -198,8 +194,6 @@ export function AirfiSettingsPanel({ hub }: Props) {
           />
         </dl>
       </div>
-
-      <CommandStatusPanel commands={activeCommands} />
 
       <div className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
         <h2 className="font-semibold text-stone-900">Koneen asetukset</h2>
