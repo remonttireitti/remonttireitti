@@ -38,4 +38,4 @@ ZWAVE_NODES_JSON = os.environ.get(
 ).strip()
 ZWAVE_GATEWAY = os.environ.get("ZWAVE_GATEWAY_NAME", "Mosquitto").strip()
 
-FIRMWARE_VERSION = "yellow-1.0.0"
+FIRMWARE_VERSION = "yellow-1.1.0"

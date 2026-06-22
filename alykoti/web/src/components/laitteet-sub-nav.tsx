@@ -8,9 +8,12 @@ const TABS: Array<{ href: string; label: string; exact?: boolean }> = [
   { href: LAITTEET.root, label: "Integraatiot", exact: true },
   { href: LAITTEET.luettelo, label: "Laitteet" },
   { href: LAITTEET.valot, label: "Valot" },
+  { href: LAITTEET.automaatio, label: "Automaatio" },
   { href: LAITTEET.keskusyksikko, label: "Keskusyksikkö" },
   { href: LAITTEET.shelly, label: "Shelly" },
+  { href: LAITTEET.energia, label: "Energia" },
   { href: LAITTEET.tasmota, label: "Tasmota" },
+  { href: LAITTEET.airthings, label: "Airthings" },
 ];
 
 export function LaitteetSubNav() {

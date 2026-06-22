@@ -213,3 +213,68 @@ export async function probeTasmotaHost(hostRaw: string): Promise<DeviceActionSta
 
   return queueHubCommand(ctx.supabase, ctx.hub.id, ctx.user.id, "tasmota_probe", { host });
 }
+
+export async function connectAirthingsDevice(
+  serial: string,
+  nameRaw?: string,
+): Promise<DeviceActionState> {
+  const serialTrim = serial.trim();
+  if (!serialTrim) return { error: "Valitse laite." };
+
+  const ctx = await requireHub();
+  if (ctx.error || !ctx.supabase || !ctx.hub) return { error: ctx.error ?? "Virhe." };
+
+  const state = (ctx.hub.state as HubState) ?? {};
+  const integrations: HubIntegrations = { ...(state.integrations ?? {}) };
+  const devices = [...(integrations.airthings?.devices ?? [])];
+  const id = `airthings:${serialTrim}`;
+
+  if (devices.some((d) => d.serial === serialTrim)) {
+    return { error: "Laite on jo yhdistetty." };
+  }
+
+  const entry = {
+    id,
+    serial: serialTrim,
+    name: nameRaw?.trim() || "Airthings",
+    enabled: true,
+  };
+  devices.push(entry);
+  integrations.airthings = { devices };
+
+  const { error } = await ctx.supabase
+    .from("hubs")
+    .update({ state: { ...state, integrations } })
+    .eq("id", ctx.hub.id);
+
+  if (error) return { error: "Tallennus epäonnistui." };
+
+  revalidateLaitteet();
+  return { ok: "Airthings yhdistetty — mittaukset päivittyvät synkissä." };
+}
+
+export async function disconnectAirthingsDevice(deviceId: string): Promise<DeviceActionState> {
+  const ctx = await requireHub();
+  if (ctx.error || !ctx.supabase || !ctx.hub) return { error: ctx.error ?? "Virhe." };
+
+  const state = (ctx.hub.state as HubState) ?? {};
+  const integrations: HubIntegrations = { ...(state.integrations ?? {}) };
+  const removed = (integrations.airthings?.devices ?? []).find((d) => d.id === deviceId);
+  const devices = (integrations.airthings?.devices ?? []).filter((d) => d.id !== deviceId);
+  integrations.airthings = { devices };
+
+  const homeDevices = { ...(state.home_devices ?? {}) };
+  if (removed) {
+    delete homeDevices[removed.id];
+  }
+
+  const { error } = await ctx.supabase
+    .from("hubs")
+    .update({ state: { ...state, integrations, home_devices: homeDevices } })
+    .eq("id", ctx.hub.id);
+
+  if (error) return { error: "Poisto epäonnistui." };
+
+  revalidateLaitteet();
+  return { ok: "Airthings poistettu." };
+}

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { groupDevices, parseHubHomeDevices } from "@/lib/hub-lights";
+import { normalizeHomeDevices } from "@/lib/device-normalize";
 import { fetchPrimaryHub } from "@/lib/hubs";
 import { isHubOnline } from "@/lib/device-status";
 import { anchorForLight } from "@/lib/lights-config";
@@ -18,7 +19,13 @@ export async function GET() {
   if (user) {
     const hub = await fetchPrimaryHub(supabase, user.id);
     const hubOnline = hub ? isHubOnline(hub.last_seen_at) : false;
-    const devices = parseHubHomeDevices(hub?.state?.home_devices, hub?.state?.lights, hub?.state?.device_overrides);
+    const homeDevices = hub
+      ? normalizeHomeDevices(hub.state?.home_devices, {
+          integrations: hub.state?.integrations,
+          airthingsState: hub.state,
+        })
+      : undefined;
+    const devices = parseHubHomeDevices(homeDevices, hub?.state?.lights, hub?.state?.device_overrides);
     const grouped = groupDevices(devices);
 
     if (hub && (hubOnline || devices.length > 0)) {
@@ -29,6 +36,10 @@ export async function GET() {
         devices,
         ...grouped,
         lights: grouped.lights,
+        switches: grouped.switches,
+        sensors: grouped.sensors,
+        locks: grouped.locks,
+        other: grouped.other,
       });
     }
   }
@@ -57,6 +68,8 @@ export async function GET() {
         lights: devices,
         switches: [],
         other: [],
+        sensors: [],
+        locks: [],
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Zigbee2MQTT error";

@@ -16,6 +16,7 @@ from alykoti_yellow.device_commands import (
     zwave_start_inclusion,
     zwave_stop_inclusion,
 )
+from alykoti_yellow.automations import get_engine
 from alykoti_yellow.mqtt_lights import fetch_zigbee_home, set_light
 from alykoti_yellow.shelly import (
     discover_shelly_devices,
@@ -30,7 +31,7 @@ from alykoti_yellow.tasmota import (
     set_tasmota_power,
 )
 from alykoti_yellow.sync import sync_post
-from alykoti_yellow.zwave_mqtt import fetch_zwave_devices, set_zwave_device
+from alykoti_yellow.zwave_mqtt import fetch_zwave_devices, set_zwave_device, set_zwave_lock
 
 logging.basicConfig(
     level=logging.INFO,
@@ -40,6 +41,7 @@ log = logging.getLogger("alykoti-yellow")
 
 pending_acks: list[str] = []
 cached_integrations: dict = {}
+cached_automations: list[dict] = []
 cached_shelly_discovered: list[dict] = []
 cached_tasmota_discovered: list[dict] = []
 
@@ -143,9 +145,20 @@ def execute_command(cmd: dict) -> bool:
 
         ok = False
         if device_id.startswith("zwave:"):
-            mqtt_topic = payload.get("mqtt_set_topic")
-            if isinstance(mqtt_topic, str):
-                ok = set_zwave_device(config.MQTT_URL, mqtt_topic, on)
+            lock_topic = payload.get("lock_set_topic")
+            if isinstance(lock_topic, str):
+                ok = set_zwave_lock(config.MQTT_URL, lock_topic, on)
+            else:
+                mqtt_topic = payload.get("mqtt_set_topic")
+                if isinstance(mqtt_topic, str):
+                    ok = set_zwave_device(config.MQTT_URL, mqtt_topic, on)
+                    if ok and isinstance(payload.get("brightness"), (int, float)):
+                        ok = set_zwave_device(
+                            config.MQTT_URL,
+                            mqtt_topic,
+                            on,
+                            int(payload["brightness"]),
+                        )
         elif device_id.startswith("zigbee:"):
             ok = set_light(
                 config.MQTT_URL,
@@ -153,6 +166,16 @@ def execute_command(cmd: dict) -> bool:
                 device_id.removeprefix("zigbee:"),
                 on,
             )
+            if ok and isinstance(payload.get("brightness"), (int, float)):
+                from alykoti_yellow.mqtt_lights import set_light_brightness
+
+                ok = set_light_brightness(
+                    config.MQTT_URL,
+                    config.MQTT_PREFIX,
+                    device_id.removeprefix("zigbee:"),
+                    int(payload["brightness"]),
+                    on,
+                )
         elif device_id.startswith("shelly:"):
             host = payload.get("host")
             channel = payload.get("channel", 0)
@@ -301,7 +324,10 @@ def build_state(
 
 
 def run_loop() -> None:
-    global pending_acks, cached_integrations, cached_shelly_discovered, cached_tasmota_discovered
+    global pending_acks, cached_integrations, cached_automations, cached_shelly_discovered, cached_tasmota_discovered
+
+    engine = get_engine()
+    engine.start()
 
     if not config.DEVICE_TOKEN:
         log.error("ALYKOTI_DEVICE_TOKEN puuttuu — luo hub webissä ja kopioi token .env")
@@ -322,6 +348,7 @@ def run_loop() -> None:
             cached_shelly_discovered,
             cached_tasmota_discovered,
         )
+
         response = sync_post(
             config.SYNC_URL,
             config.DEVICE_TOKEN,
@@ -334,20 +361,34 @@ def run_loop() -> None:
             integrations = response.get("integrations")
             if isinstance(integrations, dict):
                 cached_integrations = integrations
+            automations = response.get("automations")
+            if isinstance(automations, list):
+                cached_automations = automations
+            elif isinstance(response.get("config"), dict):
+                cfg_auto = response["config"].get("automations")
+                if isinstance(cfg_auto, list):
+                    cached_automations = cfg_auto
+            engine.update_config(
+                cached_automations,
+                cached_integrations,
+                state.get("home_devices") if isinstance(state.get("home_devices"), dict) else None,
+            )
             for cmd in response.get("commands") or []:
                 execute_command(cmd)
             apply_ventilation(response)
             devices = state.get("home_devices") or {}
             lights = sum(1 for d in devices.values() if d.get("kind") == "light")
             switches = sum(1 for d in devices.values() if d.get("kind") == "switch")
+            auto_count = len(cached_automations)
             log.info(
-                "Sync OK — devices=%s lights=%s zwave=%s shelly=%s tasmota=%s cmds=%s",
+                "Sync OK — devices=%s lights=%s zwave=%s shelly=%s tasmota=%s cmds=%s automations=%s",
                 len(devices),
                 lights,
                 sum(1 for k in devices if k.startswith("zwave:")),
                 sum(1 for k in devices if k.startswith("shelly:")),
                 sum(1 for k in devices if k.startswith("tasmota:")),
                 len(response.get("commands") or []),
+                auto_count,
             )
         else:
             log.warning("Sync skipped")

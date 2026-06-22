@@ -2,6 +2,7 @@ import { canPingAirfiFromRuntime } from "@/lib/airfi-runtime";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { fetchAirthingsState } from "@/lib/airthings";
 import { hasAirfiTelemetry } from "@/lib/airfi-telemetry";
+import { normalizeAutomationRules } from "@/lib/automation";
 import {
   airfiToHubState,
   applyVentilationControl,
@@ -11,12 +12,13 @@ import {
   hubStateToAirfiState,
   type AirfiState,
 } from "@/lib/airfi";
+import { recordEnergySamples } from "@/lib/energy-samples";
+import { normalizeHomeDevices } from "@/lib/device-normalize";
 import { recordHubMetrics } from "@/lib/metric-samples";
 import { activeTimedMode, effectiveControlMode, expireTimedModes, formatRemaining, remainingMs } from "@/lib/mode-schedule";
 import { getCo2Band, getCo2BandLabel } from "@/lib/ventilation-logic";
-import { migrateLegacySpeedPct } from "@/lib/ventilation-logic";
+import { parseHubConfig } from "@/lib/hubs";
 import {
-  DEFAULT_VENTILATION_CONFIG,
   type DeviceSyncRequest,
   type DeviceSyncResponse,
   type HubControlMode,
@@ -24,36 +26,6 @@ import {
   type HubState,
   type VentilationConfig,
 } from "@/lib/types";
-
-function parseConfig(raw: unknown): VentilationConfig {
-  const base = { ...DEFAULT_VENTILATION_CONFIG };
-  if (!raw || typeof raw !== "object") return base;
-  const c = raw as Record<string, unknown>;
-
-  const legacyMap: Record<string, keyof VentilationConfig> = {
-    speed_normal: "speed_normal_pct",
-    speed_elevated: "speed_elevated_pct",
-    speed_high: "speed_high_pct",
-    speed_max: "speed_max_pct",
-    night_max_speed: "night_max_pct",
-  };
-
-  for (const [key, value] of Object.entries(c)) {
-    if (key === "night_enabled" && typeof value === "boolean") {
-      base.night_enabled = value;
-      continue;
-    }
-    const target = (legacyMap[key] ?? key) as keyof VentilationConfig;
-    if (!(target in base)) continue;
-    if (typeof value !== "number" || !Number.isFinite(value)) continue;
-    if (target.endsWith("_pct")) {
-      (base[target] as number) = migrateLegacySpeedPct(value);
-    } else {
-      (base[target] as number) = value;
-    }
-  }
-  return base;
-}
 
 function parseState(raw: unknown): HubState {
   if (!raw || typeof raw !== "object") return {};
@@ -148,7 +120,7 @@ export async function syncDevice(
       .in("status", ["pending", "delivered"]);
   }
 
-  const config = parseConfig(hub.config);
+  const config = parseHubConfig(hub.config);
   const storedMode = hub.control_mode as HubControlMode;
   let mergedState = expireTimedModes({
     ...parseState(hub.state),
@@ -172,6 +144,22 @@ export async function syncDevice(
     mergedState.home_devices = body.state.home_devices;
   }
 
+  const airthingsState = await fetchAirthingsState();
+  if (airthingsState) {
+    if (airthingsState.co2_ppm != null) mergedState.co2_ppm = airthingsState.co2_ppm;
+    if (airthingsState.humidity_pct != null) {
+      mergedState.humidity_pct = airthingsState.humidity_pct;
+    }
+    if (airthingsState.temperature_c != null) {
+      mergedState.temperature_c = airthingsState.temperature_c;
+    }
+    if (airthingsState.tvoc_ppb != null) mergedState.tvoc_ppb = airthingsState.tvoc_ppb;
+    if (airthingsState.pm1_ugm3 != null) mergedState.pm1_ugm3 = airthingsState.pm1_ugm3;
+    if (airthingsState.pm25_ugm3 != null) mergedState.pm25_ugm3 = airthingsState.pm25_ugm3;
+    if (airthingsState.pm10_ugm3 != null) mergedState.pm10_ugm3 = airthingsState.pm10_ugm3;
+    mergedState.airthings_source = "cloud";
+  }
+
   if (Array.isArray(body.state?.tasmota_discovered)) {
     mergedState.tasmota_discovered = body.state.tasmota_discovered as HubState["tasmota_discovered"];
   }
@@ -185,6 +173,16 @@ export async function syncDevice(
   const prevIntegrations = prevStored.integrations;
   if (prevIntegrations && typeof prevIntegrations === "object") {
     mergedState.integrations = prevIntegrations;
+  }
+
+  mergedState.home_devices = normalizeHomeDevices(mergedState.home_devices, {
+    integrations: mergedState.integrations,
+    airthingsState,
+  });
+
+  const prevAutomations = prevStored.automations;
+  if (Array.isArray(prevAutomations) && !config.automations?.length) {
+    mergedState.automations = prevAutomations;
   }
 
   if (body.state && typeof body.state === "object" && "airfi_online" in body.state) {
@@ -229,22 +227,6 @@ export async function syncDevice(
     (storedMode === "fireplace" || storedMode === "hood")
   ) {
     dbControlMode = "auto";
-  }
-
-  const airthingsState = await fetchAirthingsState();
-  if (airthingsState) {
-    if (airthingsState.co2_ppm != null) mergedState.co2_ppm = airthingsState.co2_ppm;
-    if (airthingsState.humidity_pct != null) {
-      mergedState.humidity_pct = airthingsState.humidity_pct;
-    }
-    if (airthingsState.temperature_c != null) {
-      mergedState.temperature_c = airthingsState.temperature_c;
-    }
-    if (airthingsState.tvoc_ppb != null) mergedState.tvoc_ppb = airthingsState.tvoc_ppb;
-    if (airthingsState.pm1_ugm3 != null) mergedState.pm1_ugm3 = airthingsState.pm1_ugm3;
-    if (airthingsState.pm25_ugm3 != null) mergedState.pm25_ugm3 = airthingsState.pm25_ugm3;
-    if (airthingsState.pm10_ugm3 != null) mergedState.pm10_ugm3 = airthingsState.pm10_ugm3;
-    mergedState.airthings_source = "cloud";
   }
 
   let airfiState: AirfiState | null = canPing
@@ -366,7 +348,8 @@ export async function syncDevice(
     state: mergedState,
     control_mode: dbControlMode,
     last_seen_at: new Date().toISOString(),
-  };  if (body.firmware_version) {
+  };
+  if (body.firmware_version) {
     hubUpdate.firmware_version = body.firmware_version;
   }
 
@@ -376,11 +359,17 @@ export async function syncDevice(
     hub_online: true,
     airfi_online: mergedState.airfi_online === true,
   });
+  void recordEnergySamples(hub.id, mergedState.home_devices);
 
   const integrations: HubIntegrations | undefined =
     mergedState.integrations && typeof mergedState.integrations === "object"
       ? mergedState.integrations
       : undefined;
+
+  const automations =
+    config.automations?.length
+      ? config.automations
+      : normalizeAutomationRules(mergedState.automations);
 
   return {
     control_mode: effectiveMode,
@@ -390,5 +379,6 @@ export async function syncDevice(
     ventilation: ventilationState,
     display: buildSyncDisplay(effectiveMode, mergedState, config),
     integrations,
+    automations,
   };
 }

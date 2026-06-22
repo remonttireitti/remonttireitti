@@ -229,6 +229,10 @@ def _gen1_fetch(host: str, name: str, model: str) -> dict[str, dict[str, Any]]:
                 "host": host,
                 "channel": ch,
                 "gen": 1,
+                "capabilities": [
+                    {"id": "relay", "read": True, "write": True},
+                    {"id": "switch", "read": True, "write": True},
+                ],
             }
         return out
 
@@ -236,6 +240,28 @@ def _gen1_fetch(host: str, name: str, model: str) -> dict[str, dict[str, Any]]:
     if isinstance(emeters, list) and emeters:
         total_power = sum(float(e.get("power") or 0) for e in emeters if isinstance(e, dict))
         total_energy = sum(float(e.get("total") or 0) for e in emeters if isinstance(e, dict))
+        phases: dict[str, dict[str, Any]] = {}
+        phase_letters = ("a", "b", "c")
+        for idx, em in enumerate(emeters):
+            if not isinstance(em, dict) or idx >= len(phase_letters):
+                continue
+            letter = phase_letters[idx]
+            entry: dict[str, Any] = {}
+            power = em.get("power")
+            if isinstance(power, (int, float)):
+                entry["power_w"] = power
+                entry["power_kw"] = round(power / 1000.0, 3)
+            voltage = em.get("voltage")
+            if isinstance(voltage, (int, float)):
+                entry["voltage_v"] = voltage
+            current = em.get("current")
+            if isinstance(current, (int, float)):
+                entry["current_a"] = current
+            pf = em.get("pf")
+            if isinstance(pf, (int, float)):
+                entry["pf"] = pf
+            if entry:
+                phases[letter] = entry
         out[f"shelly:{host}:em"] = {
             "protocol": "shelly",
             "kind": "sensor",
@@ -246,9 +272,38 @@ def _gen1_fetch(host: str, name: str, model: str) -> dict[str, dict[str, Any]]:
             "gen": 1,
             "model": model or None,
             "power_w": total_power,
+            "power_kw": round(total_power / 1000.0, 3) if total_power else None,
             "energy_wh": total_energy,
+            "em_phases": phases,
+            "capabilities": [
+                {"id": "energy", "read": True, "write": False},
+                {"id": "meter", "read": True, "write": False},
+            ],
         }
     return out
+
+
+def _extract_phases(em: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    phases: dict[str, dict[str, Any]] = {}
+    for letter in ("a", "b", "c"):
+        power = em.get(f"{letter}_act_power")
+        current = em.get(f"{letter}_current")
+        voltage = em.get(f"{letter}_voltage")
+        if not any(isinstance(v, (int, float)) for v in (power, current, voltage)):
+            continue
+        entry: dict[str, Any] = {}
+        if isinstance(power, (int, float)):
+            entry["power_w"] = power
+            entry["power_kw"] = round(power / 1000.0, 3)
+        if isinstance(current, (int, float)):
+            entry["current_a"] = current
+        if isinstance(voltage, (int, float)):
+            entry["voltage_v"] = voltage
+        pf = em.get(f"{letter}_pf")
+        if isinstance(pf, (int, float)):
+            entry["pf"] = pf
+        phases[letter] = entry
+    return phases
 
 
 def fetch_shelly_devices(configured: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
@@ -283,12 +338,16 @@ def fetch_shelly_devices(configured: list[dict[str, Any]]) -> dict[str, dict[str
                 "channel": ch,
                 "gen": 2,
                 "model": model or None,
+                "capabilities": [
+                    {"id": "relay", "read": True, "write": True},
+                    {"id": "switch", "read": True, "write": True},
+                ],
             }
 
         em = _em_status(result)
         if em and (_is_em_only_model(model) or not switches):
-            a_power = em.get("a_act_power")
-            b_power = em.get("b_act_power")
+            phases = _extract_phases(em)
+            total_power = em.get("total_act_power")
             out[f"shelly:{host}:em"] = {
                 "protocol": "shelly",
                 "kind": "sensor",
@@ -298,10 +357,14 @@ def fetch_shelly_devices(configured: list[dict[str, Any]]) -> dict[str, dict[str
                 "channel": 0,
                 "gen": 2,
                 "model": model or None,
-                "power_w": em.get("total_act_power"),
+                "power_w": total_power,
+                "power_kw": (total_power / 1000.0) if isinstance(total_power, (int, float)) else None,
                 "energy_wh": em.get("total_act_energy"),
-                "em_a_power_w": a_power if isinstance(a_power, (int, float)) else None,
-                "em_b_power_w": b_power if isinstance(b_power, (int, float)) else None,
+                "em_phases": phases,
+                "capabilities": [
+                    {"id": "energy", "read": True, "write": False},
+                    {"id": "meter", "read": True, "write": False},
+                ],
             }
 
     return out

@@ -1,3 +1,5 @@
+import type { LightAutomationRule } from "@/lib/automation";
+
 export type HubControlMode = "auto" | "manual" | "fireplace" | "hood";
 
 export type VentilationConfig = {
@@ -85,26 +87,95 @@ export type HubIntegrations = {
   tasmota?: {
     devices: TasmotaDeviceConfig[];
   };
+  airthings?: {
+    devices: AirthingsDeviceConfig[];
+  };
+};
+
+export type { AutomationActionType, AutomationPressType, LightAutomationRule } from "@/lib/automation";
+
+export type EnergyPhaseReading = {
+  power_w?: number | null;
+  power_kw?: number | null;
+  current_a?: number | null;
+  voltage_v?: number | null;
+  pf?: number | null;
+};
+
+export type EnergyPhases = {
+  a?: EnergyPhaseReading;
+  b?: EnergyPhaseReading;
+  c?: EnergyPhaseReading;
+};
+
+/** Yhtenäinen ominaisuusmalli — protokollasta riippumaton. */
+export type DeviceCapabilityId =
+  | "switch"
+  | "dimmer"
+  | "color"
+  | "lock"
+  | "temperature"
+  | "humidity"
+  | "co2"
+  | "energy"
+  | "meter"
+  | "relay"
+  | "contact"
+  | "motion"
+  | "occupancy"
+  | "battery"
+  | "fan"
+  | "cover"
+  | "button"
+  | "tvoc"
+  | "pm";
+
+export type DeviceCapability = {
+  id: DeviceCapabilityId;
+  read: boolean;
+  write: boolean;
+};
+
+export type AirthingsDeviceConfig = {
+  /** airthings:{serial} */
+  id: string;
+  serial: string;
+  name: string;
+  enabled: boolean;
 };
 
 export type HubHomeDevice = {
-  protocol: "zigbee" | "zwave" | "shelly" | "tasmota";
+  protocol: "zigbee" | "zwave" | "shelly" | "tasmota" | "airthings";
   kind: "light" | "switch" | "lock" | "fan" | "sensor" | "other";
   name: string;
   room?: string | null;
   on?: boolean;
   brightness?: number | null;
   controllable?: boolean;
+  /** Löydetyt ominaisuudet (Yellow → web). */
+  capabilities?: DeviceCapability[];
   mqtt_set_topic?: string;
+  /** Lukko — CC 98 / Zigbee lock */
+  lock_set_topic?: string;
+  locked?: boolean | null;
   node_id?: number;
   host?: string;
   channel?: number;
   gen?: number;
   model?: string;
+  /** Anturiarvot */
+  temperature_c?: number | null;
+  humidity_pct?: number | null;
+  co2_ppm?: number | null;
+  tvoc_ppb?: number | null;
   /** Shelly EM — kokonaisteho W */
   power_w?: number | null;
-  /** Shelly EM — energia Wh */
+  /** Shelly EM — energia Wh (kumulatiivinen) */
   energy_wh?: number | null;
+  /** Shelly EM — kokonaisteho kW */
+  power_kw?: number | null;
+  em_phases?: EnergyPhases;
+  /** @deprecated käytä em_phases */
   em_a_power_w?: number | null;
   em_b_power_w?: number | null;
 };
@@ -115,6 +186,12 @@ export type HubDeviceOverride = {
   room?: string | null;
   floor_anchor?: string | null;
   hidden?: boolean;
+};
+
+/** hubs.config — ilmanvaihto + Zigbee-kytkinautomaatiot */
+export type HubConfig = VentilationConfig & {
+  /** Zigbee-kytkin → valo -säännöt (web → Yellow) */
+  automations?: LightAutomationRule[];
 };
 
 export type HubState = {
@@ -181,6 +258,8 @@ export type HubState = {
   device_overrides?: Record<string, HubDeviceOverride>;
   /** Integraatioiden konfiguraatio (web → Yellow). */
   integrations?: HubIntegrations;
+  /** @deprecated käytä hubs.config.automations */
+  automations?: LightAutomationRule[];
   /** Yellow-verkkoscanin löytämät Shellyt. */
   shelly_discovered?: ShellyDiscoveredDevice[];
   /** Yellow-verkkoscanin löytämät Tasmota-laitteet. */
@@ -196,7 +275,7 @@ export type Hub = {
   last_seen_at: string | null;
   control_mode: HubControlMode;
   state: HubState;
-  config: VentilationConfig;
+  config: HubConfig;
   created_at: string;
   updated_at: string;
 };
@@ -216,7 +295,7 @@ export type DeviceSyncDisplay = {
 
 export type DeviceSyncResponse = {
   control_mode: HubControlMode;
-  config: VentilationConfig;
+  config: HubConfig;
   commands: Array<{
     id: string;
     command: string;
@@ -226,6 +305,7 @@ export type DeviceSyncResponse = {
   ventilation?: HubState;
   display?: DeviceSyncDisplay;
   integrations?: HubIntegrations;
+  automations?: LightAutomationRule[];
 };
 
 export type ControlMode = HubControlMode;

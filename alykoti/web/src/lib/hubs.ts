@@ -1,13 +1,15 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { normalizeAutomationRules } from "@/lib/automation";
 import {
   DEFAULT_VENTILATION_CONFIG,
   type Hub,
+  type HubConfig,
   type HubState,
   type VentilationConfig,
 } from "@/lib/types";
 import { migrateLegacySpeedPct } from "@/lib/ventilation-logic";
 
-function parseConfig(raw: unknown): VentilationConfig {
+export function parseVentilationConfig(raw: unknown): VentilationConfig {
   const base = { ...DEFAULT_VENTILATION_CONFIG };
   if (!raw || typeof raw !== "object") return base;
   const c = raw as Record<string, unknown>;
@@ -37,6 +39,22 @@ function parseConfig(raw: unknown): VentilationConfig {
   return base;
 }
 
+export function parseHubConfig(raw: unknown): HubConfig {
+  const ventilation = parseVentilationConfig(raw);
+  const automations = normalizeAutomationRules(
+    raw && typeof raw === "object" ? (raw as Record<string, unknown>).automations : undefined,
+  );
+  return {
+    ...ventilation,
+    automations,
+  };
+}
+
+/** @deprecated käytä parseHubConfig */
+function parseConfig(raw: unknown): VentilationConfig {
+  return parseVentilationConfig(raw);
+}
+
 function parseState(raw: unknown): HubState {
   if (!raw || typeof raw !== "object") return {};
   return raw as HubState;
@@ -57,7 +75,7 @@ export function normalizeHub(row: Record<string, unknown>): Hub {
         ? row.control_mode
         : "auto",
     state: parseState(row.state),
-    config: parseConfig(row.config),
+    config: parseHubConfig(row.config),
     created_at: String(row.created_at),
     updated_at: String(row.updated_at),
   };

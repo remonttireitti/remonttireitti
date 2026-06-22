@@ -182,6 +182,10 @@ def fetch_tasmota_devices(configured: list[dict[str, Any]]) -> dict[str, dict[st
                 "host": host,
                 "channel": ch,
                 "model": meta["model"] or None,
+                "capabilities": [
+                    {"id": "relay", "read": True, "write": True},
+                    {"id": "switch", "read": True, "write": True},
+                ],
             }
     return out
 

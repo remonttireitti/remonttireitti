@@ -12,10 +12,14 @@ import paramiko
 HOST, USER = "192.168.50.108", "ek"
 PASS = os.environ.get("YELLOW_SSH_PASS", "")
 ROOT = Path(__file__).resolve().parent
+REMOTE_YELLOW = "/home/ek/alykoti-yellow"
 FILES = {
-    ROOT / "alykoti_yellow/config.py": "/home/ek/alykoti-yellow/alykoti_yellow/config.py",
-    ROOT / "alykoti_yellow/modbus_airfi.py": "/home/ek/alykoti-yellow/alykoti_yellow/modbus_airfi.py",
-    ROOT / "install/alykoti-yellow.service": "/home/ek/alykoti-yellow/install/alykoti-yellow.service",
+    *((
+        local,
+        f"{REMOTE_YELLOW}/alykoti_yellow/{local.name}",
+    )
+    for local in sorted((ROOT / "alykoti_yellow").glob("*.py"))),
+    ROOT / "install/alykoti-yellow.service": f"{REMOTE_YELLOW}/install/alykoti-yellow.service",
 }
 
 

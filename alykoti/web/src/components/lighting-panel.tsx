@@ -13,11 +13,15 @@ type Device = {
   brightness: number | null;
   reachable: boolean;
   roomAnchorId: string | null;
-  protocol: "zigbee" | "zwave" | "shelly" | "tasmota";
+  protocol: "zigbee" | "zwave" | "shelly" | "tasmota" | "airthings";
   kind: string;
   room: string | null;
   controllable: boolean;
   mqttSetTopic?: string | null;
+  lockSetTopic?: string | null;
+  locked?: boolean | null;
+  capabilitiesLabel?: string;
+  readingLabel?: string | null;
 };
 
 type LightsResponse = {
@@ -26,6 +30,8 @@ type LightsResponse = {
   hubOnline?: boolean;
   lights: Device[];
   switches?: Device[];
+  sensors?: Device[];
+  locks?: Device[];
   other?: Device[];
   devices?: Device[];
   message?: string;
@@ -58,15 +64,16 @@ export function LightingPanel() {
     return () => clearInterval(id);
   }, [load]);
 
-  function toggle(device: Device) {
+  function toggle(device: Device, on?: boolean) {
     if (pending || !device.controllable) return;
+    const targetOn = on ?? !device.on;
     setBusyId(device.id);
     startTransition(async () => {
       try {
         const res = await fetch("/api/lights/control", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id: device.id, on: !device.on }),
+          body: JSON.stringify({ id: device.id, on: targetOn }),
         });
         const json = (await res.json()) as { ok?: boolean; error?: string };
         if (!json.ok) {
@@ -85,6 +92,8 @@ export function LightingPanel() {
 
   const lights = data?.lights ?? [];
   const switches = data?.switches ?? [];
+  const sensors = data?.sensors ?? [];
+  const locks = data?.locks ?? [];
   const other = data?.other ?? [];
   const markers: FloorPlanMarker[] = buildMarkers(lights);
 
@@ -161,6 +170,30 @@ export function LightingPanel() {
         readOnlyHint="Kaukosäädin — ei ohjattavissa webistä."
       />
 
+      {locks.length > 0 && (
+        <DeviceSection
+          title="Lukot"
+          empty=""
+          devices={locks}
+          pending={pending}
+          busyId={busyId}
+          onToggle={toggle}
+          lockMode
+        />
+      )}
+
+      {sensors.length > 0 && (
+        <DeviceSection
+          title="Anturit"
+          empty=""
+          devices={sensors}
+          pending={pending}
+          busyId={busyId}
+          onToggle={toggle}
+          sensorMode
+        />
+      )}
+
       {other.length > 0 && (
         <DeviceSection
           title="Muut laitteet"
@@ -169,11 +202,26 @@ export function LightingPanel() {
           pending={pending}
           busyId={busyId}
           onToggle={toggle}
-          readOnlyHint="Näytetään tila — ohjaus tulossa."
+          readOnlyHint="Näytetään tila — ohjaus protokollan mukaan."
         />
       )}
     </div>
   );
+}
+
+function protocolLabel(protocol: Device["protocol"]): string {
+  switch (protocol) {
+    case "zwave":
+      return "Z-Wave";
+    case "shelly":
+      return "Shelly";
+    case "tasmota":
+      return "Tasmota";
+    case "airthings":
+      return "Airthings";
+    default:
+      return "Zigbee";
+  }
 }
 
 function DeviceSection({
@@ -185,15 +233,19 @@ function DeviceSection({
   onToggle,
   onRefresh,
   readOnlyHint,
+  lockMode,
+  sensorMode,
 }: {
   title: string;
   empty: string;
   devices: Device[];
   pending: boolean;
   busyId: string | null;
-  onToggle: (device: Device) => void;
+  onToggle: (device: Device, on?: boolean) => void;
   onRefresh?: () => void;
   readOnlyHint?: string;
+  lockMode?: boolean;
+  sensorMode?: boolean;
 }) {
   return (
     <section className="rounded-2xl border border-stone-200 bg-white p-4 shadow-sm">
@@ -223,18 +275,37 @@ function DeviceSection({
               <div className="min-w-0">
                 <p className="truncate font-medium text-stone-900">{device.name}</p>
                 <p className="truncate text-xs text-stone-500">
-                  {device.protocol === "zwave"
-                    ? "Z-Wave"
-                    : device.protocol === "shelly"
-                      ? "Shelly"
-                      : device.protocol === "tasmota"
-                        ? "Tasmota"
-                        : "Zigbee"}
+                  {protocolLabel(device.protocol)}
                   {device.room ? ` · ${device.room}` : ""}
-                  {` · ${kindLabel(device.kind as "light")}`}
+                  {` · ${device.capabilitiesLabel || kindLabel(device.kind as "light")}`}
+                  {device.readingLabel ? ` · ${device.readingLabel}` : ""}
                 </p>
               </div>
-              {device.controllable ? (
+              {sensorMode || (!device.controllable && !lockMode) ? (
+                <span className="shrink-0 text-xs text-stone-500">
+                  {device.readingLabel || (device.on ? "Päällä" : "Pois")}
+                  {readOnlyHint ? " · ei ohjaus" : ""}
+                </span>
+              ) : lockMode && device.controllable ? (
+                <div className="flex shrink-0 gap-2">
+                  <button
+                    type="button"
+                    disabled={pending && busyId === device.id}
+                    onClick={() => onToggle(device, false)}
+                    className="rounded-xl border border-stone-300 px-3 py-2 text-xs font-semibold disabled:opacity-50"
+                  >
+                    Avaa
+                  </button>
+                  <button
+                    type="button"
+                    disabled={pending && busyId === device.id}
+                    onClick={() => onToggle(device, true)}
+                    className="rounded-xl bg-stone-800 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50"
+                  >
+                    Lukitse
+                  </button>
+                </div>
+              ) : device.controllable ? (
                 <button
                   type="button"
                   disabled={pending && busyId === device.id}

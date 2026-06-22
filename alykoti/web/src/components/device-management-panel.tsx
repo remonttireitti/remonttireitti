@@ -16,10 +16,13 @@ type Device = {
   id: string;
   name: string;
   on: boolean;
-  protocol: "zigbee" | "zwave" | "shelly" | "tasmota";
+  protocol: "zigbee" | "zwave" | "shelly" | "tasmota" | "airthings";
   kind: string;
   room: string | null;
   controllable: boolean;
+  capabilitiesLabel?: string;
+  readingLabel?: string | null;
+  locked?: boolean | null;
   node_id?: number;
 };
 
@@ -198,11 +201,13 @@ export function DeviceManagementPanel() {
                             ? "Shelly"
                             : device.protocol === "tasmota"
                               ? "Tasmota"
-                              : "Zigbee"}{" "}
+                              : device.protocol === "airthings"
+                                ? "Airthings"
+                                : "Zigbee"}{" "}
                         ·{" "}
-                        {kindLabel(device.kind as "light")}
+                        {device.capabilitiesLabel || kindLabel(device.kind as "light")}
                         {device.room ? ` · ${device.room}` : ""}
-                        {device.on ? " · päällä" : ""}
+                        {device.readingLabel ? ` · ${device.readingLabel}` : device.on ? " · päällä" : ""}
                       </p>
                       <p className="mt-0.5 font-mono text-[10px] text-stone-400">{device.id}</p>
                     </div>

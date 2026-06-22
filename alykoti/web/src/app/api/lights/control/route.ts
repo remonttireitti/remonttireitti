@@ -36,6 +36,9 @@ export async function POST(request: Request) {
     if (device?.mqttSetTopic) {
       payload.mqtt_set_topic = device.mqttSetTopic;
     }
+    if (device?.lockSetTopic) {
+      payload.lock_set_topic = device.lockSetTopic;
+    }
     if (device?.protocol === "shelly") {
       const raw = hub.state.home_devices?.[id];
       if (raw?.host) payload.host = raw.host;

@@ -117,3 +117,62 @@ export async function fetchAirthingsState(): Promise<HubState | null> {
 export function isAirthingsConfigured(): boolean {
   return getConfig() !== null;
 }
+
+export type AirthingsDeviceInfo = {
+  serial: string;
+  name: string;
+  deviceType?: string;
+};
+
+async function fetchApiToken(): Promise<string | null> {
+  const config = getConfig();
+  if (!config) return null;
+  try {
+    return await fetchAccessToken(config.clientId, config.clientSecret);
+  } catch {
+    return null;
+  }
+}
+
+export async function listAirthingsDevices(): Promise<AirthingsDeviceInfo[]> {
+  const token = await fetchApiToken();
+  if (!token) return [];
+
+  const res = await fetch(`${API_BASE}/devices?limit=20`, {
+    headers: { Authorization: `Bearer ${token}` },
+    next: { revalidate: 300 },
+  });
+  if (!res.ok) return [];
+
+  const data = (await res.json()) as {
+    devices?: Array<{ id: string; deviceType?: string; segment?: { name?: string } }>;
+  };
+
+  return (data.devices ?? []).map((d) => ({
+    serial: d.id,
+    name: d.segment?.name || d.deviceType || d.id,
+    deviceType: d.deviceType,
+  }));
+}
+
+export async function testAirthingsConnection(serial?: string): Promise<HubState | null> {
+  const config = getConfig();
+  if (!config) return null;
+
+  try {
+    const token = await fetchAccessToken(config.clientId, config.clientSecret);
+    const resolved = await resolveDeviceSerial(token, serial ?? config.serial);
+    if (!resolved) return null;
+
+    const res = await fetch(`${API_BASE}/devices/${resolved}/latest-samples`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) return null;
+
+    const payload = (await res.json()) as { data?: Record<string, unknown> };
+    if (!payload.data) return null;
+    return mapSamples(payload.data);
+  } catch {
+    return null;
+  }
+}

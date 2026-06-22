@@ -147,7 +147,8 @@ export async function recordHubMetrics(
     .from("hub_metric_samples")
     .delete()
     .eq("hub_id", hubId)
-    .lt("recorded_at", cutoff);
+    .lt("recorded_at", cutoff)
+    .not("metric", "like", "energy_wh:%");
 }
 
 export async function fetchMetricHistory(

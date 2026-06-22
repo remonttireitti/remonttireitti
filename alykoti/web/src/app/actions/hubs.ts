@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { randomBytes } from "crypto";
 import { revalidateLaitteet } from "@/lib/revalidate-laitteet";
-import { validateVentilationConfig } from "@/lib/hubs";
+import { validateVentilationConfig, parseHubConfig } from "@/lib/hubs";
 import {
   extendUntil,
   formatRemaining,
@@ -155,9 +155,15 @@ export async function saveVentilationConfig(
     return { error: "Keskusyksikköä ei löydy." };
   }
 
+  const { data: row } = await supabase.from("hubs").select("config").eq("id", hubId).single();
+  const merged = {
+    ...parseHubConfig(row?.config),
+    ...config,
+  };
+
   const { error } = await supabase
     .from("hubs")
-    .update({ config })
+    .update({ config: merged })
     .eq("id", hubId);
 
   if (error) return { error: "Tallennus epäonnistui." };

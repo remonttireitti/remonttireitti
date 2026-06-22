@@ -6,7 +6,7 @@ export default function LaitteetLayout({ children }: { children: React.ReactNode
       <header className="mb-2">
         <h1 className="text-2xl font-bold tracking-tight text-stone-900">Laitteet & integraatiot</h1>
         <p className="mt-1 text-sm text-stone-600">
-          Yellow, Zigbee, Z-Wave, Shelly, Tasmota — paritus, nimet ja ohjaus.
+          Yellow, Zigbee, Z-Wave, Shelly, Tasmota, Airthings — paritus, nimet ja ohjaus.
         </p>
         <LaitteetSubNav />
       </header>
