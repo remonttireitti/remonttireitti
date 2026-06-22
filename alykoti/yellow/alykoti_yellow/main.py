@@ -8,7 +8,7 @@ import sys
 import time
 
 from alykoti_yellow import config
-from alykoti_yellow.modbus_airfi import read_airfi, write_away, write_fan_pct
+from alykoti_yellow.modbus_airfi import AirfiPollState, read_airfi, write_away, write_fan_pct
 from alykoti_yellow.device_commands import (
     zigbee_permit_join,
     zigbee_rename,
@@ -44,6 +44,10 @@ cached_integrations: dict = {}
 cached_automations: list[dict] = []
 cached_shelly_discovered: list[dict] = []
 cached_tasmota_discovered: list[dict] = []
+airfi_poll_state = AirfiPollState(
+    offline_backoff_max_sec=config.AIRFI_OFFLINE_BACKOFF_MAX_SEC,
+    offline_skip_after=config.AIRFI_OFFLINE_SKIP_AFTER,
+)
 
 
 def execute_command(cmd: dict) -> bool:
@@ -251,15 +255,17 @@ def build_state(
     state: dict = {}
 
     if config.AIRFI_ENABLED:
-        airfi = read_airfi(**config.airfi_kwargs())
+        airfi = read_airfi(**config.airfi_kwargs(), poll_state=airfi_poll_state)
         state.update(airfi.state)
-        if not airfi.ok:
+        if not airfi.ok and airfi_poll_state.should_poll():
             target = (
                 f"{config.AIRFI_MODBUS_HOST}:{config.AIRFI_MODBUS_PORT}"
                 if config.AIRFI_MODBUS_HOST
                 else config.AIRFI_SERIAL or "?"
             )
             log.warning("AirFi Modbus ei vastaa (%s unit %s)", target, config.AIRFI_UNIT)
+        elif not airfi.ok and not airfi_poll_state.should_poll():
+            log.debug("AirFi poll ohitettu backoffin takia")
     else:
         state["airfi_online"] = False
         log.debug("AirFi Modbus pois (AIRFI_ENABLED=0)")

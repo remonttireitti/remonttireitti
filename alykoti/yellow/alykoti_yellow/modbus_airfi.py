@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
+import socket
+import time
+from dataclasses import dataclass, field
 from typing import Any, Protocol
 
 from pymodbus.client import ModbusSerialClient, ModbusTcpClient
@@ -27,8 +29,16 @@ HOLDING = {
     "fireplace": 57,
 }
 
+# Lyhyet yhteydet: vähemmän Modbus-viestejä per poll (Mille Wire -modeemi herkkä).
+_INPUT_BLOCK_START = INPUT["outdoor_temp"]
+_INPUT_BLOCK_COUNT = INPUT["fan_supply_pct"] - INPUT["outdoor_temp"] + 1
+_HOLDING_BLOCK_START = HOLDING["direct_control_enabled"]
+_HOLDING_BLOCK_COUNT = HOLDING["away_mode"] - HOLDING["direct_control_enabled"] + 1
+
 
 class _ModbusClient(Protocol):
+    socket: socket.socket | None
+
     def connect(self) -> bool: ...
     def close(self) -> None: ...
     def read_input_registers(self, address: int, *, count: int = 1, device_id: int = 1): ...
@@ -40,6 +50,44 @@ class _ModbusClient(Protocol):
 class AirfiSnapshot:
     ok: bool
     state: dict[str, Any]
+
+
+@dataclass
+class AirfiPollState:
+    """Backoff kun IV offline — vähentää modeemin kuormitusta."""
+
+    was_online: bool = False
+    fail_streak: int = 0
+    skip_until: float = field(default_factory=lambda: 0.0)
+    offline_backoff_max_sec: float = 180.0
+    offline_skip_after: int = 3
+
+    def should_poll(self, now: float | None = None) -> bool:
+        return (now or time.monotonic()) >= self.skip_until
+
+    def retry_aggressive(self) -> bool:
+        return self.was_online and self.fail_streak <= 3
+
+    def record_result(self, ok: bool, *, now: float | None = None) -> None:
+        now = now or time.monotonic()
+        if ok:
+            self.was_online = True
+            self.fail_streak = 0
+            self.skip_until = 0.0
+            return
+        self.fail_streak += 1
+        if self.retry_aggressive():
+            return
+        if self.fail_streak < self.offline_skip_after:
+            return
+        exp = min(self.fail_streak - self.offline_skip_after, 5)
+        delay = min(self.offline_backoff_max_sec, 15 * (2**exp))
+        self.skip_until = now + delay
+        log.info(
+            "AirFi offline — seuraava yritys %.0fs kuluttua (virheet=%s)",
+            delay,
+            self.fail_streak,
+        )
 
 
 def _signed16(value: int) -> int:
@@ -64,52 +112,181 @@ def _parse_pct(raw: int | None) -> int | None:
     return v
 
 
+def _enable_tcp_keepalive(sock: socket.socket) -> None:
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+    if hasattr(socket, "TCP_KEEPIDLE"):
+        sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPIDLE, 30)
+    if hasattr(socket, "TCP_KEEPINTVL"):
+        sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPINTVL, 10)
+    if hasattr(socket, "TCP_KEEPCNT"):
+        sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPCNT, 3)
+
+
+def _safe_close(client: _ModbusClient | None) -> None:
+    if client is None:
+        return
+    try:
+        client.close()
+    except Exception:
+        pass
+
+
+def _open_tcp_client(host: str, port: int, *, read_timeout: float) -> ModbusTcpClient:
+    # retries=0: ei sisäisiä uudelleenyrityksiä (modeemi jumittuu helposti).
+    return ModbusTcpClient(host, port=port, timeout=read_timeout, retries=0)
+
+
+def _open_serial_client(port: str, baud: int, *, read_timeout: float) -> ModbusSerialClient:
+    return ModbusSerialClient(
+        port=port,
+        baudrate=baud,
+        bytesize=8,
+        parity="N",
+        stopbits=1,
+        timeout=read_timeout,
+        retries=0,
+    )
+
+
+def _connect_tcp(
+    client: ModbusTcpClient,
+    *,
+    connect_timeout: float,
+    read_timeout: float,
+) -> bool:
+    client.comm_params.timeout_connect = connect_timeout
+    try:
+        if not client.connect():
+            return False
+        client.comm_params.timeout_connect = read_timeout
+        if client.socket:
+            client.socket.settimeout(read_timeout)
+            _enable_tcp_keepalive(client.socket)
+        return True
+    except OSError as exc:
+        log.debug("Modbus TCP connect failed: %s", exc)
+        return False
+
+
 def _open_client(
     *,
     host: str | None,
     port: int,
     serial: str | None,
     baud: int,
+    read_timeout: float,
 ) -> _ModbusClient | None:
     if host:
-        return ModbusTcpClient(host, port=port, timeout=3)
+        return _open_tcp_client(host, port, read_timeout=read_timeout)
     if serial:
-        return ModbusSerialClient(
-            port=serial,
-            baudrate=baud,
-            bytesize=8,
-            parity="N",
-            stopbits=1,
-            timeout=3,
-        )
+        return _open_serial_client(serial, baud, read_timeout=read_timeout)
     return None
 
 
-def _read_snapshot(client: _ModbusClient, unit: int) -> AirfiSnapshot:
-    if not client.connect():
+def _reg(block: list[int] | None, base: int, addr: int) -> int | None:
+    if not block:
+        return None
+    idx = addr - base
+    if idx < 0 or idx >= len(block):
+        return None
+    return block[idx]
+
+
+def _read_registers(
+    client: _ModbusClient,
+    unit: int,
+    *,
+    read_fn,
+    address: int,
+    count: int,
+) -> list[int] | None:
+    rr = read_fn(address, count=count, device_id=unit)
+    if rr.isError() or not rr.registers:
+        return None
+    return list(rr.registers)
+
+
+def probe_tcp(
+    host: str,
+    port: int,
+    unit: int = 1,
+    *,
+    connect_timeout: float = 3.0,
+    read_timeout: float = 3.0,
+) -> bool:
+    """Nopea TCP + yksi rekisteriluku ennen täyttä snapshotia."""
+    client = _open_tcp_client(host, port, read_timeout=read_timeout)
+    try:
+        if not _connect_tcp(client, connect_timeout=connect_timeout, read_timeout=read_timeout):
+            return False
+        regs = _read_registers(
+            client,
+            unit,
+            read_fn=client.read_input_registers,
+            address=INPUT["outdoor_temp"],
+            count=1,
+        )
+        return regs is not None
+    except Exception:
+        return False
+    finally:
+        _safe_close(client)
+
+
+def _read_snapshot(
+    client: _ModbusClient,
+    unit: int,
+    *,
+    connect_timeout: float,
+    read_timeout: float,
+    is_tcp: bool,
+) -> AirfiSnapshot:
+    if is_tcp:
+        if not _connect_tcp(
+            client,
+            connect_timeout=connect_timeout,
+            read_timeout=read_timeout,
+        ):
+            return AirfiSnapshot(ok=False, state={"airfi_online": False})
+    elif not client.connect():
         return AirfiSnapshot(ok=False, state={"airfi_online": False})
 
-    def inp(addr: int) -> int | None:
-        rr = client.read_input_registers(addr, count=1, device_id=unit)
-        if rr.isError() or not rr.registers:
-            return None
-        return rr.registers[0]
+    try:
+        inputs = _read_registers(
+            client,
+            unit,
+            read_fn=client.read_input_registers,
+            address=_INPUT_BLOCK_START,
+            count=_INPUT_BLOCK_COUNT,
+        )
+        holdings = _read_registers(
+            client,
+            unit,
+            read_fn=client.read_holding_registers,
+            address=_HOLDING_BLOCK_START,
+            count=_HOLDING_BLOCK_COUNT,
+        )
+        fireplace_regs = _read_registers(
+            client,
+            unit,
+            read_fn=client.read_holding_registers,
+            address=HOLDING["fireplace"],
+            count=1,
+        )
+    except Exception as exc:
+        log.warning("Modbus read failed: %s", exc)
+        _safe_close(client)
+        return AirfiSnapshot(ok=False, state={"airfi_online": False})
 
-    def hold(addr: int) -> int | None:
-        rr = client.read_holding_registers(addr, count=1, device_id=unit)
-        if rr.isError() or not rr.registers:
-            return None
-        return rr.registers[0]
-
-    outdoor = _parse_temp(inp(INPUT["outdoor_temp"]))
-    exhaust = _parse_temp(inp(INPUT["exhaust_temp"]))
-    exhaust_hru = _parse_temp(inp(INPUT["exhaust_hru_temp"]))
-    supply_room = _parse_temp(inp(INPUT["supply_room_temp"]))
-    fan_supply = _parse_pct(inp(INPUT["fan_supply_pct"])) or _parse_pct(
-        hold(HOLDING["supply_direct_pct"])
+    outdoor = _parse_temp(_reg(inputs, _INPUT_BLOCK_START, INPUT["outdoor_temp"]))
+    exhaust = _parse_temp(_reg(inputs, _INPUT_BLOCK_START, INPUT["exhaust_temp"]))
+    exhaust_hru = _parse_temp(_reg(inputs, _INPUT_BLOCK_START, INPUT["exhaust_hru_temp"]))
+    supply_room = _parse_temp(_reg(inputs, _INPUT_BLOCK_START, INPUT["supply_room_temp"]))
+    fan_supply = _parse_pct(_reg(inputs, _INPUT_BLOCK_START, INPUT["fan_supply_pct"])) or _parse_pct(
+        _reg(holdings, _HOLDING_BLOCK_START, HOLDING["supply_direct_pct"])
     )
-    fan_exhaust = _parse_pct(inp(INPUT["fan_exhaust_pct"])) or _parse_pct(
-        hold(HOLDING["exhaust_direct_pct"])
+    fan_exhaust = _parse_pct(_reg(inputs, _INPUT_BLOCK_START, INPUT["fan_exhaust_pct"])) or _parse_pct(
+        _reg(holdings, _HOLDING_BLOCK_START, HOLDING["exhaust_direct_pct"])
     )
 
     if outdoor is None and exhaust is None and supply_room is None:
@@ -125,37 +302,110 @@ def _read_snapshot(client: _ModbusClient, unit: int) -> AirfiSnapshot:
             "supply_room_temp_c": supply_room,
             "fan_supply_pct": fan_supply,
             "fan_exhaust_pct": fan_exhaust,
-            "direct_control": (hold(HOLDING["direct_control_enabled"]) or 0) > 0,
-            "away_mode": (hold(HOLDING["away_mode"]) or 0) > 0,
-            "fireplace_active": (hold(HOLDING["fireplace"]) or 0) > 0,
+            "direct_control": (_reg(holdings, _HOLDING_BLOCK_START, HOLDING["direct_control_enabled"]) or 0) > 0,
+            "away_mode": (_reg(holdings, _HOLDING_BLOCK_START, HOLDING["away_mode"]) or 0) > 0,
+            "fireplace_active": (fireplace_regs[0] if fireplace_regs else 0) > 0,
         },
     )
 
 
-def read_airfi_tcp(host: str, port: int, unit: int) -> AirfiSnapshot:
-    client = _open_client(host=host, port=port, serial=None, baud=9600)
-    if client is None:
-        return AirfiSnapshot(ok=False, state={"airfi_online": False})
-    try:
-        return _read_snapshot(client, unit)
-    except Exception as exc:
-        log.warning("Modbus TCP read error (%s:%s): %s", host, port, exc)
-        return AirfiSnapshot(ok=False, state={"airfi_online": False})
-    finally:
-        client.close()
+def _read_with_retries(
+    *,
+    host: str | None,
+    port: int,
+    serial: str | None,
+    baud: int,
+    unit: int,
+    connect_timeout: float,
+    read_timeout: float,
+    retry_count: int,
+    retry_delay_sec: float,
+) -> AirfiSnapshot:
+    is_tcp = bool(host)
+    attempts = max(1, retry_count + 1)
+    last = AirfiSnapshot(ok=False, state={"airfi_online": False})
+
+    for attempt in range(1, attempts + 1):
+        client = _open_client(
+            host=host,
+            port=port,
+            serial=serial,
+            baud=baud,
+            read_timeout=read_timeout,
+        )
+        if client is None:
+            return last
+        try:
+            snap = _read_snapshot(
+                client,
+                unit,
+                connect_timeout=connect_timeout,
+                read_timeout=read_timeout,
+                is_tcp=is_tcp,
+            )
+            if snap.ok:
+                return snap
+            last = snap
+        except Exception as exc:
+            log.warning(
+                "Modbus read error (yritys %s/%s): %s",
+                attempt,
+                attempts,
+                exc,
+            )
+            last = AirfiSnapshot(ok=False, state={"airfi_online": False})
+        finally:
+            _safe_close(client)
+
+        if attempt < attempts:
+            time.sleep(retry_delay_sec)
+
+    return last
 
 
-def read_airfi_serial(port: str, baud: int, unit: int) -> AirfiSnapshot:
-    client = _open_client(host=None, port=502, serial=port, baud=baud)
-    if client is None:
-        return AirfiSnapshot(ok=False, state={"airfi_online": False})
-    try:
-        return _read_snapshot(client, unit)
-    except Exception as exc:
-        log.warning("Modbus serial read error (%s): %s", port, exc)
-        return AirfiSnapshot(ok=False, state={"airfi_online": False})
-    finally:
-        client.close()
+def read_airfi_tcp(
+    host: str,
+    port: int,
+    unit: int,
+    *,
+    connect_timeout: float = 4.0,
+    read_timeout: float = 5.0,
+    retry_count: int = 0,
+    retry_delay_sec: float = 0.5,
+) -> AirfiSnapshot:
+    return _read_with_retries(
+        host=host,
+        port=port,
+        serial=None,
+        baud=9600,
+        unit=unit,
+        connect_timeout=connect_timeout,
+        read_timeout=read_timeout,
+        retry_count=retry_count,
+        retry_delay_sec=retry_delay_sec,
+    )
+
+
+def read_airfi_serial(
+    port: str,
+    baud: int,
+    unit: int,
+    *,
+    read_timeout: float = 5.0,
+    retry_count: int = 0,
+    retry_delay_sec: float = 0.5,
+) -> AirfiSnapshot:
+    return _read_with_retries(
+        host=None,
+        port=502,
+        serial=port,
+        baud=baud,
+        unit=unit,
+        connect_timeout=read_timeout,
+        read_timeout=read_timeout,
+        retry_count=retry_count,
+        retry_delay_sec=retry_delay_sec,
+    )
 
 
 def read_airfi(
@@ -165,23 +415,66 @@ def read_airfi(
     serial: str | None = None,
     baud: int = 9600,
     unit: int = 1,
+    connect_timeout: float = 4.0,
+    read_timeout: float = 5.0,
+    retry_count: int = 0,
+    retry_delay_sec: float = 0.5,
+    poll_state: AirfiPollState | None = None,
 ) -> AirfiSnapshot:
+    if poll_state is not None and not poll_state.should_poll():
+        return AirfiSnapshot(ok=False, state={"airfi_online": False})
+
+    retries = retry_count
+    if poll_state is not None and poll_state.retry_aggressive():
+        retries = max(retries, 2)
+
     if host:
-        return read_airfi_tcp(host, tcp_port, unit)
-    if serial:
-        return read_airfi_serial(serial, baud, unit)
-    log.warning("AirFi: ei host eikä serial — aseta AIRFI_MODBUS_HOST")
-    return AirfiSnapshot(ok=False, state={"airfi_online": False})
+        snap = read_airfi_tcp(
+            host,
+            tcp_port,
+            unit,
+            connect_timeout=connect_timeout,
+            read_timeout=read_timeout,
+            retry_count=retries,
+            retry_delay_sec=retry_delay_sec,
+        )
+    elif serial:
+        snap = read_airfi_serial(
+            serial,
+            baud,
+            unit,
+            read_timeout=read_timeout,
+            retry_count=retries,
+            retry_delay_sec=retry_delay_sec,
+        )
+    else:
+        log.warning("AirFi: ei host eikä serial — aseta AIRFI_MODBUS_HOST")
+        snap = AirfiSnapshot(ok=False, state={"airfi_online": False})
+
+    if poll_state is not None:
+        poll_state.record_result(snap.ok)
+    return snap
 
 
 def _write_with_client(
     client: _ModbusClient,
     unit: int,
+    *,
+    connect_timeout: float,
+    read_timeout: float,
+    is_tcp: bool,
     supply: int | None = None,
     exhaust: int | None = None,
     away: bool | None = None,
 ) -> bool:
-    if not client.connect():
+    if is_tcp:
+        if not _connect_tcp(
+            client,
+            connect_timeout=connect_timeout,
+            read_timeout=read_timeout,
+        ):
+            return False
+    elif not client.connect():
         return False
     try:
         if supply is not None and exhaust is not None:
@@ -199,7 +492,7 @@ def _write_with_client(
         log.warning("Modbus write failed: %s", exc)
         return False
     finally:
-        client.close()
+        _safe_close(client)
 
 
 def write_fan_pct(
@@ -211,11 +504,27 @@ def write_fan_pct(
     unit: int,
     supply: int,
     exhaust: int,
+    connect_timeout: float = 4.0,
+    read_timeout: float = 5.0,
 ) -> bool:
-    client = _open_client(host=host, port=tcp_port, serial=serial, baud=baud)
+    client = _open_client(
+        host=host,
+        port=tcp_port,
+        serial=serial,
+        baud=baud,
+        read_timeout=read_timeout,
+    )
     if client is None:
         return False
-    return _write_with_client(client, unit, supply=supply, exhaust=exhaust)
+    return _write_with_client(
+        client,
+        unit,
+        connect_timeout=connect_timeout,
+        read_timeout=read_timeout,
+        is_tcp=bool(host),
+        supply=supply,
+        exhaust=exhaust,
+    )
 
 
 def write_away(
@@ -226,8 +535,23 @@ def write_away(
     baud: int,
     unit: int,
     away: bool,
+    connect_timeout: float = 4.0,
+    read_timeout: float = 5.0,
 ) -> bool:
-    client = _open_client(host=host, port=tcp_port, serial=serial, baud=baud)
+    client = _open_client(
+        host=host,
+        port=tcp_port,
+        serial=serial,
+        baud=baud,
+        read_timeout=read_timeout,
+    )
     if client is None:
         return False
-    return _write_with_client(client, unit, away=away)
+    return _write_with_client(
+        client,
+        unit,
+        connect_timeout=connect_timeout,
+        read_timeout=read_timeout,
+        is_tcp=bool(host),
+        away=away,
+    )
