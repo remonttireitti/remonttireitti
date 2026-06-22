@@ -15,6 +15,11 @@ log = logging.getLogger(__name__)
 
 CONTROL_IDS = {"switch", "dimmer", "color", "lock", "relay", "fan", "cover"}
 
+# Estää Z2M "timed out after 10000ms" kun komentoja tulvii peräkkäin.
+_MIN_PUBLISH_INTERVAL_SEC = 0.45
+_last_publish: dict[str, float] = {}
+_publish_lock = threading.Lock()
+
 
 def _parse_mqtt_url(url: str) -> tuple[str, int]:
     parsed = urlparse(url)
@@ -402,6 +407,13 @@ def publish_light(
 ) -> bool:
     body = json.dumps(payload) if isinstance(payload, dict) else payload
     host, port = _parse_mqtt_url(broker_url)
+    topic_key = f"{prefix}/{light_id}"
+    now = time.monotonic()
+    with _publish_lock:
+        wait = _MIN_PUBLISH_INTERVAL_SEC - (now - _last_publish.get(topic_key, 0.0))
+        if wait > 0:
+            time.sleep(wait)
+        _last_publish[topic_key] = time.monotonic()
     client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
     try:
         client.connect(host, port, keepalive=30)

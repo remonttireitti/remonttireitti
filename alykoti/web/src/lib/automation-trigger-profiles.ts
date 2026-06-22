@@ -7,21 +7,20 @@ export const HUE_4BTN_BUTTONS = [
   { id: "down", label: "Alas" },
 ] as const;
 
-/** Automaatiolomakkeessa näytettävät toiminnot (Zigbee2MQTT: press / hold / hold_release). */
-export const HUE_4BTN_GESTURES_UI = [
+/** Kaikki Zigbee2MQTT-eleet Hue 4-painikkeelle. */
+export const HUE_4BTN_GESTURES = [
   { id: "press", label: "Painallus" },
   { id: "hold", label: "Pito" },
+  { id: "press_release", label: "Painallus päättyi" },
   { id: "hold_release", label: "Pito päättyi" },
 ] as const;
 
-export const HUE_4BTN_GESTURES = [
-  ...HUE_4BTN_GESTURES_UI,
-  { id: "press_release", label: "Painallus päättyi" },
-] as const;
+/** @deprecated käytä HUE_4BTN_GESTURES */
+export const HUE_4BTN_GESTURES_UI = HUE_4BTN_GESTURES;
 
 export type Hue4BtnButton = (typeof HUE_4BTN_BUTTONS)[number]["id"];
-export type Hue4BtnGestureUi = (typeof HUE_4BTN_GESTURES_UI)[number]["id"];
 export type Hue4BtnGesture = (typeof HUE_4BTN_GESTURES)[number]["id"];
+export type Hue4BtnGestureUi = Hue4BtnGesture;
 
 const HUE_4BTN_MODELS = new Set([
   "324131092621",
@@ -46,6 +45,11 @@ export function hueMqttAction(button: string, gesture: string): string {
   return `${button.toLowerCase()}_${g}`;
 }
 
+/** Kaikki 16 Hue MQTT -actionia (on_press … down_hold_release). */
+export const HUE_4BTN_MQTT_ACTIONS: string[] = HUE_4BTN_BUTTONS.flatMap((btn) =>
+  HUE_4BTN_GESTURES.map((g) => hueMqttAction(btn.id, g.id)),
+);
+
 export function parseHueMqttAction(
   action: string,
 ): { button: Hue4BtnButton; gesture: Hue4BtnGesture } | null {
@@ -56,6 +60,15 @@ export function parseHueMqttAction(
     button: m[1].toLowerCase() as Hue4BtnButton,
     gesture: normalizeHueGesture(m[2]),
   };
+}
+
+export function hueGestureFromParsed(
+  gesture: Hue4BtnGesture | undefined,
+): Hue4BtnGestureUi {
+  if (gesture && HUE_4BTN_GESTURES.some((g) => g.id === gesture)) {
+    return gesture;
+  }
+  return "press";
 }
 
 export function isHue4ButtonRemote(
@@ -91,13 +104,38 @@ export function triggerProfileForDevice(device: {
 }
 
 /** Yellow-yhteensopiva press-kenttä kun action on täysi Hue-merkkijono. */
-export function hueGestureToPress(gesture: Hue4BtnGesture | Hue4BtnGestureUi): "short" | "long" {
-  return gesture === "hold" || gesture === "hold_release" ? "long" : "short";
+export function hueGestureToPress(gesture: Hue4BtnGesture): "short" | "long" {
+  if (gesture === "hold") return "long";
+  return "short";
+}
+
+/** Suositeltu Hue-kaukosäätimen painike+ele toiminnolle. */
+export function recommendedHueTrigger(
+  actionType: string,
+): { button: Hue4BtnButton; gesture: Hue4BtnGesture } | null {
+  switch (actionType) {
+    case "brightness_up":
+      return { button: "up", gesture: "press" };
+    case "brightness_down":
+      return { button: "down", gesture: "press" };
+    case "color_next":
+      return { button: "on", gesture: "hold_release" };
+    case "color_prev":
+      return { button: "off", gesture: "hold_release" };
+    case "on":
+      return { button: "on", gesture: "press" };
+    case "off":
+      return { button: "off", gesture: "press" };
+    case "toggle":
+      return { button: "on", gesture: "press" };
+    default:
+      return null;
+  }
 }
 
 export function hueTriggerFields(
   button: Hue4BtnButton,
-  gesture: Hue4BtnGestureUi,
+  gesture: Hue4BtnGesture,
 ): { press: "short" | "long"; button: null; action: string } {
   return {
     press: hueGestureToPress(gesture),

@@ -26,13 +26,16 @@ import {
 } from "@/lib/automation-actions";
 import {
   HUE_4BTN_BUTTONS,
-  HUE_4BTN_GESTURES_UI,
+  HUE_4BTN_GESTURES,
+  HUE_4BTN_MQTT_ACTIONS,
+  hueGestureFromParsed,
   hueMqttActionLabel,
   hueTriggerFields,
   parseHueMqttAction,
+  recommendedHueTrigger,
   triggerProfileForDevice,
   type Hue4BtnButton,
-  type Hue4BtnGestureUi,
+  type Hue4BtnGesture,
 } from "@/lib/automation-trigger-profiles";
 import { protocolLabel } from "@/lib/device-protocol";
 import {
@@ -70,7 +73,7 @@ const EMPTY_FORM = {
   trigger_button: "",
   trigger_action: "",
   hue_button: "on" as Hue4BtnButton,
-  hue_gesture: "press" as Hue4BtnGestureUi,
+  hue_gesture: "press" as Hue4BtnGesture,
   trigger_period_id: "",
   action_type: "toggle" as AutomationActionType,
   target_ids: [] as string[],
@@ -98,12 +101,7 @@ export function AutomationPanel({
   initialTriggerAction,
 }: Props) {
   const initialHueParsed = initialTriggerAction ? parseHueMqttAction(initialTriggerAction) : null;
-  const initialHueGesture: Hue4BtnGestureUi =
-    initialHueParsed?.gesture === "hold"
-      ? "hold"
-      : initialHueParsed?.gesture === "hold_release"
-        ? "hold_release"
-        : "press";
+  const initialHueGesture = hueGestureFromParsed(initialHueParsed?.gesture);
 
   const [data, setData] = useState<AutomationsResponse | null>(null);
   const [flash, setFlash] = useState<AutomationActionState | null>(null);
@@ -215,12 +213,7 @@ export function AutomationPanel({
     }
 
     const hueParsed = rule.trigger.action ? parseHueMqttAction(rule.trigger.action) : null;
-    const hueGesture: Hue4BtnGestureUi =
-      hueParsed?.gesture === "hold"
-        ? "hold"
-        : hueParsed?.gesture === "hold_release"
-          ? "hold_release"
-          : "press";
+    const hueGesture = hueGestureFromParsed(hueParsed?.gesture);
 
     setForm({
       id: rule.id,
@@ -393,8 +386,30 @@ export function AutomationPanel({
               {triggerProfile === "hue_4btn" ? (
                 <>
                   <p className="sm:col-span-2 text-xs text-stone-600">
-                    Philips Hue -ohjain — valitse painike ja toiminto (ei tarvitse arpoa MQTT-actionia).
+                    Philips Hue 4-painike — kaikki Zigbee2MQTT-actionit (on_press … down_hold_release).
                   </p>
+                  <label className="block sm:col-span-2">
+                    <span className="text-sm font-medium text-stone-700">MQTT-action</span>
+                    <select
+                      value={hueTriggerFields(form.hue_button, form.hue_gesture).action}
+                      onChange={(e) => {
+                        const parsed = parseHueMqttAction(e.target.value);
+                        if (!parsed) return;
+                        setForm((f) => ({
+                          ...f,
+                          hue_button: parsed.button,
+                          hue_gesture: parsed.gesture,
+                        }));
+                      }}
+                      className="mt-1 w-full rounded-xl border border-stone-200 px-3 py-2 text-sm font-mono"
+                    >
+                      {HUE_4BTN_MQTT_ACTIONS.map((action) => (
+                        <option key={action} value={action}>
+                          {action} — {hueMqttActionLabel(action)}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
                   <label className="block">
                     <span className="text-sm font-medium text-stone-700">Painike</span>
                     <select
@@ -415,30 +430,24 @@ export function AutomationPanel({
                     </select>
                   </label>
                   <label className="block">
-                    <span className="text-sm font-medium text-stone-700">Toiminto</span>
+                    <span className="text-sm font-medium text-stone-700">Ele</span>
                     <select
                       value={form.hue_gesture}
                       onChange={(e) =>
                         setForm((f) => ({
                           ...f,
-                          hue_gesture: e.target.value as Hue4BtnGestureUi,
+                          hue_gesture: e.target.value as Hue4BtnGesture,
                         }))
                       }
                       className="mt-1 w-full rounded-xl border border-stone-200 px-3 py-2 text-sm"
                     >
-                      {HUE_4BTN_GESTURES_UI.map((g) => (
+                      {HUE_4BTN_GESTURES.map((g) => (
                         <option key={g.id} value={g.id}>
                           {g.label}
                         </option>
                       ))}
                     </select>
                   </label>
-                  <p className="sm:col-span-2 text-xs text-stone-500">
-                    Tallennetaan:{" "}
-                    <code className="font-mono">
-                      {hueTriggerFields(form.hue_button, form.hue_gesture).action}
-                    </code>
-                  </p>
                 </>
               ) : (
                 <>
@@ -518,9 +527,20 @@ export function AutomationPanel({
             <span className="text-sm font-medium text-stone-700">Toiminto</span>
             <select
               value={form.action_type}
-              onChange={(e) =>
-                setForm((f) => ({ ...f, action_type: e.target.value as AutomationActionType }))
-              }
+              onChange={(e) => {
+                const action_type = e.target.value as AutomationActionType;
+                setForm((f) => {
+                  const next = { ...f, action_type };
+                  if (triggerProfile === "hue_4btn") {
+                    const rec = recommendedHueTrigger(action_type);
+                    if (rec) {
+                      next.hue_button = rec.button;
+                      next.hue_gesture = rec.gesture;
+                    }
+                  }
+                  return next;
+                });
+              }}
               className="mt-1 w-full rounded-xl border border-stone-200 px-3 py-2 text-sm"
             >
               {allowedActions.map((key) => (

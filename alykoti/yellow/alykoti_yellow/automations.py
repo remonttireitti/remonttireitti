@@ -6,6 +6,7 @@ import json
 import logging
 import re
 import threading
+import time
 from collections import deque
 from datetime import datetime, timezone
 from typing import Any
@@ -96,6 +97,9 @@ COLOR_PRESETS = [
 ]
 
 BRIGHTNESS_STEP = 40
+COMMAND_COOLDOWN_SEC = 0.5
+COLOR_COOLDOWN_SEC = 0.9
+MULTI_TARGET_DELAY_SEC = 0.2
 
 
 def _press_aliases(press: str) -> frozenset[str]:
@@ -165,7 +169,7 @@ def _hue_gesture_matches_press(gesture: str, press: str) -> bool:
     if press == "short":
         return gesture in ("press", "press_release")
     if press == "long":
-        return gesture in ("hold", "hold_release")
+        return gesture == "hold"
     if press == "double":
         return False
     return False
@@ -226,6 +230,7 @@ class AutomationEngine:
         self._home_devices: dict[str, Any] = {}
         self._light_state: dict[str, dict[str, Any]] = {}
         self._color_index: dict[str, int] = {}
+        self._command_cooldown: dict[str, float] = {}
         self._lock = threading.Lock()
         self._events: deque[dict[str, Any]] = deque(maxlen=60)
         self._device_events: dict[str, deque[dict[str, Any]]] = {}
@@ -365,8 +370,6 @@ class AutomationEngine:
                 client.loop_forever()
             except Exception as exc:
                 log.warning("Automaatio MQTT yhteys katkesi: %s", exc)
-                import time
-
                 time.sleep(5)
 
     def _handle_action(self, device_key: str, action: str, button: str | None) -> None:
@@ -436,8 +439,20 @@ class AutomationEngine:
                 action_type,
                 len(targets),
             )
-            for target_id in targets:
+            for i, target_id in enumerate(targets):
                 if isinstance(target_id, str):
+                    if i > 0:
+                        time.sleep(MULTI_TARGET_DELAY_SEC)
+                    if self._command_on_cooldown(target_id, action_type):
+                        self._log_event(
+                            "skipped",
+                            rule_id=rule_id,
+                            rule_name=rule_name,
+                            target_id=target_id,
+                            action_type=action_type,
+                            message="Ohitettu — liian monta komentoa peräkkäin",
+                        )
+                        continue
                     self._log_event(
                         "command_sent",
                         rule_id=rule_id,
@@ -468,6 +483,22 @@ class AutomationEngine:
     def _get_light_state(self, device_id: str) -> dict[str, Any]:
         with self._lock:
             return dict(self._light_state.get(device_id, {"on": False, "brightness": 128}))
+
+    def _command_on_cooldown(self, device_id: str, action_type: str) -> bool:
+        """Estää Zigbee2MQTT-timeoutit kun komentoja tulee liikaa."""
+        now = time.monotonic()
+        cooldown = (
+            COLOR_COOLDOWN_SEC
+            if action_type in ("color_next", "color_prev")
+            else COMMAND_COOLDOWN_SEC
+        )
+        key = f"{device_id}:{action_type}"
+        with self._lock:
+            last = self._command_cooldown.get(key, 0.0)
+            if now - last < cooldown:
+                return True
+            self._command_cooldown[key] = now
+        return False
 
     def _set_light_state(self, device_id: str, on: bool, brightness: int | None = None) -> None:
         with self._lock:

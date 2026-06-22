@@ -26,8 +26,9 @@ function pressForAction(action: string): AutomationPressType | undefined {
   const normalized = action.trim().replace(/-/g, "_");
   const hue = parseHueMqttAction(normalized);
   if (hue) {
-    if (hue.gesture === "hold" || hue.gesture === "hold_release") return "long";
-    if (hue.gesture === "press" || hue.gesture === "press_release") return "short";
+    if (hue.gesture === "hold") return "long";
+    if (hue.gesture === "hold_release" || hue.gesture === "press_release") return "short";
+    if (hue.gesture === "press") return "short";
   }
   const a = normalized.toLowerCase();
   if (SHORT_PRESS_ACTIONS.has(a)) return "short";
