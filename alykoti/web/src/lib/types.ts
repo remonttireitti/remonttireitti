@@ -1,4 +1,5 @@
 import type { AutomationActionType, AutomationPressType, AutomationRule } from "@/lib/automation";
+import type { AutomationEvent } from "@/lib/automation-events";
 import type { ElectricityPricePeriod } from "@/lib/electricity-price-periods";
 
 export type HubControlMode = "auto" | "manual" | "fireplace" | "hood";
@@ -271,6 +272,15 @@ export type HubState = {
   automations?: AutomationRule[];
   /** Sähköhinta-automaatioiden viimeisin laukaisu (slot-avaimet) */
   automation_price_fires?: Record<string, string>;
+  /** Yellow automaatiomoottorin viimeisimmät tapahtumat (synkki → web) */
+  automation_events?: AutomationEvent[];
+  /** Yellow MQTT: viimeisimmät laitetapahtumat device_id → lista */
+  device_live_events?: Record<string, Array<{
+    at: string;
+    action?: string | null;
+    button?: string | null;
+    raw: Record<string, unknown>;
+  }>>;
   /** Yellow-verkkoscanin löytämät Shellyt. */
   shelly_discovered?: ShellyDiscoveredDevice[];
   /** Yellow-verkkoscanin löytämät Tasmota-laitteet. */

@@ -4,7 +4,10 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import threading
+from collections import deque
+from datetime import datetime, timezone
 from typing import Any
 
 import paho.mqtt.client as mqtt
@@ -116,6 +119,38 @@ def _match_button(incoming_button: str | None, rule_button: str | None) -> bool:
     return incoming_button.strip().casefold() == rule_button.strip().casefold()
 
 
+def _button_index(button: str | None) -> str | None:
+    if not button:
+        return None
+    m = re.match(r"button_(\d+)", button.strip(), re.I)
+    return m.group(1) if m else None
+
+
+def _match_rule_action(
+    incoming: str,
+    button: str | None,
+    press: str,
+    rule_action: str | None,
+) -> bool:
+    """Täsmää action ja painallustyyppi — tukee 2_click, button_2 + click jne."""
+    action = incoming.strip().casefold()
+    if not action:
+        return False
+
+    if rule_action and str(rule_action).strip():
+        ra = str(rule_action).strip().casefold()
+        if action == ra:
+            return True
+        idx = _button_index(button)
+        if idx and action == f"{idx}_{ra}":
+            return True
+        if action.endswith(f"_{ra}"):
+            return True
+        return False
+
+    return _match_action(action, press)
+
+
 class AutomationEngine:
     """Kuuntelee Zigbee2MQTT action-viestejä ja suorittaa säännöt."""
 
@@ -126,8 +161,50 @@ class AutomationEngine:
         self._light_state: dict[str, dict[str, Any]] = {}
         self._color_index: dict[str, int] = {}
         self._lock = threading.Lock()
+        self._events: deque[dict[str, Any]] = deque(maxlen=60)
+        self._device_events: dict[str, deque[dict[str, Any]]] = {}
         self._client: mqtt.Client | None = None
         self._thread: threading.Thread | None = None
+
+    def _log_event(self, stage: str, **fields: Any) -> None:
+        entry: dict[str, Any] = {
+            "at": datetime.now(timezone.utc).isoformat(),
+            "stage": stage,
+            **{k: v for k, v in fields.items() if v is not None},
+        }
+        with self._lock:
+            self._events.appendleft(entry)
+
+    def get_events(self) -> list[dict[str, Any]]:
+        with self._lock:
+            return list(self._events)
+
+    def _record_device_event(
+        self,
+        device_key: str,
+        payload: dict[str, Any],
+        *,
+        action: str | None = None,
+        button: str | None = None,
+    ) -> None:
+        raw: dict[str, Any] = {}
+        for key in ("action", "button", "state", "brightness", "color", "click"):
+            if key in payload:
+                raw[key] = payload[key]
+        entry = {
+            "at": datetime.now(timezone.utc).isoformat(),
+            "action": action,
+            "button": button,
+            "raw": raw,
+        }
+        with self._lock:
+            if device_key not in self._device_events:
+                self._device_events[device_key] = deque(maxlen=40)
+            self._device_events[device_key].appendleft(entry)
+
+    def get_device_events(self) -> dict[str, list[dict[str, Any]]]:
+        with self._lock:
+            return {k: list(v) for k, v in self._device_events.items()}
 
     def update_config(
         self,
@@ -193,10 +270,17 @@ class AutomationEngine:
                 action = str(payload.get("action", ""))
                 button = payload.get("button")
                 button_str = str(button) if button is not None else None
+                self._record_device_event(
+                    device_key,
+                    payload,
+                    action=action,
+                    button=button_str,
+                )
                 self._handle_action(device_key, action, button_str)
                 return
 
             if "state" in payload or "brightness" in payload:
+                self._record_device_event(device_key, payload)
                 with self._lock:
                     st = self._light_state.setdefault(device_key, {"on": False, "brightness": 128})
                     if "state" in payload:
@@ -222,6 +306,22 @@ class AutomationEngine:
     def _handle_action(self, device_key: str, action: str, button: str | None) -> None:
         with self._lock:
             rules = list(self._rules)
+        device_rules = [
+            r
+            for r in rules
+            if isinstance(r.get("trigger"), dict)
+            and r["trigger"].get("device_id") == device_key
+        ]
+        if device_rules:
+            self._log_event(
+                "mqtt",
+                device_id=device_key,
+                mqtt_action=action,
+                mqtt_button=button,
+                message="Painike / action vastaanotettu",
+            )
+
+        matched_any = False
         for rule in rules:
             trigger = rule.get("trigger") if isinstance(rule.get("trigger"), dict) else {}
             if trigger.get("device_id") != device_key:
@@ -231,10 +331,7 @@ class AutomationEngine:
             rule_button_str = str(rule_button) if isinstance(rule_button, str) and rule_button.strip() else None
             rule_action = trigger.get("action")
             rule_action_str = str(rule_action) if isinstance(rule_action, str) and rule_action.strip() else None
-            if rule_action_str:
-                if action.strip().casefold() != rule_action_str.strip().casefold():
-                    continue
-            elif not _match_action(action, press):
+            if not _match_rule_action(action, button, press, rule_action_str):
                 continue
             if not _match_button(button, rule_button_str):
                 continue
@@ -243,6 +340,19 @@ class AutomationEngine:
             if not isinstance(targets, list):
                 continue
             action_type = str(act.get("type", ""))
+            rule_id = str(rule.get("id", "")) or None
+            rule_name = str(rule.get("name", "")) or None
+            matched_any = True
+            self._log_event(
+                "triggered",
+                rule_id=rule_id,
+                rule_name=rule_name,
+                device_id=device_key,
+                mqtt_action=action,
+                mqtt_button=button,
+                action_type=action_type,
+                message=f"{len(targets)} kohdetta",
+            )
             log.info(
                 "Automaatio: %s action=%s → %s (%s kohdetta)",
                 device_key,
@@ -252,7 +362,32 @@ class AutomationEngine:
             )
             for target_id in targets:
                 if isinstance(target_id, str):
-                    self._execute_target(target_id, action_type, act)
+                    self._log_event(
+                        "command_sent",
+                        rule_id=rule_id,
+                        rule_name=rule_name,
+                        target_id=target_id,
+                        action_type=action_type,
+                        message="Lähetetään MQTT/HTTP",
+                    )
+                    ok = self._execute_target(target_id, action_type, act)
+                    self._log_event(
+                        "ok" if ok else "failed",
+                        rule_id=rule_id,
+                        rule_name=rule_name,
+                        target_id=target_id,
+                        action_type=action_type,
+                        message="OK" if ok else "Ohjaus epäonnistui",
+                    )
+
+        if device_rules and not matched_any:
+            self._log_event(
+                "no_match",
+                device_id=device_key,
+                mqtt_action=action,
+                mqtt_button=button,
+                message="Ei täsmäävää sääntöä — tarkista action ja painike",
+            )
 
     def _get_light_state(self, device_id: str) -> dict[str, Any]:
         with self._lock:
@@ -265,37 +400,32 @@ class AutomationEngine:
             if brightness is not None:
                 st["brightness"] = brightness
 
-    def _execute_target(self, device_id: str, action_type: str, act: dict[str, Any]) -> None:
+    def _execute_target(self, device_id: str, action_type: str, act: dict[str, Any]) -> bool:
         st = self._get_light_state(device_id)
         brightness = int(st.get("brightness") or 128)
         on = bool(st.get("on"))
 
         if action_type == "on":
-            self._apply(device_id, True, brightness if brightness > 0 else 200)
-            return
+            return self._apply(device_id, True, brightness if brightness > 0 else 200)
         if action_type == "off":
-            self._apply(device_id, False, brightness)
-            return
+            return self._apply(device_id, False, brightness)
         if action_type == "toggle":
-            self._apply(device_id, not on, brightness if not on else max(brightness, 40))
-            return
+            return self._apply(device_id, not on, brightness if not on else max(brightness, 40))
         if action_type == "brightness_up":
-            self._apply(device_id, True, min(254, brightness + BRIGHTNESS_STEP))
-            return
+            return self._apply(device_id, True, min(254, brightness + BRIGHTNESS_STEP))
         if action_type == "brightness_down":
             new_b = max(0, brightness - BRIGHTNESS_STEP)
-            self._apply(device_id, new_b > 0, new_b)
-            return
+            return self._apply(device_id, new_b > 0, new_b)
         if action_type == "set_brightness":
             pct = act.get("brightness_pct")
             if isinstance(pct, (int, float)):
                 b = max(0, min(254, int(round(float(pct) / 100 * 254))))
-                self._apply(device_id, b > 0, b)
-            return
+                return self._apply(device_id, b > 0, b)
+            return False
         if action_type in ("color_next", "color_prev"):
             if not device_id.startswith("zigbee:"):
                 log.debug("Värin vaihto vain Zigbee-valoille: %s", device_id)
-                return
+                return False
             zigbee_name = device_id.removeprefix("zigbee:")
             with self._lock:
                 idx = self._color_index.get(device_id, 0)
@@ -314,23 +444,23 @@ class AutomationEngine:
             )
             if ok:
                 self._set_light_state(device_id, True, brightness)
-            return
+            return ok
 
         if action_type in ("lock", "unlock", "toggle_lock"):
             locked = action_type == "lock"
             if action_type == "toggle_lock":
                 meta = self._home_devices.get(device_id)
                 locked = not bool(isinstance(meta, dict) and meta.get("locked"))
-            self._apply_lock(device_id, locked)
-            return
+            return self._apply_lock(device_id, locked)
 
         log.warning("Tuntematon automaatiotoiminto: %s", action_type)
+        return False
 
-    def _apply_lock(self, device_id: str, locked: bool) -> None:
+    def _apply_lock(self, device_id: str, locked: bool) -> bool:
         topic = self._lock_topic(device_id)
         if not topic:
             log.warning("Lukon ohjaus: ei lock_set_topic (%s)", device_id)
-            return
+            return False
         ok = set_zwave_lock(config.MQTT_URL, topic, locked)
         if ok:
             with self._lock:
@@ -340,8 +470,9 @@ class AutomationEngine:
             if isinstance(meta, dict):
                 meta["locked"] = locked
                 meta["on"] = locked
+        return ok
 
-    def _apply(self, device_id: str, on: bool, brightness: int) -> None:
+    def _apply(self, device_id: str, on: bool, brightness: int) -> bool:
         ok = False
         if device_id.startswith("zigbee:"):
             zigbee_name = device_id.removeprefix("zigbee:")
@@ -366,6 +497,7 @@ class AutomationEngine:
 
         if ok:
             self._set_light_state(device_id, on, brightness if on else brightness)
+        return ok
 
     def _zwave_topic(self, device_id: str) -> str | None:
         meta = self._home_devices.get(device_id)

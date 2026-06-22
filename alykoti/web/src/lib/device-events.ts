@@ -148,3 +148,30 @@ export function triggerHintToAutomationFields(hint: DeviceEventTriggerHint): {
     action: hint.action ?? null,
   };
 }
+
+/** Yellow synkki → DeviceLiveEvent (ei vaadi suoraa MQTT-yhteyttä Vercelistä). */
+export function hubDeviceEventsToLive(
+  raw: unknown,
+  deviceId: string,
+): DeviceLiveEvent[] {
+  if (!raw || typeof raw !== "object") return [];
+  const bucket = (raw as Record<string, unknown>)[deviceId];
+  if (!Array.isArray(bucket)) return [];
+  const out: DeviceLiveEvent[] = [];
+  for (const item of bucket) {
+    if (!item || typeof item !== "object") continue;
+    const row = item as Record<string, unknown>;
+    const payload =
+      row.raw && typeof row.raw === "object" && !Array.isArray(row.raw)
+        ? (row.raw as Record<string, unknown>)
+        : {};
+    if (typeof row.action === "string") payload.action = row.action;
+    if (typeof row.button === "string") payload.button = row.button;
+    const at = typeof row.at === "string" ? row.at : new Date().toISOString();
+    const evt = formatZigbeeEvent(payload);
+    if (evt) {
+      out.push({ ...evt, at, topic: "yellow/hub" });
+    }
+  }
+  return out;
+}

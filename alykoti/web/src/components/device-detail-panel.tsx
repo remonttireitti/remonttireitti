@@ -50,8 +50,25 @@ export function DeviceDetailPanel({ protocol, deviceIdParam }: Props) {
         setError("Laitetta ei löydy.");
         return;
       }
-      const json = (await res.json()) as { device: HubLightDevice };
+      const json = (await res.json()) as {
+        device: HubLightDevice;
+        recentEvents?: DeviceLiveEvent[];
+      };
       setDevice(json.device);
+      if (json.recentEvents?.length) {
+        setEvents((prev) => {
+          const merged = [...json.recentEvents!, ...prev];
+          const seen = new Set<string>();
+          return merged
+            .filter((e) => {
+              const key = `${e.at}:${e.label}`;
+              if (seen.has(key)) return false;
+              seen.add(key);
+              return true;
+            })
+            .slice(0, 80);
+        });
+      }
       if (json.device.brightness != null) {
         setBrightness(Math.round((json.device.brightness / 254) * 100));
       }
@@ -63,7 +80,7 @@ export function DeviceDetailPanel({ protocol, deviceIdParam }: Props) {
 
   useEffect(() => {
     void loadDevice();
-    const id = setInterval(() => void loadDevice(), 10_000);
+    const id = setInterval(() => void loadDevice(), 5_000);
     return () => clearInterval(id);
   }, [loadDevice]);
 
@@ -85,7 +102,7 @@ export function DeviceDetailPanel({ protocol, deviceIdParam }: Props) {
     });
 
     source.addEventListener("error", () => {
-      setError((prev) => prev ?? "Live-yhteys katkesi — tarkista MQTT-asetukset.");
+      /* Yellow-synkki tuo tapahtumat ilman suoraa MQTT:ää */
     });
 
     return () => source.close();
@@ -247,11 +264,11 @@ export function DeviceDetailPanel({ protocol, deviceIdParam }: Props) {
       <section className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
         <div className="flex items-center justify-between gap-3">
           <h3 className="text-lg font-semibold text-stone-900">Live-tapahtumat</h3>
-          <span className="text-xs text-stone-500">MQTT · reaaliaikainen</span>
+          <span className="text-xs text-stone-500">Yellow · ~30 s</span>
         </div>
         <p className="mt-1 text-sm text-stone-600">
-          Paina laitteen nappia tai odota anturipäivityksiä — käytä alla olevia arvoja automaation
-          laukaisimena.
+          Paina nappia — Yellow kuuntelee MQTT:ää paikallisesti ja synkkaa tapahtumat tänne. Käytä
+          alla olevia arvoja automaation laukaisimena.
         </p>
 
         {isButton && (
@@ -272,7 +289,9 @@ export function DeviceDetailPanel({ protocol, deviceIdParam }: Props) {
         )}
 
         {events.length === 0 ? (
-          <p className="mt-4 text-sm text-stone-500">Ei tapahtumia vielä — odota MQTT-viestejä.</p>
+          <p className="mt-4 text-sm text-stone-500">
+            Ei tapahtumia vielä — paina laitteen nappia ja odota synkkiä (~30 s).
+          </p>
         ) : (
           <ul className="mt-4 max-h-96 space-y-2 overflow-y-auto">
             {events.map((evt, i) => {

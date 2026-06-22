@@ -325,6 +325,9 @@ def build_state(
     if tasmota_discovered:
         state["tasmota_discovered"] = tasmota_discovered
 
+    state["automation_events"] = get_engine().get_events()
+    state["device_live_events"] = get_engine().get_device_events()
+
     return state
 
 

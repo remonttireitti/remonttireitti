@@ -18,6 +18,7 @@ import { recordHubMetrics } from "@/lib/metric-samples";
 import { activeTimedMode, effectiveControlMode, expireTimedModes, formatRemaining, remainingMs } from "@/lib/mode-schedule";
 import { getCo2Band, getCo2BandLabel, type AutoFanInputs } from "@/lib/ventilation-logic";
 import { enrichLtoFromHubState } from "@/lib/lto-efficiency";
+import { normalizeAutomationEvents } from "@/lib/automation-events";
 import { parseHubConfig } from "@/lib/hubs";
 import {
   type DeviceSyncRequest,
@@ -143,6 +144,14 @@ export async function syncDevice(
 
   if (body.state?.home_devices && typeof body.state.home_devices === "object") {
     mergedState.home_devices = body.state.home_devices;
+  }
+
+  if (Array.isArray(body.state?.automation_events)) {
+    mergedState.automation_events = normalizeAutomationEvents(body.state.automation_events);
+  }
+
+  if (body.state?.device_live_events && typeof body.state.device_live_events === "object") {
+    mergedState.device_live_events = body.state.device_live_events as HubState["device_live_events"];
   }
 
   const airthingsState = await fetchAirthingsState();

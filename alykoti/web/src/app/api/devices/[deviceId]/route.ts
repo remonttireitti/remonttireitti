@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { hubDeviceEventsToLive } from "@/lib/device-events";
 import { inferProtocolFromId } from "@/lib/device-protocol";
 import { parseHubHomeDevices } from "@/lib/hub-lights";
 import { fetchPrimaryHub } from "@/lib/hubs";
@@ -56,5 +57,6 @@ export async function GET(
     configured: true,
     device,
     hubOnline: hub.last_seen_at != null,
+    recentEvents: hubDeviceEventsToLive(hub.state?.device_live_events, fullId),
   });
 }

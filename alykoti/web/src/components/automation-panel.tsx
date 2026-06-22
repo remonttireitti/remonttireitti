@@ -32,6 +32,11 @@ import {
 import type { HubLightDevice } from "@/lib/hub-lights";
 import type { ElectricityPricePeriod } from "@/lib/electricity-price-periods";
 import { ElectricityPricePeriodsPanel } from "@/components/electricity-price-periods-panel";
+import {
+  AUTOMATION_STAGE_LABELS,
+  formatAutomationEventTime,
+  type AutomationEvent,
+} from "@/lib/automation-events";
 
 type AutomationsResponse = {
   configured: boolean;
@@ -41,6 +46,7 @@ type AutomationsResponse = {
   targets: AutomationTargetGroups;
   devices: HubLightDevice[];
   electricityPricePeriods: ElectricityPricePeriod[];
+  automationEvents?: AutomationEvent[];
   error?: string;
 };
 
@@ -89,6 +95,7 @@ export function AutomationPanel({
     trigger_action: initialTriggerAction ?? "",
   });
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [trackRuleId, setTrackRuleId] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
   const load = useCallback(async () => {
@@ -207,6 +214,7 @@ export function AutomationPanel({
   const triggers = data?.triggers ?? [];
   const targets = data?.targets ?? { lights: [], switches: [], locks: [], other: [] };
   const periods = data?.electricityPricePeriods ?? [];
+  const automationEvents = data?.automationEvents ?? [];
   const targetCount =
     targets.lights.length + targets.switches.length + targets.locks.length + targets.other.length;
 
@@ -234,6 +242,24 @@ export function AutomationPanel({
           sähköhinta-automaatiot ajetaan pilvestä.
         </div>
       )}
+
+      <section className="rounded-2xl border border-blue-200 bg-blue-50/80 p-4 text-sm text-blue-950">
+        <p className="font-semibold">Miten automaatiot toimivat</p>
+        <ul className="mt-2 list-inside list-disc space-y-1 text-blue-900/90">
+          <li>
+            <strong>Laite (Zigbee painike):</strong> säännöt tallennetaan Supabaseen (web UI). Yellow
+            hakee ne ~30 s välein synkissä ja suorittaa <em>paikallisesti MQTT:stä</em> — painallus ei
+            kulje webin kautta.
+          </li>
+          <li>
+            <strong>Sähkön hinta:</strong> pilven cron laukaisee säännöt (ei Yellowia).
+          </li>
+          <li>
+            Sääntöjä voi muokata vain webistä; Yellow vain lukee listan. Seuranta näkyy alla kun painat
+            nappia.
+          </li>
+        </ul>
+      </section>
 
       <ElectricityPricePeriodsPanel periods={periods} />
 
@@ -489,6 +515,60 @@ export function AutomationPanel({
       </section>
 
       <section className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-lg font-semibold text-stone-900">Seuranta</h2>
+          {trackRuleId && (
+            <button
+              type="button"
+              onClick={() => setTrackRuleId(null)}
+              className="text-xs font-medium text-stone-600 hover:text-stone-900"
+            >
+              Näytä kaikki
+            </button>
+          )}
+        </div>
+        <p className="mt-1 text-sm text-stone-600">
+          Yellow raportoi tapahtumat synkissä (~30 s). Paina säännön kohdalla Seuranta suodattaaksesi.
+        </p>
+        {automationEvents.length === 0 ? (
+          <p className="mt-3 text-sm text-stone-500">
+            Ei tapahtumia vielä. Paina Zigbee-nappia tai odota Yellow-päivitystä.
+          </p>
+        ) : (
+          <ul className="mt-3 max-h-64 space-y-1.5 overflow-y-auto text-xs">
+            {automationEvents
+              .filter((e) => !trackRuleId || e.rule_id === trackRuleId)
+              .map((e, i) => (
+                <li
+                  key={`${e.at}-${i}`}
+                  className={`flex flex-wrap items-baseline gap-x-2 rounded-lg px-2 py-1.5 ${
+                    e.stage === "failed" || e.stage === "no_match"
+                      ? "bg-amber-50 text-amber-950"
+                      : e.stage === "ok"
+                        ? "bg-emerald-50 text-emerald-950"
+                        : "bg-stone-50 text-stone-800"
+                  }`}
+                >
+                  <span className="tabular-nums text-stone-500">{formatAutomationEventTime(e.at)}</span>
+                  <span className="font-semibold">{AUTOMATION_STAGE_LABELS[e.stage]}</span>
+                  {e.rule_name && <span>{e.rule_name}</span>}
+                  {e.mqtt_action && (
+                    <span className="font-mono text-stone-600">
+                      {e.mqtt_button ? `${e.mqtt_button} · ` : ""}
+                      action:{e.mqtt_action}
+                    </span>
+                  )}
+                  {e.target_id && (
+                    <span className="truncate text-stone-600">→ {deviceLabel(e.target_id)}</span>
+                  )}
+                  {e.message && <span className="text-stone-500">{e.message}</span>}
+                </li>
+              ))}
+          </ul>
+        )}
+      </section>
+
+      <section className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
         <h2 className="text-lg font-semibold text-stone-900">Säännöt ({rules.length})</h2>
         {rules.length === 0 ? (
           <p className="mt-3 text-sm text-stone-600">Ei automaatioita vielä.</p>
@@ -527,6 +607,17 @@ export function AutomationPanel({
                       />
                       Käytössä
                     </label>
+                    <button
+                      type="button"
+                      onClick={() => setTrackRuleId(trackRuleId === rule.id ? null : rule.id)}
+                      className={`rounded-lg border px-2.5 py-1 text-xs font-medium ${
+                        trackRuleId === rule.id
+                          ? "border-blue-300 bg-blue-50 text-blue-900"
+                          : "border-stone-200 hover:bg-white"
+                      }`}
+                    >
+                      Seuranta
+                    </button>
                     <button
                       type="button"
                       onClick={() => editRule(rule)}
