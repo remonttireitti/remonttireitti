@@ -1,10 +1,11 @@
 import { parseHueMqttAction, hueMqttActionLabel } from "@/lib/automation-trigger-profiles";
 import {
-  actionsForPress,
-  DOUBLE_PRESS_ACTIONS,
-  LONG_PRESS_ACTIONS,
+  labelTriggerAction,
+  triggerButtonForAction,
+  triggerPressForAction,
+} from "@/lib/automation-trigger-catalog";
+import {
   PRESS_LABELS,
-  SHORT_PRESS_ACTIONS,
   type AutomationPressType,
 } from "@/lib/automation";
 
@@ -23,26 +24,7 @@ export type DeviceLiveEvent = {
 };
 
 function pressForAction(action: string): AutomationPressType | undefined {
-  const normalized = action.trim().replace(/-/g, "_");
-  const hue = parseHueMqttAction(normalized);
-  if (hue) {
-    if (hue.gesture === "hold") return "long";
-    if (hue.gesture === "hold_release" || hue.gesture === "press_release") return "short";
-    if (hue.gesture === "press") return "short";
-  }
-  const a = normalized.toLowerCase();
-  if (SHORT_PRESS_ACTIONS.has(a)) return "short";
-  if (LONG_PRESS_ACTIONS.has(a)) return "long";
-  if (DOUBLE_PRESS_ACTIONS.has(a)) return "double";
-  for (const press of ["short", "long", "double"] as AutomationPressType[]) {
-    const aliases = actionsForPress(press);
-    for (const alias of aliases) {
-      if (a === alias || a.endsWith(`_${alias}`) || a.startsWith(`${alias}_`)) {
-        return press;
-      }
-    }
-  }
-  return undefined;
+  return triggerPressForAction(action);
 }
 
 function formatValue(key: string, value: unknown): string {
@@ -130,24 +112,48 @@ export function formatZigbeeEvent(payload: Record<string, unknown>): DeviceLiveE
 export function formatZwaveEvent(topic: string, value: unknown): DeviceLiveEvent | null {
   const at = new Date().toISOString();
   const segments = topic.split("/");
-  const prop = segments.length >= 2 ? segments[segments.length - 2] : "value";
-  const label = `${prop}: ${formatValue(prop, value)}`;
+  const epSeg = segments.length >= 2 ? segments[segments.length - 2] : null;
+  const endpoint = epSeg && /^\d+$/.test(epSeg) ? Number.parseInt(epSeg, 10) : null;
+  const on =
+    value === true ||
+    value === 1 ||
+    value === "true" ||
+    value === "1" ||
+    value === "on" ||
+    value === "ON";
+  const off =
+    value === false ||
+    value === 0 ||
+    value === "false" ||
+    value === "0" ||
+    value === "off" ||
+    value === "OFF";
+
+  let action: string | undefined;
+  if (on) {
+    action = endpoint != null ? `ep${endpoint}_on` : "on";
+  } else if (off) {
+    action = endpoint != null ? `ep${endpoint}_off` : "off";
+  } else if (typeof value === "string" && value.trim()) {
+    action = value.trim().replace(/-/g, "_");
+  }
+
+  const label = action
+    ? labelTriggerAction(action)
+    : `${segments[segments.length - 3] ?? "value"}: ${formatValue("value", value)}`;
 
   const hint: DeviceEventTriggerHint = {};
-  const v = String(value).toLowerCase();
-  if (v === "true" || v === "1" || v === "on") {
-    hint.action = "on";
-    hint.press = "short";
-  } else if (v === "false" || v === "0" || v === "off") {
-    hint.action = "off";
-    hint.press = "short";
+  if (action) {
+    hint.action = action;
+    hint.press = triggerPressForAction(action);
+    if (endpoint != null) hint.button = String(endpoint);
   }
 
   return {
     at,
     label,
     topic,
-    raw: { value },
+    raw: { value, endpoint },
     triggerHint: Object.keys(hint).length ? hint : undefined,
   };
 }
@@ -157,10 +163,11 @@ export function triggerHintToAutomationFields(hint: DeviceEventTriggerHint): {
   button: string | null;
   action: string | null;
 } {
+  const action = hint.action ?? null;
   return {
-    press: hint.press ?? "short",
-    button: hint.button ?? null,
-    action: hint.action ?? null,
+    press: hint.press ?? (action ? triggerPressForAction(action) : "short"),
+    button: hint.button ?? (action ? triggerButtonForAction(action) : null),
+    action,
   };
 }
 

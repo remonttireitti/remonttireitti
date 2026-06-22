@@ -127,6 +127,16 @@ export function mqttActionLabel(action: string): string {
   const hue = parseHueMqttAction(action);
   if (hue) return hueMqttActionLabel(action);
   const a = action.toLowerCase();
+  if (/^ep\d+_(on|off)$/.test(a)) {
+    const m = /^ep(\d+)_(on|off)$/.exec(a);
+    if (m) return `Kanava ${m[1]} ${m[2] === "on" ? "ON" : "POIS"}`;
+  }
+  if (a === "value_true") return "Arvo päällä";
+  if (a === "value_false") return "Arvo pois";
+  if (a === "no_motion") return "Ei liikettä";
+  if (a === "motion") return "Liike";
+  if (a === "open") return "Avoin";
+  if (a === "closed") return "Kiinni";
   if (a === "single" || a === "single_click" || a === "click") return "Lyhyt painallus (single)";
   if (a === "hold" || a === "long" || a === "long_press") return "Pitkä painallus (hold)";
   if (a === "double" || a === "double_click") return "Tupla (double)";

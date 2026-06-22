@@ -429,19 +429,46 @@ class AutomationEngine:
             cc = int(m2.group(2))
             endpoint = int(m2.group(3))
 
-        if node_id is None or cc not in (37, 38):
-            return
-        on = self._zwave_value_to_on(payload.get("value"))
-        if on is None:
+        if node_id is None:
             return
 
         device_key = f"zwave:{node_id}"
-        self._record_device_event(
-            device_key,
-            {"state": "ON" if on else "OFF", "endpoint": endpoint},
-            action=f"ep{endpoint}_{'on' if on else 'off'}",
-        )
-        self._handle_switch_state(device_key, on, endpoint=endpoint)
+
+        if cc in (37, 38):
+            on = self._zwave_value_to_on(payload.get("value"))
+            if on is None:
+                return
+            for action_id in self._zwave_switch_action_ids(endpoint, on):
+                self._record_device_event(
+                    device_key,
+                    {"state": "ON" if on else "OFF", "endpoint": endpoint},
+                    action=action_id,
+                    button=str(endpoint),
+                )
+                self._handle_switch_state(device_key, on, endpoint=endpoint)
+                self._handle_action(device_key, action_id, str(endpoint))
+            return
+
+        if cc in (48, 113):
+            on = self._zwave_value_to_on(payload.get("value"))
+            if on is None:
+                return
+            for action_id in self._zwave_sensor_action_ids(on):
+                self._record_device_event(
+                    device_key,
+                    {"value": payload.get("value"), "endpoint": endpoint},
+                    action=action_id,
+                )
+                self._handle_action(device_key, action_id, None)
+
+    def _zwave_switch_action_ids(self, endpoint: int, on: bool) -> list[str]:
+        state = "on" if on else "off"
+        return [state, f"ep{endpoint}_{state}"]
+
+    def _zwave_sensor_action_ids(self, on: bool) -> list[str]:
+        if on:
+            return ["value_true", "open", "motion"]
+        return ["value_false", "closed", "no_motion"]
 
     def _trigger_mode(self, trigger: dict[str, Any]) -> str:
         mode = trigger.get("mode")

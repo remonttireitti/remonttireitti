@@ -3,12 +3,12 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
 import { hasCapability } from "@/lib/capabilities";
+import { pressTypesForTrigger } from "@/lib/automation-actions";
+import { PRESS_LABELS } from "@/lib/automation";
 import {
-  KNOWN_MQTT_ACTIONS,
-  mqttActionLabel,
-  pressTypesForTrigger,
-} from "@/lib/automation-actions";
-import { PRESS_LABELS, type AutomationPressType } from "@/lib/automation";
+  listTriggerActionsForDevice,
+  labelTriggerAction,
+} from "@/lib/automation-trigger-catalog";
 import { triggerHintToAutomationFields, type DeviceLiveEvent } from "@/lib/device-events";
 import { protocolLabel } from "@/lib/device-protocol";
 import { kindLabel, type HubLightDevice } from "@/lib/hub-lights";
@@ -116,6 +116,14 @@ export function DeviceDetailPanel({ protocol, deviceIdParam }: Props) {
   const isButton = hasCapability(caps, "button");
 
   const pressTypes = useMemo(() => pressTypesForTrigger(caps), [caps]);
+
+  const triggerActionPreview = useMemo(() => {
+    if (!device) return [];
+    const observed = events
+      .map((e) => e.triggerHint?.action)
+      .filter((a): a is string => typeof a === "string" && a.length > 0);
+    return listTriggerActionsForDevice(device, observed).slice(0, 24);
+  }, [device, events]);
 
   function control(body: Record<string, unknown>) {
     if (!device) return;
@@ -271,20 +279,24 @@ export function DeviceDetailPanel({ protocol, deviceIdParam }: Props) {
           alla olevia arvoja automaation laukaisimena.
         </p>
 
-        {isButton && (
+        {(isButton || device.kind === "switch" || protocol === "zwave") && (
           <div className="mt-4 rounded-xl border border-stone-100 bg-stone-50 p-3 text-xs text-stone-600">
-            <p className="font-semibold text-stone-800">Tunnetut MQTT-action-arvot</p>
+            <p className="font-semibold text-stone-800">Laukaisuactionit automaatiossa</p>
             <p className="mt-1 flex flex-wrap gap-1">
-              {KNOWN_MQTT_ACTIONS.slice(0, 12).map((a) => (
-                <code key={a} className="rounded bg-white px-1 py-0.5 text-[10px]">
-                  {a}
+              {triggerActionPreview.map((a) => (
+                <code key={a.id} className="rounded bg-white px-1 py-0.5 text-[10px]" title={a.label}>
+                  {a.id}
                 </code>
               ))}
             </p>
-            <p className="mt-2">
-              Painallustyypit:{" "}
-              {pressTypes.map((p) => PRESS_LABELS[p]).join(", ")}
-            </p>
+            {triggerActionPreview.length >= 24 && (
+              <p className="mt-1 text-stone-500">… ja lisää automaation valikossa</p>
+            )}
+            {isButton && (
+              <p className="mt-2">
+                Painallustyypit: {pressTypes.map((p) => PRESS_LABELS[p]).join(", ")}
+              </p>
+            )}
           </div>
         )}
 
@@ -333,7 +345,7 @@ export function DeviceDetailPanel({ protocol, deviceIdParam }: Props) {
                       {hint?.press ? PRESS_LABELS[hint.press] : "—"}
                       {hint?.button ? `, painike ${hint.button}` : ""}, MQTT{" "}
                       <code>{evt.triggerHint.action}</code> (
-                      {mqttActionLabel(evt.triggerHint.action)})
+                      {labelTriggerAction(evt.triggerHint.action)})
                     </p>
                   )}
                 </li>

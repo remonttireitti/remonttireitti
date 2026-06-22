@@ -91,16 +91,24 @@ export function isHue4ButtonRemote(
   return false;
 }
 
-export type AutomationTriggerProfile = "hue_4btn" | "generic";
+export type AutomationTriggerProfile = "hue_4btn" | "zigbee_button" | "zwave" | "generic";
 
 export function triggerProfileForDevice(device: {
+  id?: string | null;
   model?: string | null;
   manufacturer?: string | null;
   description?: string | null;
+  protocol?: string | null;
+  kind?: string | null;
 }): AutomationTriggerProfile {
-  return isHue4ButtonRemote(device.model, device.manufacturer, device.description)
-    ? "hue_4btn"
-    : "generic";
+  if (isHue4ButtonRemote(device.model, device.manufacturer, device.description)) {
+    return "hue_4btn";
+  }
+  const id = device.id ?? "";
+  const protocol = (device.protocol ?? "").toLowerCase();
+  if (protocol === "zwave" || id.startsWith("zwave:")) return "zwave";
+  if (protocol === "zigbee" || id.startsWith("zigbee:")) return "zigbee_button";
+  return "generic";
 }
 
 /** Yellow-yhteensopiva press-kenttä kun action on täysi Hue-merkkijono. */
