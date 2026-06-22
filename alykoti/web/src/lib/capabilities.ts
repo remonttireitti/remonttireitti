@@ -20,6 +20,7 @@ export const CAPABILITY_LABELS: Record<DeviceCapabilityId, string> = {
   button: "Painike",
   tvoc: "TVOC",
   pm: "Hiukkaset",
+  illuminance: "Valoisuus",
 };
 
 const CONTROL_CAPABILITIES: DeviceCapabilityId[] = ["switch", "dimmer", "lock", "relay", "fan", "cover"];
@@ -93,7 +94,8 @@ export function inferKindFromCapabilities(caps: DeviceCapability[]): HubHomeDevi
     ids.has("motion") ||
     ids.has("occupancy") ||
     ids.has("tvoc") ||
-    ids.has("pm")
+    ids.has("pm") ||
+    ids.has("illuminance")
   ) {
     return "sensor";
   }
@@ -153,6 +155,7 @@ export function groupByCapabilities(
       ids.has("occupancy") ||
       ids.has("tvoc") ||
       ids.has("pm") ||
+      ids.has("illuminance") ||
       device.kind === "sensor"
     ) {
       groups.sensors.push(device);
@@ -166,6 +169,20 @@ export function groupByCapabilities(
   return groups;
 }
 
+const SENSOR_STATE_LABELS: Record<string, string> = {
+  water_leak: "Vesivuoto",
+  smoke: "Savu/palo",
+  co: "CO-hälytys",
+  motion: "Liike",
+  contact: "Ovi/ikkuna",
+  tamper: "Peukalointi",
+};
+
+export function sensorStateLabel(state: string | null | undefined): string | null {
+  if (!state) return null;
+  return SENSOR_STATE_LABELS[state] ?? state;
+}
+
 export function sensorReadingLabel(device: HubHomeDevice): string | null {
   const parts: string[] = [];
   if (device.temperature_c != null && Number.isFinite(device.temperature_c)) {
@@ -177,14 +194,29 @@ export function sensorReadingLabel(device: HubHomeDevice): string | null {
   if (device.co2_ppm != null && Number.isFinite(device.co2_ppm)) {
     parts.push(`${Math.round(device.co2_ppm)} ppm CO₂`);
   }
+  if (device.illuminance_lux != null && Number.isFinite(device.illuminance_lux)) {
+    parts.push(`${Math.round(device.illuminance_lux)} lx`);
+  }
   if (device.power_w != null && Number.isFinite(device.power_w)) {
     parts.push(`${Math.round(device.power_w)} W`);
+  }
+  const stateLabel = sensorStateLabel(device.sensor_state);
+  if (stateLabel && device.on != null) {
+    parts.push(device.on ? stateLabel : `${stateLabel} OK`);
+  } else if (stateLabel) {
+    parts.push(stateLabel);
   }
   if (device.locked != null) {
     parts.push(device.locked ? "Lukossa" : "Auki");
   }
   if (device.on != null && hasCapability(device.capabilities, "switch")) {
     parts.push(device.on ? "Päällä" : "Pois");
+  }
+  if (device.on != null && hasCapability(device.capabilities, "contact") && !stateLabel) {
+    parts.push(device.on ? "Avoin" : "Kiinni");
+  }
+  if (device.on != null && hasCapability(device.capabilities, "motion") && !stateLabel) {
+    parts.push(device.on ? "Liike" : "Ei liikettä");
   }
   return parts.length > 0 ? parts.join(" · ") : null;
 }

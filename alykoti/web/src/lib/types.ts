@@ -136,7 +136,8 @@ export type DeviceCapabilityId =
   | "cover"
   | "button"
   | "tvoc"
-  | "pm";
+  | "pm"
+  | "illuminance";
 
 export type DeviceCapability = {
   id: DeviceCapabilityId;
@@ -167,6 +168,8 @@ export type HubHomeDevice = {
   lock_set_topic?: string;
   locked?: boolean | null;
   node_id?: number;
+  /** Z-Wave endpoint (0 = root). */
+  endpoint?: number;
   host?: string;
   channel?: number;
   gen?: number;
@@ -178,6 +181,10 @@ export type HubHomeDevice = {
   humidity_pct?: number | null;
   co2_ppm?: number | null;
   tvoc_ppb?: number | null;
+  /** Z-Wave CC 49 illuminance (lux). */
+  illuminance_lux?: number | null;
+  /** Z-Wave CC 48/113 sensor subtype: water_leak, smoke, co, motion, contact, tamper. */
+  sensor_state?: string | null;
   /** Shelly EM — kokonaisteho W */
   power_w?: number | null;
   /** Shelly EM — energia Wh (kumulatiivinen) */

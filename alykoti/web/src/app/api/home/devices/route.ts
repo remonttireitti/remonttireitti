@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { inferProtocolFromId } from "@/lib/device-protocol";
+import { inferProtocolFromId, parseZwaveDeviceId } from "@/lib/device-protocol";
 import { parseHubHomeDevices } from "@/lib/hub-lights";
 import { normalizeHomeDevices } from "@/lib/device-normalize";
 import { fetchPrimaryHub } from "@/lib/hubs";
@@ -45,9 +45,11 @@ export async function GET() {
     capabilitiesLabel: d.capabilitiesLabel,
     readingLabel: d.readingLabel,
     locked: d.locked,
-    node_id: d.id.startsWith("zwave:")
-      ? Number.parseInt(d.id.slice("zwave:".length), 10)
-      : undefined,
+    node_id: (() => {
+      const parsed = parseZwaveDeviceId(d.id);
+      return parsed?.nodeId;
+    })(),
+    endpoint: d.endpoint ?? parseZwaveDeviceId(d.id)?.endpoint,
   }));
 
   return NextResponse.json({

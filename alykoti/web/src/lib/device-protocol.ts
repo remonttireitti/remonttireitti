@@ -36,6 +36,19 @@ export function inferProtocolFromId(id: string, fallback?: string): DeviceProtoc
   return "zigbee";
 }
 
+const ZWAVE_ID_RE = /^zwave:(\d+)(?::e(\d+))?$/;
+
+/** Parse zwave:52 or zwave:52:e1 → node id and optional endpoint. */
+export function parseZwaveDeviceId(id: string): { nodeId: number; endpoint?: number } | null {
+  const m = ZWAVE_ID_RE.exec(id.trim());
+  if (!m) return null;
+  const nodeId = Number.parseInt(m[1]!, 10);
+  const endpoint = m[2] != null ? Number.parseInt(m[2], 10) : undefined;
+  if (!Number.isFinite(nodeId)) return null;
+  if (endpoint != null && !Number.isFinite(endpoint)) return null;
+  return { nodeId, endpoint };
+}
+
 export function protocolLabel(protocol: string): string {
   return PROTOCOL_LABELS[protocol as DeviceProtocol] ?? protocol;
 }

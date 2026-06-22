@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import mqtt, { type MqttClient } from "mqtt";
 import { formatZigbeeEvent, formatZwaveEvent, type DeviceLiveEvent } from "@/lib/device-events";
-import { inferProtocolFromId } from "@/lib/device-protocol";
+import { inferProtocolFromId, parseZwaveDeviceId } from "@/lib/device-protocol";
 import { parseHubHomeDevices } from "@/lib/hub-lights";
 import { fetchPrimaryHub } from "@/lib/hubs";
 import {
@@ -79,10 +79,9 @@ export async function GET(
     const name = fullId.slice("zigbee:".length);
     subscribeTopics = [`${zPrefix}/${name}`];
   } else if (fullId.startsWith("zwave:")) {
-    const nodePart = fullId.slice("zwave:".length);
-    const nodeId = Number.parseInt(nodePart, 10);
-    if (Number.isFinite(nodeId)) {
-      subscribeTopics = [`${zwPrefix}/nodeID_${nodeId}/#`];
+    const parsed = parseZwaveDeviceId(fullId);
+    if (parsed) {
+      subscribeTopics = [`${zwPrefix}/nodeID_${parsed.nodeId}/#`];
     }
   }
 

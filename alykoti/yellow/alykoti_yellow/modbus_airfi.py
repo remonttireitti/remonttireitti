@@ -12,6 +12,20 @@ from pymodbus.client import ModbusSerialClient, ModbusTcpClient
 
 log = logging.getLogger(__name__)
 
+# Kuittauksen jälkeen ei Modbus-tuuletuskirjoituksia — estää E1/hätäseis -kierteen.
+_ack_cooldown_until: float = 0.0
+ACK_COOLDOWN_SEC = 180.0
+
+
+def mark_airfi_ack_cooldown(seconds: float = ACK_COOLDOWN_SEC) -> None:
+    global _ack_cooldown_until
+    _ack_cooldown_until = time.monotonic() + max(0.0, seconds)
+    log.info("AirFi Modbus-kirjoitustauko %.0fs (kuittaus)", seconds)
+
+
+def airfi_ack_cooldown_active() -> bool:
+    return time.monotonic() < _ack_cooldown_until
+
 INPUT = {
     "outdoor_temp": 4,
     "exhaust_temp": 6,
@@ -56,8 +70,9 @@ _INPUT_CORE_START = INPUT["outdoor_temp"]
 _INPUT_CORE_COUNT = INPUT["fan_supply_pct"] - INPUT["outdoor_temp"] + 1
 _INPUT_STATUS_START = INPUT["emergency_stop_status"]
 _INPUT_STATUS_COUNT = INPUT["error_info"] - INPUT["emergency_stop_status"] + 1
-_HOLDING_BLOCK_START = HOLDING["speed_level"]
-_HOLDING_BLOCK_COUNT = HOLDING["away_mode"] - HOLDING["speed_level"] + 1
+# h0 (nopeus) ei ole luettavissa kaikilla laiteversioilla — blokkiluku osoitteesta 0 epäonnistuu.
+_HOLDING_BLOCK_START = HOLDING["emergency_stop"]
+_HOLDING_BLOCK_COUNT = HOLDING["away_mode"] - HOLDING["emergency_stop"] + 1
 _HOLDING_EXTRA_START = HOLDING["away_temp_setpoint"]
 _HOLDING_EXTRA_COUNT = HOLDING["fireplace"] - HOLDING["away_temp_setpoint"] + 1
 
@@ -350,18 +365,26 @@ def _read_snapshot(
     exhaust = _parse_temp(_reg(inputs_core, _INPUT_CORE_START, INPUT["exhaust_temp"]))
     exhaust_hru = _parse_temp(_reg(inputs_core, _INPUT_CORE_START, INPUT["exhaust_hru_temp"]))
     supply_room = _parse_temp(_reg(inputs_core, _INPUT_CORE_START, INPUT["supply_room_temp"]))
-    fan_supply = _parse_pct(_reg(inputs_core, _INPUT_CORE_START, INPUT["fan_supply_pct"])) or _parse_pct(
-        _reg(holdings, _HOLDING_BLOCK_START, HOLDING["supply_direct_pct"])
+    fan_supply = _parse_pct(_reg(holdings, _HOLDING_BLOCK_START, HOLDING["supply_direct_pct"])) or _parse_pct(
+        _reg(inputs_core, _INPUT_CORE_START, INPUT["fan_supply_pct"])
     )
-    fan_exhaust = _parse_pct(_reg(inputs_core, _INPUT_CORE_START, INPUT["fan_exhaust_pct"])) or _parse_pct(
-        _reg(holdings, _HOLDING_BLOCK_START, HOLDING["exhaust_direct_pct"])
+    fan_exhaust = _parse_pct(_reg(holdings, _HOLDING_BLOCK_START, HOLDING["exhaust_direct_pct"])) or _parse_pct(
+        _reg(inputs_core, _INPUT_CORE_START, INPUT["fan_exhaust_pct"])
     )
 
     error_raw = _reg(inputs_status, _INPUT_STATUS_START, INPUT["error_info"])
     errors = decode_error_info(error_raw)
     emergency_holding = _reg(holdings, _HOLDING_BLOCK_START, HOLDING["emergency_stop"])
     emergency_input = _reg(inputs_status, _INPUT_STATUS_START, INPUT["emergency_stop_status"])
-    speed_raw = _reg(holdings, _HOLDING_BLOCK_START, HOLDING["speed_level"])
+    speed_raw = None
+    speed_block = _read_registers(
+        client,
+        unit,
+        read_fn=client.read_holding_registers,
+        address=HOLDING["speed_level"],
+        count=1,
+    )
+    speed_raw = _reg(speed_block, HOLDING["speed_level"], HOLDING["speed_level"])
     temp_setpoint_raw = _reg(holdings, _HOLDING_BLOCK_START, HOLDING["temp_setpoint"])
     temp_setpoint_read = _reg(inputs_status, _INPUT_STATUS_START, INPUT["temp_setpoint_read"])
     fan_speed_level = _parse_speed_level(
@@ -400,7 +423,8 @@ def _read_snapshot(
             "temp_setpoint_c": temp_c,
             "filter_change_per_year": filter_interval,
             "sauna_mode": (_reg(holdings_extra, _HOLDING_EXTRA_START, HOLDING["sauna_mode"]) or 0) > 0,
-            "emergency_stop": (emergency_holding == 1) or (emergency_input or 0) > 0,
+            # 3x00017 = todellinen hätäseis-tila. 4x00002 (h1) on kirjoitusrekisteri — älä käytä statusnäyttöön.
+            "emergency_stop": (emergency_input or 0) > 0,
             "fault": (
                 (_reg(inputs_status, _INPUT_STATUS_START, INPUT["machine_fault"]) or 0) > 0
                 or len(errors) > 0
@@ -766,6 +790,23 @@ def _write_registers(
         _safe_close(client)
 
 
+def airfi_ventilation_blocked(state: dict[str, Any]) -> bool:
+    """Älä kirjoita tuuletusta kun kone on hätäseis-/E1-tilassa."""
+    if airfi_ack_cooldown_active():
+        return True
+    if state.get("emergency_stop"):
+        return True
+    if state.get("machine_fault"):
+        return True
+    if state.get("freezing_alarm"):
+        return True
+    raw = state.get("airfi_error_raw")
+    if isinstance(raw, int) and raw > 0:
+        return True
+    errors = state.get("airfi_errors")
+    return isinstance(errors, list) and len(errors) > 0
+
+
 def ack_airfi_alarms(
     *,
     host: str | None,
@@ -776,7 +817,7 @@ def ack_airfi_alarms(
     connect_timeout: float = 4.0,
     read_timeout: float = 5.0,
 ) -> bool:
-    """Kuittaa hätäseis/E1 — nollaa pakko-ohjaus, poissa ja suoraohjaus."""
+    """Kuittaa hätäseis/E1 — nollaa pakko-ohjaus, suoraohjaus ja poissa (4x00002=0)."""
     client = _open_client(
         host=host,
         port=tcp_port,
@@ -786,7 +827,7 @@ def ack_airfi_alarms(
     )
     if client is None:
         return False
-    return _write_registers(
+    ok = _write_registers(
         client,
         unit,
         connect_timeout=connect_timeout,
@@ -798,6 +839,9 @@ def ack_airfi_alarms(
             (HOLDING["away_mode"], 0),
         ],
     )
+    if ok:
+        mark_airfi_ack_cooldown()
+    return ok
 
 
 def write_fireplace(
@@ -841,21 +885,9 @@ def write_speed_level(
     connect_timeout: float = 4.0,
     read_timeout: float = 5.0,
 ) -> bool:
-    lv = max(0, min(5, int(level)))
-    client = _open_client(
-        host=host,
-        port=tcp_port,
-        serial=serial,
-        baud=baud,
-        read_timeout=read_timeout,
+    """4x00001 (h0) ei ole käytettävissä TCP-yhteydellä tällä koneella — älä kirjoita."""
+    log.warning(
+        "Nopeustason Modbus-kirjoitus ohitettu (h0 ei tuettu, taso=%s)",
+        level,
     )
-    if client is None:
-        return False
-    return _write_registers(
-        client,
-        unit,
-        connect_timeout=connect_timeout,
-        read_timeout=read_timeout,
-        is_tcp=bool(host),
-        writes=[(HOLDING["speed_level"], lv)],
-    )
+    return False

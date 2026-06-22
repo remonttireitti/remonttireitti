@@ -418,7 +418,6 @@ export async function setSaunaMode(
   if (!(await getOwnedHub(supabase, hubId, user.id))) {
     return { error: "Keskusyksikköä ei löydy." };
   }
-  await patchHubState(supabase, hubId, { sauna_mode: active });
   return queueCommand(hubId, "set_sauna_mode", { active });
 }
 
@@ -444,13 +443,6 @@ export async function ackAirfiAlarms(hubId: string): Promise<ActionState> {
   if (!(await getOwnedHub(supabase, hubId, user.id))) {
     return { error: "Keskusyksikköä ei löydy." };
   }
-  await patchHubState(supabase, hubId, {
-    emergency_stop: false,
-    freezing_alarm: false,
-    machine_fault: false,
-    airfi_errors: [],
-    airfi_error_raw: 0,
-  });
   return queueCommand(hubId, "ack_airfi_alarms", {});
 }
 
@@ -479,7 +471,6 @@ export async function setFanSpeedLevel(
   if (!(await getOwnedHub(supabase, hubId, user.id))) {
     return { error: "Keskusyksikköä ei löydy." };
   }
-  await patchHubState(supabase, hubId, { fan_speed_level: Math.round(level) });
   return queueCommand(hubId, "set_fan_speed_level", { level: Math.round(level) });
 }
 

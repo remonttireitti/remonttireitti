@@ -155,6 +155,11 @@ export function AirfiSettingsPanel({ hub }: Props) {
                 {errors.map((err) => (
                   <li key={err.code}>
                     {err.code}: {err.label}
+                    {err.code === "E1" && (
+                      <span className="block text-xs font-normal opacity-90">
+                        Ulkopuolinen pysäytys — kuittaa. Älykoti ei ohjaa tuuletusta hätäseis-tilassa.
+                      </span>
+                    )}
                   </li>
                 ))}
               </ul>

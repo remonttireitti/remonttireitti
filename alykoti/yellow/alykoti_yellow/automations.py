@@ -24,7 +24,13 @@ from alykoti_yellow.mqtt_lights import (
 )
 from alykoti_yellow.shelly import set_shelly_switch
 from alykoti_yellow.tasmota import set_tasmota_power
-from alykoti_yellow.zwave_mqtt import _load_node_names, _slug, set_zwave_device, set_zwave_lock
+from alykoti_yellow.zwave_mqtt import (
+    _load_node_names,
+    _slug,
+    parse_zwave_device_id,
+    set_zwave_device,
+    set_zwave_lock,
+)
 
 log = logging.getLogger(__name__)
 
@@ -432,21 +438,22 @@ class AutomationEngine:
         if node_id is None:
             return
 
-        device_key = f"zwave:{node_id}"
+        device_keys = self._zwave_event_device_keys(node_id, endpoint)
 
         if cc in (37, 38):
             on = self._zwave_value_to_on(payload.get("value"))
             if on is None:
                 return
             for action_id in self._zwave_switch_action_ids(endpoint, on):
-                self._record_device_event(
-                    device_key,
-                    {"state": "ON" if on else "OFF", "endpoint": endpoint},
-                    action=action_id,
-                    button=str(endpoint),
-                )
-                self._handle_switch_state(device_key, on, endpoint=endpoint)
-                self._handle_action(device_key, action_id, str(endpoint))
+                for device_key in device_keys:
+                    self._record_device_event(
+                        device_key,
+                        {"state": "ON" if on else "OFF", "endpoint": endpoint},
+                        action=action_id,
+                        button=str(endpoint),
+                    )
+                    self._handle_switch_state(device_key, on, endpoint=endpoint)
+                    self._handle_action(device_key, action_id, str(endpoint))
             return
 
         if cc in (48, 113):
@@ -454,12 +461,41 @@ class AutomationEngine:
             if on is None:
                 return
             for action_id in self._zwave_sensor_action_ids(on):
-                self._record_device_event(
-                    device_key,
-                    {"value": payload.get("value"), "endpoint": endpoint},
-                    action=action_id,
-                )
-                self._handle_action(device_key, action_id, None)
+                for device_key in device_keys:
+                    self._record_device_event(
+                        device_key,
+                        {"value": payload.get("value"), "endpoint": endpoint},
+                        action=action_id,
+                    )
+                    self._handle_action(device_key, action_id, None)
+
+    def _zwave_event_device_keys(self, node_id: int, endpoint: int) -> list[str]:
+        ep_key = f"zwave:{node_id}:e{endpoint}"
+        root_key = f"zwave:{node_id}"
+        keys: list[str] = []
+        if ep_key in self._home_devices:
+            keys.append(ep_key)
+        if root_key in self._home_devices:
+            keys.append(root_key)
+        if not keys:
+            keys = [ep_key, root_key]
+        return keys
+
+    def _zwave_trigger_matches(
+        self,
+        trigger_device_id: str,
+        node_id: int,
+        endpoint: int | None,
+    ) -> bool:
+        try:
+            t_node, t_ep = parse_zwave_device_id(trigger_device_id)
+        except ValueError:
+            return False
+        if t_node != node_id:
+            return False
+        if t_ep is not None and endpoint is not None and t_ep != endpoint:
+            return False
+        return True
 
     def _zwave_switch_action_ids(self, endpoint: int, on: bool) -> list[str]:
         state = "on" if on else "off"
@@ -501,10 +537,25 @@ class AutomationEngine:
             rules = list(self._rules)
 
         matched = False
+        node_id: int | None = None
+        if device_key.startswith("zwave:"):
+            try:
+                node_id, _ = parse_zwave_device_id(device_key)
+            except ValueError:
+                node_id = None
+
         for rule in rules:
             trigger = rule.get("trigger") if isinstance(rule.get("trigger"), dict) else {}
-            if trigger.get("device_id") != device_key:
+            trigger_id = trigger.get("device_id")
+            if not isinstance(trigger_id, str):
                 continue
+            if trigger_id != device_key:
+                if not (
+                    node_id is not None
+                    and trigger_id.startswith("zwave:")
+                    and self._zwave_trigger_matches(trigger_id, node_id, endpoint)
+                ):
+                    continue
             if self._trigger_mode(trigger) != "switch_state":
                 continue
             rule_ep = self._trigger_endpoint(trigger)
@@ -592,10 +643,25 @@ class AutomationEngine:
             )
 
         matched_any = False
+        node_id: int | None = None
+        if device_key.startswith("zwave:"):
+            try:
+                node_id, _ = parse_zwave_device_id(device_key)
+            except ValueError:
+                node_id = None
+
         for rule in rules:
             trigger = rule.get("trigger") if isinstance(rule.get("trigger"), dict) else {}
-            if trigger.get("device_id") != device_key:
+            trigger_id = trigger.get("device_id")
+            if not isinstance(trigger_id, str):
                 continue
+            if trigger_id != device_key:
+                if not (
+                    node_id is not None
+                    and trigger_id.startswith("zwave:")
+                    and self._zwave_trigger_matches(trigger_id, node_id, None)
+                ):
+                    continue
             press = str(trigger.get("press", "short"))
             rule_button = trigger.get("button")
             rule_button_str = str(rule_button) if isinstance(rule_button, str) and rule_button.strip() else None
@@ -813,6 +879,17 @@ class AutomationEngine:
             topic = meta.get("mqtt_set_topic")
             if isinstance(topic, str) and topic.strip():
                 return topic.strip()
+        if device_id.startswith("zwave:"):
+            try:
+                node_id, ep = parse_zwave_device_id(device_id)
+            except ValueError:
+                return None
+            if ep is not None:
+                root = self._home_devices.get(f"zwave:{node_id}")
+                if isinstance(root, dict):
+                    topic = root.get("mqtt_set_topic")
+                    if isinstance(topic, str) and topic.strip():
+                        return topic.strip()
         return None
 
     def _lock_topic(self, device_id: str) -> str | None:

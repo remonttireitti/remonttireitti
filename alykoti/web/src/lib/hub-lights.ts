@@ -5,7 +5,7 @@ import {
   normalizeCapabilities,
   sensorReadingLabel,
 } from "@/lib/capabilities";
-import { inferProtocolFromId } from "@/lib/device-protocol";
+import { inferProtocolFromId, parseZwaveDeviceId } from "@/lib/device-protocol";
 import { anchorForLight } from "@/lib/lights-config";
 import type { DeviceCapability, HubDeviceOverride, HubHomeDevice, HubLightState, HubState } from "@/lib/types";
 
@@ -29,6 +29,10 @@ export type HubLightDevice = {
   temperature_c: number | null;
   humidity_pct: number | null;
   co2_ppm: number | null;
+  illuminance_lux: number | null;
+  sensor_state: string | null;
+  endpoint: number | null;
+  node_id: number | null;
   power_w: number | null;
   model?: string | null;
   manufacturer?: string | null;
@@ -60,6 +64,7 @@ function mapDevice(
   const controllable =
     d.controllable === true || (d.controllable !== false && inferControllable(capabilities));
   const zigbeeName = id.startsWith("zigbee:") ? id.slice("zigbee:".length) : id;
+  const zwaveParsed = parseZwaveDeviceId(id);
 
   return {
     id,
@@ -84,6 +89,19 @@ function mapDevice(
     humidity_pct:
       typeof d.humidity_pct === "number" && Number.isFinite(d.humidity_pct) ? d.humidity_pct : null,
     co2_ppm: typeof d.co2_ppm === "number" && Number.isFinite(d.co2_ppm) ? d.co2_ppm : null,
+    illuminance_lux:
+      typeof d.illuminance_lux === "number" && Number.isFinite(d.illuminance_lux)
+        ? d.illuminance_lux
+        : null,
+    sensor_state: typeof d.sensor_state === "string" ? d.sensor_state : null,
+    endpoint:
+      typeof d.endpoint === "number" && Number.isFinite(d.endpoint)
+        ? d.endpoint
+        : zwaveParsed?.endpoint ?? null,
+    node_id:
+      typeof d.node_id === "number" && Number.isFinite(d.node_id)
+        ? d.node_id
+        : zwaveParsed?.nodeId ?? null,
     power_w: typeof d.power_w === "number" && Number.isFinite(d.power_w) ? d.power_w : null,
     model: d.model ?? null,
     manufacturer: d.manufacturer ?? null,
@@ -117,6 +135,10 @@ export function parseHubHomeDevices(
     temperature_c: null,
     humidity_pct: null,
     co2_ppm: null,
+    illuminance_lux: null,
+    sensor_state: null,
+    endpoint: null,
+    node_id: null,
     power_w: null,
   }));
 }
@@ -138,6 +160,10 @@ export function parseHubLights(
   | "temperature_c"
   | "humidity_pct"
   | "co2_ppm"
+  | "illuminance_lux"
+  | "sensor_state"
+  | "endpoint"
+  | "node_id"
   | "power_w"
 >[] {
   if (!raw || typeof raw !== "object") return [];
@@ -190,6 +216,7 @@ export function groupDevices(devices: HubLightDevice[]) {
       ids.has("occupancy") ||
       ids.has("tvoc") ||
       ids.has("pm") ||
+      ids.has("illuminance") ||
       device.kind === "sensor"
     ) {
       sensors.push(device);

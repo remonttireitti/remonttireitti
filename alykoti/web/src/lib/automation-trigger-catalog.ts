@@ -33,7 +33,7 @@ export type TriggerDeviceLike = {
   description?: string | null;
 };
 
-const ZWAVE_SWITCH_ENDPOINTS = [0, 1, 2, 3, 4] as const;
+const ZWAVE_SWITCH_ENDPOINTS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] as const;
 
 const ZWAVE_SENSOR_ACTIONS: TriggerActionOption[] = [
   { id: "value_true", label: "Arvo päällä / true", group: "Z-Wave anturi" },
@@ -42,6 +42,8 @@ const ZWAVE_SENSOR_ACTIONS: TriggerActionOption[] = [
   { id: "closed", label: "Kiinni (contact)", group: "Z-Wave anturi" },
   { id: "motion", label: "Liike havaittu", group: "Z-Wave anturi" },
   { id: "no_motion", label: "Ei liikettä", group: "Z-Wave anturi" },
+  { id: "water_leak", label: "Vesivuoto", group: "Z-Wave anturi" },
+  { id: "smoke", label: "Savu/palo", group: "Z-Wave anturi" },
 ];
 
 const ZIGBEE_GESTURE_SUFFIXES = [

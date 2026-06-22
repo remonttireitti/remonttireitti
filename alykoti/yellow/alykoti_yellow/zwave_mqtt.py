@@ -16,6 +16,7 @@ import paho.mqtt.client as mqtt
 log = logging.getLogger(__name__)
 
 NODE_ID_RE = re.compile(r"^nodeID_(\d+)$")
+ZWAVE_DEVICE_ID_RE = re.compile(r"^zwave:(\d+)(?::e(\d+))?$")
 CURRENT_VALUE_RE = re.compile(
     r"^zwave/([^/]+)/([^/]+)/(\d+)/(\d+)/currentValue$"
 )
@@ -26,7 +27,7 @@ STATUS_RE = re.compile(r"^zwave/([^/]+)/([^/]+)/status$")
 
 CONTROL_IDS = {"switch", "dimmer", "lock", "relay", "fan", "cover"}
 
-# CC → capability mapping (property name overrides in _cc_caps)
+# CC → capability mapping (property name overrides in _property_caps)
 CC_DEFAULT: dict[int, list[tuple[str, bool, bool]]] = {
     37: [("switch", True, True)],
     38: [("dimmer", True, True), ("switch", True, True)],
@@ -38,6 +39,16 @@ CC_DEFAULT: dict[int, list[tuple[str, bool, bool]]] = {
     64: [("temperature", True, False)],
     113: [("motion", True, False)],
 }
+
+
+def parse_zwave_device_id(device_id: str) -> tuple[int, int | None]:
+    """Parse zwave:52 or zwave:52:e1 → (node_id, endpoint|None)."""
+    m = ZWAVE_DEVICE_ID_RE.match(device_id.strip())
+    if not m:
+        raise ValueError(f"Invalid Z-Wave device id: {device_id!r}")
+    node_id = int(m.group(1))
+    ep_raw = m.group(2)
+    return node_id, int(ep_raw) if ep_raw is not None else None
 
 
 def _parse_mqtt_url(url: str) -> tuple[str, int]:
@@ -58,6 +69,46 @@ def _merge_cap(caps: dict[str, dict[str, Any]], cap: dict[str, Any]) -> None:
         caps[id_] = dict(cap)
 
 
+def _cc48_sensor_state(prop: str | None) -> str:
+    p = (prop or "").casefold()
+    if any(x in p for x in ("water", "leak", "flood", "moisture")):
+        return "water_leak"
+    if any(x in p for x in ("smoke", "fire", "heat")):
+        return "smoke"
+    if "carbon" in p or p == "co":
+        return "co"
+    if "motion" in p:
+        return "motion"
+    if "tamper" in p:
+        return "tamper"
+    if any(x in p for x in ("door", "window", "contact")):
+        return "contact"
+    return "contact"
+
+
+def _cc113_sensor_state(prop: str | None, value: Any) -> str:
+    p = (prop or "").casefold()
+    if "home security" in p or "intrusion" in p:
+        return "motion"
+    if "access control" in p:
+        return "contact"
+    if "water" in p:
+        return "water_leak"
+    if "smoke" in p or "fire" in p:
+        return "smoke"
+    if "co " in p or p.startswith("co") or "carbon" in p:
+        return "co"
+    if isinstance(value, str):
+        v = value.casefold()
+        if "motion" in v or "occupancy" in v:
+            return "motion"
+        if "water" in v or "leak" in v:
+            return "water_leak"
+        if "smoke" in v or "fire" in v:
+            return "smoke"
+    return "motion"
+
+
 def _property_caps(cc: int, prop: str | None) -> list[tuple[str, bool, bool]]:
     p = (prop or "").casefold()
     if cc == 49:
@@ -66,15 +117,16 @@ def _property_caps(cc: int, prop: str | None) -> list[tuple[str, bool, bool]]:
         if "co2" in p or "carbon dioxide" in p:
             return [("co2", True, False)]
         if "luminance" in p or "illuminance" in p:
-            return [("meter", True, False)]
+            return [("illuminance", True, False)]
         if "temperature" in p or "air" in p:
             return [("temperature", True, False)]
         return [("temperature", True, False)]
     if cc == 48:
-        if "motion" in p or "tamper" in p:
-            return [("motion", True, False)]
-        if "door" in p or "window" in p or "contact" in p:
+        state = _cc48_sensor_state(prop)
+        if state in ("water_leak", "smoke", "co"):
             return [("contact", True, False)]
+        if state == "motion":
+            return [("motion", True, False)]
         return [("contact", True, False)]
     if cc == 113:
         return [("motion", True, False)]
@@ -124,7 +176,17 @@ def _classify(name: str, caps: list[dict[str, Any]]) -> str:
         return "light"
     if "fan" in ids:
         return "fan"
-    if ids & {"temperature", "humidity", "co2", "contact", "motion", "occupancy", "energy", "meter"}:
+    if ids & {
+        "temperature",
+        "humidity",
+        "co2",
+        "contact",
+        "motion",
+        "occupancy",
+        "energy",
+        "meter",
+        "illuminance",
+    }:
         return "sensor"
     n = name.casefold()
     if "lukko" in n:
@@ -159,6 +221,8 @@ def _infer_caps_from_name(name: str) -> list[dict[str, Any]]:
             return [_cap("co2", True, False)]
         if "kosteus" in n:
             return [_cap("humidity", True, False)]
+        if "lux" in n or "valo" in n:
+            return [_cap("illuminance", True, False)]
         return [_cap("temperature", True, False)]
     return [_cap("button", True, False)]
 
@@ -167,24 +231,134 @@ def _controllable(caps: list[dict[str, Any]]) -> bool:
     return any(c.get("write") and c["id"] in CONTROL_IDS for c in caps)
 
 
+def _endpoint_label(caps: list[dict[str, Any]], endpoint: int) -> str:
+    ids = {c["id"] for c in caps}
+    if ids & {"switch", "dimmer", "relay"}:
+        return f"Kytkin {endpoint}"
+    if "temperature" in ids:
+        return f"Lämpö {endpoint}"
+    if "humidity" in ids:
+        return f"Kosteus {endpoint}"
+    if "illuminance" in ids:
+        return f"Valoisuus {endpoint}"
+    if "motion" in ids:
+        return f"Liike {endpoint}"
+    if "contact" in ids:
+        return f"Anturi {endpoint}"
+    if "lock" in ids:
+        return f"Lukko {endpoint}"
+    return f"EP {endpoint}"
+
+
+def _device_id_for(node_id: int, endpoint: int, multi: bool) -> str:
+    if multi:
+        return f"zwave:{node_id}:e{endpoint}"
+    return f"zwave:{node_id}"
+
+
+def _apply_cc_value(
+    dev: dict[str, Any],
+    cc: int,
+    ep: int,
+    prop_name: str | None,
+    payload: dict[str, Any],
+    base: str,
+) -> None:
+    value = payload.get("value")
+    if cc in (37, 38):
+        if isinstance(value, bool):
+            dev["on"] = value
+        elif isinstance(value, (int, float)):
+            dev["on"] = value > 0
+            if cc == 38:
+                dev["brightness"] = int(value)
+        dev["mqtt_set_topic"] = f"{base}/{cc}/{ep}/targetValue"
+    elif cc == 98:
+        if isinstance(value, bool):
+            dev["locked"] = value
+            dev["on"] = value
+        elif isinstance(value, (int, float)):
+            locked = value in (255, 1) or value > 0
+            dev["locked"] = locked
+            dev["on"] = locked
+        dev["lock_set_topic"] = f"{base}/{cc}/{ep}/targetValue"
+    elif cc == 49:
+        if isinstance(value, (int, float)):
+            p = (prop_name or "").casefold()
+            if "humidity" in p:
+                dev["humidity_pct"] = float(value)
+            elif "co2" in p or "carbon" in p:
+                dev["co2_ppm"] = float(value)
+            elif "luminance" in p or "illuminance" in p:
+                dev["illuminance_lux"] = float(value)
+            elif "temperature" in p or "air" in p or not p:
+                dev["temperature_c"] = float(value)
+    elif cc == 50:
+        if isinstance(value, (int, float)):
+            dev["power_w"] = float(value)
+    elif cc == 48:
+        if isinstance(value, bool):
+            dev["on"] = value
+            dev["sensor_state"] = _cc48_sensor_state(prop_name)
+        elif isinstance(value, (int, float)):
+            dev["on"] = value > 0
+            dev["sensor_state"] = _cc48_sensor_state(prop_name)
+    elif cc == 113:
+        dev["sensor_state"] = _cc113_sensor_state(prop_name, value)
+        on = _zwave_value_to_on(value)
+        if on is not None:
+            dev["on"] = on
+
+
+def _zwave_value_to_on(value: Any) -> bool | None:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return value > 0
+    if isinstance(value, str):
+        v = value.casefold()
+        if v in ("true", "on", "open", "motion", "active", "detected"):
+            return True
+        if v in ("false", "off", "closed", "idle", "inactive", "no_motion"):
+            return False
+    return None
+
+
+def _request_node_refresh(
+    client: mqtt.Client,
+    prefix: str,
+    gateway: str,
+    node_id: int,
+) -> None:
+    topic = f"{prefix}/_CLIENTS/ZWAVE_GATEWAY-{gateway}/api/getState/set"
+    try:
+        client.publish(topic, json.dumps({"nodeId": node_id}))
+    except Exception as exc:
+        log.debug("Z-Wave getState refresh failed node %s: %s", node_id, exc)
+
+
 def fetch_zwave_devices(
     broker_url: str,
     prefix: str,
     nodes_json: str,
-    timeout_sec: float = 4.0,
+    timeout_sec: float = 8.0,
+    gateway: str = "Mosquitto",
 ) -> dict[str, dict[str, Any]]:
     meta = _load_node_names(nodes_json)
     topic_paths = _build_topic_paths(meta)
     devices: dict[str, dict[str, Any]] = {}
     topic_map: dict[int, str] = {}
-    node_caps: dict[int, dict[str, dict[str, Any]]] = {}
+    node_caps: dict[tuple[int, int], dict[str, dict[str, Any]]] = {}
+    endpoint_data: dict[tuple[int, int], dict[str, Any]] = {}
+    node_endpoints: dict[int, set[int]] = {}
+    nodes_with_data: set[int] = set()
     host, port = _parse_mqtt_url(broker_url)
 
-    def ensure(node_id: int) -> dict[str, Any]:
-        key = f"zwave:{node_id}"
-        if key not in devices:
+    def ensure_endpoint(node_id: int, endpoint: int) -> dict[str, Any]:
+        key = (node_id, endpoint)
+        if key not in endpoint_data:
             info = meta.get(node_id, {"name": f"Node {node_id}", "loc": ""})
-            devices[key] = {
+            endpoint_data[key] = {
                 "protocol": "zwave",
                 "kind": "other",
                 "name": info["name"],
@@ -193,20 +367,23 @@ def fetch_zwave_devices(
                 "brightness": None,
                 "controllable": False,
                 "node_id": node_id,
+                "endpoint": endpoint,
                 "capabilities": [],
             }
-            node_caps[node_id] = {}
-        return devices[key]
+            node_caps[key] = {}
+            node_endpoints.setdefault(node_id, set()).add(endpoint)
+        return endpoint_data[key]
 
-    def add_cc_cap(node_id: int, cc: int, prop: str | None = None) -> None:
-        caps_map = node_caps.setdefault(node_id, {})
+    def add_cc_cap(node_id: int, endpoint: int, cc: int, prop: str | None = None) -> None:
+        key = (node_id, endpoint)
+        caps_map = node_caps.setdefault(key, {})
         entries = _property_caps(cc, prop) or CC_DEFAULT.get(cc, [])
         for id_, read, write in entries:
             _merge_cap(caps_map, _cap(id_, read, write))
 
-    def finalize(node_id: int) -> None:
-        dev = ensure(node_id)
-        caps_list = sorted(node_caps.get(node_id, {}).values(), key=lambda c: c["id"])
+    def finalize_endpoint(node_id: int, endpoint: int) -> None:
+        dev = ensure_endpoint(node_id, endpoint)
+        caps_list = sorted(node_caps.get((node_id, endpoint), {}).values(), key=lambda c: c["id"])
         dev["capabilities"] = caps_list
         dev["kind"] = _classify(dev["name"], caps_list)
         dev["controllable"] = _controllable(caps_list)
@@ -231,10 +408,7 @@ def fetch_zwave_devices(
             return
 
         prop = payload.get("property")
-        if isinstance(prop, str):
-            prop_name = prop
-        else:
-            prop_name = None
+        prop_name = prop if isinstance(prop, str) else None
 
         m = CURRENT_VALUE_RE.match(topic)
         if m:
@@ -243,54 +417,12 @@ def fetch_zwave_devices(
             if node_id is None:
                 return
             topic_map[node_id] = f"{prefix}/{loc}/{slug}"
-            add_cc_cap(node_id, cc, prop_name)
-            dev = ensure(node_id)
+            nodes_with_data.add(node_id)
+            add_cc_cap(node_id, ep, cc, prop_name)
+            dev = ensure_endpoint(node_id, ep)
             base = f"{prefix}/{loc}/{slug}"
-
-            if cc == 37 and ep in (0, 1):
-                value = payload.get("value")
-                if isinstance(value, bool):
-                    dev["on"] = value
-                elif isinstance(value, (int, float)):
-                    dev["on"] = value > 0
-                dev["mqtt_set_topic"] = f"{base}/{cc}/{ep}/targetValue"
-            elif cc == 38 and ep in (0, 1):
-                value = payload.get("value")
-                if isinstance(value, bool):
-                    dev["on"] = value
-                elif isinstance(value, (int, float)):
-                    dev["on"] = value > 0
-                    dev["brightness"] = int(value)
-                dev["mqtt_set_topic"] = f"{base}/{cc}/{ep}/targetValue"
-            elif cc == 98 and ep in (0, 1):
-                value = payload.get("value")
-                if isinstance(value, bool):
-                    dev["locked"] = value
-                    dev["on"] = value
-                elif isinstance(value, (int, float)):
-                    locked = value in (255, 1) or value > 0
-                    dev["locked"] = locked
-                    dev["on"] = locked
-                dev["lock_set_topic"] = f"{base}/{cc}/{ep}/targetValue"
-            elif cc == 49:
-                value = payload.get("value")
-                if isinstance(value, (int, float)):
-                    p = (prop_name or "").casefold()
-                    if "humidity" in p:
-                        dev["humidity_pct"] = float(value)
-                    elif "co2" in p or "carbon" in p:
-                        dev["co2_ppm"] = float(value)
-                    elif "temperature" in p or "air" in p or not p:
-                        dev["temperature_c"] = float(value)
-            elif cc == 50:
-                value = payload.get("value")
-                if isinstance(value, (int, float)):
-                    dev["power_w"] = float(value)
-            elif cc == 48:
-                value = payload.get("value")
-                if isinstance(value, bool):
-                    dev["on"] = value
-            finalize(node_id)
+            _apply_cc_value(dev, cc, ep, prop_name, payload, base)
+            finalize_endpoint(node_id, ep)
             return
 
         m = CURRENT_VALUE_NODE_RE.match(topic)
@@ -300,40 +432,12 @@ def fetch_zwave_devices(
             if not nid_m:
                 return
             node_id = int(nid_m.group(1))
-            add_cc_cap(node_id, cc, prop_name)
-            dev = ensure(node_id)
+            nodes_with_data.add(node_id)
+            add_cc_cap(node_id, ep, cc, prop_name)
+            dev = ensure_endpoint(node_id, ep)
             base = topic_map.get(node_id) or f"{prefix}/{node_slug}"
-
-            if cc in (37, 38) and ep in (0, 1):
-                value = payload.get("value")
-                if isinstance(value, bool):
-                    dev["on"] = value
-                elif isinstance(value, (int, float)):
-                    dev["on"] = value > 0
-                    if cc == 38:
-                        dev["brightness"] = int(value)
-                dev["mqtt_set_topic"] = f"{base}/{cc}/{ep}/targetValue"
-            elif cc == 98 and ep in (0, 1):
-                value = payload.get("value")
-                if isinstance(value, bool):
-                    dev["locked"] = value
-                    dev["on"] = value
-                elif isinstance(value, (int, float)):
-                    locked = value in (255, 1) or value > 0
-                    dev["locked"] = locked
-                    dev["on"] = locked
-                dev["lock_set_topic"] = f"{base}/{cc}/{ep}/targetValue"
-            elif cc == 49:
-                value = payload.get("value")
-                if isinstance(value, (int, float)):
-                    p = (prop_name or "").casefold()
-                    if "humidity" in p:
-                        dev["humidity_pct"] = float(value)
-                    elif "co2" in p:
-                        dev["co2_ppm"] = float(value)
-                    else:
-                        dev["temperature_c"] = float(value)
-            finalize(node_id)
+            _apply_cc_value(dev, cc, ep, prop_name, payload, base)
+            finalize_endpoint(node_id, ep)
 
     client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
     client.on_message = on_message
@@ -345,6 +449,15 @@ def fetch_zwave_devices(
 
     client.subscribe(f"{prefix}/#")
     client.loop_start()
+
+    refresh_nodes = [
+        node_id
+        for node_id, info in meta.items()
+        if not str(info.get("name", "")).startswith("Node ")
+    ]
+    for node_id in refresh_nodes:
+        _request_node_refresh(client, prefix, gateway, node_id)
+
     time.sleep(timeout_sec)
     client.loop_stop()
     client.disconnect()
@@ -352,10 +465,41 @@ def fetch_zwave_devices(
     for node_id, info in meta.items():
         if info["name"].startswith("Node "):
             continue
-        dev = ensure(node_id)
-        if not dev.get("capabilities"):
-            dev["capabilities"] = _infer_caps_from_name(info["name"])
-        finalize(node_id)
+
+        eps = sorted(node_endpoints.get(node_id, set()))
+        multi = len(eps) > 1
+
+        if not eps:
+            key = f"zwave:{node_id}"
+            caps = _infer_caps_from_name(info["name"])
+            devices[key] = {
+                "protocol": "zwave",
+                "kind": _classify(info["name"], caps),
+                "name": info["name"],
+                "room": info["loc"] or None,
+                "on": False,
+                "brightness": None,
+                "controllable": _controllable(caps),
+                "node_id": node_id,
+                "endpoint": 0,
+                "capabilities": caps,
+            }
+            continue
+
+        for ep in eps:
+            rec = endpoint_data[(node_id, ep)]
+            caps_list = rec.get("capabilities") or []
+            name = info["name"]
+            if multi:
+                name = f"{info['name']} ({_endpoint_label(caps_list, ep)})"
+            dev_id = _device_id_for(node_id, ep, multi)
+            devices[dev_id] = {
+                **rec,
+                "name": name,
+                "room": info["loc"] or None,
+                "node_id": node_id,
+                "endpoint": ep,
+            }
 
     return {
         k: v

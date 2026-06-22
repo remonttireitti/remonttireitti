@@ -11,6 +11,7 @@ from alykoti_yellow import config
 from alykoti_yellow.modbus_airfi import (
     AirfiPollState,
     ack_airfi_alarms,
+    airfi_ventilation_blocked,
     read_airfi,
     write_away,
     write_fan_pct,
@@ -213,6 +214,10 @@ def execute_command(cmd: dict) -> bool:
         supply = payload.get("supply_pct")
         exhaust = payload.get("exhaust_pct")
         if isinstance(supply, (int, float)) and isinstance(exhaust, (int, float)):
+            snap = read_airfi(**config.airfi_kwargs(), poll_state=None)
+            if snap.ok and airfi_ventilation_blocked(snap.state):
+                log.warning("set_fan_pct estetty — AirFi hätäseis/vika")
+                return False
             ok = write_fan_pct(
                 **config.airfi_write_kwargs(),
                 supply=int(supply),
@@ -286,8 +291,12 @@ def execute_command(cmd: dict) -> bool:
     return False
 
 
-def apply_ventilation(response: dict) -> None:
+def apply_ventilation(response: dict, airfi_state: dict | None = None) -> None:
     if not config.AIRFI_WRITES:
+        return
+    snap = read_airfi(**config.airfi_kwargs(), poll_state=None)
+    if not snap.ok or airfi_ventilation_blocked(snap.state):
+        log.info("AirFi tuuletus ohitetaan — hätäseis/vika tai kuittauksen jälkeinen tauko")
         return
     vent = response.get("ventilation")
     if not isinstance(vent, dict):
@@ -347,7 +356,8 @@ def build_state(
                 config.MQTT_URL,
                 config.ZWAVE_PREFIX,
                 config.ZWAVE_NODES_JSON,
-                timeout_sec=4.0,
+                timeout_sec=8.0,
+                gateway=config.ZWAVE_GATEWAY,
             )
         )
     except Exception as exc:

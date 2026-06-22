@@ -194,8 +194,8 @@ export async function fetchAirfiState(): Promise<AirfiState | null> {
     const hoodFlap = await readRegister(client, client.readInputRegisters, INPUT.hood_flap_open);
     const holdingLow = await readHoldingBlock(
       client,
-      HOLDING.speed_level,
-      HOLDING.away_mode - HOLDING.speed_level + 1,
+      HOLDING.emergency_stop,
+      HOLDING.away_mode - HOLDING.emergency_stop + 1,
     );
     const holdingExtra = await readHoldingBlock(
       client,
@@ -209,29 +209,31 @@ export async function fetchAirfiState(): Promise<AirfiState | null> {
       return idx >= 0 && idx < block.length ? block[idx] : null;
     };
 
-    const supply = await readRegister(client, client.readInputRegisters, INPUT.fan_supply_pct);
-    const exhaust = await readRegister(client, client.readInputRegisters, INPUT.fan_exhaust_pct);
+    const supply = reg(holdingLow, HOLDING.emergency_stop, HOLDING.supply_direct_pct) ??
+      (await readRegister(client, client.readInputRegisters, INPUT.fan_supply_pct));
+    const exhaust = reg(holdingLow, HOLDING.emergency_stop, HOLDING.exhaust_direct_pct) ??
+      (await readRegister(client, client.readInputRegisters, INPUT.fan_exhaust_pct));
     const outdoor_temp_c = parseAirfiTempC(core?.[0] ?? null);
     const exhaust_temp_c = parseAirfiTempC(core?.[2] ?? null);
     const exhaust_hru_temp_c = parseAirfiTempC(core?.[3] ?? null);
     const supply_room_temp_c = parseAirfiTempC(core?.[4] ?? null);
     const fireplaceStatus = await readRegister(client, client.readInputRegisters, INPUT.fireplace_status);
 
-    const supplyTarget = reg(holdingLow, HOLDING.speed_level, HOLDING.supply_direct_pct);
-    const exhaustTarget = reg(holdingLow, HOLDING.speed_level, HOLDING.exhaust_direct_pct);
-    const directControl = reg(holdingLow, HOLDING.speed_level, HOLDING.direct_control_enabled);
-    const emergency = reg(holdingLow, HOLDING.speed_level, HOLDING.emergency_stop);
-    const away = reg(holdingLow, HOLDING.speed_level, HOLDING.away_mode);
+    const supplyTarget = reg(holdingLow, HOLDING.emergency_stop, HOLDING.supply_direct_pct);
+    const exhaustTarget = reg(holdingLow, HOLDING.emergency_stop, HOLDING.exhaust_direct_pct);
+    const directControl = reg(holdingLow, HOLDING.emergency_stop, HOLDING.direct_control_enabled);
+    const emergency = reg(holdingLow, HOLDING.emergency_stop, HOLDING.emergency_stop);
+    const away = reg(holdingLow, HOLDING.emergency_stop, HOLDING.away_mode);
     const fireplaceHold = reg(holdingExtra, HOLDING.away_temp_setpoint, HOLDING.fireplace);
     const saunaHold = reg(holdingExtra, HOLDING.away_temp_setpoint, HOLDING.sauna_mode);
-    const tempSetpointHold = reg(holdingLow, HOLDING.speed_level, HOLDING.temp_setpoint);
+    const tempSetpointHold = reg(holdingLow, HOLDING.emergency_stop, HOLDING.temp_setpoint);
 
     const statusBase = INPUT.emergency_stop_status;
     const errorRaw = reg(status, statusBase, INPUT.error_info);
     const tempSetpointRead = reg(status, statusBase, INPUT.temp_setpoint_read);
     const fanSpeedLevelRaw =
       reg(status, statusBase, INPUT.fan_speed_level) ??
-      reg(holdingLow, HOLDING.speed_level, HOLDING.speed_level);
+      (await readRegister(client, client.readHoldingRegisters, HOLDING.speed_level));
     const fanSpeedLevel =
       fanSpeedLevelRaw != null && fanSpeedLevelRaw >= 0 && fanSpeedLevelRaw <= 5
         ? fanSpeedLevelRaw
@@ -290,7 +292,7 @@ export async function fetchAirfiState(): Promise<AirfiState | null> {
       direct_control: (directControl ?? 0) > 0,
       fireplace_active: (fireplaceHold ?? fireplaceStatus ?? 0) > 0,
       hood_flap_open: (hoodFlap ?? 0) > 0,
-      emergency_stop: emergency === 1 || (emergencyInput ?? 0) > 0,
+      emergency_stop: (emergencyInput ?? 0) > 0,
       away_mode: (away ?? 0) > 0,
       freezing_alarm: (freezingAlarm ?? 0) > 0,
       machine_fault: (machineFault ?? 0) > 0,
@@ -364,12 +366,9 @@ export async function ackAirfiAlarms(): Promise<boolean> {
 }
 
 export async function setFanSpeedLevel(level: number): Promise<boolean> {
-  const lv = Math.max(0, Math.min(5, Math.round(level)));
-  const result = await withClient(async (client) => {
-    await client.writeRegister(HOLDING.speed_level, lv);
-    return true;
-  });
-  return result === true;
+  // 4x00001 (h0) ei ole kirjoitettavissa TCP:llä tällä koneella.
+  console.warn("[airfi] Nopeustason Modbus-kirjoitus ohitettu (h0 ei tuettu)", level);
+  return false;
 }
 
 function targetsMatch(
