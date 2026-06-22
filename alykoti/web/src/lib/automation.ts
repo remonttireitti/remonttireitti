@@ -193,6 +193,18 @@ function parseTrigger(raw: Record<string, unknown>): AutomationTrigger | null {
   };
 }
 
+export function normalizeTargetId(id: string): string | null {
+  const trimmed = id.trim();
+  if (!trimmed.includes(":")) return null;
+  return trimmed;
+}
+
+export function normalizeTargetIds(ids: string[]): string[] {
+  return ids
+    .map((id) => (typeof id === "string" ? normalizeTargetId(id) : null))
+    .filter((id): id is string => id != null);
+}
+
 function parseAction(raw: Record<string, unknown> | undefined): AutomationAction | null {
   if (!raw || typeof raw.type !== "string" || !Array.isArray(raw.target_ids)) return null;
   const type = raw.type;
@@ -212,9 +224,14 @@ function parseAction(raw: Record<string, unknown> | undefined): AutomationAction
   ];
   if (!validTypes.includes(type as AutomationActionType)) return null;
 
+  const target_ids = normalizeTargetIds(
+    raw.target_ids.filter((id): id is string => typeof id === "string"),
+  );
+  if (target_ids.length === 0) return null;
+
   return {
     type: type as AutomationActionType,
-    target_ids: raw.target_ids.filter((id): id is string => typeof id === "string"),
+    target_ids,
     brightness_pct:
       typeof raw.brightness_pct === "number" && Number.isFinite(raw.brightness_pct)
         ? Math.max(0, Math.min(100, Math.round(raw.brightness_pct)))

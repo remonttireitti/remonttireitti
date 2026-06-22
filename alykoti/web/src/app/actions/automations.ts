@@ -7,6 +7,7 @@ import {
 } from "@/lib/automation-presets";
 import {
   normalizeAutomationRules,
+  normalizeTargetIds,
   newRuleId,
   type AutomationActionType,
   type AutomationPressType,
@@ -128,6 +129,10 @@ export async function saveAutomationRule(input: {
   const name = input.name.trim();
   if (!name) return { error: "Anna säännölle nimi." };
   if (input.target_ids.length === 0) return { error: "Valitse vähintään yksi kohde." };
+  const target_ids = normalizeTargetIds(input.target_ids);
+  if (target_ids.length === 0) {
+    return { error: "Kohteiden tunnisteet virheellisiä (käytä laitelistaa)." };
+  }
   if (input.action_type === "set_brightness") {
     const pct = input.brightness_pct;
     if (pct == null || !Number.isFinite(pct) || pct < 0 || pct > 100) {
@@ -156,7 +161,7 @@ export async function saveAutomationRule(input: {
     trigger,
     action: {
       type: input.action_type,
-      target_ids: input.target_ids,
+      target_ids,
       brightness_pct:
         input.action_type === "set_brightness" && input.brightness_pct != null
           ? Math.round(input.brightness_pct)

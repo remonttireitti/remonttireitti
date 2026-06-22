@@ -108,7 +108,7 @@ COLOR_PRESETS = [
 BRIGHTNESS_STEP = 40
 COMMAND_COOLDOWN_SEC = 0.5
 COLOR_COOLDOWN_SEC = 0.9
-MULTI_TARGET_DELAY_SEC = 0.2
+MULTI_TARGET_DELAY_SEC = 0.55
 SWITCH_STATE_DEBOUNCE_SEC = 0.45
 
 
@@ -774,17 +774,39 @@ class AutomationEngine:
             if brightness is not None:
                 st["brightness"] = brightness
 
+    def _resolve_target_id(self, target_id: str) -> str | None:
+        """Hyväksy vain protocol:id — korjaa vanhat pelkät Z-Wave node-numerot."""
+        if ":" in target_id:
+            return target_id
+        if target_id.isdigit():
+            zid = f"zwave:{target_id}"
+            if zid in self._home_devices:
+                return zid
+        return None
+
     def _execute_target(self, device_id: str, action_type: str, act: dict[str, Any]) -> bool:
+        resolved = self._resolve_target_id(device_id)
+        if resolved is None:
+            log.warning("Automaatio: virheellinen kohde-ID %r", device_id)
+            return False
+        device_id = resolved
+
         st = self._get_light_state(device_id)
         brightness = int(st.get("brightness") or 128)
         on = bool(st.get("on"))
 
         if action_type == "on":
-            return self._apply(device_id, True, brightness if brightness > 0 else 200)
+            pct = act.get("brightness_pct")
+            if isinstance(pct, (int, float)) and float(pct) > 0:
+                b = max(0, min(254, int(round(float(pct) / 100 * 254))))
+                return self._apply(device_id, True, b)
+            return self._apply(device_id, True)
         if action_type == "off":
-            return self._apply(device_id, False, brightness)
+            return self._apply(device_id, False)
         if action_type == "toggle":
-            return self._apply(device_id, not on, brightness if not on else max(brightness, 40))
+            if on:
+                return self._apply(device_id, False)
+            return self._apply(device_id, True)
         if action_type == "brightness_up":
             return self._apply(device_id, True, min(254, brightness + BRIGHTNESS_STEP))
         if action_type == "brightness_down":
@@ -846,11 +868,11 @@ class AutomationEngine:
                 meta["on"] = locked
         return ok
 
-    def _apply(self, device_id: str, on: bool, brightness: int) -> bool:
+    def _apply(self, device_id: str, on: bool, brightness: int | None = None) -> bool:
         ok = False
         if device_id.startswith("zigbee:"):
             zigbee_name = device_id.removeprefix("zigbee:")
-            if on and brightness > 0:
+            if on and brightness is not None and brightness > 0:
                 ok = set_light_brightness(config.MQTT_URL, config.MQTT_PREFIX, zigbee_name, brightness, True)
             else:
                 ok = set_light(config.MQTT_URL, config.MQTT_PREFIX, zigbee_name, on)
@@ -870,7 +892,11 @@ class AutomationEngine:
             ok = set_light(config.MQTT_URL, config.MQTT_PREFIX, device_id, on)
 
         if ok:
-            self._set_light_state(device_id, on, brightness if on else brightness)
+            self._set_light_state(
+                device_id,
+                on,
+                brightness if on and brightness is not None else int(self._get_light_state(device_id).get("brightness") or 128),
+            )
         return ok
 
     def _zwave_topic(self, device_id: str) -> str | None:
