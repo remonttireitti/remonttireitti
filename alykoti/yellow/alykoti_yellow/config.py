@@ -24,12 +24,14 @@ SYNC_URL = os.environ.get(
 ).strip()
 SYNC_INTERVAL_SEC = max(10, int(os.environ.get("SYNC_INTERVAL_SEC", "30")))
 
-AIRFI_SERIAL = os.environ.get("AIRFI_MODBUS_SERIAL", "/dev/ttyAMA2").strip()
+AIRFI_MODBUS_HOST = os.environ.get("AIRFI_MODBUS_HOST", "").strip() or None
+AIRFI_MODBUS_PORT = int(os.environ.get("AIRFI_MODBUS_PORT", "502"))
+AIRFI_SERIAL = os.environ.get("AIRFI_MODBUS_SERIAL", "").strip() or None
 AIRFI_BAUD = int(os.environ.get("AIRFI_MODBUS_BAUD", "9600"))
 AIRFI_UNIT = int(os.environ.get("AIRFI_MODBUS_UNIT", "1"))
 AIRFI_WRITES = os.environ.get("AIRFI_WRITES_ENABLED", "0").strip() in ("1", "true", "yes")
-# Oletus päälle jos sarjaportti on asetettu — poista .env:stä AIRFI_ENABLED=0 jos haluat vain lukea
-_default_airfi = "1" if AIRFI_SERIAL else "0"
+# TCP ensisijainen jos host asetettu, muuten sarja
+_default_airfi = "1" if (AIRFI_MODBUS_HOST or AIRFI_SERIAL) else "0"
 AIRFI_ENABLED = os.environ.get("AIRFI_ENABLED", _default_airfi).strip() in ("1", "true", "yes")
 
 MQTT_URL = os.environ.get("MQTT_URL", "mqtt://127.0.0.1:1883").strip()
@@ -41,3 +43,13 @@ ZWAVE_NODES_JSON = os.environ.get(
 ZWAVE_GATEWAY = os.environ.get("ZWAVE_GATEWAY_NAME", "Mosquitto").strip()
 
 FIRMWARE_VERSION = "yellow-1.1.0"
+
+
+def airfi_kwargs() -> dict:
+    return {
+        "host": AIRFI_MODBUS_HOST,
+        "tcp_port": AIRFI_MODBUS_PORT,
+        "serial": AIRFI_SERIAL,
+        "baud": AIRFI_BAUD,
+        "unit": AIRFI_UNIT,
+    }

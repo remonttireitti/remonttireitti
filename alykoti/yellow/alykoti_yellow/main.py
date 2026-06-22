@@ -200,11 +200,9 @@ def execute_command(cmd: dict) -> bool:
         exhaust = payload.get("exhaust_pct")
         if isinstance(supply, (int, float)) and isinstance(exhaust, (int, float)):
             ok = write_fan_pct(
-                config.AIRFI_SERIAL,
-                config.AIRFI_BAUD,
-                config.AIRFI_UNIT,
-                int(supply),
-                int(exhaust),
+                **config.airfi_kwargs(),
+                supply=int(supply),
+                exhaust=int(exhaust),
             )
             if ok and cmd_id:
                 pending_acks.append(cmd_id)
@@ -214,12 +212,7 @@ def execute_command(cmd: dict) -> bool:
     if command == "set_away" and config.AIRFI_WRITES:
         away = payload.get("away")
         if isinstance(away, bool):
-            ok = write_away(
-                config.AIRFI_SERIAL,
-                config.AIRFI_BAUD,
-                config.AIRFI_UNIT,
-                away,
-            )
+            ok = write_away(**config.airfi_kwargs(), away=away)
             if ok and cmd_id:
                 pending_acks.append(cmd_id)
             return ok
@@ -244,11 +237,9 @@ def apply_ventilation(response: dict) -> None:
     exhaust = vent.get("fan_exhaust_target")
     if isinstance(supply, (int, float)) and isinstance(exhaust, (int, float)):
         write_fan_pct(
-            config.AIRFI_SERIAL,
-            config.AIRFI_BAUD,
-            config.AIRFI_UNIT,
-            int(supply),
-            int(exhaust),
+            **config.airfi_kwargs(),
+            supply=int(supply),
+            exhaust=int(exhaust),
         )
 
 
@@ -260,15 +251,15 @@ def build_state(
     state: dict = {}
 
     if config.AIRFI_ENABLED:
-        airfi = read_airfi(config.AIRFI_SERIAL, config.AIRFI_BAUD, config.AIRFI_UNIT)
+        airfi = read_airfi(**config.airfi_kwargs())
         state.update(airfi.state)
         if not airfi.ok:
-            log.warning(
-                "AirFi Modbus ei vastaa (%s %s baud unit %s)",
-                config.AIRFI_SERIAL,
-                config.AIRFI_BAUD,
-                config.AIRFI_UNIT,
+            target = (
+                f"{config.AIRFI_MODBUS_HOST}:{config.AIRFI_MODBUS_PORT}"
+                if config.AIRFI_MODBUS_HOST
+                else config.AIRFI_SERIAL or "?"
             )
+            log.warning("AirFi Modbus ei vastaa (%s unit %s)", target, config.AIRFI_UNIT)
     else:
         state["airfi_online"] = False
         log.debug("AirFi Modbus pois (AIRFI_ENABLED=0)")

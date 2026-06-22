@@ -1,10 +1,8 @@
 #!/usr/bin/env python3
-"""Test AirFi Modbus on all likely serial ports."""
-from alykoti_yellow.modbus_airfi import read_airfi
+from alykoti_yellow.modbus_airfi import read_airfi_tcp
+import os
 
-PORTS = ["/dev/ttyAMA0", "/dev/ttyAMA2", "/dev/ttyAMA4", "/dev/ttyUSB0"]
-
-if __name__ == "__main__":
-    for port in PORTS:
-        snap = read_airfi(port, 9600, 1)
-        print(f"{port}: ok={snap.ok} state={snap.state}")
+host = os.environ.get("AIRFI_MODBUS_HOST", "192.168.50.26")
+port = int(os.environ.get("AIRFI_MODBUS_PORT", "502"))
+unit = int(os.environ.get("AIRFI_MODBUS_UNIT", "1"))
+print(read_airfi_tcp(host, port, unit))
