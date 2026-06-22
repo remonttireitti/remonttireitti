@@ -276,12 +276,15 @@ def _resolve_control_cc(dev: dict[str, Any]) -> int | None:
 
 
 def _trim_switch_caps(dev: dict[str, Any], caps_map: dict[str, dict[str, Any]]) -> None:
+    """Align switch/dimmer caps with observed CC 37/38 — binary CC38 is a switch, not a dimmer."""
     ccs: set[int] = dev.get("_ccs_seen") or set()
     cc38_values: set[int] = dev.get("_cc38_values") or set()
     cc38_binary = _cc38_values_binary(cc38_values)
 
     if 37 in ccs:
         caps_map.pop("dimmer", None)
+        # CC37 may arrive without a prior cap merge — always ensure a writable switch.
+        _merge_cap(caps_map, _cap("switch", True, True))
     elif 38 in ccs and cc38_values and cc38_binary:
         caps_map.pop("dimmer", None)
         _merge_cap(caps_map, _cap("switch", True, True))
@@ -419,7 +422,7 @@ def fetch_zwave_devices(
     def finalize_endpoint(node_id: int, endpoint: int) -> None:
         dev = ensure_endpoint(node_id, endpoint)
         key = (node_id, endpoint)
-        caps_map = node_caps.get(key, {})
+        caps_map = node_caps.setdefault(key, {})
         _trim_switch_caps(dev, caps_map)
         control_cc = _resolve_control_cc(dev)
         if control_cc is not None:
