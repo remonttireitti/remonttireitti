@@ -262,8 +262,16 @@ def build_state(
     if config.AIRFI_ENABLED:
         airfi = read_airfi(config.AIRFI_SERIAL, config.AIRFI_BAUD, config.AIRFI_UNIT)
         state.update(airfi.state)
+        if not airfi.ok:
+            log.warning(
+                "AirFi Modbus ei vastaa (%s %s baud unit %s)",
+                config.AIRFI_SERIAL,
+                config.AIRFI_BAUD,
+                config.AIRFI_UNIT,
+            )
     else:
         state["airfi_online"] = False
+        log.debug("AirFi Modbus pois (AIRFI_ENABLED=0)")
 
     home_devices: dict[str, dict] = {}
 
@@ -381,7 +389,8 @@ def run_loop() -> None:
             switches = sum(1 for d in devices.values() if d.get("kind") == "switch")
             auto_count = len(cached_automations)
             log.info(
-                "Sync OK — devices=%s lights=%s zwave=%s shelly=%s tasmota=%s cmds=%s automations=%s",
+                "Sync OK — airfi=%s devices=%s lights=%s zwave=%s shelly=%s tasmota=%s cmds=%s automations=%s",
+                "online" if state.get("airfi_online") else "offline",
                 len(devices),
                 lights,
                 sum(1 for k in devices if k.startswith("zwave:")),

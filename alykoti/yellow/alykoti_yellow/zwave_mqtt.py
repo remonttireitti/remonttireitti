@@ -197,6 +197,9 @@ def fetch_zwave_devices(
         except json.JSONDecodeError:
             payload = {}
 
+        if not isinstance(payload, dict):
+            return
+
         m = STATUS_RE.match(topic)
         if m:
             node_id = payload.get("nodeId")
