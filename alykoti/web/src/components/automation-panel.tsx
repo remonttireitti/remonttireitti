@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
 import {
   deleteAutomationRule,
+  installSaunaShowerMirrorPresets,
   saveAutomationRule,
   toggleAutomationRule,
   type AutomationActionState,
@@ -12,11 +13,13 @@ import {
   isDeviceTrigger,
   isElectricityPriceTrigger,
   PRESS_LABELS,
+  TRIGGER_MODE_LABELS,
   triggerSummary,
   TRIGGER_KIND_LABELS,
   type AutomationActionType,
   type AutomationPressType,
   type AutomationRule,
+  type AutomationTriggerMode,
 } from "@/lib/automation";
 import {
   actionsForTargetGroup,
@@ -69,7 +72,9 @@ const EMPTY_FORM = {
   enabled: true,
   trigger_kind: "device" as "device" | "electricity_price",
   trigger_device_id: "",
+  trigger_mode: "action" as AutomationTriggerMode,
   trigger_press: "short" as AutomationPressType,
+  trigger_endpoint: "" as string,
   trigger_button: "",
   trigger_action: "",
   hue_button: "on" as Hue4BtnButton,
@@ -108,7 +113,9 @@ export function AutomationPanel({
   const [form, setForm] = useState({
     ...EMPTY_FORM,
     trigger_device_id: initialTriggerDevice ?? "",
+    trigger_mode: "action",
     trigger_press: initialTriggerPress ?? "short",
+    trigger_endpoint: "",
     trigger_button: initialTriggerButton ?? "",
     trigger_action: initialTriggerAction ?? "",
     hue_button: initialHueParsed?.button ?? "on",
@@ -152,10 +159,12 @@ export function AutomationPanel({
     return devices.filter((d) => form.target_ids.includes(d.id));
   }, [data?.devices, form.target_ids]);
 
-  const allowedActions = useMemo(
-    () => actionsForTargetGroup(selectedTargets),
-    [selectedTargets],
-  );
+  const allowedActions = useMemo(() => {
+    if (form.trigger_mode === "switch_state") {
+      return ["mirror"] as AutomationActionType[];
+    }
+    return actionsForTargetGroup(selectedTargets);
+  }, [form.trigger_mode, selectedTargets]);
 
   const pressTypes = useMemo(
     () => pressTypesForTrigger(selectedTriggerDevice?.capabilities),
@@ -199,7 +208,9 @@ export function AutomationPanel({
         enabled: rule.enabled,
         trigger_kind: "electricity_price",
         trigger_device_id: "",
+        trigger_mode: "action",
         trigger_press: "short",
+        trigger_endpoint: "",
         trigger_button: "",
         trigger_action: "",
         hue_button: "on",
@@ -221,7 +232,10 @@ export function AutomationPanel({
       enabled: rule.enabled,
       trigger_kind: "device",
       trigger_device_id: rule.trigger.device_id,
+      trigger_mode: rule.trigger.mode ?? "action",
       trigger_press: rule.trigger.press,
+      trigger_endpoint:
+        rule.trigger.endpoint != null ? String(rule.trigger.endpoint) : "",
       trigger_button: rule.trigger.button ?? "",
       trigger_action: rule.trigger.action ?? "",
       hue_button: hueParsed?.button ?? "on",
@@ -330,6 +344,19 @@ export function AutomationPanel({
           Valitse laukaisin (laite tai sähkön hinta) ja kohde. Laiteautomaatiot suoritetaan Yellowlla,
           sähköhinta-automaatiot pilven cronilla (15 min).
         </p>
+        <div className="mt-3">
+          <button
+            type="button"
+            disabled={pending}
+            onClick={() => run(() => installSaunaShowerMirrorPresets())}
+            className="rounded-xl border border-stone-300 bg-stone-50 px-4 py-2 text-sm font-medium text-stone-800 hover:bg-stone-100 disabled:opacity-50"
+          >
+            Luo sauna- ja suihkuvalosäännöt (eteisen kytkin)
+          </button>
+          <p className="mt-1 text-xs text-stone-500">
+            Kanava 1 → saunavalot (takkahuone + eteinen), kanava 2 → suihkuvalot. Peilaa tilan, ei togglea.
+          </p>
+        </div>
 
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <label className="block sm:col-span-2">
@@ -382,6 +409,50 @@ export function AutomationPanel({
                   </p>
                 )}
               </label>
+
+              {triggerProfile !== "hue_4btn" && (
+                <label className="block sm:col-span-2">
+                  <span className="text-sm font-medium text-stone-700">Laukaisutapa</span>
+                  <select
+                    value={form.trigger_mode}
+                    onChange={(e) => {
+                      const mode = e.target.value as AutomationTriggerMode;
+                      setForm((f) => ({
+                        ...f,
+                        trigger_mode: mode,
+                        action_type: mode === "switch_state" ? "mirror" : f.action_type,
+                      }));
+                    }}
+                    className="mt-1 w-full rounded-xl border border-stone-200 px-3 py-2 text-sm"
+                  >
+                    <option value="action">{TRIGGER_MODE_LABELS.action}</option>
+                    <option value="switch_state">{TRIGGER_MODE_LABELS.switch_state}</option>
+                  </select>
+                  {form.trigger_mode === "switch_state" && (
+                    <p className="mt-1 text-xs text-stone-600">
+                      Kytkin ON → kaikki kohteet päälle, OFF → pois. Ei togglea — vähentää räpsintää.
+                    </p>
+                  )}
+                </label>
+              )}
+
+              {form.trigger_mode === "switch_state" && form.trigger_device_id.startsWith("zwave:") && (
+                <label className="block">
+                  <span className="text-sm font-medium text-stone-700">Z-Wave kanava</span>
+                  <input
+                    type="number"
+                    min={0}
+                    max={4}
+                    value={form.trigger_endpoint}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, trigger_endpoint: e.target.value }))
+                    }
+                    placeholder="1 tai 2"
+                    className="mt-1 w-full rounded-xl border border-stone-200 px-3 py-2 text-sm"
+                  />
+                  <p className="mt-1 text-xs text-stone-500">Eteisen valokytkin: 1 = sauna, 2 = suihku.</p>
+                </label>
+              )}
 
               {triggerProfile === "hue_4btn" ? (
                 <>
@@ -449,7 +520,7 @@ export function AutomationPanel({
                     </select>
                   </label>
                 </>
-              ) : (
+              ) : form.trigger_mode === "switch_state" ? null : (
                 <>
                   <label className="block">
                     <span className="text-sm font-medium text-stone-700">Painallustyyppi</span>
@@ -621,6 +692,11 @@ export function AutomationPanel({
               (form.trigger_kind === "electricity_price" && !form.trigger_period_id)
             }
             onClick={() => {
+              const endpointRaw = form.trigger_endpoint.trim();
+              const endpoint =
+                endpointRaw && Number.isFinite(Number.parseInt(endpointRaw, 10))
+                  ? Number.parseInt(endpointRaw, 10)
+                  : null;
               const trigger =
                 form.trigger_kind === "device" && triggerProfile === "hue_4btn"
                   ? hueTriggerFields(form.hue_button, form.hue_gesture)
@@ -636,11 +712,14 @@ export function AutomationPanel({
                   enabled: form.enabled,
                   trigger_kind: form.trigger_kind,
                   trigger_device_id: form.trigger_device_id,
+                  trigger_mode: form.trigger_mode,
                   trigger_press: trigger.press,
+                  trigger_endpoint: endpoint,
                   trigger_button: trigger.button,
                   trigger_action: trigger.action,
                   trigger_period_id: form.trigger_period_id,
-                  action_type: form.action_type,
+                  action_type:
+                    form.trigger_mode === "switch_state" ? "mirror" : form.action_type,
                   target_ids: form.target_ids,
                   brightness_pct: form.brightness_pct,
                 }),

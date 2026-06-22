@@ -24,9 +24,12 @@ from alykoti_yellow.mqtt_lights import (
 )
 from alykoti_yellow.shelly import set_shelly_switch
 from alykoti_yellow.tasmota import set_tasmota_power
-from alykoti_yellow.zwave_mqtt import set_zwave_device, set_zwave_lock
+from alykoti_yellow.zwave_mqtt import _load_node_names, _slug, set_zwave_device, set_zwave_lock
 
 log = logging.getLogger(__name__)
+
+ZWAVE_CV_RE = re.compile(r"^zwave/([^/]+)/([^/]+)/(\d+)/(\d+)/currentValue$")
+ZWAVE_CV_NODE_RE = re.compile(r"^zwave/nodeID_(\d+)/(\d+)/(\d+)/currentValue$")
 
 SHORT_PRESS = frozenset(
     {
@@ -100,6 +103,7 @@ BRIGHTNESS_STEP = 40
 COMMAND_COOLDOWN_SEC = 0.5
 COLOR_COOLDOWN_SEC = 0.9
 MULTI_TARGET_DELAY_SEC = 0.2
+SWITCH_STATE_DEBOUNCE_SEC = 0.45
 
 
 def _press_aliases(press: str) -> frozenset[str]:
@@ -231,6 +235,8 @@ class AutomationEngine:
         self._light_state: dict[str, dict[str, Any]] = {}
         self._color_index: dict[str, int] = {}
         self._command_cooldown: dict[str, float] = {}
+        self._zwave_path_to_node: dict[str, int] = {}
+        self._switch_last_fire: dict[str, tuple[float, bool]] = {}
         self._lock = threading.Lock()
         self._events: deque[dict[str, Any]] = deque(maxlen=60)
         self._device_events: dict[str, deque[dict[str, Any]]] = {}
@@ -308,7 +314,19 @@ class AutomationEngine:
                 self._home_devices = home_devices
             elif not hasattr(self, "_home_devices"):
                 self._home_devices = {}
+            self._rebuild_zwave_paths()
         log.info("Automaatiot päivitetty: %s aktiivista sääntöä", len(enabled))
+
+    def _rebuild_zwave_paths(self) -> None:
+        meta = _load_node_names(config.ZWAVE_NODES_JSON)
+        paths: dict[str, int] = {}
+        for node_id, info in meta.items():
+            paths[f"nodeID_{node_id}"] = node_id
+            loc = info.get("loc") or ""
+            name = info.get("name") or ""
+            if loc and name:
+                paths[f"{loc}/{_slug(name)}"] = node_id
+        self._zwave_path_to_node = paths
 
     def start(self) -> None:
         if self._thread and self._thread.is_alive():
@@ -322,10 +340,20 @@ class AutomationEngine:
 
         def on_connect(client, _userdata, _flags, _reason_code, _properties):
             client.subscribe(f"{prefix}/#")
-            log.info("Automaatio MQTT kuuntelee %s/#", prefix)
+            client.subscribe(f"{config.ZWAVE_PREFIX}/#")
+            log.info("Automaatio MQTT kuuntelee %s/# ja %s/#", prefix, config.ZWAVE_PREFIX)
 
         def on_message(_client, _userdata, msg):
             topic = msg.topic
+            if topic.startswith(f"{config.ZWAVE_PREFIX}/"):
+                try:
+                    payload = json.loads(msg.payload.decode())
+                except (json.JSONDecodeError, UnicodeDecodeError):
+                    return
+                if isinstance(payload, dict):
+                    self._handle_zwave_message(topic, payload)
+                return
+
             name = _device_topic_name(prefix, topic)
             if not name:
                 return
@@ -352,12 +380,16 @@ class AutomationEngine:
 
             if "state" in payload or "brightness" in payload:
                 self._record_device_event(device_key, payload)
+                on: bool | None = None
                 with self._lock:
                     st = self._light_state.setdefault(device_key, {"on": False, "brightness": 128})
                     if "state" in payload:
-                        st["on"] = payload.get("state") == "ON"
+                        on = payload.get("state") == "ON"
+                        st["on"] = on
                     if "brightness" in payload and isinstance(payload["brightness"], (int, float)):
                         st["brightness"] = int(payload["brightness"])
+                if on is not None:
+                    self._handle_switch_state(device_key, on, endpoint=None)
 
         client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
         client.on_connect = on_connect
@@ -371,6 +403,148 @@ class AutomationEngine:
             except Exception as exc:
                 log.warning("Automaatio MQTT yhteys katkesi: %s", exc)
                 time.sleep(5)
+
+    def _zwave_value_to_on(self, value: Any) -> bool | None:
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, (int, float)):
+            return value > 0
+        return None
+
+    def _handle_zwave_message(self, topic: str, payload: dict[str, Any]) -> None:
+        m = ZWAVE_CV_RE.match(topic)
+        node_id: int | None = None
+        cc = 0
+        endpoint = 0
+        if m:
+            path = f"{m.group(1)}/{m.group(2)}"
+            cc = int(m.group(3))
+            endpoint = int(m.group(4))
+            node_id = self._zwave_path_to_node.get(path)
+        else:
+            m2 = ZWAVE_CV_NODE_RE.match(topic)
+            if not m2:
+                return
+            node_id = int(m2.group(1))
+            cc = int(m2.group(2))
+            endpoint = int(m2.group(3))
+
+        if node_id is None or cc not in (37, 38):
+            return
+        on = self._zwave_value_to_on(payload.get("value"))
+        if on is None:
+            return
+
+        device_key = f"zwave:{node_id}"
+        self._record_device_event(
+            device_key,
+            {"state": "ON" if on else "OFF", "endpoint": endpoint},
+            action=f"ep{endpoint}_{'on' if on else 'off'}",
+        )
+        self._handle_switch_state(device_key, on, endpoint=endpoint)
+
+    def _trigger_mode(self, trigger: dict[str, Any]) -> str:
+        mode = trigger.get("mode")
+        if isinstance(mode, str) and mode.strip():
+            return mode.strip()
+        return "action"
+
+    def _trigger_endpoint(self, trigger: dict[str, Any]) -> int | None:
+        ep = trigger.get("endpoint")
+        if isinstance(ep, int):
+            return ep
+        if isinstance(ep, float):
+            return int(ep)
+        return None
+
+    def _handle_switch_state(
+        self,
+        device_key: str,
+        on: bool,
+        *,
+        endpoint: int | None,
+    ) -> None:
+        debounce_key = f"{device_key}:{endpoint if endpoint is not None else 'all'}"
+        now = time.monotonic()
+        with self._lock:
+            last = self._switch_last_fire.get(debounce_key)
+            if last and last[1] == on and (now - last[0]) < SWITCH_STATE_DEBOUNCE_SEC:
+                return
+            self._switch_last_fire[debounce_key] = (now, on)
+            rules = list(self._rules)
+
+        matched = False
+        for rule in rules:
+            trigger = rule.get("trigger") if isinstance(rule.get("trigger"), dict) else {}
+            if trigger.get("device_id") != device_key:
+                continue
+            if self._trigger_mode(trigger) != "switch_state":
+                continue
+            rule_ep = self._trigger_endpoint(trigger)
+            if rule_ep is not None and endpoint is not None and rule_ep != endpoint:
+                continue
+            act = rule.get("action") if isinstance(rule.get("action"), dict) else {}
+            if str(act.get("type", "")) != "mirror":
+                continue
+            targets = act.get("target_ids")
+            if not isinstance(targets, list):
+                continue
+
+            rule_id = str(rule.get("id", "")) or None
+            rule_name = str(rule.get("name", "")) or None
+            matched = True
+            self._log_event(
+                "triggered",
+                rule_id=rule_id,
+                rule_name=rule_name,
+                device_id=device_key,
+                action_type="mirror",
+                message=f"{'ON' if on else 'OFF'} → {len(targets)} kohdetta",
+            )
+            for i, target_id in enumerate(targets):
+                if not isinstance(target_id, str) or target_id == device_key:
+                    continue
+                if i > 0:
+                    time.sleep(MULTI_TARGET_DELAY_SEC)
+                st = self._get_light_state(target_id)
+                if bool(st.get("on")) == on:
+                    self._log_event(
+                        "skipped",
+                        rule_id=rule_id,
+                        target_id=target_id,
+                        message="Jo oikeassa tilassa",
+                    )
+                    continue
+                if self._command_on_cooldown(target_id, "mirror"):
+                    continue
+                ok = self._apply(
+                    target_id,
+                    on,
+                    int(st.get("brightness") or 200) if on else 0,
+                )
+                self._log_event(
+                    "ok" if ok else "failed",
+                    rule_id=rule_id,
+                    rule_name=rule_name,
+                    target_id=target_id,
+                    action_type="mirror",
+                    message="OK" if ok else "Ohjaus epäonnistui",
+                )
+
+        if not matched:
+            with self._lock:
+                has_rules = any(
+                    isinstance(r.get("trigger"), dict)
+                    and r["trigger"].get("device_id") == device_key
+                    and self._trigger_mode(r["trigger"]) == "switch_state"
+                    for r in rules
+                )
+            if has_rules:
+                self._log_event(
+                    "no_match",
+                    device_id=device_key,
+                    message=f"Kytkintila ep={endpoint} — ei täsmäävää kanavaa",
+                )
 
     def _handle_action(self, device_key: str, action: str, button: str | None) -> None:
         with self._lock:

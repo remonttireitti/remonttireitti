@@ -5,10 +5,14 @@ import { hueMqttActionLabel, parseHueMqttAction } from "@/lib/automation-trigger
 
 export type AutomationPressType = "short" | "long" | "double";
 
+/** action = MQTT-painike; switch_state = seinäkytkin ON/OFF (ei toggle). */
+export type AutomationTriggerMode = "action" | "switch_state";
+
 export type AutomationActionType =
   | "on"
   | "off"
   | "toggle"
+  | "mirror"
   | "brightness_up"
   | "brightness_down"
   | "set_brightness"
@@ -22,7 +26,11 @@ export type DeviceAutomationTrigger = {
   kind: "device";
   /** zigbee:laite_nimi tai zwave:nodeId */
   device_id: string;
+  /** Oletus action — switch_state ei käytä painallustyyppiä. */
+  mode?: AutomationTriggerMode;
   press: AutomationPressType;
+  /** Z-Wave monikanavakytkin: 1, 2 … tyhjä = kaikki kanavat */
+  endpoint?: number | null;
   /** Esim. button_1, left — tyhjä = kaikki painikkeet */
   button?: string | null;
   /** Tarkka MQTT action (single, hold…) — tyhjä = painallustyypin mukainen */
@@ -62,10 +70,16 @@ export const PRESS_LABELS: Record<AutomationPressType, string> = {
   double: "Tupla",
 };
 
+export const TRIGGER_MODE_LABELS: Record<AutomationTriggerMode, string> = {
+  action: "Painike / MQTT-action",
+  switch_state: "Kytkimen tila (ON/OFF)",
+};
+
 export const ACTION_LABELS: Record<AutomationActionType, string> = {
   on: "Päälle",
   off: "Pois",
   toggle: "Vaihda",
+  mirror: "Seuraa kytkintä (sama tila, ei räpsintää)",
   brightness_up: "Kirkasta",
   brightness_down: "Himmennä",
   set_brightness: "Aseta kirkkaus",
@@ -149,13 +163,24 @@ function parseTrigger(raw: Record<string, unknown>): AutomationTrigger | null {
   }
 
   if (typeof raw.device_id !== "string") return null;
+  const mode: AutomationTriggerMode =
+    raw.mode === "switch_state" ? "switch_state" : "action";
   const press = raw.press;
-  if (press !== "short" && press !== "long" && press !== "double") return null;
+  if (mode === "action" && press !== "short" && press !== "long" && press !== "double") {
+    return null;
+  }
+
+  const endpoint =
+    typeof raw.endpoint === "number" && Number.isFinite(raw.endpoint)
+      ? Math.max(0, Math.round(raw.endpoint))
+      : null;
 
   return {
     kind: "device",
     device_id: raw.device_id,
-    press,
+    mode,
+    press: mode === "switch_state" ? "short" : press,
+    endpoint,
     button:
       typeof raw.button === "string" && raw.button.trim() ? raw.button.trim() : null,
     action:
@@ -170,6 +195,7 @@ function parseAction(raw: Record<string, unknown> | undefined): AutomationAction
     "on",
     "off",
     "toggle",
+    "mirror",
     "brightness_up",
     "brightness_down",
     "set_brightness",
@@ -238,7 +264,13 @@ export function triggerSummary(
   if (isElectricityPriceTrigger(trigger)) {
     return period ? `Sähkö · ${period.name}` : `Sähkö · ${trigger.period_id}`;
   }
-  const parts = [deviceName, PRESS_LABELS[trigger.press]];
+  const parts = [deviceName];
+  if (trigger.mode === "switch_state") {
+    parts.push(TRIGGER_MODE_LABELS.switch_state);
+    if (trigger.endpoint != null) parts.push(`kanava ${trigger.endpoint}`);
+  } else {
+    parts.push(PRESS_LABELS[trigger.press]);
+  }
   if (trigger.button) parts.push(trigger.button);
   if (trigger.action) {
     const hue = parseHueMqttAction(trigger.action);
@@ -261,7 +293,9 @@ export function triggerForYellow(trigger: AutomationTrigger): Record<string, unk
   }
   return {
     device_id: trigger.device_id,
+    mode: trigger.mode ?? "action",
     press: trigger.press,
+    endpoint: trigger.endpoint ?? null,
     button: trigger.button ?? null,
     action: trigger.action ?? null,
   };

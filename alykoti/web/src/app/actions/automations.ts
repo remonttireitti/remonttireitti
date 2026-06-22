@@ -2,6 +2,10 @@
 
 import { revalidateLaitteet } from "@/lib/revalidate-laitteet";
 import {
+  buildSaunaShowerMirrorPresets,
+  mergeMirrorPresets,
+} from "@/lib/automation-presets";
+import {
   normalizeAutomationRules,
   newRuleId,
   type AutomationActionType,
@@ -12,6 +16,8 @@ import {
 import { fetchPrimaryHub, parseHubConfig } from "@/lib/hubs";
 import type { HubConfig, HubState } from "@/lib/types";
 import { createClient } from "@/lib/supabase/server";
+import { normalizeHomeDevices } from "@/lib/device-normalize";
+import { parseHubHomeDevices } from "@/lib/hub-lights";
 
 export type AutomationActionState = {
   error?: string;
@@ -58,7 +64,9 @@ async function saveRules(
 function buildTrigger(input: {
   trigger_kind: "device" | "electricity_price";
   trigger_device_id?: string;
+  trigger_mode?: "action" | "switch_state";
   trigger_press?: AutomationPressType;
+  trigger_endpoint?: number | null;
   trigger_button?: string | null;
   trigger_action?: string | null;
   trigger_period_id?: string;
@@ -71,13 +79,23 @@ function buildTrigger(input: {
 
   const device_id = input.trigger_device_id?.trim();
   if (!device_id?.includes(":")) return null;
+  const mode = input.trigger_mode === "switch_state" ? "switch_state" : "action";
   const press = input.trigger_press;
-  if (press !== "short" && press !== "long" && press !== "double") return null;
+  if (mode === "action" && press !== "short" && press !== "long" && press !== "double") {
+    return null;
+  }
+
+  const endpoint =
+    typeof input.trigger_endpoint === "number" && Number.isFinite(input.trigger_endpoint)
+      ? Math.max(0, Math.round(input.trigger_endpoint))
+      : null;
 
   return {
     kind: "device",
     device_id,
-    press,
+    mode,
+    press: mode === "switch_state" ? "short" : press,
+    endpoint,
     button: input.trigger_button?.trim() || null,
     action: input.trigger_action?.trim() || null,
   };
@@ -89,7 +107,9 @@ export async function saveAutomationRule(input: {
   enabled: boolean;
   trigger_kind: "device" | "electricity_price";
   trigger_device_id?: string;
+  trigger_mode?: "action" | "switch_state";
   trigger_press?: AutomationPressType;
+  trigger_endpoint?: number | null;
   trigger_button?: string | null;
   trigger_action?: string | null;
   trigger_period_id?: string;
@@ -150,6 +170,41 @@ export async function saveAutomationRule(input: {
     .single();
 
   return saveRules(ctx.supabase, ctx.hub.id, row?.config, rules);
+}
+
+export async function installSaunaShowerMirrorPresets(): Promise<AutomationActionState> {
+  const ctx = await requireHub();
+  if (ctx.error || !ctx.supabase || !ctx.hub) return { error: ctx.error ?? "Virhe." };
+
+  const state = (ctx.hub.state as HubState) ?? {};
+  const homeDevices = normalizeHomeDevices(state.home_devices, {
+    integrations: state.integrations,
+    airthingsState: state,
+  });
+  const devices = parseHubHomeDevices(homeDevices, state.lights, state.device_overrides);
+  const { rules: presets, missing } = buildSaunaShowerMirrorPresets(devices);
+  if (presets.length === 0) {
+    return {
+      error: `Laitteita puuttuu: ${missing.join(", ")}. Odota synkkiä tai tarkista nimet.`,
+    };
+  }
+
+  const existing = readAutomationRules(ctx.hub.config, state);
+  const merged = mergeMirrorPresets(existing, presets);
+
+  const { data: row } = await ctx.supabase
+    .from("hubs")
+    .select("config")
+    .eq("id", ctx.hub.id)
+    .single();
+
+  const result = await saveRules(ctx.supabase, ctx.hub.id, row?.config, merged);
+  if (result.ok) {
+    return {
+      ok: "Sauna- ja suihkuvalosäännöt lisätty (kytkin kanava 1/2 → peilaa valot). Yellow päivittää ~30 s.",
+    };
+  }
+  return result;
 }
 
 export async function deleteAutomationRule(ruleId: string): Promise<AutomationActionState> {

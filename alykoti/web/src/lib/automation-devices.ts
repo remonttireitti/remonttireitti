@@ -35,11 +35,11 @@ function toOption(device: HubLightDevice): AutomationDeviceOption {
   };
 }
 
-/** Laukaisin: painike, kaukosäädin tai anturi joka voi laukaista tapahtuman. */
+/** Laukaisin: painike, kaukosäädin, anturi tai seinäkytkin. */
 export function isAutomationTrigger(device: HubLightDevice): boolean {
   const caps = device.capabilities;
   if (hasCapability(caps, "button")) return true;
-  if (device.kind === "switch" && !device.controllable) return true;
+  if (device.kind === "switch") return true;
   if (
     hasCapability(caps, "contact") ||
     hasCapability(caps, "motion") ||
