@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { normalizeAutomationRules } from "@/lib/automation";
+import { normalizeElectricityPricePeriods } from "@/lib/electricity-price-periods";
 import {
   DEFAULT_VENTILATION_CONFIG,
   type Hub,
@@ -41,12 +42,15 @@ export function parseVentilationConfig(raw: unknown): VentilationConfig {
 
 export function parseHubConfig(raw: unknown): HubConfig {
   const ventilation = parseVentilationConfig(raw);
-  const automations = normalizeAutomationRules(
-    raw && typeof raw === "object" ? (raw as Record<string, unknown>).automations : undefined,
+  const record = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
+  const automations = normalizeAutomationRules(record.automations);
+  const electricity_price_periods = normalizeElectricityPricePeriods(
+    record.electricity_price_periods,
   );
   return {
     ...ventilation,
     automations,
+    electricity_price_periods,
   };
 }
 

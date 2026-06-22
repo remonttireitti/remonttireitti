@@ -17,6 +17,8 @@ import {
 } from "@/lib/device-protocol";
 import { kindLabel } from "@/lib/hub-lights";
 import { FLOOR_PLAN_ANCHORS } from "@/lib/floor-plan";
+import { LAITTEET } from "@/lib/laitteet-paths";
+import Link from "next/link";
 
 type Device = {
   id: string;
@@ -383,6 +385,18 @@ function DeviceListSection({
                     <p className="mt-0.5 font-mono text-[10px] text-stone-400">{device.id}</p>
                   </div>
                   <div className="flex gap-2">
+                    {(device.protocol === "zigbee" || device.protocol === "zwave") && (
+                      <Link
+                        href={
+                          device.protocol === "zigbee"
+                            ? LAITTEET.zigbeeDevice(device.id)
+                            : LAITTEET.zwaveDevice(device.id)
+                        }
+                        className="rounded-lg border border-stone-900 px-3 py-1.5 text-xs font-semibold text-stone-900 hover:bg-stone-900 hover:text-white"
+                      >
+                        Avaa
+                      </Link>
+                    )}
                     <button
                       type="button"
                       onClick={() => onEditStart(device)}

@@ -4,6 +4,7 @@ import {
   groupAutomationTargets,
   listAutomationTriggers,
 } from "@/lib/automation-devices";
+import { normalizeElectricityPricePeriods } from "@/lib/electricity-price-periods";
 import { parseHubHomeDevices } from "@/lib/hub-lights";
 import { normalizeHomeDevices } from "@/lib/device-normalize";
 import { fetchPrimaryHub, parseHubConfig } from "@/lib/hubs";
@@ -41,6 +42,7 @@ export async function GET() {
   const config = parseHubConfig(hub.config);
   const legacyRules = normalizeAutomationRules(hub.state.automations);
   const rules = config.automations?.length ? config.automations : legacyRules;
+  const electricityPricePeriods = normalizeElectricityPricePeriods(config.electricity_price_periods);
 
   return NextResponse.json({
     configured: true,
@@ -48,6 +50,8 @@ export async function GET() {
     rules,
     triggers,
     targets: targetGroups,
+    devices,
+    electricityPricePeriods,
     /** @deprecated käytä triggers + targets */
     switches: triggers,
     lights: targetGroups.lights,

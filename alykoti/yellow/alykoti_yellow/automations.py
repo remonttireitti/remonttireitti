@@ -138,8 +138,14 @@ class AutomationEngine:
         enabled: list[dict[str, Any]] = []
         if isinstance(rules, list):
             for item in rules:
-                if isinstance(item, dict) and item.get("enabled", True):
-                    enabled.append(item)
+                if not isinstance(item, dict) or not item.get("enabled", True):
+                    continue
+                trigger = item.get("trigger")
+                if isinstance(trigger, dict):
+                    kind = trigger.get("kind") or trigger.get("type")
+                    if kind == "electricity_price":
+                        continue
+                enabled.append(item)
         with self._lock:
             self._rules = enabled
             if isinstance(integrations, dict):
@@ -223,7 +229,12 @@ class AutomationEngine:
             press = str(trigger.get("press", "short"))
             rule_button = trigger.get("button")
             rule_button_str = str(rule_button) if isinstance(rule_button, str) and rule_button.strip() else None
-            if not _match_action(action, press):
+            rule_action = trigger.get("action")
+            rule_action_str = str(rule_action) if isinstance(rule_action, str) and rule_action.strip() else None
+            if rule_action_str:
+                if action.strip().casefold() != rule_action_str.strip().casefold():
+                    continue
+            elif not _match_action(action, press):
                 continue
             if not _match_button(button, rule_button_str):
                 continue

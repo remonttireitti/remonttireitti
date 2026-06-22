@@ -4,7 +4,7 @@ import { LAITTEET } from "@/lib/laitteet-paths";
 /** Päivitä kaikki laitteet-sivut + vanhat uudelleenohjaukset. */
 export function revalidateLaitteet() {
   for (const path of Object.values(LAITTEET)) {
-    revalidatePath(path);
+    if (typeof path === "string") revalidatePath(path);
   }
   revalidatePath("/keskusyksikko");
   revalidatePath("/koti/valot");

@@ -6,7 +6,8 @@ import {
   newRuleId,
   type AutomationActionType,
   type AutomationPressType,
-  type LightAutomationRule,
+  type AutomationRule,
+  type AutomationTrigger,
 } from "@/lib/automation";
 import { fetchPrimaryHub, parseHubConfig } from "@/lib/hubs";
 import type { HubConfig, HubState } from "@/lib/types";
@@ -30,7 +31,7 @@ async function requireHub() {
   return { supabase, hub, user, error: null };
 }
 
-function readAutomationRules(config: unknown, state: HubState): LightAutomationRule[] {
+function readAutomationRules(config: unknown, state: HubState): AutomationRule[] {
   const fromConfig = normalizeAutomationRules(parseHubConfig(config).automations);
   if (fromConfig.length > 0) return fromConfig;
   return normalizeAutomationRules(state.automations);
@@ -40,7 +41,7 @@ async function saveRules(
   supabase: Awaited<ReturnType<typeof createClient>>,
   hubId: string,
   configRaw: unknown,
-  rules: LightAutomationRule[],
+  rules: AutomationRule[],
 ): Promise<AutomationActionState> {
   const config: HubConfig = {
     ...parseHubConfig(configRaw),
@@ -54,13 +55,44 @@ async function saveRules(
   return { ok: "Automaatio tallennettu. Yellow päivittää säännöt seuraavassa synkissä (~30 s)." };
 }
 
+function buildTrigger(input: {
+  trigger_kind: "device" | "electricity_price";
+  trigger_device_id?: string;
+  trigger_press?: AutomationPressType;
+  trigger_button?: string | null;
+  trigger_action?: string | null;
+  trigger_period_id?: string;
+}): AutomationTrigger | null {
+  if (input.trigger_kind === "electricity_price") {
+    const period_id = input.trigger_period_id?.trim();
+    if (!period_id) return null;
+    return { kind: "electricity_price", period_id };
+  }
+
+  const device_id = input.trigger_device_id?.trim();
+  if (!device_id?.includes(":")) return null;
+  const press = input.trigger_press;
+  if (press !== "short" && press !== "long" && press !== "double") return null;
+
+  return {
+    kind: "device",
+    device_id,
+    press,
+    button: input.trigger_button?.trim() || null,
+    action: input.trigger_action?.trim() || null,
+  };
+}
+
 export async function saveAutomationRule(input: {
   id?: string;
   name: string;
   enabled: boolean;
-  trigger_device_id: string;
-  trigger_press: AutomationPressType;
+  trigger_kind: "device" | "electricity_price";
+  trigger_device_id?: string;
+  trigger_press?: AutomationPressType;
   trigger_button?: string | null;
+  trigger_action?: string | null;
+  trigger_period_id?: string;
   action_type: AutomationActionType;
   target_ids: string[];
   brightness_pct?: number | null;
@@ -70,9 +102,6 @@ export async function saveAutomationRule(input: {
 
   const name = input.name.trim();
   if (!name) return { error: "Anna säännölle nimi." };
-  if (!input.trigger_device_id.includes(":")) {
-    return { error: "Valitse laukaisin laitelistasta." };
-  }
   if (input.target_ids.length === 0) return { error: "Valitse vähintään yksi kohde." };
   if (input.action_type === "set_brightness") {
     const pct = input.brightness_pct;
@@ -81,19 +110,25 @@ export async function saveAutomationRule(input: {
     }
   }
 
+  const trigger = buildTrigger(input);
+  if (!trigger) {
+    return {
+      error:
+        input.trigger_kind === "electricity_price"
+          ? "Valitse sähköhintajakso."
+          : "Valitse laukaisin laitelistasta.",
+    };
+  }
+
   const state = (ctx.hub.state as HubState) ?? {};
   const rules = readAutomationRules(ctx.hub.config, state);
   const id = input.id?.trim() || newRuleId();
 
-  const rule: LightAutomationRule = {
+  const rule: AutomationRule = {
     id,
     name,
     enabled: input.enabled,
-    trigger: {
-      device_id: input.trigger_device_id,
-      press: input.trigger_press,
-      button: input.trigger_button?.trim() || null,
-    },
+    trigger,
     action: {
       type: input.action_type,
       target_ids: input.target_ids,

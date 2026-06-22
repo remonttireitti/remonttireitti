@@ -161,3 +161,34 @@ export async function setLightState(
     });
   });
 }
+
+export async function setLightColor(
+  id: string,
+  opts: {
+    on: boolean;
+    brightness?: number;
+    hue?: number;
+    saturation?: number;
+    color_temp?: number;
+  },
+): Promise<void> {
+  await withMqtt(async (client) => {
+    const prefix = topicPrefix();
+    await new Promise<void>((resolve, reject) => {
+      const payload: Record<string, string | number> = {
+        state: opts.on ? "ON" : "OFF",
+      };
+      if (opts.brightness != null) payload.brightness = opts.brightness;
+      if (opts.color_temp != null) payload.color_temp = opts.color_temp;
+      if (opts.hue != null) {
+        payload.hue = opts.hue;
+        payload.saturation = opts.saturation ?? 254;
+      }
+
+      client.publish(`${prefix}/${id}/set`, JSON.stringify(payload), (err) => {
+        if (err) reject(err);
+        else resolve();
+      });
+    });
+  });
+}

@@ -1,4 +1,5 @@
-import type { LightAutomationRule } from "@/lib/automation";
+import type { AutomationActionType, AutomationPressType, AutomationRule } from "@/lib/automation";
+import type { ElectricityPricePeriod } from "@/lib/electricity-price-periods";
 
 export type HubControlMode = "auto" | "manual" | "fireplace" | "hood";
 
@@ -194,10 +195,12 @@ export type HubDeviceOverride = {
   hidden?: boolean;
 };
 
-/** hubs.config — ilmanvaihto + Zigbee-kytkinautomaatiot */
+/** hubs.config — ilmanvaihto + automaatiot + sähköhintajaksot */
 export type HubConfig = VentilationConfig & {
-  /** Zigbee-kytkin → valo -säännöt (web → Yellow) */
-  automations?: LightAutomationRule[];
+  /** Laite- ja sähköhinta-automaatiot (web → Yellow / cron) */
+  automations?: AutomationRule[];
+  /** Halvimmat jaksot ja hintarajat automaatioille */
+  electricity_price_periods?: ElectricityPricePeriod[];
 };
 
 export type HubState = {
@@ -265,7 +268,9 @@ export type HubState = {
   /** Integraatioiden konfiguraatio (web → Yellow). */
   integrations?: HubIntegrations;
   /** @deprecated käytä hubs.config.automations */
-  automations?: LightAutomationRule[];
+  automations?: AutomationRule[];
+  /** Sähköhinta-automaatioiden viimeisin laukaisu (slot-avaimet) */
+  automation_price_fires?: Record<string, string>;
   /** Yellow-verkkoscanin löytämät Shellyt. */
   shelly_discovered?: ShellyDiscoveredDevice[];
   /** Yellow-verkkoscanin löytämät Tasmota-laitteet. */
@@ -311,7 +316,7 @@ export type DeviceSyncResponse = {
   ventilation?: HubState;
   display?: DeviceSyncDisplay;
   integrations?: HubIntegrations;
-  automations?: LightAutomationRule[];
+  automations?: AutomationRule[];
 };
 
 export type ControlMode = HubControlMode;

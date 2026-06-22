@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
 import {
   deleteAutomationRule,
   saveAutomationRule,
@@ -9,23 +9,38 @@ import {
 } from "@/app/actions/automations";
 import {
   ACTION_LABELS,
+  isDeviceTrigger,
+  isElectricityPriceTrigger,
   PRESS_LABELS,
+  triggerSummary,
+  TRIGGER_KIND_LABELS,
   type AutomationActionType,
   type AutomationPressType,
-  type LightAutomationRule,
+  type AutomationRule,
 } from "@/lib/automation";
+import {
+  actionsForTargetGroup,
+  KNOWN_MQTT_ACTIONS,
+  mqttActionLabel,
+  pressTypesForTrigger,
+} from "@/lib/automation-actions";
 import { protocolLabel } from "@/lib/device-protocol";
 import {
   type AutomationDeviceOption,
   type AutomationTargetGroups,
 } from "@/lib/automation-devices";
+import type { HubLightDevice } from "@/lib/hub-lights";
+import type { ElectricityPricePeriod } from "@/lib/electricity-price-periods";
+import { ElectricityPricePeriodsPanel } from "@/components/electricity-price-periods-panel";
 
 type AutomationsResponse = {
   configured: boolean;
   hubOnline?: boolean;
-  rules: LightAutomationRule[];
+  rules: AutomationRule[];
   triggers: AutomationDeviceOption[];
   targets: AutomationTargetGroups;
+  devices: HubLightDevice[];
+  electricityPricePeriods: ElectricityPricePeriod[];
   error?: string;
 };
 
@@ -33,9 +48,12 @@ const EMPTY_FORM = {
   id: "",
   name: "",
   enabled: true,
+  trigger_kind: "device" as "device" | "electricity_price",
   trigger_device_id: "",
   trigger_press: "short" as AutomationPressType,
   trigger_button: "",
+  trigger_action: "",
+  trigger_period_id: "",
   action_type: "toggle" as AutomationActionType,
   target_ids: [] as string[],
   brightness_pct: 50,
@@ -48,10 +66,28 @@ const TARGET_SECTIONS: { key: keyof AutomationTargetGroups; title: string }[] = 
   { key: "other", title: "Muut" },
 ];
 
-export function AutomationPanel() {
+type Props = {
+  initialTriggerDevice?: string;
+  initialTriggerPress?: AutomationPressType;
+  initialTriggerButton?: string;
+  initialTriggerAction?: string;
+};
+
+export function AutomationPanel({
+  initialTriggerDevice,
+  initialTriggerPress,
+  initialTriggerButton,
+  initialTriggerAction,
+}: Props) {
   const [data, setData] = useState<AutomationsResponse | null>(null);
   const [flash, setFlash] = useState<AutomationActionState | null>(null);
-  const [form, setForm] = useState(EMPTY_FORM);
+  const [form, setForm] = useState({
+    ...EMPTY_FORM,
+    trigger_device_id: initialTriggerDevice ?? "",
+    trigger_press: initialTriggerPress ?? "short",
+    trigger_button: initialTriggerButton ?? "",
+    trigger_action: initialTriggerAction ?? "",
+  });
   const [editingId, setEditingId] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -66,6 +102,8 @@ export function AutomationPanel() {
         rules: [],
         triggers: [],
         targets: { lights: [], switches: [], locks: [], other: [] },
+        devices: [],
+        electricityPricePeriods: [],
         error: "Yhteys API:in epäonnistui",
       });
     }
@@ -77,20 +115,67 @@ export function AutomationPanel() {
     return () => clearInterval(id);
   }, [load]);
 
+  const selectedTriggerDevice = useMemo(() => {
+    const devices = data?.devices ?? [];
+    return devices.find((d) => d.id === form.trigger_device_id);
+  }, [data?.devices, form.trigger_device_id]);
+
+  const selectedTargets = useMemo(() => {
+    const devices = data?.devices ?? [];
+    return devices.filter((d) => form.target_ids.includes(d.id));
+  }, [data?.devices, form.target_ids]);
+
+  const allowedActions = useMemo(
+    () => actionsForTargetGroup(selectedTargets),
+    [selectedTargets],
+  );
+
+  const pressTypes = useMemo(
+    () => pressTypesForTrigger(selectedTriggerDevice?.capabilities),
+    [selectedTriggerDevice],
+  );
+
+  useEffect(() => {
+    if (!allowedActions.includes(form.action_type) && allowedActions.length > 0) {
+      setForm((f) => ({ ...f, action_type: allowedActions[0]! }));
+    }
+  }, [allowedActions, form.action_type]);
+
   function resetForm() {
     setForm(EMPTY_FORM);
     setEditingId(null);
   }
 
-  function editRule(rule: LightAutomationRule) {
+  function editRule(rule: AutomationRule) {
     setEditingId(rule.id);
+    if (isElectricityPriceTrigger(rule.trigger)) {
+      setForm({
+        id: rule.id,
+        name: rule.name,
+        enabled: rule.enabled,
+        trigger_kind: "electricity_price",
+        trigger_device_id: "",
+        trigger_press: "short",
+        trigger_button: "",
+        trigger_action: "",
+        trigger_period_id: rule.trigger.period_id,
+        action_type: rule.action.type,
+        target_ids: [...rule.action.target_ids],
+        brightness_pct: rule.action.brightness_pct ?? 50,
+      });
+      return;
+    }
+
     setForm({
       id: rule.id,
       name: rule.name,
       enabled: rule.enabled,
+      trigger_kind: "device",
       trigger_device_id: rule.trigger.device_id,
       trigger_press: rule.trigger.press,
       trigger_button: rule.trigger.button ?? "",
+      trigger_action: rule.trigger.action ?? "",
+      trigger_period_id: "",
       action_type: rule.action.type,
       target_ids: [...rule.action.target_ids],
       brightness_pct: rule.action.brightness_pct ?? 50,
@@ -121,6 +206,7 @@ export function AutomationPanel() {
   const rules = data?.rules ?? [];
   const triggers = data?.triggers ?? [];
   const targets = data?.targets ?? { lights: [], switches: [], locks: [], other: [] };
+  const periods = data?.electricityPricePeriods ?? [];
   const targetCount =
     targets.lights.length + targets.switches.length + targets.locks.length + targets.other.length;
 
@@ -144,26 +230,20 @@ export function AutomationPanel() {
 
       {data?.hubOnline === false && (
         <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
-          Yellow ei ole online — säännöt tallentuvat pilveen, mutta suoritus vaatii Pi-yhteyden.
+          Yellow ei ole online — säännöt tallentuvat pilveen. Laiteautomaatiot vaativat Pi-yhteyden,
+          sähköhinta-automaatiot ajetaan pilvestä.
         </div>
       )}
 
-      {triggers.length === 0 && (
-        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
-          <p className="font-semibold">Ei laukaisimia</p>
-          <p className="mt-1">
-            Parita langaton kytkin, anturi tai muu laukaisin. Yellow tunnistaa laitteet seuraavassa synkissä.
-          </p>
-        </div>
-      )}
+      <ElectricityPricePeriodsPanel periods={periods} />
 
       <section className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
         <h2 className="text-lg font-semibold text-stone-900">
           {editingId ? "Muokkaa sääntöä" : "Uusi automaatio"}
         </h2>
         <p className="mt-1 text-sm text-stone-600">
-          Valitse mikä tahansa laukaisin (kytkin, anturi) ja kohde (valo, rele, lukko). Suoritus tapahtuu
-          Yellowlla paikallisesti.
+          Valitse laukaisin (laite tai sähkön hinta) ja kohde. Laiteautomaatiot suoritetaan Yellowlla,
+          sähköhinta-automaatiot pilven cronilla (15 min).
         </p>
 
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
@@ -179,49 +259,114 @@ export function AutomationPanel() {
           </label>
 
           <label className="block sm:col-span-2">
-            <span className="text-sm font-medium text-stone-700">Laukaisin</span>
+            <span className="text-sm font-medium text-stone-700">Laukaisimen tyyppi</span>
             <select
-              value={form.trigger_device_id}
-              onChange={(e) => setForm((f) => ({ ...f, trigger_device_id: e.target.value }))}
-              className="mt-1 w-full rounded-xl border border-stone-200 px-3 py-2 text-sm"
-            >
-              <option value="">Valitse laite…</option>
-              {triggers.map((dev) => (
-                <option key={dev.id} value={dev.id}>
-                  {dev.name} · {protocolLabel(dev.protocol)} · {dev.kindLabel}
-                  {dev.capabilitiesLabel !== "—" ? ` · ${dev.capabilitiesLabel}` : ""}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="block">
-            <span className="text-sm font-medium text-stone-700">Painallus / tapahtuma</span>
-            <select
-              value={form.trigger_press}
+              value={form.trigger_kind}
               onChange={(e) =>
-                setForm((f) => ({ ...f, trigger_press: e.target.value as AutomationPressType }))
+                setForm((f) => ({
+                  ...f,
+                  trigger_kind: e.target.value as "device" | "electricity_price",
+                }))
               }
               className="mt-1 w-full rounded-xl border border-stone-200 px-3 py-2 text-sm"
             >
-              {(Object.keys(PRESS_LABELS) as AutomationPressType[]).map((key) => (
-                <option key={key} value={key}>
-                  {PRESS_LABELS[key]}
-                </option>
-              ))}
+              <option value="device">{TRIGGER_KIND_LABELS.device}</option>
+              <option value="electricity_price">{TRIGGER_KIND_LABELS.electricity_price}</option>
             </select>
           </label>
 
-          <label className="block">
-            <span className="text-sm font-medium text-stone-700">Painike (valinnainen)</span>
-            <input
-              type="text"
-              value={form.trigger_button}
-              onChange={(e) => setForm((f) => ({ ...f, trigger_button: e.target.value }))}
-              placeholder="button_1, left…"
-              className="mt-1 w-full rounded-xl border border-stone-200 px-3 py-2 text-sm"
-            />
-          </label>
+          {form.trigger_kind === "device" ? (
+            <>
+              <label className="block sm:col-span-2">
+                <span className="text-sm font-medium text-stone-700">Laukaisinlaite</span>
+                <select
+                  value={form.trigger_device_id}
+                  onChange={(e) => setForm((f) => ({ ...f, trigger_device_id: e.target.value }))}
+                  className="mt-1 w-full rounded-xl border border-stone-200 px-3 py-2 text-sm"
+                >
+                  <option value="">Valitse laite…</option>
+                  {triggers.map((dev) => (
+                    <option key={dev.id} value={dev.id}>
+                      {dev.name} · {protocolLabel(dev.protocol)} · {dev.kindLabel}
+                    </option>
+                  ))}
+                </select>
+                {triggers.length === 0 && (
+                  <p className="mt-1 text-xs text-amber-700">
+                    Ei laukaisimia — paraa kytkin tai avaa laitesivu live-tapahtumille.
+                  </p>
+                )}
+              </label>
+
+              <label className="block">
+                <span className="text-sm font-medium text-stone-700">Painallustyyppi</span>
+                <select
+                  value={form.trigger_press}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, trigger_press: e.target.value as AutomationPressType }))
+                  }
+                  className="mt-1 w-full rounded-xl border border-stone-200 px-3 py-2 text-sm"
+                >
+                  {pressTypes.map((key) => (
+                    <option key={key} value={key}>
+                      {PRESS_LABELS[key]}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="block">
+                <span className="text-sm font-medium text-stone-700">Painike (valinnainen)</span>
+                <input
+                  type="text"
+                  value={form.trigger_button}
+                  onChange={(e) => setForm((f) => ({ ...f, trigger_button: e.target.value }))}
+                  placeholder="button_1, left…"
+                  className="mt-1 w-full rounded-xl border border-stone-200 px-3 py-2 text-sm"
+                />
+              </label>
+
+              <label className="block sm:col-span-2">
+                <span className="text-sm font-medium text-stone-700">
+                  Tarkka MQTT-action (valinnainen)
+                </span>
+                <select
+                  value={form.trigger_action}
+                  onChange={(e) => setForm((f) => ({ ...f, trigger_action: e.target.value }))}
+                  className="mt-1 w-full rounded-xl border border-stone-200 px-3 py-2 text-sm"
+                >
+                  <option value="">Mikä tahansa valitun painallustyypin mukainen</option>
+                  {KNOWN_MQTT_ACTIONS.map((action) => (
+                    <option key={action} value={action}>
+                      {action} — {mqttActionLabel(action)}
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-1 text-xs text-stone-500">
+                  Kopioi arvo laitesivun live-tapahtumista (esim. single, hold).
+                </p>
+              </label>
+            </>
+          ) : (
+            <label className="block sm:col-span-2">
+              <span className="text-sm font-medium text-stone-700">Sähköhintajakso</span>
+              <select
+                value={form.trigger_period_id}
+                onChange={(e) => setForm((f) => ({ ...f, trigger_period_id: e.target.value }))}
+                className="mt-1 w-full rounded-xl border border-stone-200 px-3 py-2 text-sm"
+              >
+                <option value="">Valitse jakso…</option>
+                {periods.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+              {periods.length === 0 && (
+                <p className="mt-1 text-xs text-amber-700">Luo ensin halvin jakso yllä.</p>
+              )}
+            </label>
+          )}
 
           <label className="block sm:col-span-2">
             <span className="text-sm font-medium text-stone-700">Toiminto</span>
@@ -232,12 +377,17 @@ export function AutomationPanel() {
               }
               className="mt-1 w-full rounded-xl border border-stone-200 px-3 py-2 text-sm"
             >
-              {(Object.keys(ACTION_LABELS) as AutomationActionType[]).map((key) => (
+              {allowedActions.map((key) => (
                 <option key={key} value={key}>
                   {ACTION_LABELS[key]}
                 </option>
               ))}
             </select>
+            {selectedTargets.length > 0 && (
+              <p className="mt-1 text-xs text-stone-500">
+                Toiminnot suodatettu valittujen kohteiden ominaisuuksien mukaan.
+              </p>
+            )}
           </label>
 
           {form.action_type === "set_brightness" && (
@@ -284,9 +434,6 @@ export function AutomationPanel() {
                               className="rounded border-stone-300"
                             />
                             <span className="min-w-0 truncate">{device.name}</span>
-                            <span className="ml-auto shrink-0 text-xs text-stone-500">
-                              {protocolLabel(device.protocol)}
-                            </span>
                           </label>
                         </li>
                       );
@@ -301,16 +448,24 @@ export function AutomationPanel() {
         <div className="mt-5 flex flex-wrap gap-2">
           <button
             type="button"
-            disabled={pending || !form.trigger_device_id || form.target_ids.length === 0}
+            disabled={
+              pending ||
+              form.target_ids.length === 0 ||
+              (form.trigger_kind === "device" && !form.trigger_device_id) ||
+              (form.trigger_kind === "electricity_price" && !form.trigger_period_id)
+            }
             onClick={() =>
               run(() =>
                 saveAutomationRule({
                   id: form.id || undefined,
                   name: form.name,
                   enabled: form.enabled,
+                  trigger_kind: form.trigger_kind,
                   trigger_device_id: form.trigger_device_id,
                   trigger_press: form.trigger_press,
                   trigger_button: form.trigger_button || null,
+                  trigger_action: form.trigger_action || null,
+                  trigger_period_id: form.trigger_period_id,
                   action_type: form.action_type,
                   target_ids: form.target_ids,
                   brightness_pct: form.brightness_pct,
@@ -339,69 +494,64 @@ export function AutomationPanel() {
           <p className="mt-3 text-sm text-stone-600">Ei automaatioita vielä.</p>
         ) : (
           <ul className="mt-4 space-y-3">
-            {rules.map((rule) => (
-              <li
-                key={rule.id}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-stone-200 bg-stone-50 px-4 py-3"
-              >
-                <div className="min-w-0">
-                  <p className="font-medium text-stone-900">{rule.name}</p>
-                  <p className="mt-0.5 text-xs text-stone-500">
-                    {deviceLabel(rule.trigger.device_id)} · {PRESS_LABELS[rule.trigger.press]}
-                    {rule.trigger.button ? ` · ${rule.trigger.button}` : ""} →{" "}
-                    {ACTION_LABELS[rule.action.type]}
-                    {rule.action.target_ids.length > 0
-                      ? ` (${rule.action.target_ids.length} kohdetta)`
-                      : ""}
-                  </p>
-                </div>
-                <div className="flex shrink-0 flex-wrap items-center gap-2">
-                  <label className="flex items-center gap-1.5 text-xs text-stone-600">
-                    <input
-                      type="checkbox"
-                      checked={rule.enabled}
+            {rules.map((rule) => {
+              const priceTrigger = isElectricityPriceTrigger(rule.trigger) ? rule.trigger : null;
+              const period = priceTrigger
+                ? periods.find((p) => p.id === priceTrigger.period_id)
+                : undefined;
+              const summary = isDeviceTrigger(rule.trigger)
+                ? triggerSummary(rule.trigger, deviceLabel(rule.trigger.device_id))
+                : triggerSummary(rule.trigger, "", period);
+
+              return (
+                <li
+                  key={rule.id}
+                  className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-stone-200 bg-stone-50 px-4 py-3"
+                >
+                  <div className="min-w-0">
+                    <p className="font-medium text-stone-900">{rule.name}</p>
+                    <p className="mt-0.5 text-xs text-stone-500">
+                      {summary} → {ACTION_LABELS[rule.action.type]}
+                      {rule.action.target_ids.length > 0
+                        ? ` (${rule.action.target_ids.length} kohdetta)`
+                        : ""}
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 flex-wrap items-center gap-2">
+                    <label className="flex items-center gap-1.5 text-xs text-stone-600">
+                      <input
+                        type="checkbox"
+                        checked={rule.enabled}
+                        disabled={pending}
+                        onChange={(e) => run(() => toggleAutomationRule(rule.id, e.target.checked))}
+                      />
+                      Käytössä
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => editRule(rule)}
+                      className="rounded-lg border border-stone-200 px-2.5 py-1 text-xs font-medium hover:bg-white"
+                    >
+                      Muokkaa
+                    </button>
+                    <button
+                      type="button"
                       disabled={pending}
-                      onChange={(e) => run(() => toggleAutomationRule(rule.id, e.target.checked))}
-                    />
-                    Käytössä
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => editRule(rule)}
-                    className="rounded-lg border border-stone-200 px-2.5 py-1 text-xs font-medium hover:bg-white"
-                  >
-                    Muokkaa
-                  </button>
-                  <button
-                    type="button"
-                    disabled={pending}
-                    onClick={() => {
-                      if (window.confirm(`Poistetaanko "${rule.name}"?`)) {
-                        run(() => deleteAutomationRule(rule.id));
-                      }
-                    }}
-                    className="rounded-lg border border-red-200 px-2.5 py-1 text-xs font-medium text-red-800 hover:bg-red-50"
-                  >
-                    Poista
-                  </button>
-                </div>
-              </li>
-            ))}
+                      onClick={() => {
+                        if (window.confirm(`Poistetaanko "${rule.name}"?`)) {
+                          run(() => deleteAutomationRule(rule.id));
+                        }
+                      }}
+                      className="rounded-lg border border-red-200 px-2.5 py-1 text-xs font-medium text-red-800 hover:bg-red-50"
+                    >
+                      Poista
+                    </button>
+                  </div>
+                </li>
+              );
+            })}
           </ul>
         )}
-      </section>
-
-      <section className="rounded-2xl border border-stone-100 bg-stone-50 p-4 text-xs text-stone-600">
-        <p className="font-semibold text-stone-800">Huomioita</p>
-        <ul className="mt-2 list-inside list-disc space-y-1">
-          <li>
-            Painikkeet: Zigbee2MQTT lähettää <code className="text-stone-700">action</code>-kentän (single,
-            hold, double…).
-          </li>
-          <li>Kytkimet ja releet ovat erillisessä ryhmässä — eivät sekoitu valoihin.</li>
-          <li>Lukon toiminnot vaativat Z-Wave-lukon CC 98 -tuen Yellowlla.</li>
-          <li>Anturilaukaisimet (ovi, liike) tulevat myöhemmin — valitse jo nyt listasta.</li>
-        </ul>
       </section>
     </div>
   );

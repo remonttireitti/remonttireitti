@@ -50,7 +50,7 @@ export function formatPriceCents(cents: number | null | undefined): string {
   return `${cents.toLocaleString("fi-FI", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} c/kWh`;
 }
 
-function helsinkiDateKey(iso: string): string {
+export function helsinkiDateKey(iso: string): string {
   return new Intl.DateTimeFormat("sv-SE", {
     timeZone: HELSINKI,
     year: "numeric",

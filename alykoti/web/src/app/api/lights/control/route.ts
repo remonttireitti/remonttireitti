@@ -8,14 +8,19 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 export async function POST(request: Request) {
-  let body: { id?: string; on?: boolean; brightness?: number };
+  let body: {
+    id?: string;
+    on?: boolean;
+    brightness?: number;
+    color?: { hue?: number; saturation?: number; color_temp?: number };
+  };
   try {
     body = await request.json();
   } catch {
     return NextResponse.json({ ok: false, error: "Invalid JSON" }, { status: 400 });
   }
 
-  const { id, on, brightness } = body;
+  const { id, on, brightness, color } = body;
   if (!id || typeof on !== "boolean") {
     return NextResponse.json({ ok: false, error: "id and on required" }, { status: 400 });
   }
@@ -33,6 +38,7 @@ export async function POST(request: Request) {
     const devices = parseHubHomeDevices(hub.state?.home_devices, hub.state?.lights, hub.state?.device_overrides);
     const device = devices.find((d) => d.id === id);
     const payload: Record<string, unknown> = { id, on, brightness: brightness ?? null };
+    if (color) payload.color = color;
     if (device?.mqttSetTopic) {
       payload.mqtt_set_topic = device.mqttSetTopic;
     }
@@ -68,7 +74,18 @@ export async function POST(request: Request) {
   if (isZigbeeConfigured()) {
     const zigbeeId = id.startsWith("zigbee:") ? id.slice("zigbee:".length) : id;
     try {
-      await setLightState(zigbeeId, on, brightness);
+      if (color?.hue != null) {
+        const { setLightColor } = await import("@/lib/zigbee2mqtt");
+        await setLightColor(zigbeeId, {
+          on,
+          brightness,
+          hue: color.hue,
+          saturation: color.saturation ?? 254,
+          color_temp: color.color_temp,
+        });
+      } else {
+        await setLightState(zigbeeId, on, brightness);
+      }
       return NextResponse.json({ ok: true });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Control failed";
