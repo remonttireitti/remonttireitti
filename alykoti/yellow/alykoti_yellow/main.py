@@ -11,7 +11,8 @@ from alykoti_yellow import config
 from alykoti_yellow.modbus_airfi import (
     AirfiPollState,
     ack_airfi_alarms,
-    airfi_ventilation_blocked,
+    airfi_auto_ventilation_blocked,
+    airfi_machine_blocks_ventilation,
     airfi_writes_pause_until_iso,
     read_airfi,
     write_away,
@@ -217,8 +218,8 @@ def execute_command(cmd: dict) -> bool:
         exhaust = payload.get("exhaust_pct")
         if isinstance(supply, (int, float)) and isinstance(exhaust, (int, float)):
             snap = read_airfi(**config.airfi_kwargs(), poll_state=None)
-            if snap.ok and airfi_ventilation_blocked(snap.state):
-                msg = "Tuuletus estetty (hätäseis tai kuittauksen jälkeinen tauko)"
+            if snap.ok and airfi_machine_blocks_ventilation(snap.state):
+                msg = "Tuuletus estetty (hätäseis tai vika koneella)"
                 log.warning("set_fan_pct estetty — %s", msg)
                 if cmd_id:
                     pending_fails.append({"id": cmd_id, "message": msg})
@@ -300,7 +301,7 @@ def apply_ventilation(response: dict, airfi_state: dict | None = None) -> None:
     if not config.AIRFI_WRITES:
         return
     snap = read_airfi(**config.airfi_kwargs(), poll_state=None)
-    if not snap.ok or airfi_ventilation_blocked(snap.state):
+    if not snap.ok or airfi_auto_ventilation_blocked(snap.state):
         log.info("AirFi tuuletus ohitetaan — hätäseis/vika tai kuittauksen jälkeinen tauko")
         return
     vent = response.get("ventilation")

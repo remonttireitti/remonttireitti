@@ -50,6 +50,17 @@ def mark_airfi_ack_cooldown(seconds: float = ACK_COOLDOWN_SEC) -> None:
     log.info("AirFi Modbus-kirjoitustauko %.0fs (kuittaus)", seconds)
 
 
+def clear_airfi_ack_cooldown() -> None:
+    global _ack_until_wall
+    _ack_until_wall = 0.0
+    try:
+        path = _cooldown_file()
+        if path.is_file():
+            path.unlink()
+    except Exception as exc:
+        log.debug("AirFi cooldown clear: %s", exc)
+
+
 def airfi_ack_cooldown_active() -> bool:
     _sync_cooldown_from_disk()
     return time.time() < _ack_until_wall
@@ -438,37 +449,39 @@ def _read_snapshot(
     filter_interval = _reg(inputs_status, _INPUT_STATUS_START, INPUT["filter_interval"])
     humidity = _reg(inputs_status, _INPUT_STATUS_START, INPUT["internal_humidity"])
 
-    return AirfiSnapshot(
-        ok=True,
-        state={
-            "airfi_online": True,
-            "outdoor_temp_c": outdoor,
-            "exhaust_temp_c": exhaust,
-            "exhaust_hru_temp_c": exhaust_hru,
-            "supply_room_temp_c": supply_room,
-            "fan_supply_pct": fan_supply,
-            "fan_exhaust_pct": fan_exhaust,
-            "humidity_pct": humidity if humidity is not None and 0 <= humidity <= 100 else None,
-            "direct_control": (_reg(holdings, _HOLDING_BLOCK_START, HOLDING["direct_control_enabled"]) or 0) > 0,
-            "away_mode": (_reg(holdings, _HOLDING_BLOCK_START, HOLDING["away_mode"]) or 0) > 0,
-            "fireplace_active": (_reg(holdings_extra, _HOLDING_EXTRA_START, HOLDING["fireplace"]) or 0) > 0,
-            "freezing_alarm": (_reg(inputs_status, _INPUT_STATUS_START, INPUT["freezing_alarm"]) or 0) > 0,
-            "machine_fault": (_reg(inputs_status, _INPUT_STATUS_START, INPUT["machine_fault"]) or 0) > 0,
-            "airfi_error_raw": error_raw,
-            "airfi_errors": [e["code"] for e in errors],
-            "fan_speed_level": fan_speed_level,
-            "forced_control": _reg(inputs_status, _INPUT_STATUS_START, INPUT["forced_control"]),
-            "temp_setpoint_c": temp_c,
-            "filter_change_per_year": filter_interval,
-            "sauna_mode": (_reg(holdings_extra, _HOLDING_EXTRA_START, HOLDING["sauna_mode"]) or 0) > 0,
-            # 3x00017 = todellinen hätäseis-tila. 4x00002 (h1) on kirjoitusrekisteri — älä käytä statusnäyttöön.
-            "emergency_stop": (emergency_input or 0) > 0,
-            "fault": (
-                (_reg(inputs_status, _INPUT_STATUS_START, INPUT["machine_fault"]) or 0) > 0
-                or len(errors) > 0
-            ),
-        },
-    )
+    state: dict[str, Any] = {
+        "airfi_online": True,
+        "outdoor_temp_c": outdoor,
+        "exhaust_temp_c": exhaust,
+        "exhaust_hru_temp_c": exhaust_hru,
+        "supply_room_temp_c": supply_room,
+        "fan_supply_pct": fan_supply,
+        "fan_exhaust_pct": fan_exhaust,
+        "humidity_pct": humidity if humidity is not None and 0 <= humidity <= 100 else None,
+        "direct_control": (_reg(holdings, _HOLDING_BLOCK_START, HOLDING["direct_control_enabled"]) or 0) > 0,
+        "away_mode": (_reg(holdings, _HOLDING_BLOCK_START, HOLDING["away_mode"]) or 0) > 0,
+        "fireplace_active": (_reg(holdings_extra, _HOLDING_EXTRA_START, HOLDING["fireplace"]) or 0) > 0,
+        "freezing_alarm": (_reg(inputs_status, _INPUT_STATUS_START, INPUT["freezing_alarm"]) or 0) > 0,
+        "machine_fault": (_reg(inputs_status, _INPUT_STATUS_START, INPUT["machine_fault"]) or 0) > 0,
+        "airfi_error_raw": error_raw,
+        "airfi_errors": [e["code"] for e in errors],
+        "fan_speed_level": fan_speed_level,
+        "forced_control": _reg(inputs_status, _INPUT_STATUS_START, INPUT["forced_control"]),
+        "temp_setpoint_c": temp_c,
+        "filter_change_per_year": filter_interval,
+        "sauna_mode": (_reg(holdings_extra, _HOLDING_EXTRA_START, HOLDING["sauna_mode"]) or 0) > 0,
+        # 3x00017 = todellinen hätäseis-tila. 4x00002 (h1) on kirjoitusrekisteri — älä käytä statusnäyttöön.
+        "emergency_stop": (emergency_input or 0) > 0,
+        "fault": (
+            (_reg(inputs_status, _INPUT_STATUS_START, INPUT["machine_fault"]) or 0) > 0
+            or len(errors) > 0
+        ),
+    }
+    if airfi_ack_cooldown_active() and not airfi_machine_blocks_ventilation(state):
+        clear_airfi_ack_cooldown()
+        log.info("AirFi kuittauksen tauko poistettu — kone ok")
+
+    return AirfiSnapshot(ok=True, state=state)
 
 
 def _read_with_retries(
@@ -699,9 +712,9 @@ def write_fan_pct(
     if not snap.ok:
         log.warning("write_fan_pct estetty — AirFi ei vastaa")
         return False
-    if airfi_ventilation_blocked(snap.state):
+    if airfi_machine_blocks_ventilation(snap.state):
         log.warning(
-            "write_fan_pct estetty — hätäseis/E1/tauko (errors=%s emergency=%s)",
+            "write_fan_pct estetty — hätäseis/vika (errors=%s emergency=%s)",
             snap.state.get("airfi_errors"),
             snap.state.get("emergency_stop"),
         )
@@ -848,10 +861,8 @@ def _write_registers(
         _safe_close(client)
 
 
-def airfi_ventilation_blocked(state: dict[str, Any]) -> bool:
-    """Älä kirjoita tuuletusta kun kone on hätäseis-/E1-tilassa."""
-    if airfi_ack_cooldown_active():
-        return True
+def airfi_machine_blocks_ventilation(state: dict[str, Any]) -> bool:
+    """Koneen tila estää tuuletuksen (hätäseis, E1, vikat)."""
     if state.get("emergency_stop"):
         return True
     if state.get("machine_fault"):
@@ -863,6 +874,18 @@ def airfi_ventilation_blocked(state: dict[str, Any]) -> bool:
         return True
     errors = state.get("airfi_errors")
     return isinstance(errors, list) and len(errors) > 0
+
+
+def airfi_auto_ventilation_blocked(state: dict[str, Any]) -> bool:
+    """Automaattinen tuuletus estetty myös kuittauksen jälkeisen tauon aikana."""
+    if airfi_ack_cooldown_active():
+        return True
+    return airfi_machine_blocks_ventilation(state)
+
+
+def airfi_ventilation_blocked(state: dict[str, Any]) -> bool:
+    """Yhteensopivuus — sama kuin automaattinen esto."""
+    return airfi_auto_ventilation_blocked(state)
 
 
 def ack_airfi_alarms(
