@@ -12,6 +12,7 @@ import {
   zwaveTopicPrefix,
 } from "@/lib/mqtt-broker";
 import { createClient } from "@/lib/supabase/server";
+import { resolveZigbeeDeviceContext } from "@/lib/zigbee-device-resolve";
 import { resolveZwaveDeviceContext } from "@/lib/zwave-device-resolve";
 import type { HubState } from "@/lib/types";
 
@@ -20,12 +21,6 @@ export const runtime = "nodejs";
 
 function sseLine(event: string, data: unknown): string {
   return `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
-}
-
-function deviceIdFromParam(param: string, protocol: "zigbee" | "zwave"): string {
-  const decoded = decodeURIComponent(param);
-  if (decoded.includes(":")) return decoded;
-  return `${protocol}:${decoded}`;
 }
 
 export async function GET(
@@ -73,13 +68,13 @@ export async function GET(
     eventDeviceId = ctx.fullId;
     deviceName = ctx.device.name;
   } else {
-    fullId = deviceIdFromParam(param, "zigbee");
-    const device = devices.find((d) => d.id === fullId);
-    if (!device) {
+    const ctx = resolveZigbeeDeviceContext(param, devices, hubState);
+    if (!ctx) {
       return NextResponse.json({ error: "device_not_found" }, { status: 404 });
     }
-    eventDeviceId = device.id;
-    deviceName = device.name;
+    fullId = ctx.fullId;
+    eventDeviceId = ctx.fullId;
+    deviceName = ctx.device.name;
   }
 
   if (!isMqttConfigured()) {

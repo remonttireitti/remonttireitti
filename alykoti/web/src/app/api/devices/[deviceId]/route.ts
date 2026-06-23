@@ -4,6 +4,7 @@ import { inferProtocolFromId } from "@/lib/device-protocol";
 import { parseHubHomeDevices } from "@/lib/hub-lights";
 import { fetchPrimaryHub } from "@/lib/hubs";
 import { createClient } from "@/lib/supabase/server";
+import { resolveZigbeeDeviceContext } from "@/lib/zigbee-device-resolve";
 import { resolveZwaveDeviceContext } from "@/lib/zwave-device-resolve";
 import type { HubState } from "@/lib/types";
 
@@ -58,20 +59,18 @@ export async function GET(
     });
   }
 
-  const decoded = decodeURIComponent(param);
-  const fullId = decoded.includes(":") ? decoded : `zigbee:${decoded}`;
-  const device = devices.find((d) => d.id === fullId);
-  if (!device) {
+  const ctx = resolveZigbeeDeviceContext(param, devices, hubState);
+  if (!ctx) {
     return NextResponse.json({ error: "device_not_found" }, { status: 404 });
   }
 
   return NextResponse.json({
     configured: true,
-    device,
-    itemNames: hubState?.device_overrides?.[device.id]?.item_names ?? {},
+    device: ctx.device,
+    itemNames: hubState?.device_overrides?.[ctx.fullId]?.item_names ?? {},
     zwaveNode: null,
     zwaveSiblings: [],
     hubOnline: hub.last_seen_at != null,
-    recentEvents: hubDeviceEventsToLive(hubState?.device_live_events, fullId),
+    recentEvents: hubDeviceEventsToLive(hubState?.device_live_events, ctx.fullId),
   });
 }
