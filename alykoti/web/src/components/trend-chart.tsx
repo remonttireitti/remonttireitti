@@ -85,7 +85,7 @@ export function TrendChart({ metric, unit, series, rangeStart, rangeEnd }: Props
     });
   }, [t0, span]);
 
-  const useSpeedGradient = metric.includes("fan");
+  const useSpeedGradient = false;
 
   const nearestPoint = useCallback(
     (targetT: number) => {
@@ -143,15 +143,17 @@ export function TrendChart({ metric, unit, series, rangeStart, rangeEnd }: Props
   return (
     <div className="relative">
       {series.length > 1 && (
-        <div className="mb-2 flex flex-wrap gap-4 text-xs text-stone-600">
-          <span className="flex items-center gap-1.5">
-            <span className="inline-block h-0.5 w-5 rounded bg-stone-800" />
-            Toteutunut
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="inline-block h-0 w-5 border-t-2 border-dashed border-sky-500" />
-            Pyydetty
-          </span>
+        <div className="mb-3 space-y-1 rounded-lg bg-stone-50 px-3 py-2 text-xs text-stone-600">
+          <div className="flex flex-wrap gap-4">
+            <span className="flex items-center gap-1.5">
+              <span className="inline-block h-0.5 w-5 rounded bg-emerald-600" />
+              Koneen nopeus — mitä laite mittaa
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="inline-block h-0 w-5 border-t-2 border-dashed border-sky-600" />
+              Automaatin tavoite — mitä ohjaus pyytää
+            </span>
+          </div>
         </div>
       )}
 
@@ -217,7 +219,7 @@ export function TrendChart({ metric, unit, series, rangeStart, rangeEnd }: Props
         {secondary &&
           renderLine(
             secondary.points.filter((p): p is MetricPoint & { v: number } => p.v != null),
-            "#0ea5e9",
+            "#0284c7",
             true,
             xForTime,
             yForValue,
@@ -226,7 +228,7 @@ export function TrendChart({ metric, unit, series, rangeStart, rangeEnd }: Props
 
         {renderLine(
           primaryNumeric,
-          useSpeedGradient ? null : lineColor(metric),
+          metric.includes("fan") ? "#059669" : lineColor(metric),
           false,
           xForTime,
           yForValue,

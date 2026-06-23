@@ -65,7 +65,11 @@ export function TrendModal({ metric, onClose }: Props) {
       : []);
 
   const primaryPoints = series.find((s) => s.style === "primary")?.points ?? [];
+  const secondaryPoints = series.find((s) => s.style === "secondary")?.points ?? [];
   const numericPoints = primaryPoints.filter((p): p is MetricPoint & { v: number } => p.v != null);
+  const secondaryNumeric = secondaryPoints.filter(
+    (p): p is MetricPoint & { v: number } => p.v != null,
+  );
 
   const stats =
     numericPoints.length > 0
@@ -74,6 +78,7 @@ export function TrendModal({ metric, onClose }: Props) {
           max: Math.max(...numericPoints.map((p) => p.v)),
           avg: numericPoints.reduce((s, p) => s + p.v, 0) / numericPoints.length,
           latest: numericPoints[numericPoints.length - 1]?.v,
+          targetLatest: secondaryNumeric[secondaryNumeric.length - 1]?.v,
         }
       : null;
 
@@ -136,17 +141,44 @@ export function TrendModal({ metric, onClose }: Props) {
 
         {!loading && history && history.points.length > 0 && history.kind === "numeric" && (
           <>
+            {history.seriesGapNote && (
+              <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-950">
+                {history.seriesGapNote}
+              </p>
+            )}
             {history.footnote && (
-              <p className="mt-3 rounded-lg bg-emerald-50 px-3 py-2 text-xs leading-relaxed text-emerald-950">
+              <p className="mt-3 rounded-lg bg-stone-50 px-3 py-2 text-xs leading-relaxed text-stone-700">
                 {history.footnote}
               </p>
             )}
             {stats && (
-              <dl className="mt-4 grid grid-cols-4 gap-2 text-center text-xs">
-                <Stat label="Nyt" value={formatVal(stats.latest, history.unit)} />
+              <dl
+                className={`mt-4 grid gap-2 text-center text-xs ${
+                  metric.includes("fan") && stats.targetLatest != null
+                    ? "grid-cols-2 sm:grid-cols-5"
+                    : "grid-cols-4"
+                }`}
+              >
+                {metric.includes("fan") && stats.targetLatest != null ? (
+                  <>
+                    <Stat label="Kone nyt" value={formatVal(stats.latest, history.unit)} />
+                    <Stat label="Tavoite nyt" value={formatVal(stats.targetLatest, history.unit)} />
+                    <Stat
+                      label="Ero"
+                      value={formatVal(
+                        (stats.latest ?? 0) - stats.targetLatest,
+                        history.unit,
+                      )}
+                    />
+                  </>
+                ) : (
+                  <Stat label="Nyt" value={formatVal(stats.latest, history.unit)} />
+                )}
                 <Stat label="Min" value={formatVal(stats.min, history.unit)} />
                 <Stat label="Max" value={formatVal(stats.max, history.unit)} />
-                <Stat label="Keski" value={formatVal(stats.avg, history.unit)} />
+                {!metric.includes("fan") && (
+                  <Stat label="Keski" value={formatVal(stats.avg, history.unit)} />
+                )}
               </dl>
             )}
             <div className="mt-4">
@@ -158,11 +190,6 @@ export function TrendModal({ metric, onClose }: Props) {
                 rangeEnd={history.rangeEnd}
               />
             </div>
-            {metric.includes("fan") && (
-              <p className="mt-2 text-center text-[10px] text-stone-400">
-                Väri: hidas vihreä → keltainen → oranssi → nopea punainen
-              </p>
-            )}
           </>
         )}
 

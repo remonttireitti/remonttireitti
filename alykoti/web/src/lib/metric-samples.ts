@@ -23,8 +23,20 @@ export const METRIC_META: Record<string, MetricMeta> = {
       "Kuinka suuri osa poistoilman lämmöstä siirtyy tuloilmaan. Esim. +7,0 °C / 6,9 °C = 7 asteen lämpö talteen 6,9 asteen saatavilla olevasta erosta. 100 % = tulo yhtä lämmin kuin poisto (täysi LTO) — ei tarkoita että kaikki lämpö poistettaisiin talosta; jäteilma T4 näyttää mitä lähtee ulos.",
   },
   lto_energy_efficiency_pct: { label: "LTO energiahöytys", unit: "%", kind: "numeric" },
-  fan_supply_pct: { label: "Tulonopeus", unit: "%", kind: "numeric" },
-  fan_exhaust_pct: { label: "Poistonopeus", unit: "%", kind: "numeric" },
+  fan_supply_pct: {
+    label: "Tulonopeus",
+    unit: "%",
+    kind: "numeric",
+    footnote:
+      "Jatkuva viiva = mitä IV-kone raportoi. Katkoviiva = automaatin laskema tavoite (CO₂, kosteus, tila). Jos viivat eri kohdissa, data on vielä kerääntymässä tai yhteys katkesi.",
+  },
+  fan_exhaust_pct: {
+    label: "Poistonopeus",
+    unit: "%",
+    kind: "numeric",
+    footnote:
+      "Jatkuva viiva = mitä IV-kone raportoi. Katkoviiva = automaatin laskema tavoite (CO₂, kosteus, tila). Jos viivat eivät ole samaan aikaan, synkki tai mittaus oli poissa.",
+  },
   fan_supply_target: { label: "Tulo pyydetty", unit: "%", kind: "numeric" },
   fan_exhaust_target: { label: "Poisto pyydetty", unit: "%", kind: "numeric" },
   co2_ppm: { label: "CO₂", unit: "ppm", kind: "numeric" },
@@ -68,6 +80,8 @@ export type MetricHistory = {
   rangeLabel: string;
   points: MetricPoint[];
   series?: MetricSeries[];
+  /** Selitys kun tavoite- ja toteutusdata eivät osu päällekkäin */
+  seriesGapNote?: string;
 };
 
 type SampleRow = {
@@ -128,16 +142,45 @@ export function metricRangeBounds(
   return { since, until, label: formatRangeLabel(since, until) };
 }
 
-function downsamplePoints(points: MetricPoint[], maxPoints: number): MetricPoint[] {
+function downsamplePoints(
+  points: MetricPoint[],
+  maxPoints: number,
+  step = false,
+): MetricPoint[] {
   const bucketSize = Math.ceil(points.length / maxPoints);
   const result: MetricPoint[] = [];
   for (let i = 0; i < points.length; i += bucketSize) {
     const slice = points.slice(i, i + bucketSize).filter((p) => p.v != null) as { t: string; v: number }[];
     if (slice.length === 0) continue;
-    const avg = slice.reduce((s, p) => s + p.v, 0) / slice.length;
-    result.push({ t: slice[slice.length - 1]!.t, v: avg, text: null });
+    const pick = step ? slice[slice.length - 1]! : slice[slice.length - 1]!;
+    const v = step
+      ? pick.v
+      : slice.reduce((s, p) => s + p.v, 0) / slice.length;
+    result.push({ t: pick.t, v, text: null });
   }
   return result;
+}
+
+function seriesOverlapNote(
+  primary: MetricPoint[],
+  companion: MetricPoint[],
+): string | undefined {
+  const p = primary.filter((x) => x.v != null);
+  const c = companion.filter((x) => x.v != null);
+  if (p.length === 0 || c.length === 0) {
+    return "Tavoite tai toteutunut nopeus puuttuu tältä päivältä — odota synkkiä tai avaa kaavio uudelleen myöhemmin.";
+  }
+  const p0 = new Date(p[0]!.t).getTime();
+  const p1 = new Date(p[p.length - 1]!.t).getTime();
+  const c0 = new Date(c[0]!.t).getTime();
+  const c1 = new Date(c[c.length - 1]!.t).getTime();
+  const overlap = p0 <= c1 && c0 <= p1;
+  if (overlap) return undefined;
+  const gapH = Math.abs(c0 - p1) / 3_600_000;
+  if (gapH > 0.5) {
+    return `Tavoite ja toteutunut eivät ole samaan aikaan (aukko ~${Math.round(gapH)} h). Uudempi data näkyy kun hub on online.`;
+  }
+  return undefined;
 }
 
 async function fetchMetricPoints(
@@ -235,6 +278,34 @@ export function buildMetricSamples(
   return rows.filter((r) => r.value != null || r.value_text != null);
 }
 
+export async function recordFanMetricSamples(
+  hubId: string,
+  state: HubState,
+): Promise<void> {
+  const keys = [
+    "fan_supply_pct",
+    "fan_exhaust_pct",
+    "fan_supply_target",
+    "fan_exhaust_target",
+  ] as const;
+  const payload = keys
+    .map((metric) => ({
+      hub_id: hubId,
+      metric,
+      value: num(state[metric]),
+      value_text: null,
+    }))
+    .filter((row) => row.value != null);
+
+  if (payload.length === 0) return;
+
+  const supabase = createAdminClient();
+  const { error } = await supabase.from("hub_metric_samples").insert(payload);
+  if (error) {
+    console.warn("[metrics] Tuuletusnäytteet epäonnistuivat:", error.message ?? String(error));
+  }
+}
+
 export async function recordHubMetrics(
   hubId: string,
   state: HubState,
@@ -280,25 +351,30 @@ export async function fetchMetricHistory(
   const maxPoints = range === "day" ? 1500 : range === "week" ? 500 : 300;
 
   const primaryRaw = await fetchMetricPoints(hubId, metric, sinceIso);
+  const isFan = metric.includes("fan") && !metric.includes("target");
   const primaryPoints = downsamplePoints(
     primaryRaw.filter((p) => p.v != null),
     maxPoints,
+    isFan,
   );
 
   const companionKey = METRIC_COMPANIONS[metric];
   let series: MetricSeries[] | undefined;
+  let seriesGapNote: string | undefined;
 
   if (companionKey && METRIC_META[companionKey]) {
     const companionRaw = await fetchMetricPoints(hubId, companionKey, sinceIso);
     const companionPoints = downsamplePoints(
       companionRaw.filter((p) => p.v != null),
       maxPoints,
+      true,
     );
+    seriesGapNote = seriesOverlapNote(primaryPoints, companionPoints);
     series = [
-      { key: metric, label: "Toteutunut", style: "primary", points: primaryPoints },
+      { key: metric, label: "Koneen nopeus", style: "primary", points: primaryPoints },
       {
         key: companionKey,
-        label: "Pyydetty",
+        label: "Automaatin tavoite",
         style: "secondary",
         points: companionPoints,
       },
@@ -314,5 +390,6 @@ export async function fetchMetricHistory(
     rangeLabel: label,
     points: primaryPoints,
     series,
+    seriesGapNote,
   };
 }

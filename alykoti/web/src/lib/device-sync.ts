@@ -15,7 +15,7 @@ import {
 } from "@/lib/airfi";
 import { recordEnergySamples } from "@/lib/energy-samples";
 import { normalizeHomeDevices } from "@/lib/device-normalize";
-import { recordHubMetrics } from "@/lib/metric-samples";
+import { recordHubMetrics, recordFanMetricSamples } from "@/lib/metric-samples";
 import { activeTimedMode, effectiveControlMode, expireTimedModes, formatRemaining, remainingMs } from "@/lib/mode-schedule";
 import { getCo2Band, getCo2BandLabel, collectVentilationHumidityPct, type AutoFanInputs } from "@/lib/ventilation-logic";
 import { enrichLtoFromHubState } from "@/lib/lto-efficiency";
@@ -584,6 +584,8 @@ export async function syncDevice(
       airfi_online: mergedState.airfi_online === true,
     });
     void recordEnergySamples(hub.id, mergedState.home_devices);
+  } else {
+    void recordFanMetricSamples(hub.id, mergedState);
   }
 
   const integrations: HubIntegrations | undefined =
