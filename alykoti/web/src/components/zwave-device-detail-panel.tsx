@@ -15,6 +15,7 @@ import { kindLabel, type HubLightDevice } from "@/lib/hub-lights";
 import { LAITTEET } from "@/lib/laitteet-paths";
 import type { ZwaveConfigParam, ZwaveNodeDetail, ZwaveNodeEndpoint, ZwaveProperty } from "@/lib/types";
 import { configParamOptions, endpointShowsBinaryState, formatEndpointBinaryState, formatZwaveValue, zwaveNodeId } from "@/lib/zwave-detail";
+import { hubDeviceToZwaveEndpoint } from "@/lib/zwave-device-resolve";
 import { ItemRenameField } from "@/components/item-rename-field";
 import { useHubCommandStatus } from "@/components/command-status-provider";
 
@@ -94,6 +95,11 @@ export function ZwaveDeviceDetailPanel({ deviceIdParam }: Props) {
   }, [encodedParam, loadDevice]);
 
   const endpoints = zwaveNode?.endpoints ?? [];
+  const controllableEndpoints = useMemo(() => {
+    const fromNode = endpoints.filter((ep) => ep.controllable);
+    if (fromNode.length > 0) return fromNode;
+    return siblings.filter((s) => s.controllable).map(hubDeviceToZwaveEndpoint);
+  }, [endpoints, siblings]);
   const nodeReadings = useMemo(() => {
     if (!zwaveNode) return [];
     const seen = new Set<string>();
@@ -256,14 +262,12 @@ export function ZwaveDeviceDetailPanel({ deviceIdParam }: Props) {
         <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-900">{flash}</div>
       )}
 
-      {endpoints.some((ep) => ep.controllable) && (
+      {controllableEndpoints.length > 0 && (
         <section className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
           <h3 className="text-lg font-semibold text-stone-900">Ohjaus</h3>
           <p className="mt-1 text-xs text-stone-500">Nimeä jokainen kanava erikseen — nimet näkyvät listassa ja automaatioissa.</p>
           <div className="mt-4 space-y-4">
-            {endpoints
-              .filter((ep) => ep.controllable)
-              .map((ep) => (
+            {controllableEndpoints.map((ep) => (
                 <EndpointControl
                   key={ep.device_id}
                   endpoint={ep}

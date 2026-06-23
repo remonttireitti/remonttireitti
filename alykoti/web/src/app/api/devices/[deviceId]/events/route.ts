@@ -12,6 +12,8 @@ import {
   zwaveTopicPrefix,
 } from "@/lib/mqtt-broker";
 import { createClient } from "@/lib/supabase/server";
+import { resolveZwaveDeviceContext } from "@/lib/zwave-device-resolve";
+import type { HubState } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -37,10 +39,6 @@ export async function GET(
     protocolParam === "zwave" || protocolParam === "zigbee"
       ? protocolParam
       : inferProtocolFromId(decodeURIComponent(param));
-  const fullId =
-    protocol === "zigbee" || protocol === "zwave"
-      ? deviceIdFromParam(param, protocol)
-      : decodeURIComponent(param);
 
   const supabase = await createClient();
   const {
@@ -55,14 +53,33 @@ export async function GET(
     return NextResponse.json({ error: "no_hub" }, { status: 404 });
   }
 
+  const hubState = hub.state as HubState | undefined;
   const devices = parseHubHomeDevices(
-    hub.state?.home_devices,
-    hub.state?.lights,
-    hub.state?.device_overrides,
+    hubState?.home_devices,
+    hubState?.lights,
+    hubState?.device_overrides,
   );
-  const device = devices.find((d) => d.id === fullId);
-  if (!device) {
-    return NextResponse.json({ error: "device_not_found" }, { status: 404 });
+
+  let fullId: string;
+  let eventDeviceId: string;
+  let deviceName: string;
+
+  if (protocol === "zwave") {
+    const ctx = resolveZwaveDeviceContext(param, devices, hubState);
+    if (!ctx) {
+      return NextResponse.json({ error: "device_not_found" }, { status: 404 });
+    }
+    fullId = ctx.fullId;
+    eventDeviceId = ctx.fullId;
+    deviceName = ctx.device.name;
+  } else {
+    fullId = deviceIdFromParam(param, "zigbee");
+    const device = devices.find((d) => d.id === fullId);
+    if (!device) {
+      return NextResponse.json({ error: "device_not_found" }, { status: 404 });
+    }
+    eventDeviceId = device.id;
+    deviceName = device.name;
   }
 
   if (!isMqttConfigured()) {
@@ -104,7 +121,7 @@ export async function GET(
         encoder.encode(
           sseLine("ready", {
             device_id: fullId,
-            name: device.name,
+            name: deviceName,
             topics: subscribeTopics,
           }),
         ),
