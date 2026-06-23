@@ -260,6 +260,8 @@ export type HubDeviceOverride = {
   room?: string | null;
   floor_anchor?: string | null;
   hidden?: boolean;
+  /** Mihin osioon laite kuuluu (Valot, Lämmitys, Turvallisuus jne.). null = poista valinta. */
+  role?: import("@/lib/device-roles").DeviceRole | null;
   /** Yksittäisten ohjausten, lukemien ja asetusten nimet (avain: ep:1, p:49:2:, cfg:40, reading:battery). */
   item_names?: Record<string, string>;
 };

@@ -2,8 +2,7 @@
 
 import { useCallback, useEffect, useState, useTransition } from "react";
 import { FloorPlanView } from "@/components/floor-plan-view";
-import { LIGHT_ANCHORS } from "@/lib/lights-config";
-import type { FloorPlanMarker } from "@/lib/floor-plan";
+import { buildDeviceMarkers, type FloorPlanMarker } from "@/lib/floor-plan";
 import { inferProtocolFromId, protocolLabel } from "@/lib/device-protocol";
 import { kindLabel } from "@/lib/hub-lights";
 
@@ -68,12 +67,7 @@ export function LightingPanel() {
 
   useEffect(() => {
     if (!data) return;
-    const all = [
-      ...(data.lights ?? []),
-      ...(data.switches ?? []),
-      ...(data.locks ?? []),
-      ...(data.other ?? []),
-    ];
+    const all = [...(data.lights ?? []), ...(data.switches ?? [])];
     setOptimisticOn((prev) => {
       if (Object.keys(prev).length === 0) return prev;
       const next = { ...prev };
@@ -124,15 +118,23 @@ export function LightingPanel() {
 
   const lights = data?.lights ?? [];
   const switches = data?.switches ?? [];
-  const sensors = data?.sensors ?? [];
-  const locks = data?.locks ?? [];
-  const other = data?.other ?? [];
 
   function effectiveOn(device: Device): boolean {
     return optimisticOn[device.id] ?? device.on;
   }
 
-  const markers: FloorPlanMarker[] = buildMarkers(lights, effectiveOn);
+  const mapDevices = [...lights, ...switches];
+  const markers: FloorPlanMarker[] = buildDeviceMarkers(
+    mapDevices.map((d) => ({
+      id: d.id,
+      name: d.name,
+      roomAnchorId: d.roomAnchorId,
+      on: effectiveOn(d),
+      brightness: d.brightness,
+      readingLabel: d.readingLabel,
+      controllable: d.controllable,
+    })),
+  );
 
   return (
     <div className="mt-6 space-y-6">
@@ -174,14 +176,14 @@ export function LightingPanel() {
         title="Valot kartalla"
         markers={markers}
         onMarkerClick={(anchorId) => {
-          const light = lights.find((l) => l.roomAnchorId === anchorId);
+          const deviceId = anchorId.includes(":") ? anchorId.split(":").slice(1).join(":") : anchorId;
+          const light = mapDevices.find((l) => l.id === deviceId);
           if (light?.controllable) toggle(light, !effectiveOn(light));
         }}
         footer={
           markers.length === 0 ? (
             <p className="border-t border-stone-200 bg-white px-4 py-3 text-xs text-stone-500">
-              Kartalle tulee valot kun lisäät nimet tiedostoon{" "}
-              <code className="text-stone-700">src/lib/lights-config.ts</code>.
+              Kartalle tulee laitteet kun valitset niille huoneen Asetuksissa (Laitteet → Muokkaa).
             </p>
           ) : undefined
         }
@@ -189,7 +191,7 @@ export function LightingPanel() {
 
       <DeviceSection
         title="Valot"
-        empty="Ei valoja — Zigbee, Z-Wave, Shelly ja Tasmota."
+        empty="Ei valoja — valitse laitteelle tyyppi Valo Asetuksissa."
         devices={lights}
         busyId={busyId}
         onToggle={toggle}
@@ -198,8 +200,8 @@ export function LightingPanel() {
       />
 
       <DeviceSection
-        title="Kytkimet"
-        empty="Ei ohjattavia kytkimiä — Shelly Pro 4, Tasmota 4-kanava jne."
+        title="Valokytkimet"
+        empty="Ei valokytkimiä."
         devices={switches}
         busyId={busyId}
         onToggle={toggle}
@@ -207,41 +209,10 @@ export function LightingPanel() {
         readOnlyHint="Kaukosäädin — ei ohjattavissa webistä."
       />
 
-      {locks.length > 0 && (
-        <DeviceSection
-          title="Lukot"
-          empty=""
-          devices={locks}
-          busyId={busyId}
-          onToggle={toggle}
-          effectiveOn={effectiveOn}
-          lockMode
-        />
-      )}
-
-      {sensors.length > 0 && (
-        <DeviceSection
-          title="Anturit"
-          empty=""
-          devices={sensors}
-          busyId={busyId}
-          onToggle={toggle}
-          effectiveOn={effectiveOn}
-          sensorMode
-        />
-      )}
-
-      {other.length > 0 && (
-        <DeviceSection
-          title="Muut laitteet"
-          empty=""
-          devices={other}
-          busyId={busyId}
-          onToggle={toggle}
-          effectiveOn={effectiveOn}
-          readOnlyHint="Näytetään tila — ohjaus protokollan mukaan."
-        />
-      )}
+      <p className="text-center text-xs text-stone-500">
+        Shelly, Tasmota, lämmitys ja turvalaitteet löytyvät omilta sivuiltaan tai Asetuksista, jossa voit
+        valita laitetyypin.
+      </p>
     </div>
   );
 }
@@ -410,27 +381,4 @@ function StateBadge({
       {busy ? "Lähetetään…" : label}
     </span>
   );
-}
-
-function buildMarkers(
-  lights: Device[],
-  effectiveOn: (device: Device) => boolean,
-): FloorPlanMarker[] {
-  const byAnchor = new Map<string, Device>();
-  for (const light of lights) {
-    if (light.roomAnchorId) byAnchor.set(light.roomAnchorId, light);
-  }
-
-  return LIGHT_ANCHORS.map((anchor) => {
-    const light = byAnchor.get(anchor.id);
-    if (!light) {
-      return { ...anchor, value: null, active: false, sub: null };
-    }
-    return {
-      ...anchor,
-      value: effectiveOn(light) ? "Päällä" : "Pois",
-      active: effectiveOn(light),
-      sub: light.brightness != null ? `${Math.round((light.brightness / 254) * 100)} %` : null,
-    };
-  }).filter((m) => m.value != null);
 }

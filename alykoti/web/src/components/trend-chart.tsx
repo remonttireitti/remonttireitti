@@ -7,16 +7,18 @@ type Props = {
   metric: string;
   unit?: string;
   series: MetricSeries[];
+  rangeStart: string;
+  rangeEnd: string;
 };
 
 const W = 560;
 const H = 220;
 const PAD = { top: 12, right: 12, bottom: 28, left: 40 };
 
-export function TrendChart({ metric, unit, series }: Props) {
+export function TrendChart({ metric, unit, series, rangeStart, rangeEnd }: Props) {
   const svgRef = useRef<SVGSVGElement>(null);
   const [hover, setHover] = useState<{
-    index: number;
+    time: string;
     x: number;
     y: number;
   } | null>(null);
@@ -53,10 +55,16 @@ export function TrendChart({ metric, unit, series }: Props) {
   const plotW = W - PAD.left - PAD.right;
   const plotH = H - PAD.top - PAD.bottom;
 
-  const xForIndex = useCallback(
-    (i: number, count: number) =>
-      PAD.left + (i / Math.max(count - 1, 1)) * plotW,
-    [plotW],
+  const t0 = new Date(rangeStart).getTime();
+  const t1 = new Date(rangeEnd).getTime();
+  const span = Math.max(t1 - t0, 1);
+
+  const xForTime = useCallback(
+    (iso: string) => {
+      const ratio = (new Date(iso).getTime() - t0) / span;
+      return PAD.left + Math.max(0, Math.min(1, ratio)) * plotW;
+    },
+    [t0, span, plotW],
   );
 
   const yForValue = useCallback(
@@ -69,16 +77,32 @@ export function TrendChart({ metric, unit, series }: Props) {
     return Array.from({ length: steps + 1 }, (_, i) => yMin + ((yMax - yMin) * i) / steps);
   }, [yMin, yMax]);
 
-  const xTickIndices = useMemo(() => {
-    const n = primaryNumeric.length;
-    if (n <= 1) return [0];
-    const count = Math.min(5, n);
-    return Array.from({ length: count }, (_, i) =>
-      Math.round((i / (count - 1)) * (n - 1)),
-    );
-  }, [primaryNumeric.length]);
+  const xTimeTicks = useMemo(() => {
+    const count = 5;
+    return Array.from({ length: count }, (_, i) => {
+      const t = t0 + (span * i) / (count - 1);
+      return new Date(t).toISOString();
+    });
+  }, [t0, span]);
 
   const useSpeedGradient = metric.includes("fan");
+
+  const nearestPoint = useCallback(
+    (targetT: number) => {
+      if (primaryNumeric.length === 0) return null;
+      let best = primaryNumeric[0]!;
+      let bestDiff = Math.abs(new Date(best.t).getTime() - targetT);
+      for (const p of primaryNumeric) {
+        const diff = Math.abs(new Date(p.t).getTime() - targetT);
+        if (diff < bestDiff) {
+          best = p;
+          bestDiff = diff;
+        }
+      }
+      return best;
+    },
+    [primaryNumeric],
+  );
 
   const handleMove = (e: React.MouseEvent<SVGSVGElement>) => {
     if (!svgRef.current || primaryNumeric.length === 0) return;
@@ -89,12 +113,13 @@ export function TrendChart({ metric, unit, series }: Props) {
       return;
     }
     const ratio = (relX - PAD.left) / plotW;
-    const index = Math.round(ratio * (primaryNumeric.length - 1));
-    const clamped = Math.max(0, Math.min(primaryNumeric.length - 1, index));
+    const hoverT = t0 + ratio * span;
+    const point = nearestPoint(hoverT);
+    if (!point) return;
     setHover({
-      index: clamped,
-      x: xForIndex(clamped, primaryNumeric.length),
-      y: yForValue(primaryNumeric[clamped]!.v),
+      time: point.t,
+      x: xForTime(point.t),
+      y: yForValue(point.v),
     });
   };
 
@@ -113,7 +138,7 @@ export function TrendChart({ metric, unit, series }: Props) {
     return best.v;
   };
 
-  const hoverTime = hover ? primaryNumeric[hover.index]?.t : null;
+  const hoverTime = hover?.time ?? null;
 
   return (
     <div className="relative">
@@ -164,12 +189,10 @@ export function TrendChart({ metric, unit, series }: Props) {
           );
         })}
 
-        {xTickIndices.map((idx) => {
-          const x = xForIndex(idx, primaryNumeric.length);
-          const t = primaryNumeric[idx]?.t;
-          if (!t) return null;
+        {xTimeTicks.map((t) => {
+          const x = xForTime(t);
           return (
-            <g key={idx}>
+            <g key={t}>
               <line
                 x1={x}
                 y1={PAD.top}
@@ -196,7 +219,7 @@ export function TrendChart({ metric, unit, series }: Props) {
             secondary.points.filter((p): p is MetricPoint & { v: number } => p.v != null),
             "#0ea5e9",
             true,
-            xForIndex,
+            xForTime,
             yForValue,
             false,
           )}
@@ -205,10 +228,20 @@ export function TrendChart({ metric, unit, series }: Props) {
           primaryNumeric,
           useSpeedGradient ? null : lineColor(metric),
           false,
-          xForIndex,
+          xForTime,
           yForValue,
           useSpeedGradient,
         )}
+
+        <line
+          x1={xForTime(rangeEnd)}
+          y1={PAD.top}
+          x2={xForTime(rangeEnd)}
+          y2={H - PAD.bottom}
+          stroke="#d6d3d1"
+          strokeWidth="1"
+          strokeDasharray="2 3"
+        />
 
         {hover && hoverTime && (
           <>
@@ -255,13 +288,13 @@ function renderLine(
   points: (MetricPoint & { v: number })[],
   color: string | null,
   dashed: boolean,
-  xForIndex: (i: number, count: number) => number,
+  xForTime: (iso: string) => number,
   yForValue: (v: number) => number,
   gradientBySpeed: boolean,
 ) {
   if (points.length < 2) {
     if (points.length === 1) {
-      const x = xForIndex(0, 1);
+      const x = xForTime(points[0]!.t);
       const y = yForValue(points[0]!.v);
       return <circle cx={x} cy={y} r="3" fill={color ?? speedColor(points[0]!.v)} />;
     }
@@ -273,9 +306,9 @@ function renderLine(
       <g>
         {points.slice(0, -1).map((p, i) => {
           const next = points[i + 1]!;
-          const x1 = xForIndex(i, points.length);
+          const x1 = xForTime(p.t);
           const y1 = yForValue(p.v);
-          const x2 = xForIndex(i + 1, points.length);
+          const x2 = xForTime(next.t);
           const y2 = yForValue(next.v);
           const mid = (p.v + next.v) / 2;
           return (
@@ -297,7 +330,7 @@ function renderLine(
 
   const d = points
     .map((p, i) => {
-      const x = xForIndex(i, points.length);
+      const x = xForTime(p.t);
       const y = yForValue(p.v);
       return `${i === 0 ? "M" : "L"}${x},${y}`;
     })

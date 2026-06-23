@@ -6,7 +6,8 @@ import { useDeviceStatus } from "@/hooks/use-device-status";
 import { useMetricTrend } from "@/hooks/use-metric-trend";
 import { hubLastSeenLabel, isHubOnline, connectivityLevel } from "@/lib/device-status";
 import { inferAirfiOnline } from "@/lib/airfi-telemetry";
-import { FLOOR_PLAN_ANCHORS, type FloorPlanMarker } from "@/lib/floor-plan";
+import { VENTILATION_ROOM_IDS, type FloorPlanMarker } from "@/lib/floor-plan";
+import { roomById } from "@/lib/rooms";
 import type { Hub } from "@/lib/types";
 import { getCo2Band, getCo2BandLabel } from "@/lib/ventilation-logic";
 
@@ -43,34 +44,42 @@ export function VentilationFloorPlan({ hub, settingsHref }: Props) {
     );
   const co2Band = s.co2_ppm != null ? getCo2Band(s.co2_ppm, hub.config) : null;
 
-  const markers: FloorPlanMarker[] = FLOOR_PLAN_ANCHORS.map((anchor) => {
-    if (anchor.id === "utility") {
-      const supply = s.fan_supply_pct;
-      const exhaust = s.fan_exhaust_pct;
-      return {
-        ...anchor,
-        kind: "ventilation",
-        value: supply != null ? `${Math.round(supply)} %` : "—",
-        sub:
-          exhaust != null
-            ? `Poisto ${Math.round(exhaust)} %`
-            : airfiOnline
-              ? "AirFi"
-              : undefined,
-        active: airfiOnline,
-      };
-    }
-    if (anchor.id === "living" && s.co2_ppm != null) {
-      return {
-        ...anchor,
-        kind: "sensor",
-        value: `${Math.round(s.co2_ppm)} ppm`,
-        sub: "CO₂",
-        active: co2Band === "high" || co2Band === "max",
-      };
-    }
-    return { ...anchor, value: null };
-  });
+  const markers: FloorPlanMarker[] = [];
+
+  const fansRoom = roomById(VENTILATION_ROOM_IDS.fans);
+  if (fansRoom) {
+    const supply = s.fan_supply_pct;
+    const exhaust = s.fan_exhaust_pct;
+    markers.push({
+      id: fansRoom.id,
+      label: fansRoom.label,
+      left: fansRoom.left,
+      top: fansRoom.top,
+      kind: "ventilation",
+      value: supply != null ? `${Math.round(supply)} %` : "—",
+      sub:
+        exhaust != null
+          ? `Poisto ${Math.round(exhaust)} %`
+          : airfiOnline
+            ? "AirFi"
+            : undefined,
+      active: airfiOnline,
+    });
+  }
+
+  const co2Room = roomById(VENTILATION_ROOM_IDS.co2);
+  if (co2Room && s.co2_ppm != null) {
+    markers.push({
+      id: co2Room.id,
+      label: co2Room.label,
+      left: co2Room.left,
+      top: co2Room.top,
+      kind: "sensor",
+      value: `${Math.round(s.co2_ppm)} ppm`,
+      sub: "CO₂",
+      active: co2Band === "high" || co2Band === "max",
+    });
+  }
 
   const alert =
     status && level === "degraded" ? (
@@ -99,8 +108,8 @@ export function VentilationFloorPlan({ hub, settingsHref }: Props) {
         title="Ilmanvaihto"
         markers={markers}
         onMarkerClick={(id) => {
-          if (id === "living") showTrend("co2_ppm");
-          if (id === "utility") showTrend("fan_supply_pct");
+          if (id === VENTILATION_ROOM_IDS.co2) showTrend("co2_ppm");
+          if (id === VENTILATION_ROOM_IDS.fans) showTrend("fan_supply_pct");
         }}
         headerRight={
           <Link

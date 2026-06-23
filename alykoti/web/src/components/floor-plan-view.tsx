@@ -113,6 +113,10 @@ function markerTone(marker: FloorPlanMarker): string {
         : "border-stone-300 bg-white/90 text-stone-700 hover:ring-stone-300";
     case "climate":
       return "border-sky-300 bg-sky-50/95 text-sky-950 hover:ring-sky-400";
+    case "device":
+      return marker.active
+        ? "border-violet-300 bg-violet-50/95 text-violet-950 hover:ring-violet-400"
+        : "border-stone-300 bg-white/90 text-stone-700 hover:ring-stone-300";
     default:
       return "border-blue-300 bg-blue-50/95 text-blue-950 hover:ring-blue-400";
   }

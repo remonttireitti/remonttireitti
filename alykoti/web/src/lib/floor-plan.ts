@@ -1,5 +1,14 @@
 /** Pohjakuvan pisteet prosentteina (vasen/ylin kulma). Sama koordinaatisto webissä ja ESP32:lla. */
 
+import {
+  HOUSE_ROOMS,
+  deviceMapSub,
+  deviceMapValue,
+  offsetForRoomSlot,
+  roomById,
+  type DeviceMapInput,
+} from "@/lib/rooms";
+
 export const FLOOR_PLAN_IMAGE = "/images/pohjakuva.png";
 
 export type FloorPlanOverlayKind =
@@ -7,7 +16,8 @@ export type FloorPlanOverlayKind =
   | "light"
   | "sensor"
   | "ventilation"
-  | "climate";
+  | "climate"
+  | "device";
 
 export type FloorPlanAnchor = {
   id: string;
@@ -19,23 +29,20 @@ export type FloorPlanAnchor = {
   kind: FloorPlanOverlayKind;
 };
 
-/** Kiinteät huone-/pisteen paikat — täytetään jatkossa valoilla ja antureilla. */
-export const FLOOR_PLAN_ANCHORS: FloorPlanAnchor[] = [
-  { id: "garage", label: "Autotalli", left: 14, top: 16, kind: "light" },
-  { id: "kitchen", label: "Keittiö", left: 30, top: 52, kind: "temperature" },
-  { id: "living", label: "Olohuone", left: 48, top: 58, kind: "sensor" },
-  { id: "utility", label: "Kodinhoito", left: 48, top: 22, kind: "ventilation" },
-  { id: "bed1", label: "Makuuhuone 1", left: 14, top: 72, kind: "temperature" },
-  { id: "bed2", label: "Makuuhuone 2", left: 78, top: 24, kind: "temperature" },
-  { id: "bed3", label: "Makuuhuone 3", left: 78, top: 48, kind: "light" },
-  { id: "bed4", label: "Makuuhuone 4", left: 78, top: 72, kind: "light" },
-  { id: "entrance", label: "Eteinen", left: 38, top: 28, kind: "light" },
-];
+/** Kaikki huoneet pohjakuvalla. */
+export const FLOOR_PLAN_ANCHORS: FloorPlanAnchor[] = HOUSE_ROOMS.map((room) => ({
+  id: room.id,
+  label: room.label,
+  left: room.left,
+  top: room.top,
+  kind: "device" as const,
+}));
 
 export type FloorPlanMarker = FloorPlanAnchor & {
   value?: string | null;
   active?: boolean;
   sub?: string | null;
+  deviceId?: string;
 };
 
 export function anchorToStyle(anchor: Pick<FloorPlanAnchor, "left" | "top">): {
@@ -47,3 +54,53 @@ export function anchorToStyle(anchor: Pick<FloorPlanAnchor, "left" | "top">): {
     top: `${anchor.top}%`,
   };
 }
+
+export function buildDeviceMarkers(
+  devices: DeviceMapInput[],
+  options?: {
+    effectiveOn?: (id: string) => boolean;
+    kind?: FloorPlanOverlayKind;
+  },
+): FloorPlanMarker[] {
+  const kind = options?.kind ?? "light";
+  const withRoom = devices.filter((d) => d.roomAnchorId && roomById(d.roomAnchorId));
+  const byRoom = new Map<string, DeviceMapInput[]>();
+
+  for (const device of withRoom) {
+    const roomId = device.roomAnchorId!;
+    const list = byRoom.get(roomId) ?? [];
+    list.push(device);
+    byRoom.set(roomId, list);
+  }
+
+  const markers: FloorPlanMarker[] = [];
+
+  for (const [roomId, roomDevices] of byRoom) {
+    const room = roomById(roomId);
+    if (!room) continue;
+
+    roomDevices.forEach((device, index) => {
+      const offset = offsetForRoomSlot(index, roomDevices.length);
+      const on = options?.effectiveOn ? options.effectiveOn(device.id) : device.on;
+      markers.push({
+        id: `${roomId}:${device.id}`,
+        deviceId: device.id,
+        label: device.name,
+        left: room.left + offset.left,
+        top: room.top + offset.top,
+        kind,
+        value: deviceMapValue({ ...device, on }),
+        sub: deviceMapSub({ ...device, on }),
+        active: on,
+      });
+    });
+  }
+
+  return markers;
+}
+
+/** Ilmanvaihdon kiinteät pisteet huoneiden kautta. */
+export const VENTILATION_ROOM_IDS = {
+  co2: "olohuone",
+  fans: "suihku",
+} as const;

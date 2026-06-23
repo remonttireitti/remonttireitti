@@ -17,8 +17,10 @@ import {
   type DeviceProtocol,
 } from "@/lib/device-protocol";
 import { kindLabel } from "@/lib/hub-lights";
+import { DEVICE_ROLE_OPTIONS, deviceRoleLabel } from "@/lib/device-roles";
+import type { DeviceRole } from "@/lib/device-roles";
 import { groupZwaveDevicesForList } from "@/lib/zwave-detail";
-import { FLOOR_PLAN_ANCHORS } from "@/lib/floor-plan";
+import { HOUSE_ROOMS } from "@/lib/rooms";
 import { LAITTEET } from "@/lib/laitteet-paths";
 import Link from "next/link";
 
@@ -34,6 +36,7 @@ type Device = {
   readingLabel?: string | null;
   locked?: boolean | null;
   node_id?: number;
+  role?: DeviceRole;
 };
 
 type DevicesResponse = {
@@ -65,6 +68,7 @@ export function DeviceManagementPanel({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [editRoom, setEditRoom] = useState("");
+  const [editRole, setEditRole] = useState<DeviceRole | "">("");
 
   const load = useCallback(async () => {
     const res = await fetch("/api/home/devices", { cache: "no-store" });
@@ -154,7 +158,7 @@ export function DeviceManagementPanel({
     return groupIdsByProtocol(allDevices);
   }, [allDevices, groupByProtocol]);
 
-  const anchors = FLOOR_PLAN_ANCHORS.filter((a) => a.kind === "light");
+  const anchors = HOUSE_ROOMS;
 
   const showZigbeePairing = !protocol || protocol === "zigbee";
   const showZwavePairing = !protocol || protocol === "zwave";
@@ -248,19 +252,23 @@ export function DeviceManagementPanel({
               editingId={editingId}
               editName={editName}
               editRoom={editRoom}
+              editRole={editRole}
               onEditStart={(d) => {
                 setEditingId(d.id);
                 setEditName(d.name);
                 setEditRoom(d.room ?? "");
+                setEditRole(d.role ?? "");
               }}
               onEditCancel={() => setEditingId(null)}
               onEditName={setEditName}
               onEditRoom={setEditRoom}
+              onEditRole={setEditRole}
               onSave={(device) => {
                 run(async () => {
                   await updateDeviceOverride(device.id, {
                     display_name: editName.trim() || undefined,
                     room: editRoom.trim() || null,
+                    role: editRole || null,
                   });
                   if (editName.trim() && editName.trim() !== device.name) {
                     return renameHubDevice(device.id, editName.trim(), device.node_id);
@@ -285,19 +293,23 @@ export function DeviceManagementPanel({
           editingId={editingId}
           editName={editName}
           editRoom={editRoom}
+          editRole={editRole}
           onEditStart={(d) => {
             setEditingId(d.id);
             setEditName(d.name);
             setEditRoom(d.room ?? "");
+            setEditRole(d.role ?? "");
           }}
           onEditCancel={() => setEditingId(null)}
           onEditName={setEditName}
           onEditRoom={setEditRoom}
+          onEditRole={setEditRole}
           onSave={(device) => {
             run(async () => {
               await updateDeviceOverride(device.id, {
                 display_name: editName.trim() || undefined,
                 room: editRoom.trim() || null,
+                role: editRole || null,
               });
               if (editName.trim() && editName.trim() !== device.name) {
                 return renameHubDevice(device.id, editName.trim(), device.node_id);
@@ -328,8 +340,15 @@ export function DeviceManagementPanel({
           <code className="text-xs">tasmota:…</code>).
         </p>
         <p className="mt-2">
-          Kartta-ankkurit: {anchors.map((a) => a.label).join(", ") || "—"} (
-          <code className="text-xs">src/lib/lights-config.ts</code>).
+          Valitse laitetyyppi Muokkaa-valikosta — se määrää näkyykö laite Valot-, Lämmitys- vai
+          Turvallisuus-sivulla. Shelly, Tasmota ja implantit ovat oletuksena Muu ohjaus, eivät valoja.
+        </p>
+        <p className="mt-2">
+          Valitse huone alasvetovalikosta — laite ilmestyy pohjakuvan oikeaan paikkaan. Huone voidaan
+          myös päätellä laitteen nimestä (esim. &quot;eteinen_sauna&quot; → Eteinen).
+        </p>
+        <p className="mt-2">
+          Kartta-ankkurit: {anchors.map((a) => a.label).join(", ")}.
         </p>
       </section>
     </div>
@@ -369,10 +388,12 @@ function DeviceListSection({
   editingId,
   editName,
   editRoom,
+  editRole,
   onEditStart,
   onEditCancel,
   onEditName,
   onEditRoom,
+  onEditRole,
   onSave,
   onHide,
   onRefresh,
@@ -387,10 +408,12 @@ function DeviceListSection({
   editingId: string | null;
   editName: string;
   editRoom: string;
+  editRole: DeviceRole | "";
   onEditStart: (d: Device) => void;
   onEditCancel: () => void;
   onEditName: (v: string) => void;
   onEditRoom: (v: string) => void;
+  onEditRole: (v: DeviceRole | "") => void;
   onSave: (d: Device) => void;
   onHide: (id: string) => void;
   onRefresh: () => void;
@@ -442,12 +465,34 @@ function DeviceListSection({
                   </label>
                   <label className="block text-sm">
                     <span className="text-stone-600">Huone</span>
-                    <input
+                    <select
                       value={editRoom}
                       onChange={(e) => onEditRoom(e.target.value)}
                       className="mt-1 w-full rounded-lg border border-stone-200 px-3 py-2"
-                      placeholder="Esim. Makuuhuone"
-                    />
+                    >
+                      <option value="">— Ei huonetta —</option>
+                      {HOUSE_ROOMS.map((room) => (
+                        <option key={room.id} value={room.label}>
+                          {room.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="block text-sm sm:col-span-2">
+                    <span className="text-stone-600">Laitetyyppi</span>
+                    <select
+                      value={editRole}
+                      onChange={(e) => onEditRole(e.target.value as DeviceRole | "")}
+                      className="mt-1 w-full rounded-lg border border-stone-200 px-3 py-2"
+                    >
+                      <option value="">Automaattinen (päättele ominaisuuksista)</option>
+                      {DEVICE_ROLE_OPTIONS.map((opt) => (
+                        <option key={opt.id} value={opt.id}>
+                          {opt.label}
+                          {opt.hint ? ` — ${opt.hint}` : ""}
+                        </option>
+                      ))}
+                    </select>
                   </label>
                   <div className="flex gap-2 sm:col-span-2">
                     <button type="submit" className="rounded-lg bg-stone-900 px-4 py-2 text-sm text-white">
@@ -469,6 +514,7 @@ function DeviceListSection({
                     <p className="text-xs text-stone-500">
                       {protocolLabel(device.protocol)} ·{" "}
                       {device.capabilitiesLabel || kindLabel(device.kind as "light")}
+                      {device.role ? ` · ${deviceRoleLabel(device.role)}` : " · automaattinen"}
                       {device.room ? ` · ${device.room}` : ""}
                       {device.readingLabel
                         ? ` · ${device.readingLabel}`

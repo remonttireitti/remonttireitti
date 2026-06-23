@@ -49,7 +49,9 @@ export async function updateDeviceOverride(
 
   const state = (ctx.hub.state as HubState) ?? {};
   const overrides = { ...(state.device_overrides ?? {}) };
-  overrides[deviceId] = { ...overrides[deviceId], ...patch };
+  const next = { ...overrides[deviceId], ...patch };
+  if (patch.role === null) delete next.role;
+  overrides[deviceId] = next;
 
   const { error } = await ctx.supabase
     .from("hubs")

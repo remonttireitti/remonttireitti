@@ -2,15 +2,13 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { TrendChart } from "@/components/trend-chart";
-import type { MetricHistory, MetricPoint } from "@/lib/metric-samples";
+import type { MetricHistory, MetricPoint, MetricRange } from "@/lib/metric-samples";
 
-const RANGES = [
-  { id: "day", label: "Päivä", hours: 24 },
-  { id: "week", label: "Viikko", hours: 168 },
-  { id: "month", label: "Kuukausi", hours: 720 },
-] as const;
-
-type RangeId = (typeof RANGES)[number]["id"];
+const RANGES: { id: MetricRange; label: string }[] = [
+  { id: "day", label: "Päivä" },
+  { id: "week", label: "Viikko" },
+  { id: "month", label: "Kuukausi" },
+];
 
 type Props = {
   metric: string;
@@ -18,17 +16,15 @@ type Props = {
 };
 
 export function TrendModal({ metric, onClose }: Props) {
-  const [range, setRange] = useState<RangeId>("day");
+  const [range, setRange] = useState<MetricRange>("day");
   const [history, setHistory] = useState<MetricHistory | null>(null);
   const [loading, setLoading] = useState(true);
-
-  const hours = RANGES.find((r) => r.id === range)?.hours ?? 24;
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
       const res = await fetch(
-        `/api/device/history?metric=${encodeURIComponent(metric)}&hours=${hours}`,
+        `/api/device/history?metric=${encodeURIComponent(metric)}&range=${range}`,
         { cache: "no-store" },
       );
       if (res.ok) {
@@ -39,14 +35,21 @@ export function TrendModal({ metric, onClose }: Props) {
     } finally {
       setLoading(false);
     }
-  }, [metric, hours]);
+  }, [metric, range]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      void load();
+    }, 45_000);
+    return () => window.clearInterval(id);
+  }, [load]);
+
   const title = history?.label ?? "Trendi";
-  const rangeLabel = RANGES.find((r) => r.id === range)?.label ?? "";
+  const rangeLabel = history?.rangeLabel ?? RANGES.find((r) => r.id === range)?.label ?? "";
 
   const series =
     history?.series ??
@@ -147,7 +150,13 @@ export function TrendModal({ metric, onClose }: Props) {
               </dl>
             )}
             <div className="mt-4">
-              <TrendChart metric={history.metric} unit={history.unit} series={series} />
+              <TrendChart
+                metric={history.metric}
+                unit={history.unit}
+                series={series}
+                rangeStart={history.rangeStart}
+                rangeEnd={history.rangeEnd}
+              />
             </div>
             {metric.includes("fan") && (
               <p className="mt-2 text-center text-[10px] text-stone-400">

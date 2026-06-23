@@ -31,7 +31,7 @@ export async function GET() {
       hub?.state?.zwave_nodes,
       hub?.state?.device_overrides,
     );
-    const grouped = groupDevices(devices);
+    const grouped = groupDevices(devices, hub?.state?.device_overrides);
 
     if (hub && (hubOnline || devices.length > 0)) {
       return NextResponse.json({

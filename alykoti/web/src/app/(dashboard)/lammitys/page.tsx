@@ -1,13 +1,24 @@
+import { RoleDevicesPanel } from "@/components/role-devices-panel";
+
 export default function HeatingPage() {
   return (
-    <div className="mx-auto max-w-3xl">
-      <h1 className="text-2xl font-bold tracking-tight text-stone-900">Lämmitys</h1>
-      <p className="mt-2 text-sm text-stone-600">
-        Lämmityksen ohjaus ja tilastot tulevat tähän.
-      </p>
-      <div className="mt-8 rounded-2xl border border-dashed border-stone-300 bg-stone-50 p-8 text-center text-sm text-stone-500">
-        Tulossa pian
-      </div>
+    <div className="mx-auto max-w-5xl">
+      <RoleDevicesPanel
+        pageTitle="Lämmitys"
+        pageDescription="Lämmitykseen liittyvät ohjaukset. Valitse laitetyyppi Asetuksissa → Laitteet."
+        sections={[
+          {
+            title: "Lämmityksen ohjaus",
+            roles: ["heating"],
+            empty: "Ei lämmityslaitteita — valitse laitteelle tyyppi Lämmitys Asetuksissa.",
+          },
+          {
+            title: "Muu ohjaus",
+            roles: ["other_control"],
+            empty: "Ei muita ohjauksia — Shelly, Tasmota ja implantit kuuluvat tähän oletuksena.",
+          },
+        ]}
+      />
     </div>
   );
 }

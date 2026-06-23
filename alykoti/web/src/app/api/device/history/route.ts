@@ -1,9 +1,14 @@
 import { NextResponse } from "next/server";
-import { fetchMetricHistory } from "@/lib/metric-samples";
+import { fetchMetricHistory, type MetricRange } from "@/lib/metric-samples";
 import { fetchPrimaryHub } from "@/lib/hubs";
 import { createClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
+
+function parseRange(raw: string | null): MetricRange {
+  if (raw === "week" || raw === "month") return raw;
+  return "day";
+}
 
 export async function GET(request: Request) {
   const supabase = await createClient();
@@ -17,7 +22,7 @@ export async function GET(request: Request) {
 
   const url = new URL(request.url);
   const metric = url.searchParams.get("metric");
-  const hours = Math.min(720, Math.max(1, Number(url.searchParams.get("hours") ?? "24")));
+  const range = parseRange(url.searchParams.get("range"));
 
   if (!metric) {
     return NextResponse.json({ error: "metric_required" }, { status: 400 });
@@ -28,7 +33,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "no_hub" }, { status: 404 });
   }
 
-  const history = await fetchMetricHistory(hub.id, metric, hours);
+  const history = await fetchMetricHistory(hub.id, metric, range);
   if (!history) {
     return NextResponse.json({ error: "unknown_metric" }, { status: 400 });
   }

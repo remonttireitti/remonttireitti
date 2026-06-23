@@ -45,6 +45,10 @@ export type MetricPoint = {
   text: string | null;
 };
 
+export type MetricRange = "day" | "week" | "month";
+
+const HELSINKI = "Europe/Helsinki";
+
 export type MetricSeries = {
   key: string;
   label: string;
@@ -58,7 +62,10 @@ export type MetricHistory = {
   unit?: string;
   kind: MetricKind;
   footnote?: string;
-  rangeHours: number;
+  range: MetricRange;
+  rangeStart: string;
+  rangeEnd: string;
+  rangeLabel: string;
   points: MetricPoint[];
   series?: MetricSeries[];
 };
@@ -78,8 +85,50 @@ const METRIC_COMPANIONS: Record<string, string> = {
   fan_exhaust_pct: "fan_exhaust_target",
 };
 
+function hoursSinceHelsinkiMidnight(now = new Date()): number {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: HELSINKI,
+    hour: "numeric",
+    minute: "numeric",
+    second: "numeric",
+    hour12: false,
+  }).formatToParts(now);
+  const h = Number(parts.find((p) => p.type === "hour")!.value);
+  const mi = Number(parts.find((p) => p.type === "minute")!.value);
+  const s = Number(parts.find((p) => p.type === "second")!.value);
+  return h + mi / 60 + s / 3600;
+}
+
+function formatRangeLabel(since: Date, until: Date): string {
+  const fmt = (d: Date) =>
+    d.toLocaleString("fi-FI", {
+      timeZone: HELSINKI,
+      day: "numeric",
+      month: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  return `${fmt(since)} – ${fmt(until)}`;
+}
+
+export function metricRangeBounds(
+  range: MetricRange,
+  now = new Date(),
+): { since: Date; until: Date; label: string } {
+  const until = now;
+  if (range === "day") {
+    const since = new Date(now.getTime() - hoursSinceHelsinkiMidnight(now) * 3_600_000);
+    return { since, until, label: formatRangeLabel(since, until) };
+  }
+  if (range === "week") {
+    const since = new Date(now.getTime() - 7 * 24 * 3_600_000);
+    return { since, until, label: formatRangeLabel(since, until) };
+  }
+  const since = new Date(now.getTime() - 30 * 24 * 3_600_000);
+  return { since, until, label: formatRangeLabel(since, until) };
+}
+
 function downsamplePoints(points: MetricPoint[], maxPoints: number): MetricPoint[] {
-  if (points.length <= maxPoints) return points;
   const bucketSize = Math.ceil(points.length / maxPoints);
   const result: MetricPoint[] = [];
   for (let i = 0; i < points.length; i += bucketSize) {
@@ -221,15 +270,16 @@ export async function recordHubMetrics(
 export async function fetchMetricHistory(
   hubId: string,
   metric: string,
-  hours = 24,
+  range: MetricRange = "day",
 ): Promise<MetricHistory | null> {
   const meta = METRIC_META[metric];
   if (!meta) return null;
 
-  const since = new Date(Date.now() - hours * 3_600_000).toISOString();
-  const maxPoints = hours <= 25 ? 1500 : hours <= 170 ? 400 : 300;
+  const { since, until, label } = metricRangeBounds(range);
+  const sinceIso = since.toISOString();
+  const maxPoints = range === "day" ? 1500 : range === "week" ? 500 : 300;
 
-  const primaryRaw = await fetchMetricPoints(hubId, metric, since);
+  const primaryRaw = await fetchMetricPoints(hubId, metric, sinceIso);
   const primaryPoints = downsamplePoints(
     primaryRaw.filter((p) => p.v != null),
     maxPoints,
@@ -239,8 +289,7 @@ export async function fetchMetricHistory(
   let series: MetricSeries[] | undefined;
 
   if (companionKey && METRIC_META[companionKey]) {
-    const companionMeta = METRIC_META[companionKey]!;
-    const companionRaw = await fetchMetricPoints(hubId, companionKey, since);
+    const companionRaw = await fetchMetricPoints(hubId, companionKey, sinceIso);
     const companionPoints = downsamplePoints(
       companionRaw.filter((p) => p.v != null),
       maxPoints,
@@ -259,7 +308,10 @@ export async function fetchMetricHistory(
   return {
     metric,
     ...meta,
-    rangeHours: hours,
+    range,
+    rangeStart: sinceIso,
+    rangeEnd: until.toISOString(),
+    rangeLabel: label,
     points: primaryPoints,
     series,
   };

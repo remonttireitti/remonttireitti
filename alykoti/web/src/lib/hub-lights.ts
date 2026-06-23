@@ -5,9 +5,12 @@ import {
   normalizeCapabilities,
   sensorReadingLabel,
 } from "@/lib/capabilities";
+import { resolveDeviceRole, groupDevicesByRole } from "@/lib/device-roles";
+import type { DeviceRole } from "@/lib/device-roles";
 import { inferProtocolFromId, parseZwaveDeviceId } from "@/lib/device-protocol";
 import { zwaveEndpointItemKey } from "@/lib/device-item-overrides";
 import { anchorForLight } from "@/lib/lights-config";
+import { resolveRoomAnchorId } from "@/lib/rooms";
 import { groupZwaveDevicesForList, zwaveNodeId } from "@/lib/zwave-detail";
 import type { DeviceCapability, HubDeviceOverride, HubHomeDevice, HubLightState, HubState, ZwaveProperty } from "@/lib/types";
 
@@ -41,6 +44,7 @@ export type HubLightDevice = {
   model?: string | null;
   manufacturer?: string | null;
   description?: string | null;
+  role: DeviceRole;
 };
 
 const KIND_LABEL: Record<HubHomeDevice["kind"], string> = {
@@ -89,14 +93,18 @@ function mapDevice(
   const zigbeeName = id.startsWith("zigbee:") ? id.slice("zigbee:".length) : id;
   const zwaveParsed = parseZwaveDeviceId(id);
 
-  return {
+  const mapped: HubLightDevice = {
     id,
     name: resolveDeviceDisplayName(id, d, o, allOverrides),
     on: d.on === true,
     brightness:
       typeof d.brightness === "number" && Number.isFinite(d.brightness) ? d.brightness : null,
     reachable: true,
-    roomAnchorId: o?.floor_anchor ?? anchorForLight(zigbeeName) ?? null,
+    roomAnchorId:
+      o?.floor_anchor ??
+      resolveRoomAnchorId(o?.room ?? d.room ?? null, o?.floor_anchor, resolveDeviceDisplayName(id, d, o, allOverrides)) ??
+      anchorForLight(zigbeeName) ??
+      null,
     protocol: inferProtocolFromId(id, d.protocol),
     kind,
     room: o?.room ?? d.room ?? null,
@@ -137,7 +145,11 @@ function mapDevice(
     battery_pct:
       typeof d.battery_pct === "number" && Number.isFinite(d.battery_pct) ? d.battery_pct : null,
     voltage_v: typeof d.voltage_v === "number" && Number.isFinite(d.voltage_v) ? d.voltage_v : null,
+    role: "other_control" as DeviceRole,
   };
+
+  mapped.role = resolveDeviceRole(mapped, o);
+  return mapped;
 }
 
 function zwavePropertiesForDevice(
@@ -225,6 +237,7 @@ export function parseHubHomeDevices(
     endpoint: null,
     node_id: null,
     power_w: null,
+    role: "light" as const,
   }));
 }
 
@@ -250,6 +263,7 @@ export function parseHubLights(
   | "endpoint"
   | "node_id"
   | "power_w"
+  | "role"
 >[] {
   if (!raw || typeof raw !== "object") return [];
 
@@ -270,55 +284,24 @@ export function parseHubLights(
   });
 }
 
-export function groupDevices(devices: HubLightDevice[]) {
-  const lights: HubLightDevice[] = [];
-  const switches: HubLightDevice[] = [];
-  const sensors: HubLightDevice[] = [];
-  const locks: HubLightDevice[] = [];
-  const other: HubLightDevice[] = [];
-
-  for (const device of devices) {
-    const ids = new Set(device.capabilities.map((c) => c.id));
-
-    if (ids.has("lock") || device.kind === "lock") {
-      locks.push(device);
-    } else if (
-      ids.has("button") &&
-      (ids.has("temperature") || ids.has("humidity") || device.kind === "sensor")
-    ) {
-      sensors.push(device);
-    } else if (ids.has("button") || (device.kind === "switch" && !device.controllable)) {
-      switches.push(device);
-    } else if (ids.has("dimmer") || ids.has("color")) {
-      lights.push(device);
-    } else if (ids.has("switch") || ids.has("relay") || device.kind === "switch") {
-      switches.push(device);
-    } else if (device.kind === "light") {
-      lights.push(device);
-    } else if (
-      ids.has("temperature") ||
-      ids.has("humidity") ||
-      ids.has("co2") ||
-      ids.has("energy") ||
-      ids.has("meter") ||
-      ids.has("contact") ||
-      ids.has("motion") ||
-      ids.has("occupancy") ||
-      ids.has("tvoc") ||
-      ids.has("pm") ||
-      ids.has("illuminance") ||
-      ids.has("battery") ||
-      device.kind === "sensor"
-    ) {
-      sensors.push(device);
-    } else if (device.kind === "fan") {
-      other.push(device);
-    } else {
-      other.push(device);
-    }
-  }
-
-  return { lights, switches, sensors, locks, other };
+export function groupDevices(
+  devices: HubLightDevice[],
+  overrides?: HubState["device_overrides"],
+) {
+  const byRole = groupDevicesByRole(devices, overrides);
+  return {
+    lights: byRole.lights,
+    switches: byRole.lightSwitches,
+    sensors: byRole.sensors,
+    locks: byRole.locks,
+    heating: byRole.heating,
+    otherControl: byRole.otherControl,
+    contact: byRole.contact,
+    fireAlarms: byRole.fireAlarms,
+    leakDetectors: byRole.leakDetectors,
+    motion: byRole.motion,
+    other: byRole.otherControl,
+  };
 }
 
 export { formatCapabilitiesSummary, capabilityLabel } from "@/lib/capabilities";

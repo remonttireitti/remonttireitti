@@ -62,6 +62,7 @@ function deviceFromZwaveNode(
     endpoint: ep.endpoint,
     node_id: node.node_id,
     power_w: null,
+    role: "other_control",
   };
 }
 

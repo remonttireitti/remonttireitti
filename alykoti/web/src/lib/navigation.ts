@@ -33,6 +33,15 @@ export const DASHBOARD_SECTIONS: NavSection[] = [
     enabled: true,
   },
   {
+    id: "security",
+    label: "Turvallisuus",
+    href: "/turvallisuus",
+    description: "Palot, vuodot, liike ja ovet",
+    enabled: true,
+    activeMatch: (pathname) =>
+      pathname === "/turvallisuus" || pathname.startsWith("/turvallisuus/"),
+  },
+  {
     id: "lights",
     label: "Valot",
     href: "/valot",

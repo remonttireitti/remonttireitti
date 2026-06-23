@@ -46,6 +46,8 @@ export async function GET() {
     capabilitiesLabel: d.capabilitiesLabel,
     readingLabel: d.readingLabel,
     locked: d.locked,
+    role: d.role,
+    roomAnchorId: d.roomAnchorId,
     node_id: (() => {
       const parsed = parseZwaveDeviceId(d.id);
       return parsed?.nodeId;
