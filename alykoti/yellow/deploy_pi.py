@@ -14,13 +14,12 @@ PASS = os.environ.get("YELLOW_SSH_PASS", "")
 ROOT = Path(__file__).resolve().parent
 REMOTE_YELLOW = "/home/ek/alykoti-yellow"
 FILES = {
-    *((
-        local,
-        f"{REMOTE_YELLOW}/alykoti_yellow/{local.name}",
-    )
-    for local in sorted((ROOT / "alykoti_yellow").glob("*.py"))),
-    ROOT / "install/alykoti-yellow.service": f"{REMOTE_YELLOW}/install/alykoti-yellow.service",
+    local: f"{REMOTE_YELLOW}/alykoti_yellow/{local.name}"
+    for local in sorted((ROOT / "alykoti_yellow").glob("*.py"))
 }
+FILES[ROOT / "install/alykoti-yellow.service"] = (
+    f"{REMOTE_YELLOW}/install/alykoti-yellow.service"
+)
 
 
 def run(client: paramiko.SSHClient, cmd: str, timeout: int = 60) -> int:

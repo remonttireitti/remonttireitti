@@ -403,6 +403,8 @@ export type DeviceSyncRequest = {
   firmware_version?: string;
   acked_command_ids?: string[];
   failed_commands?: DeviceSyncFailedCommand[];
+  /** Hub: vain komennot + tuuletus, ei raskasta tilapäivitystä */
+  quick?: boolean;
 };
 
 export type DeviceSyncDisplay = {

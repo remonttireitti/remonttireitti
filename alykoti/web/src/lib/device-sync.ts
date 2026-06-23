@@ -118,7 +118,8 @@ export async function syncDevice(
   body: DeviceSyncRequest,
 ): Promise<DeviceSyncResponse | null> {
   const supabase = createAdminClient();
-  const canPing = canPingAirfiFromRuntime();
+  const canPing = body.quick ? false : canPingAirfiFromRuntime();
+  const quick = body.quick === true;
 
   const { data: hub, error: lookupError } = await supabase
     .from("hubs")
@@ -220,7 +221,7 @@ export async function syncDevice(
     mergedState.device_live_events = body.state.device_live_events as HubState["device_live_events"];
   }
 
-  const airthingsState = await fetchAirthingsState();
+  const airthingsState = quick ? null : await fetchAirthingsState();
   if (airthingsState) {
     if (airthingsState.co2_ppm != null) mergedState.co2_ppm = airthingsState.co2_ppm;
     if (airthingsState.humidity_pct != null) {
@@ -236,16 +237,18 @@ export async function syncDevice(
     mergedState.airthings_source = "cloud";
   }
 
-  if (Array.isArray(body.state?.tasmota_discovered)) {
-    mergedState.tasmota_discovered = body.state.tasmota_discovered as HubState["tasmota_discovered"];
-  }
+  if (!quick) {
+    if (Array.isArray(body.state?.tasmota_discovered)) {
+      mergedState.tasmota_discovered = body.state.tasmota_discovered as HubState["tasmota_discovered"];
+    }
 
-  if (Array.isArray(body.state?.shelly_discovered)) {
-    mergedState.shelly_discovered = body.state.shelly_discovered as HubState["shelly_discovered"];
-  }
+    if (Array.isArray(body.state?.shelly_discovered)) {
+      mergedState.shelly_discovered = body.state.shelly_discovered as HubState["shelly_discovered"];
+    }
 
-  if (body.state?.zwave_nodes && typeof body.state.zwave_nodes === "object") {
-    mergedState.zwave_nodes = body.state.zwave_nodes as HubState["zwave_nodes"];
+    if (body.state?.zwave_nodes && typeof body.state.zwave_nodes === "object") {
+      mergedState.zwave_nodes = body.state.zwave_nodes as HubState["zwave_nodes"];
+    }
   }
 
   const prevStored = parseState(hub.state);
@@ -264,10 +267,12 @@ export async function syncDevice(
     mergedState.integrations = prevIntegrations;
   }
 
-  mergedState.home_devices = normalizeHomeDevices(mergedState.home_devices, {
-    integrations: mergedState.integrations,
-    airthingsState,
-  });
+  if (!quick) {
+    mergedState.home_devices = normalizeHomeDevices(mergedState.home_devices, {
+      integrations: mergedState.integrations,
+      airthingsState,
+    });
+  }
 
   const prevAutomations = prevStored.automations;
   if (Array.isArray(prevAutomations) && !config.automations?.length) {
@@ -573,11 +578,13 @@ export async function syncDevice(
 
   await supabase.from("hubs").update(hubUpdate).eq("id", hub.id);
 
-  void recordHubMetrics(hub.id, mergedState, effectiveMode, {
-    hub_online: true,
-    airfi_online: mergedState.airfi_online === true,
-  });
-  void recordEnergySamples(hub.id, mergedState.home_devices);
+  if (!quick) {
+    void recordHubMetrics(hub.id, mergedState, effectiveMode, {
+      hub_online: true,
+      airfi_online: mergedState.airfi_online === true,
+    });
+    void recordEnergySamples(hub.id, mergedState.home_devices);
+  }
 
   const integrations: HubIntegrations | undefined =
     mergedState.integrations && typeof mergedState.integrations === "object"
@@ -590,7 +597,7 @@ export async function syncDevice(
       : normalizeAutomationRules(mergedState.automations);
   const repaired = repairSaunaShowerMirrorRules(automations);
   const automationsChanged = JSON.stringify(repaired) !== JSON.stringify(automations);
-  if (automationsChanged && config.automations?.length) {
+  if (!quick && automationsChanged && config.automations?.length) {
     config = { ...config, automations: repaired };
     await supabase.from("hubs").update({ config }).eq("id", hub.id);
   }

@@ -5,12 +5,14 @@ from __future__ import annotations
 
 import logging
 import sys
+import threading
 import time
 
 from alykoti_yellow import config
 from alykoti_yellow.modbus_airfi import (
     AirfiPollState,
     ack_airfi_alarms,
+    airfi_ack_cooldown_active,
     airfi_auto_ventilation_blocked,
     airfi_machine_blocks_ventilation,
     airfi_writes_pause_until_iso,
@@ -43,7 +45,7 @@ from alykoti_yellow.tasmota import (
     probe_tasmota,
     set_tasmota_power,
 )
-from alykoti_yellow.sync import sync_post
+from alykoti_yellow.sync import quick_pull, sync_post
 from alykoti_yellow.zwave_mqtt import fetch_zwave_devices, set_zwave_device, set_zwave_lock, set_zwave_property
 
 logging.basicConfig(
@@ -54,6 +56,9 @@ log = logging.getLogger("alykoti-yellow")
 
 pending_acks: list[str] = []
 pending_fails: list[dict[str, str]] = []
+_sync_lock = threading.Lock()
+_feedback_lock = threading.Lock()
+_executed_cmd_ids: dict[str, float] = {}
 cached_integrations: dict = {}
 cached_automations: list[dict] = []
 cached_shelly_discovered: list[dict] = []
@@ -62,6 +67,46 @@ airfi_poll_state = AirfiPollState(
     offline_backoff_max_sec=config.AIRFI_OFFLINE_BACKOFF_MAX_SEC,
     offline_skip_after=config.AIRFI_OFFLINE_SKIP_AFTER,
 )
+cached_hub_state: dict = {}
+
+
+def _poll_interval_sec() -> int:
+    return config.COMMAND_POLL_INTERVAL_SEC
+    if not cmd_id:
+        return
+    with _feedback_lock:
+        pending_acks.append(cmd_id)
+
+
+def _queue_fail(cmd_id: str, message: str) -> None:
+    if not cmd_id:
+        return
+    with _feedback_lock:
+        pending_fails.append({"id": cmd_id, "message": message})
+
+
+def _drain_pending_feedback() -> tuple[list[str], list[dict[str, str]]]:
+    with _feedback_lock:
+        acks = pending_acks[:]
+        pending_acks.clear()
+        fails = pending_fails[:]
+        pending_fails.clear()
+        return acks, fails
+
+
+def _remember_executed(cmd_id: str) -> bool:
+    """Return True if this command was already executed recently."""
+    if not cmd_id:
+        return False
+    now = time.time()
+    with _sync_lock:
+        expired = [k for k, t in _executed_cmd_ids.items() if now - t > 120]
+        for k in expired:
+            del _executed_cmd_ids[k]
+        if cmd_id in _executed_cmd_ids:
+            return True
+        _executed_cmd_ids[cmd_id] = now
+        return False
 
 
 def execute_command(cmd: dict) -> bool:
@@ -77,7 +122,7 @@ def execute_command(cmd: dict) -> bool:
             int(seconds) if isinstance(seconds, (int, float)) else 254,
         )
         if ok and cmd_id:
-            pending_acks.append(cmd_id)
+            _queue_ack(cmd_id)
         return ok
 
     if command == "zwave_start_inclusion":
@@ -85,7 +130,7 @@ def execute_command(cmd: dict) -> bool:
             config.MQTT_URL, config.ZWAVE_PREFIX, config.ZWAVE_GATEWAY
         )
         if ok and cmd_id:
-            pending_acks.append(cmd_id)
+            _queue_ack(cmd_id)
         return ok
 
     if command == "zwave_stop_inclusion":
@@ -93,7 +138,7 @@ def execute_command(cmd: dict) -> bool:
             config.MQTT_URL, config.ZWAVE_PREFIX, config.ZWAVE_GATEWAY
         )
         if ok and cmd_id:
-            pending_acks.append(cmd_id)
+            _queue_ack(cmd_id)
         return ok
 
     if command == "rename_device":
@@ -116,7 +161,7 @@ def execute_command(cmd: dict) -> bool:
                     config.ZWAVE_GATEWAY,
                 )
         if ok and cmd_id:
-            pending_acks.append(cmd_id)
+            _queue_ack(cmd_id)
         return ok
 
     if command == "shelly_discover":
@@ -125,7 +170,7 @@ def execute_command(cmd: dict) -> bool:
         prefix = subnet if isinstance(subnet, str) and subnet.strip() else None
         cached_shelly_discovered = discover_shelly_devices(prefix)
         if cmd_id:
-            pending_acks.append(cmd_id)
+            _queue_ack(cmd_id)
         return True
 
     if command == "shelly_probe":
@@ -134,7 +179,7 @@ def execute_command(cmd: dict) -> bool:
             return False
         ok = probe_shelly(host) is not None
         if ok and cmd_id:
-            pending_acks.append(cmd_id)
+            _queue_ack(cmd_id)
         return ok
 
     if command == "tasmota_discover":
@@ -143,7 +188,7 @@ def execute_command(cmd: dict) -> bool:
         prefix = subnet if isinstance(subnet, str) and subnet.strip() else None
         cached_tasmota_discovered = discover_tasmota_devices(prefix)
         if cmd_id:
-            pending_acks.append(cmd_id)
+            _queue_ack(cmd_id)
         return True
 
     if command == "tasmota_probe":
@@ -152,7 +197,7 @@ def execute_command(cmd: dict) -> bool:
             return False
         ok = probe_tasmota(host) is not None
         if ok and cmd_id:
-            pending_acks.append(cmd_id)
+            _queue_ack(cmd_id)
         return ok
 
     if command == "set_zwave_property":
@@ -161,7 +206,7 @@ def execute_command(cmd: dict) -> bool:
         if isinstance(mqtt_topic, str) and value is not None:
             ok = set_zwave_property(config.MQTT_URL, mqtt_topic, value)
             if ok and cmd_id:
-                pending_acks.append(cmd_id)
+                _queue_ack(cmd_id)
             return ok
         return False
 
@@ -220,7 +265,7 @@ def execute_command(cmd: dict) -> bool:
             ok = set_light(config.MQTT_URL, config.MQTT_PREFIX, device_id, on)
 
         if ok and cmd_id:
-            pending_acks.append(cmd_id)
+            _queue_ack(cmd_id)
         return ok
 
     if command == "set_fan_pct" and config.AIRFI_WRITES:
@@ -232,7 +277,7 @@ def execute_command(cmd: dict) -> bool:
                 msg = "Tuuletus estetty (hätäseis tai vika koneella)"
                 log.warning("set_fan_pct estetty — %s", msg)
                 if cmd_id:
-                    pending_fails.append({"id": cmd_id, "message": msg})
+                    _queue_fail(cmd_id, msg)
                 return False
             ok = write_fan_pct(
                 **config.airfi_write_kwargs(),
@@ -240,7 +285,7 @@ def execute_command(cmd: dict) -> bool:
                 exhaust=int(exhaust),
             )
             if ok and cmd_id:
-                pending_acks.append(cmd_id)
+                _queue_ack(cmd_id)
             return ok
         return False
 
@@ -249,7 +294,7 @@ def execute_command(cmd: dict) -> bool:
         if isinstance(away, bool):
             ok = write_away(**config.airfi_write_kwargs(), away=away)
             if ok and cmd_id:
-                pending_acks.append(cmd_id)
+                _queue_ack(cmd_id)
             return ok
         return False
 
@@ -261,7 +306,7 @@ def execute_command(cmd: dict) -> bool:
                 temp_c=float(temp_c),
             )
             if ok and cmd_id:
-                pending_acks.append(cmd_id)
+                _queue_ack(cmd_id)
             return ok
         return False
 
@@ -270,14 +315,14 @@ def execute_command(cmd: dict) -> bool:
         if isinstance(active, bool):
             ok = write_sauna_mode(**config.airfi_write_kwargs(), active=active)
             if ok and cmd_id:
-                pending_acks.append(cmd_id)
+                _queue_ack(cmd_id)
             return ok
         return False
 
     if command == "ack_airfi_alarms" and config.AIRFI_WRITES:
         ok = ack_airfi_alarms(**config.airfi_write_kwargs())
         if ok and cmd_id:
-            pending_acks.append(cmd_id)
+            _queue_ack(cmd_id)
         return ok
 
     if command == "set_fireplace_mode" and config.AIRFI_WRITES:
@@ -285,7 +330,7 @@ def execute_command(cmd: dict) -> bool:
         if isinstance(active, bool):
             ok = write_fireplace(**config.airfi_write_kwargs(), active=active)
             if ok and cmd_id:
-                pending_acks.append(cmd_id)
+                _queue_ack(cmd_id)
             return ok
         return False
 
@@ -294,17 +339,34 @@ def execute_command(cmd: dict) -> bool:
         if isinstance(level, (int, float)) and 0 <= int(level) <= 5:
             ok = write_speed_level(**config.airfi_write_kwargs(), level=int(level))
             if ok and cmd_id:
-                pending_acks.append(cmd_id)
+                _queue_ack(cmd_id)
             return ok
         return False
 
     if command == "set_mode":
         if cmd_id:
-            pending_acks.append(cmd_id)
+            _queue_ack(cmd_id)
         return True
 
     log.warning("Unknown or blocked command: %s", command)
     return False
+
+
+def _ventilation_block_reason(state: dict | None) -> str | None:
+    if state is None or not state.get("airfi_online"):
+        return "ei luentaa"
+    if airfi_ack_cooldown_active():
+        return "kuittauksen jälkeinen tauko"
+    if state.get("emergency_stop"):
+        return "hätäseis"
+    if state.get("machine_fault"):
+        return "konevika"
+    if state.get("freezing_alarm"):
+        return "jäätymisvaara"
+    raw = state.get("airfi_error_raw")
+    if isinstance(raw, int) and (raw & 2) != 0:
+        return "E1"
+    return None
 
 
 def apply_ventilation(response: dict, airfi_state: dict | None = None) -> None:
@@ -312,9 +374,14 @@ def apply_ventilation(response: dict, airfi_state: dict | None = None) -> None:
         return
     if response.get("control_mode") == "manual":
         return
-    snap = read_airfi(**config.airfi_kwargs(), poll_state=None)
-    if not snap.ok or airfi_auto_ventilation_blocked(snap.state):
-        log.info("AirFi tuuletus ohitetaan — hätäseis/vika tai kuittauksen jälkeinen tauko")
+    block_state = airfi_state if airfi_state and airfi_state.get("airfi_online") else None
+    if block_state is None:
+        snap = read_airfi(**config.airfi_kwargs(), poll_state=None)
+        if snap.ok:
+            block_state = snap.state
+    reason = _ventilation_block_reason(block_state)
+    if reason is not None:
+        log.info("AirFi tuuletus ohitetaan — %s", reason)
         return
     vent = response.get("ventilation")
     if not isinstance(vent, dict):
@@ -327,6 +394,7 @@ def apply_ventilation(response: dict, airfi_state: dict | None = None) -> None:
                 **config.airfi_write_kwargs(),
                 supply=int(supply),
                 exhaust=int(exhaust),
+                known_state=block_state,
             )
             if ok:
                 log.info("AirFi tuuletus kirjoitettu: tulo %s%% poisto %s%%", supply, exhaust)
@@ -429,8 +497,82 @@ def build_state(
     return state
 
 
+def _airfi_snapshot(state: dict) -> dict:
+    keys = (
+        "airfi_online",
+        "fan_supply_pct",
+        "fan_exhaust_pct",
+        "emergency_stop",
+        "machine_fault",
+        "freezing_alarm",
+        "airfi_error_raw",
+        "airfi_errors",
+        "airfi_modbus_pause_until",
+        "forced_control",
+    )
+    return {k: state[k] for k in keys if k in state}
+
+
+def _process_sync_response(response: dict, hub_state: dict) -> None:
+    global cached_automations, cached_integrations
+
+    integrations = response.get("integrations")
+    if isinstance(integrations, dict):
+        cached_integrations = integrations
+    automations = response.get("automations")
+    if isinstance(automations, list):
+        cached_automations = automations
+    elif isinstance(response.get("config"), dict):
+        cfg_auto = response["config"].get("automations")
+        if isinstance(cfg_auto, list):
+            cached_automations = cfg_auto
+    get_engine().update_config(
+        cached_automations,
+        cached_integrations,
+        hub_state.get("home_devices") if isinstance(hub_state.get("home_devices"), dict) else None,
+    )
+    with _sync_lock:
+        for cmd in response.get("commands") or []:
+            cmd_id = cmd.get("id", "")
+            if _remember_executed(cmd_id):
+                continue
+            with _feedback_lock:
+                ack_before = len(pending_acks)
+            execute_command(cmd)
+            with _feedback_lock:
+                if (
+                    cmd_id
+                    and len(pending_acks) == ack_before
+                    and not any(f.get("id") == cmd_id for f in pending_fails)
+                ):
+                    pending_fails.append(
+                        {"id": cmd_id, "message": "Ohjaus epäonnistui"},
+                    )
+    apply_ventilation(response, hub_state if hub_state.get("airfi_online") else None)
+
+
+def run_fast_poll_loop() -> None:
+    global cached_hub_state
+
+    log.info("Nopea komentopollaus %ss välein", _poll_interval_sec())
+    while True:
+        acks, fails = _drain_pending_feedback()
+        snapshot = _airfi_snapshot(cached_hub_state)
+
+        response = quick_pull(
+            config.SYNC_URL,
+            config.DEVICE_TOKEN,
+            snapshot,
+            acks,
+            fails,
+        )
+        if response:
+            _process_sync_response(response, cached_hub_state)
+        time.sleep(_poll_interval_sec())
+
+
 def run_loop() -> None:
-    global pending_acks, pending_fails, cached_integrations, cached_automations, cached_shelly_discovered, cached_tasmota_discovered
+    global pending_acks, pending_fails, cached_integrations, cached_automations, cached_shelly_discovered, cached_tasmota_discovered, cached_hub_state
 
     engine = get_engine()
     engine.start()
@@ -446,10 +588,7 @@ def run_loop() -> None:
     )
 
     while True:
-        acks = pending_acks[:]
-        pending_acks = []
-        fails = pending_fails[:]
-        pending_fails = []
+        acks, fails = _drain_pending_feedback()
 
         state = build_state(
             cached_integrations,
@@ -467,34 +606,8 @@ def run_loop() -> None:
         )
 
         if response:
-            integrations = response.get("integrations")
-            if isinstance(integrations, dict):
-                cached_integrations = integrations
-            automations = response.get("automations")
-            if isinstance(automations, list):
-                cached_automations = automations
-            elif isinstance(response.get("config"), dict):
-                cfg_auto = response["config"].get("automations")
-                if isinstance(cfg_auto, list):
-                    cached_automations = cfg_auto
-            engine.update_config(
-                cached_automations,
-                cached_integrations,
-                state.get("home_devices") if isinstance(state.get("home_devices"), dict) else None,
-            )
-            for cmd in response.get("commands") or []:
-                cmd_id = cmd.get("id", "")
-                ack_before = len(pending_acks)
-                execute_command(cmd)
-                if (
-                    cmd_id
-                    and len(pending_acks) == ack_before
-                    and not any(f.get("id") == cmd_id for f in pending_fails)
-                ):
-                    pending_fails.append(
-                        {"id": cmd_id, "message": "Ohjaus epäonnistui"},
-                    )
-            apply_ventilation(response)
+            cached_hub_state = state
+            _process_sync_response(response, state)
             devices = state.get("home_devices") or {}
             lights = sum(1 for d in devices.values() if d.get("kind") == "light")
             switches = sum(1 for d in devices.values() if d.get("kind") == "switch")
@@ -517,6 +630,11 @@ def run_loop() -> None:
 
 
 def main() -> None:
+    if config.COMMAND_POLL_ENABLED:
+        poll_thread = threading.Thread(
+            target=run_fast_poll_loop, name="command-poll", daemon=True
+        )
+        poll_thread.start()
     run_loop()
 
 

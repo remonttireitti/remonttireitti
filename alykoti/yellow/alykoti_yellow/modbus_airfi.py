@@ -415,12 +415,13 @@ def _read_snapshot(
     exhaust = _parse_temp(_reg(inputs_core, _INPUT_CORE_START, INPUT["exhaust_temp"]))
     exhaust_hru = _parse_temp(_reg(inputs_core, _INPUT_CORE_START, INPUT["exhaust_hru_temp"]))
     supply_room = _parse_temp(_reg(inputs_core, _INPUT_CORE_START, INPUT["supply_room_temp"]))
-    fan_supply = _parse_pct(_reg(holdings, _HOLDING_BLOCK_START, HOLDING["supply_direct_pct"])) or _parse_pct(
-        _reg(inputs_core, _INPUT_CORE_START, INPUT["fan_supply_pct"])
-    )
-    fan_exhaust = _parse_pct(_reg(holdings, _HOLDING_BLOCK_START, HOLDING["exhaust_direct_pct"])) or _parse_pct(
-        _reg(inputs_core, _INPUT_CORE_START, INPUT["fan_exhaust_pct"])
-    )
+    # Toteutunut nopeus = input (3x00012/13). Holding h10/h11 = viimeisin kirjoitus, ei aina sama.
+    fan_supply = _parse_pct(_reg(inputs_core, _INPUT_CORE_START, INPUT["fan_supply_pct"]))
+    fan_exhaust = _parse_pct(_reg(inputs_core, _INPUT_CORE_START, INPUT["fan_exhaust_pct"]))
+    if fan_supply is None:
+        fan_supply = _parse_pct(_reg(holdings, _HOLDING_BLOCK_START, HOLDING["supply_direct_pct"]))
+    if fan_exhaust is None:
+        fan_exhaust = _parse_pct(_reg(holdings, _HOLDING_BLOCK_START, HOLDING["exhaust_direct_pct"]))
 
     error_raw = _reg(inputs_status, _INPUT_STATUS_START, INPUT["error_info"])
     errors = decode_error_info(error_raw)
@@ -709,25 +710,29 @@ def write_fan_pct(
     exhaust: int,
     connect_timeout: float = 4.0,
     read_timeout: float = 5.0,
+    known_state: dict[str, Any] | None = None,
 ) -> bool:
-    snap = read_airfi(
-        host=host,
-        tcp_port=tcp_port,
-        serial=serial,
-        baud=baud,
-        unit=unit,
-        connect_timeout=connect_timeout,
-        read_timeout=read_timeout,
-        poll_state=None,
-    )
-    if not snap.ok:
-        log.warning("write_fan_pct estetty — AirFi ei vastaa")
-        return False
-    if airfi_machine_blocks_ventilation(snap.state):
+    block_state = known_state if known_state and known_state.get("airfi_online") else None
+    if block_state is None:
+        snap = read_airfi(
+            host=host,
+            tcp_port=tcp_port,
+            serial=serial,
+            baud=baud,
+            unit=unit,
+            connect_timeout=connect_timeout,
+            read_timeout=read_timeout,
+            poll_state=None,
+        )
+        if not snap.ok:
+            log.warning("write_fan_pct estetty — AirFi ei vastaa")
+            return False
+        block_state = snap.state
+    if airfi_machine_blocks_ventilation(block_state):
         log.warning(
             "write_fan_pct estetty — hätäseis/vika (errors=%s emergency=%s)",
-            snap.state.get("airfi_errors"),
-            snap.state.get("emergency_stop"),
+            block_state.get("airfi_errors"),
+            block_state.get("emergency_stop"),
         )
         return False
     client = _open_client(

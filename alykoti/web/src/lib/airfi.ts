@@ -211,18 +211,20 @@ export async function fetchAirfiState(): Promise<AirfiState | null> {
       return idx >= 0 && idx < block.length ? block[idx] : null;
     };
 
-    const supply = reg(holdingLow, HOLDING.emergency_stop, HOLDING.supply_direct_pct) ??
-      (await readRegister(client, client.readInputRegisters, INPUT.fan_supply_pct));
-    const exhaust = reg(holdingLow, HOLDING.emergency_stop, HOLDING.exhaust_direct_pct) ??
-      (await readRegister(client, client.readInputRegisters, INPUT.fan_exhaust_pct));
+    const supplyHold = reg(holdingLow, HOLDING.emergency_stop, HOLDING.supply_direct_pct);
+    const exhaustHold = reg(holdingLow, HOLDING.emergency_stop, HOLDING.exhaust_direct_pct);
+    const supplyInput = await readRegister(client, client.readInputRegisters, INPUT.fan_supply_pct);
+    const exhaustInput = await readRegister(client, client.readInputRegisters, INPUT.fan_exhaust_pct);
+    const supply = supplyInput ?? supplyHold;
+    const exhaust = exhaustInput ?? exhaustHold;
     const outdoor_temp_c = parseAirfiTempC(core?.[0] ?? null);
     const exhaust_temp_c = parseAirfiTempC(core?.[2] ?? null);
     const exhaust_hru_temp_c = parseAirfiTempC(core?.[3] ?? null);
     const supply_room_temp_c = parseAirfiTempC(core?.[4] ?? null);
     const fireplaceStatus = await readRegister(client, client.readInputRegisters, INPUT.fireplace_status);
 
-    const supplyTarget = reg(holdingLow, HOLDING.emergency_stop, HOLDING.supply_direct_pct);
-    const exhaustTarget = reg(holdingLow, HOLDING.emergency_stop, HOLDING.exhaust_direct_pct);
+    const supplyTarget = supplyHold;
+    const exhaustTarget = exhaustHold;
     const directControl = reg(holdingLow, HOLDING.emergency_stop, HOLDING.direct_control_enabled);
     const emergency = reg(holdingLow, HOLDING.emergency_stop, HOLDING.emergency_stop);
     const away = reg(holdingLow, HOLDING.emergency_stop, HOLDING.away_mode);
