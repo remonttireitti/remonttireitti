@@ -473,6 +473,57 @@ def _request_node_refresh(
         log.debug("Z-Wave getState refresh failed node %s: %s", node_id, exc)
 
 
+def _request_poll_value(
+    client: mqtt.Client,
+    prefix: str,
+    gateway: str,
+    node_id: int,
+    cc: int,
+    endpoint: int,
+    prop: str = "currentValue",
+) -> None:
+    """Poll switch/dimmer value so silent relay endpoints appear in MQTT during scan."""
+    topic = f"{prefix}/_CLIENTS/ZWAVE_GATEWAY-{gateway}/api/pollValue/set"
+    try:
+        client.publish(
+            topic,
+            json.dumps(
+                {
+                    "args": [
+                        {
+                            "nodeId": node_id,
+                            "commandClass": cc,
+                            "endpoint": endpoint,
+                            "property": prop,
+                        }
+                    ]
+                }
+            ),
+        )
+    except Exception as exc:
+        log.debug(
+            "Z-Wave pollValue failed node %s ep %s cc %s: %s",
+            node_id,
+            endpoint,
+            cc,
+            exc,
+        )
+
+
+def _probe_switch_endpoints(
+    client: mqtt.Client,
+    prefix: str,
+    gateway: str,
+    node_ids: list[int],
+) -> None:
+    """Releet ja himmentimet eivät aina julkaise currentValuea — pollaa CC 37/38."""
+    for node_id in node_ids:
+        for ep in range(0, 10):
+            for cc in (37, 38):
+                _request_poll_value(client, prefix, gateway, node_id, cc, ep)
+        time.sleep(0.05)
+
+
 def _property_label(cc: int, prop: str | None, endpoint: int = 0) -> str:
     p = (prop or "").replace("_", " ")
     ep_suffix = f" {endpoint}" if endpoint > 0 else ""
@@ -804,6 +855,8 @@ def fetch_zwave_devices(
     ]
     for node_id in refresh_nodes:
         _request_node_refresh(client, prefix, gateway, node_id)
+
+    _probe_switch_endpoints(client, prefix, gateway, refresh_nodes)
 
     time.sleep(timeout_sec)
     client.loop_stop()
