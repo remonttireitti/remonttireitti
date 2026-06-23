@@ -125,6 +125,8 @@ def _property_caps(cc: int, prop: str | None) -> list[tuple[str, bool, bool]]:
             return [("co2", True, False)]
         if "luminance" in p or "illuminance" in p:
             return [("illuminance", True, False)]
+        if "voltage" in p:
+            return [("meter", True, False)]
         if "temperature" in p or "air" in p:
             return [("temperature", True, False)]
         return [("temperature", True, False)]
@@ -280,22 +282,32 @@ def _controllable(caps: list[dict[str, Any]]) -> bool:
     return any(c.get("write") and c["id"] in CONTROL_IDS for c in caps)
 
 
-def _endpoint_label(caps: list[dict[str, Any]], endpoint: int) -> str:
+def _endpoint_label(caps: list[dict[str, Any]], endpoint: int, ccs: set[int] | None = None) -> str:
     ids = {c["id"] for c in caps}
-    if ids & {"switch", "dimmer", "relay"}:
-        return f"Kanava {endpoint}"
+    ccs = ccs or set()
+    writable_switch = any(
+        c["id"] in {"switch", "relay", "dimmer"} and c.get("write") for c in caps
+    )
+    if writable_switch or (37 in ccs and endpoint in (1, 2)):
+        return f"Rele OUT {endpoint}"
+    if ids & {"switch", "dimmer"} and not writable_switch:
+        return f"Tulo IN {endpoint}"
+    if "contact" in ids or 48 in ccs:
+        return f"Tulo IN {endpoint}"
+    if "meter" in ids or (49 in ccs and endpoint in (3, 4)):
+        return f"Tulo IN {endpoint} (jännite)"
     if "temperature" in ids:
-        return f"Lämpö {endpoint}"
+        return f"Lämpöanturi {endpoint}"
     if "humidity" in ids:
         return f"Kosteus {endpoint}"
     if "illuminance" in ids:
         return f"Valoisuus {endpoint}"
     if "motion" in ids:
         return f"Liike {endpoint}"
-    if "contact" in ids:
-        return f"Anturi {endpoint}"
     if "lock" in ids:
         return f"Lukko {endpoint}"
+    if ids & {"switch", "relay", "dimmer"}:
+        return f"Rele {endpoint}"
     return f"EP {endpoint}"
 
 
@@ -418,28 +430,31 @@ def _request_node_refresh(
         log.debug("Z-Wave getState refresh failed node %s: %s", node_id, exc)
 
 
-def _property_label(cc: int, prop: str | None) -> str:
+def _property_label(cc: int, prop: str | None, endpoint: int = 0) -> str:
     p = (prop or "").replace("_", " ")
+    ep_suffix = f" {endpoint}" if endpoint > 0 else ""
     if cc == 37:
-        return "Kytkin"
+        return f"Rele OUT{ep_suffix}"
     if cc == 38:
-        return "Himmennys"
+        return f"Himmennys{ep_suffix}"
+    if cc == 48:
+        return f"Tulo IN{ep_suffix}"
     if cc == 49:
         pl = (prop or "").casefold()
         if "humidity" in pl:
-            return "Kosteus"
-        if "temperature" in pl or "air" in pl:
-            return "Lämpötila"
-        if "luminance" in pl:
-            return "Valoisuus"
+            return f"Kosteus{ep_suffix}"
         if "voltage" in pl:
-            return "Jännite"
-        return p or "Arvo"
+            return f"Jännite IN{ep_suffix}"
+        if "temperature" in pl or "air" in pl:
+            return f"Lämpöanturi{ep_suffix}"
+        if "luminance" in pl:
+            return f"Valoisuus{ep_suffix}"
+        return (p or "Arvo") + ep_suffix
     if cc == 50:
-        return "Teho"
+        return f"Teho{ep_suffix}"
     if cc == 112:
         return f"Param {prop}"
-    return p or f"CC {cc}"
+    return (p or f"CC {cc}") + ep_suffix
 
 
 def _config_param_label(param: int) -> str:
@@ -534,7 +549,7 @@ def fetch_zwave_devices(
         mqtt_topic: str,
         writable: bool,
     ) -> None:
-        label = _property_label(cc, prop)
+        label = _property_label(cc, prop, endpoint)
         entry = {
             "cc": cc,
             "endpoint": endpoint,
@@ -763,7 +778,7 @@ def fetch_zwave_devices(
             for e in eps
             if _controllable(sorted(node_caps.get((node_id, e), {}).values(), key=lambda c: c["id"]))
         ]
-        multi = len(controllable_eps) > 1
+        multi = len(eps) > 1
         base = node_bases.get(node_id) or topic_map.get(node_id)
         if not base:
             path = _mqtt_device_path(info.get("loc") or "", info["name"])
@@ -774,10 +789,11 @@ def fetch_zwave_devices(
         for ep in eps:
             rec = endpoint_data[(node_id, ep)]
             caps_list = rec.get("capabilities") or []
-            if ep == 0 and multi and not _controllable(caps_list):
+            ccs_seen: set[int] = rec.get("_ccs_seen") or set()
+            if ep == 0 and multi and not _controllable(caps_list) and not caps_list:
                 continue
             name = info["name"]
-            label = _endpoint_label(caps_list, ep) if multi else info["name"]
+            label = _endpoint_label(caps_list, ep, ccs_seen) if multi else info["name"]
             if multi:
                 name = f"{info['name']} ({label})"
             dev_id = _device_id_for(node_id, ep, multi)

@@ -1,5 +1,6 @@
 import { parseZwaveDeviceId } from "@/lib/device-protocol";
-import type { HubState, ZwaveNodeDetail } from "@/lib/types";
+import type { HubState, ZwaveNodeDetail, ZwaveNodeEndpoint } from "@/lib/types";
+import { hasCapability, canWrite } from "@/lib/capabilities";
 
 export function zwaveNodeId(nodeId: number): string {
   return `zwave:${nodeId}`;
@@ -68,7 +69,7 @@ export function groupZwaveDevicesForList<
     );
     const base = sorted[0]!;
     const baseName =
-      base.name.replace(/\s*\((?:Kanava|EP) \d+\)\s*$/i, "").trim() || base.name;
+      base.name.replace(/\s*\([^)]+\)\s*$/i, "").trim() || base.name;
     grouped.push({
       ...base,
       id: zwaveNodeId(nodeId),
@@ -85,8 +86,34 @@ export function formatZwaveValue(value: unknown): string {
   if (value === null || value === undefined) return "—";
   if (typeof value === "boolean") return value ? "Päällä" : "Pois";
   if (typeof value === "number") return Number.isInteger(value) ? String(value) : value.toFixed(1);
-  if (typeof value === "string") return value;
+  if (typeof value === "string") {
+    const v = value.toLowerCase();
+    if (v === "true" || v === "on") return "Päällä";
+    if (v === "false" || v === "off") return "Pois";
+    if (v === "open") return "Avoin";
+    if (v === "closed") return "Kiinni";
+    return value;
+  }
   return JSON.stringify(value);
+}
+
+export function endpointShowsBinaryState(ep: ZwaveNodeEndpoint): boolean {
+  const caps = ep.capabilities ?? [];
+  return (
+    ep.controllable === true ||
+    hasCapability(caps, "switch") ||
+    hasCapability(caps, "relay") ||
+    hasCapability(caps, "contact") ||
+    canWrite(caps, "switch")
+  );
+}
+
+export function formatEndpointBinaryState(ep: ZwaveNodeEndpoint): string {
+  const caps = ep.capabilities ?? [];
+  if (hasCapability(caps, "contact") && !ep.controllable) {
+    return ep.on ? "Avoin" : "Kiinni";
+  }
+  return ep.on ? "Päällä" : "Pois";
 }
 
 export function configParamOptions(param: number): Array<{ label: string; value: number }> | null {

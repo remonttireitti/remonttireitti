@@ -9,7 +9,7 @@ import { triggerHintToAutomationFields, type DeviceLiveEvent } from "@/lib/devic
 import { kindLabel, type HubLightDevice } from "@/lib/hub-lights";
 import { LAITTEET } from "@/lib/laitteet-paths";
 import type { ZwaveConfigParam, ZwaveNodeDetail, ZwaveNodeEndpoint, ZwaveProperty } from "@/lib/types";
-import { configParamOptions, formatZwaveValue } from "@/lib/zwave-detail";
+import { configParamOptions, endpointShowsBinaryState, formatEndpointBinaryState, formatZwaveValue } from "@/lib/zwave-detail";
 
 type Props = {
   deviceIdParam: string;
@@ -99,6 +99,11 @@ export function ZwaveDeviceDetailPanel({ deviceIdParam }: Props) {
     }
     return out;
   }, [zwaveNode]);
+
+  const binaryEndpoints = useMemo(
+    () => endpoints.filter((ep) => endpointShowsBinaryState(ep)),
+    [endpoints],
+  );
 
   const pressTypes = useMemo(() => pressTypesForTrigger(device?.capabilities ?? []), [device]);
 
@@ -254,17 +259,14 @@ export function ZwaveDeviceDetailPanel({ deviceIdParam }: Props) {
         device.temperature_c != null ||
         device.humidity_pct != null ||
         device.readingLabel ||
-        endpoints.length > 0) && (
+        binaryEndpoints.length > 0) && (
         <section className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
           <h3 className="text-lg font-semibold text-stone-900">Tila</h3>
           {nodeReadings.length > 0 && (
             <ul className="mt-3 space-y-2 text-sm text-stone-700">
               {nodeReadings.map((p) => (
                 <li key={`${p.cc}-${p.endpoint}-${p.property ?? ""}`} className="flex justify-between gap-4">
-                  <span>
-                    {p.label}
-                    {p.endpoint > 0 ? ` (EP ${p.endpoint})` : ""}
-                  </span>
+                  <span>{p.label}</span>
                   <span className="font-medium">{formatZwaveValue(p.value)}</span>
                 </li>
               ))}
@@ -273,13 +275,17 @@ export function ZwaveDeviceDetailPanel({ deviceIdParam }: Props) {
           {device.readingLabel && nodeReadings.length === 0 && (
             <p className="mt-2 text-sm text-stone-700">{device.readingLabel}</p>
           )}
-          {endpoints.length > 0 && (
-            <ul className="mt-3 space-y-1 border-t border-stone-100 pt-3 text-sm">
-              {endpoints.map((ep) => (
+          {binaryEndpoints.length > 0 && (
+            <ul
+              className={`mt-3 space-y-1 text-sm ${
+                nodeReadings.length > 0 ? "border-t border-stone-100 pt-3" : ""
+              }`}
+            >
+              {binaryEndpoints.map((ep) => (
                 <li key={ep.device_id} className="flex justify-between gap-4 text-stone-600">
                   <span>{ep.label}</span>
                   <span className={ep.on ? "font-medium text-amber-700" : ""}>
-                    {ep.on ? "Päällä" : "Pois"}
+                    {formatEndpointBinaryState(ep)}
                   </span>
                 </li>
               ))}
