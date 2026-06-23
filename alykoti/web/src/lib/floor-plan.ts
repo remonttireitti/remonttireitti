@@ -8,6 +8,7 @@ import {
   roomById,
   type DeviceMapInput,
 } from "@/lib/rooms";
+import type { FloorPlanPinIcon } from "@/lib/floor-plan-pins";
 
 export const FLOOR_PLAN_IMAGE = "/images/pohjakuva.png";
 
@@ -43,7 +44,8 @@ export type FloorPlanMarker = FloorPlanAnchor & {
   active?: boolean;
   sub?: string | null;
   deviceId?: string;
-  pinMode?: "bulb" | "label";
+  pinMode?: "bulb" | "label" | "icon";
+  icon?: FloorPlanPinIcon;
   controllable?: boolean;
 };
 

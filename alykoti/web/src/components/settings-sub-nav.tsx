@@ -7,6 +7,7 @@ import { LAITTEET } from "@/lib/laitteet-paths";
 const ITEMS: Array<{ href: string; label: string; exact?: boolean }> = [
   { href: LAITTEET.root, label: "Integraatiot", exact: true },
   { href: LAITTEET.luettelo, label: "Kaikki laitteet" },
+  { href: LAITTEET.pohjakuva, label: "Pohjakuva" },
   { href: LAITTEET.keskusyksikko, label: "Keskusyksikkö" },
   { href: LAITTEET.zigbee, label: "Zigbee" },
   { href: LAITTEET.zwave, label: "Z-Wave" },

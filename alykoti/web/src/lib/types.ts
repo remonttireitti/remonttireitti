@@ -266,6 +266,9 @@ export type HubDeviceOverride = {
   item_names?: Record<string, string>;
 };
 
+/** Käyttäjän määrittämät pohjakuvan pinnit (web UI). */
+export type FloorPlanPin = import("@/lib/floor-plan-pins").FloorPlanPin;
+
 /** hubs.config — ilmanvaihto + automaatiot + sähköhintajaksot */
 export type HubConfig = VentilationConfig & {
   /** Laite- ja sähköhinta-automaatiot (web → Yellow / cron) */
@@ -351,6 +354,8 @@ export type HubState = {
   home_devices?: Record<string, HubHomeDevice>;
   /** Nimet, huoneet, piilotus — web UI. */
   device_overrides?: Record<string, HubDeviceOverride>;
+  /** Pohjakuvan pinnit (ikoni, koordinaatit, toiminnot). */
+  floor_plan_pins?: FloorPlanPin[];
   /** Integraatioiden konfiguraatio (web → Yellow). */
   integrations?: HubIntegrations;
   /** @deprecated käytä hubs.config.automations */

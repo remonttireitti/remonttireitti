@@ -30,7 +30,8 @@ def sync_post(
     if failed_commands:
         body["failed_commands"] = failed_commands
     try:
-        resp = requests.post(url, json=body, headers=headers, timeout=20)
+        # build_state (Zigbee + Z-Wave MQTT scan) runs before each sync — allow headroom.
+        resp = requests.post(url, json=body, headers=headers, timeout=45)
         resp.raise_for_status()
         return resp.json()
     except Exception as exc:

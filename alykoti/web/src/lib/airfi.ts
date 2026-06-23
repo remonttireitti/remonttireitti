@@ -8,6 +8,7 @@ import {
 import {
   clampFanPct,
   computeAutoFanPct,
+  FAN_RAMP_STEP_PCT,
   smoothRampFanPct,
   type AutoFanInputs,
 } from "@/lib/ventilation-logic";
@@ -382,17 +383,24 @@ function targetsMatch(
   supply: number,
   exhaust: number,
 ): boolean {
+  const actualSupply = airfi.supply_fan_pct;
+  const actualExhaust = airfi.exhaust_fan_pct;
+  if (actualSupply == null || actualExhaust == null) return false;
   return (
-    airfi.supply_target_pct === supply &&
-    airfi.exhaust_target_pct === exhaust &&
-    airfi.direct_control
+    Math.abs(actualSupply - supply) <= FAN_RAMP_STEP_PCT &&
+    Math.abs(actualExhaust - exhaust) <= FAN_RAMP_STEP_PCT
   );
 }
 
 export type VentilationTargets = {
+  /** Seuraava Modbus-kirjoitus (rampattu). */
   supply: number;
   exhaust: number;
   fireplace: boolean;
+  /** Täysi automaattitavoite näyttöä varten (ennen rampausta). */
+  displaySupply: number;
+  displayExhaust: number;
+  needsWrite: boolean;
 };
 
 export function hubStateToAirfiState(state: HubState): AirfiState | null {
@@ -477,16 +485,23 @@ export function computeVentilationTargets(
     }
   }
 
-  supply = smoothRampFanPct(airfi.supply_target_pct ?? airfi.supply_fan_pct, supply);
-  exhaust = smoothRampFanPct(airfi.exhaust_target_pct ?? airfi.exhaust_fan_pct, exhaust);
-  supply = clampFanPct(supply);
-  exhaust = clampFanPct(exhaust);
+  const displaySupply = clampFanPct(supply);
+  const displayExhaust = clampFanPct(exhaust);
+  const writeSupply = clampFanPct(smoothRampFanPct(airfi.supply_fan_pct, displaySupply));
+  const writeExhaust = clampFanPct(smoothRampFanPct(airfi.exhaust_fan_pct, displayExhaust));
 
-  if (targetsMatch(airfi, supply, exhaust) && airfi.fireplace_active === fireplace) {
-    return null;
-  }
+  const needsWrite =
+    !targetsMatch(airfi, writeSupply, writeExhaust) ||
+    airfi.fireplace_active !== fireplace;
 
-  return { supply, exhaust, fireplace };
+  return {
+    supply: writeSupply,
+    exhaust: writeExhaust,
+    fireplace,
+    displaySupply,
+    displayExhaust,
+    needsWrite,
+  };
 }
 
 export async function applyVentilationControl(
@@ -496,7 +511,7 @@ export async function applyVentilationControl(
   airfi: AirfiState | null,
 ): Promise<VentilationTargets | null> {
   const targets = computeVentilationTargets(controlMode, inputs, config, airfi);
-  if (!targets) return null;
+  if (!targets || !targets.needsWrite) return targets;
 
   if (targets.fireplace) await setFireplaceMode(true);
   else if (airfi?.fireplace_active) await setFireplaceMode(false);

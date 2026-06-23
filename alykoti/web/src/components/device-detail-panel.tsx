@@ -15,7 +15,7 @@ import { protocolLabel } from "@/lib/device-protocol";
 import { kindLabel, type HubLightDevice } from "@/lib/hub-lights";
 import { LAITTEET } from "@/lib/laitteet-paths";
 import type { ZwaveConfigParam, ZwaveNodeDetail, ZwaveNodeEndpoint, ZwaveProperty } from "@/lib/types";
-import { configParamOptions, formatZwaveValue } from "@/lib/zwave-detail";
+import { configParamOptions, formatZwaveValue, toggleZwaveValue } from "@/lib/zwave-detail";
 import { ItemRenameField } from "@/components/item-rename-field";
 
 type Props = {
@@ -673,7 +673,7 @@ function ZwavePropertyRow({
           <button
             type="button"
             disabled={pending}
-            onClick={() => onSet(prop.mqtt_topic, !(prop.value === true))}
+            onClick={() => onSet(prop.mqtt_topic, toggleZwaveValue(prop.value))}
             className="rounded-lg border border-stone-200 px-2 py-1 text-xs hover:bg-stone-50 disabled:opacity-50"
           >
             Vaihda

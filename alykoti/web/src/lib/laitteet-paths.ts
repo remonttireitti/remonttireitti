@@ -14,4 +14,5 @@ export const LAITTEET = {
   tasmota: "/laitteet/tasmota",
   airthings: "/laitteet/airthings",
   automaatio: "/laitteet/automaatio",
+  pohjakuva: "/laitteet/pohjakuva",
 } as const;

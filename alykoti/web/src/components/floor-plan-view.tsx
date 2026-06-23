@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useCallback, useRef, type ReactNode } from "react";
+import { FloorPlanPinIconView } from "@/components/floor-plan-pin-icons";
 import {
   anchorToStyle,
   FLOOR_PLAN_IMAGE,
@@ -32,7 +33,12 @@ export function FloorPlanView({
   onMarkerLongPress,
 }: Props) {
   const visible = markers.filter(
-    (m) => m.pinMode === "bulb" || m.value != null || m.sub != null,
+    (m) =>
+      m.pinMode === "bulb" ||
+      m.pinMode === "icon" ||
+      m.pinMode === "label" ||
+      m.value != null ||
+      m.sub != null,
   );
 
   return (
@@ -59,6 +65,13 @@ export function FloorPlanView({
         {visible.map((marker) =>
           marker.pinMode === "bulb" ? (
             <BulbPin
+              key={marker.id}
+              marker={marker}
+              onClick={onMarkerClick ? () => onMarkerClick(marker) : undefined}
+              onLongPress={onMarkerLongPress ? () => onMarkerLongPress(marker) : undefined}
+            />
+          ) : marker.pinMode === "icon" && marker.icon ? (
+            <IconPin
               key={marker.id}
               marker={marker}
               onClick={onMarkerClick ? () => onMarkerClick(marker) : undefined}
@@ -163,6 +176,40 @@ function BulbIcon({ on }: { on: boolean }) {
         </>
       )}
     </svg>
+  );
+}
+
+function IconPin({
+  marker,
+  onClick,
+  onLongPress,
+}: {
+  marker: FloorPlanMarker;
+  onClick?: () => void;
+  onLongPress?: () => void;
+}) {
+  const pos = anchorToStyle(marker);
+  const active = marker.active === true;
+  const handlers = useTapOrLongPress(onClick, onLongPress);
+  const interactive = onClick || onLongPress;
+  const icon = marker.icon ?? "sensor";
+
+  return (
+    <button
+      type="button"
+      title={marker.label}
+      aria-label={marker.label}
+      disabled={!interactive}
+      className={`absolute z-10 flex h-9 w-9 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-2 shadow-md transition touch-none select-none sm:h-10 sm:w-10 ${
+        active
+          ? "border-sky-400 bg-sky-100 text-sky-700 ring-2 ring-sky-300/60"
+          : "border-stone-300/90 bg-white/95 text-stone-600 hover:border-stone-400"
+      } ${interactive ? "cursor-pointer active:scale-95" : "cursor-default"}`}
+      style={pos}
+      {...handlers}
+    >
+      <FloorPlanPinIconView icon={icon} />
+    </button>
   );
 }
 

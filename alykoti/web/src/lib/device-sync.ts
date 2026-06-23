@@ -36,6 +36,24 @@ function parseState(raw: unknown): HubState {
 }
 
 function targetsToVentilationState(
+  targets: {
+    supply: number;
+    exhaust: number;
+    fireplace: boolean;
+    displaySupply?: number;
+    displayExhaust?: number;
+  },
+): HubState {
+  return {
+    fan_supply_target: targets.displaySupply ?? targets.supply,
+    fan_exhaust_target: targets.displayExhaust ?? targets.exhaust,
+    fan_speed_target: targets.displaySupply ?? targets.supply,
+    fireplace_active: targets.fireplace,
+    direct_control: true,
+  };
+}
+
+function ventilationWritePayload(
   targets: { supply: number; exhaust: number; fireplace: boolean },
 ): HubState {
   return {
@@ -236,6 +254,11 @@ export async function syncDevice(
     mergedState.device_overrides = prevOverrides;
   }
 
+  const prevFloorPins = prevStored.floor_plan_pins;
+  if (Array.isArray(prevFloorPins)) {
+    mergedState.floor_plan_pins = prevFloorPins;
+  }
+
   const prevIntegrations = prevStored.integrations;
   if (prevIntegrations && typeof prevIntegrations === "object") {
     mergedState.integrations = prevIntegrations;
@@ -365,28 +388,29 @@ export async function syncDevice(
       .limit(10),
   ]);
 
-  const commands = [...(pendingCommands ?? []), ...(retryCommands ?? [])].slice(
-    0,
-    10,
-  );
+  const pending = pendingCommands ?? [];
+  const retry = retryCommands ?? [];
+  const maxBatch = 10;
+  const pendingBatch = pending.slice(0, maxBatch);
+  const retryBatch = retry.slice(0, Math.max(0, maxBatch - pendingBatch.length));
+  const commands = [...pendingBatch, ...retryBatch];
   const executedIds: string[] = [];
   const hubCommands: DeviceSyncResponse["commands"] = [];
 
-  const hubOnlyCommands = new Set([
-    "set_light",
-    "set_device",
-    "zigbee_permit_join",
-    "zwave_start_inclusion",
-    "zwave_stop_inclusion",
-    "rename_device",
-    "shelly_discover",
-    "shelly_probe",
-    "tasmota_discover",
-    "tasmota_probe",
+  /** Vain nämä voidaan suorittaa suoraan Vercelissä kun LAN-AirFi on tavoitettavissa. */
+  const airfiServerCommands = new Set([
+    "set_fan_pct",
+    "set_away",
+    "set_temp_setpoint",
+    "set_sauna_mode",
+    "ack_airfi_alarms",
+    "set_fireplace_mode",
+    "set_fan_speed_level",
+    "set_mode",
   ]);
 
   for (const cmd of commands) {
-    if (canPing && !hubOnlyCommands.has(cmd.command)) {
+    if (canPing && airfiServerCommands.has(cmd.command)) {
       const ok = await executeAirfiCommand(
         cmd.command,
         (cmd.payload ?? {}) as Record<string, unknown>,
@@ -438,7 +462,8 @@ export async function syncDevice(
       .in("id", executedIds);
   }
 
-  let ventilationState: HubState | undefined;
+  let ventilationDisplay: HubState | undefined;
+  let ventilationWrite: HubState | undefined;
 
   const ventilationHumidity = collectVentilationHumidityPct({
     homeDevices: mergedState.home_devices,
@@ -483,7 +508,10 @@ export async function syncDevice(
         airfiState = await fetchAirfiState();
       }
       if (applied) {
-        ventilationState = targetsToVentilationState(applied);
+        ventilationDisplay = targetsToVentilationState(applied);
+        if (applied.needsWrite) {
+          ventilationWrite = ventilationWritePayload(applied);
+        }
       }
     } else if (hubHasRealAirfi) {
       const targets = computeVentilationTargets(
@@ -493,7 +521,10 @@ export async function syncDevice(
         airfiState,
       );
       if (targets) {
-        ventilationState = targetsToVentilationState(targets);
+        ventilationDisplay = targetsToVentilationState(targets);
+        if (targets.needsWrite) {
+          ventilationWrite = ventilationWritePayload(targets);
+        }
       }
     }
   }
@@ -503,15 +534,15 @@ export async function syncDevice(
     mergedState.airfi_updated_at = new Date().toISOString();
   }
 
-  if (ventilationState) {
-    mergedState.fan_supply_target = ventilationState.fan_supply_target;
-    mergedState.fan_exhaust_target = ventilationState.fan_exhaust_target;
-    mergedState.fan_speed_target = ventilationState.fan_speed_target;
-    if (ventilationState.fireplace_active != null) {
-      mergedState.fireplace_active = ventilationState.fireplace_active;
+  if (ventilationDisplay) {
+    mergedState.fan_supply_target = ventilationDisplay.fan_supply_target;
+    mergedState.fan_exhaust_target = ventilationDisplay.fan_exhaust_target;
+    mergedState.fan_speed_target = ventilationDisplay.fan_speed_target;
+    if (ventilationDisplay.fireplace_active != null) {
+      mergedState.fireplace_active = ventilationDisplay.fireplace_active;
     }
-    if (ventilationState.direct_control != null) {
-      mergedState.direct_control = ventilationState.direct_control;
+    if (ventilationDisplay.direct_control != null) {
+      mergedState.direct_control = ventilationDisplay.direct_control;
     }
   } else if (effectiveMode === "manual") {
     const pendingFan = commands.find((c) => c.command === "set_fan_pct");
@@ -570,7 +601,7 @@ export async function syncDevice(
     config,
     commands: hubCommands,
     sensor: airthingsState ?? undefined,
-    ventilation: ventilationState,
+    ventilation: ventilationWrite,
     display: buildSyncDisplay(effectiveMode, mergedState, config),
     integrations,
     automations,

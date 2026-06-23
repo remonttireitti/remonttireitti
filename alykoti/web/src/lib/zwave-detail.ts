@@ -196,6 +196,17 @@ export function formatZwavePropertiesReading(
   return parts.length > 0 ? parts.join(" · ") : null;
 }
 
+/** Flip a Z-Wave property value for binary toggles (bool or 0/1/99/255). */
+export function toggleZwaveValue(value: unknown): boolean | number {
+  if (typeof value === "boolean") return !value;
+  if (typeof value === "number" && Number.isFinite(value)) {
+    if (value === 0) return 255;
+    if (value === 255 || value === 99 || value === 1) return 0;
+    return value > 0 ? 0 : 255;
+  }
+  return value === true ? false : true;
+}
+
 export function formatZwaveValue(value: unknown): string {
   if (value === null || value === undefined) return "—";
   if (typeof value === "boolean") return value ? "Päällä" : "Pois";

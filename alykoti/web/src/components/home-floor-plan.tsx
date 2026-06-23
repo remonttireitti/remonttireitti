@@ -1,23 +1,27 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState, useTransition } from "react";
 import { FloorPlanView } from "@/components/floor-plan-view";
 import { LightMapDevicePopup } from "@/components/light-map-device-popup";
 import { buildDeviceMarkers, type FloorPlanMarker } from "@/lib/floor-plan";
+import {
+  deviceIdForPin,
+  pinsToMarkers,
+  type FloorPlanDeviceSnapshot,
+  type FloorPlanPin,
+} from "@/lib/floor-plan-pins";
 import { LIGHT_PAGE_ROLES } from "@/lib/device-roles";
 import type { DeviceRole } from "@/lib/device-roles";
 import type { Hub } from "@/lib/types";
+import Link from "next/link";
 
-type Device = {
-  id: string;
-  name: string;
-  on: boolean;
+type Device = FloorPlanDeviceSnapshot & {
   room: string | null;
   roomAnchorId?: string | null;
-  brightness?: number | null;
-  controllable: boolean;
   role?: DeviceRole;
   protocol?: string;
+  brightness?: number | null;
 };
 
 type Props = {
@@ -26,7 +30,9 @@ type Props = {
 
 export function HomeFloorPlan({ hub }: Props) {
   void hub;
+  const router = useRouter();
   const [devices, setDevices] = useState<Device[]>([]);
+  const [pins, setPins] = useState<FloorPlanPin[]>([]);
   const [optimisticOn, setOptimisticOn] = useState<Record<string, boolean>>({});
   const [popupDevice, setPopupDevice] = useState<Device | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -34,11 +40,16 @@ export function HomeFloorPlan({ hub }: Props) {
 
   const load = useCallback(async () => {
     try {
-      const res = await fetch("/api/home/devices", { cache: "no-store" });
-      const json = (await res.json()) as { devices?: Device[] };
+      const res = await fetch("/api/floor-plan", { cache: "no-store" });
+      const json = (await res.json()) as {
+        devices?: Device[];
+        pins?: FloorPlanPin[];
+      };
       setDevices(json.devices ?? []);
+      setPins(json.pins ?? []);
     } catch {
       setDevices([]);
+      setPins([]);
     }
   }, []);
 
@@ -52,13 +63,19 @@ export function HomeFloorPlan({ hub }: Props) {
     (d) => d.roomAnchorId && d.role && LIGHT_PAGE_ROLES.includes(d.role),
   );
 
-  function effectiveOn(device: Device): boolean {
-    return optimisticOn[device.id] ?? device.on;
+  function effectiveOnId(id: string): boolean {
+    const device = devices.find((d) => d.id === id);
+    return optimisticOn[id] ?? device?.on ?? false;
   }
 
-  function toggle(device: Device) {
+  function deviceById(id: string | null | undefined): Device | undefined {
+    if (!id) return undefined;
+    return devices.find((d) => d.id === id);
+  }
+
+  function toggleDevice(device: Device) {
     if (!device.controllable || busyId === device.id) return;
-    const next = !effectiveOn(device);
+    const next = !effectiveOnId(device.id);
     setOptimisticOn((prev) => ({ ...prev, [device.id]: next }));
     setBusyId(device.id);
     startTransition(async () => {
@@ -85,22 +102,60 @@ export function HomeFloorPlan({ hub }: Props) {
     });
   }
 
+  function runPinAction(pin: FloorPlanPin) {
+    if (pin.action.type === "toggle") {
+      const device = deviceById(pin.action.deviceId);
+      if (device?.controllable) toggleDevice(device);
+      return;
+    }
+    if (pin.action.type === "navigate") {
+      router.push(pin.action.href);
+      return;
+    }
+    if (pin.action.type === "open_link") {
+      window.open(pin.action.href, "_blank", "noopener,noreferrer");
+    }
+  }
+
   function deviceFromMarker(marker: FloorPlanMarker): Device | undefined {
     const id = marker.deviceId;
     if (!id) return undefined;
-    return lights.find((d) => d.id === id);
+    return deviceById(id);
   }
 
-  const markers = buildDeviceMarkers(
-    lights.map((d) => ({
-      id: d.id,
-      name: d.name,
-      roomAnchorId: d.roomAnchorId ?? null,
-      on: effectiveOn(d),
-      controllable: d.controllable,
-    })),
-    { kind: "light", pinMode: "bulb" },
-  );
+  const useCustomPins = pins.length > 0;
+  const markers: FloorPlanMarker[] = useCustomPins
+    ? pinsToMarkers(pins, devices, effectiveOnId)
+    : buildDeviceMarkers(
+        lights.map((d) => ({
+          id: d.id,
+          name: d.name,
+          roomAnchorId: d.roomAnchorId ?? null,
+          on: effectiveOnId(d.id),
+          controllable: d.controllable,
+        })),
+        { kind: "light", pinMode: "bulb" },
+      );
+
+  function onMarkerClick(marker: FloorPlanMarker) {
+    if (useCustomPins) {
+      const pin = pins.find((p) => p.id === marker.id);
+      if (pin) runPinAction(pin);
+      return;
+    }
+    const device = deviceFromMarker(marker);
+    if (device?.controllable) toggleDevice(device);
+  }
+
+  function onMarkerLongPress(marker: FloorPlanMarker) {
+    const device = deviceFromMarker(marker);
+    if (device) setPopupDevice(device);
+    else {
+      const pin = pins.find((p) => p.id === marker.id);
+      const linked = pin ? deviceById(deviceIdForPin(pin)) : undefined;
+      if (linked) setPopupDevice(linked);
+    }
+  }
 
   return (
     <>
@@ -108,22 +163,34 @@ export function HomeFloorPlan({ hub }: Props) {
         title="Koti"
         markers={markers}
         hideHeader
-        onMarkerClick={(marker) => {
-          const device = deviceFromMarker(marker);
-          if (device?.controllable) toggle(device);
-        }}
-        onMarkerLongPress={(marker) => {
-          const device = deviceFromMarker(marker);
-          if (device) setPopupDevice(device);
-        }}
+        onMarkerClick={onMarkerClick}
+        onMarkerLongPress={onMarkerLongPress}
         footer={
           markers.length === 0 ? (
             <p className="border-t border-stone-200 bg-white px-4 py-3 text-xs text-stone-500">
-              Valot kartalla kun niille on valittu huone ja tyyppi Valo Asetuksissa.
+              {useCustomPins ? (
+                <>
+                  Ei näkyviä pisteitä.{" "}
+                  <Link href="/laitteet/pohjakuva" className="font-medium text-stone-700 underline">
+                    Muokkaa pohjakuvaa
+                  </Link>
+                </>
+              ) : (
+                <>
+                  Valot kartalla kun niille on valittu huone ja tyyppi Valo — tai{" "}
+                  <Link href="/laitteet/pohjakuva" className="font-medium text-stone-700 underline">
+                    luo oma kartta
+                  </Link>
+                  .
+                </>
+              )}
             </p>
           ) : (
             <p className="border-t border-stone-200 bg-white px-4 py-2 text-center text-[10px] text-stone-400">
-              Napauta lamppua ohjataksesi · pitkä painallus asetuksiin
+              Napauta ohjataksesi · pitkä painallus asetuksiin ·{" "}
+              <Link href="/laitteet/pohjakuva" className="underline">
+                muokkaa karttaa
+              </Link>
             </p>
           )
         }
@@ -131,9 +198,9 @@ export function HomeFloorPlan({ hub }: Props) {
 
       {popupDevice && (
         <LightMapDevicePopup
-          device={{ ...popupDevice, on: effectiveOn(popupDevice) }}
+          device={{ ...popupDevice, on: effectiveOnId(popupDevice.id) }}
           onClose={() => setPopupDevice(null)}
-          onToggle={() => toggle(popupDevice)}
+          onToggle={() => toggleDevice(popupDevice)}
         />
       )}
     </>
