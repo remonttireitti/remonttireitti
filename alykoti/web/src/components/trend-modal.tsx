@@ -44,7 +44,7 @@ export function TrendModal({ metric, onClose }: Props) {
   useEffect(() => {
     const id = window.setInterval(() => {
       void load();
-    }, 45_000);
+    }, 20_000);
     return () => window.clearInterval(id);
   }, [load]);
 

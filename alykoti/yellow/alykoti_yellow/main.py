@@ -505,8 +505,18 @@ def build_state(
 def _airfi_snapshot(state: dict) -> dict:
     keys = (
         "airfi_online",
+        "airfi_updated_at",
+        "outdoor_temp_c",
+        "exhaust_temp_c",
+        "supply_room_temp_c",
+        "exhaust_hru_temp_c",
         "fan_supply_pct",
         "fan_exhaust_pct",
+        "fan_supply_target",
+        "fan_exhaust_target",
+        "lto_temp_efficiency_pct",
+        "lto_energy_efficiency_pct",
+        "humidity_pct",
         "emergency_stop",
         "machine_fault",
         "freezing_alarm",
@@ -579,8 +589,20 @@ def run_fast_poll_loop() -> None:
     global cached_hub_state
 
     log.info("Nopea komentopollaus %ss välein", config.COMMAND_POLL_INTERVAL_SEC)
+    tick = 0
     while True:
         try:
+            tick += 1
+            if config.AIRFI_ENABLED and tick % 15 == 0:
+                snap = read_airfi(**config.airfi_kwargs(), poll_state=airfi_poll_state)
+                if snap.ok:
+                    with _sync_lock:
+                        cached_hub_state.update(snap.state)
+                        cached_hub_state["airfi_online"] = True
+                        cached_hub_state["airfi_updated_at"] = time.strftime(
+                            "%Y-%m-%dT%H:%M:%SZ", time.gmtime()
+                        )
+
             acks, fails = _drain_pending_feedback()
             snapshot = _airfi_snapshot(cached_hub_state)
             response = quick_pull(

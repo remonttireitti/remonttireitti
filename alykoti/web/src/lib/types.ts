@@ -377,6 +377,8 @@ export type HubState = {
   tasmota_discovered?: TasmotaDiscoveredDevice[];
   /** Z-Wave node aggregate (Yellow MQTT discovery). Key = node id string. */
   zwave_nodes?: Record<string, ZwaveNodeDetail>;
+  /** Sisäinen: edellinen pikamittauksen tallennus (ISO). */
+  _last_quick_metrics_at?: string;
 };
 
 export type Hub = {

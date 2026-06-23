@@ -15,7 +15,7 @@ import {
 } from "@/lib/airfi";
 import { recordEnergySamples } from "@/lib/energy-samples";
 import { normalizeHomeDevices } from "@/lib/device-normalize";
-import { recordHubMetrics, recordFanMetricSamples } from "@/lib/metric-samples";
+import { recordHubMetrics, recordQuickMetricSamples } from "@/lib/metric-samples";
 import { activeTimedMode, effectiveControlMode, expireTimedModes, formatRemaining, remainingMs } from "@/lib/mode-schedule";
 import { getCo2Band, getCo2BandLabel, collectVentilationHumidityPct, type AutoFanInputs } from "@/lib/ventilation-logic";
 import { enrichLtoFromHubState } from "@/lib/lto-efficiency";
@@ -585,7 +585,15 @@ export async function syncDevice(
     });
     void recordEnergySamples(hub.id, mergedState.home_devices);
   } else {
-    void recordFanMetricSamples(hub.id, mergedState);
+    const prevTick =
+      typeof prevStored._last_quick_metrics_at === "string"
+        ? Date.parse(prevStored._last_quick_metrics_at)
+        : 0;
+    const nowMs = Date.now();
+    if (nowMs - prevTick >= 15_000) {
+      mergedState._last_quick_metrics_at = new Date(nowMs).toISOString();
+      void recordQuickMetricSamples(hub.id, mergedState);
+    }
   }
 
   const integrations: HubIntegrations | undefined =

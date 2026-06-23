@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { fetchMetricHistory, type MetricRange } from "@/lib/metric-samples";
 import { fetchPrimaryHub } from "@/lib/hubs";
 import { createClient } from "@/lib/supabase/server";
+import type { HubState } from "@/lib/types";
 
 export const runtime = "nodejs";
 
@@ -33,7 +34,12 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "no_hub" }, { status: 404 });
   }
 
-  const history = await fetchMetricHistory(hub.id, metric, range);
+  const history = await fetchMetricHistory(
+    hub.id,
+    metric,
+    range,
+    hub.state as HubState,
+  );
   if (!history) {
     return NextResponse.json({ error: "unknown_metric" }, { status: 400 });
   }

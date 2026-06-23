@@ -278,7 +278,7 @@ export function buildMetricSamples(
   return rows.filter((r) => r.value != null || r.value_text != null);
 }
 
-export async function recordFanMetricSamples(
+export async function recordQuickMetricSamples(
   hubId: string,
   state: HubState,
 ): Promise<void> {
@@ -287,6 +287,16 @@ export async function recordFanMetricSamples(
     "fan_exhaust_pct",
     "fan_supply_target",
     "fan_exhaust_target",
+    "outdoor_temp_c",
+    "exhaust_temp_c",
+    "supply_room_temp_c",
+    "exhaust_hru_temp_c",
+    "lto_temp_efficiency_pct",
+    "lto_energy_efficiency_pct",
+    "co2_ppm",
+    "humidity_pct",
+    "pm25_ugm3",
+    "temperature_c",
   ] as const;
   const payload = keys
     .map((metric) => ({
@@ -302,8 +312,16 @@ export async function recordFanMetricSamples(
   const supabase = createAdminClient();
   const { error } = await supabase.from("hub_metric_samples").insert(payload);
   if (error) {
-    console.warn("[metrics] Tuuletusnäytteet epäonnistuivat:", error.message ?? String(error));
+    console.warn("[metrics] Pikanyätteet epäonnistuivat:", error.message ?? String(error));
   }
+}
+
+/** @deprecated use recordQuickMetricSamples */
+export async function recordFanMetricSamples(
+  hubId: string,
+  state: HubState,
+): Promise<void> {
+  return recordQuickMetricSamples(hubId, state);
 }
 
 export async function recordHubMetrics(
@@ -338,10 +356,28 @@ export async function recordHubMetrics(
     .not("metric", "like", "energy_wh:%");
 }
 
+function liveValueForMetric(metric: string, state?: HubState): number | null {
+  if (!state) return null;
+  const v = (state as Record<string, unknown>)[metric];
+  return typeof v === "number" && Number.isFinite(v) ? v : null;
+}
+
+/** Jatka käyrää nykyhetkeen hubin live-arvolla. */
+function extendPointsToNow(points: MetricPoint[], live: number | null): MetricPoint[] {
+  if (live == null || points.length === 0) return points;
+  const now = new Date().toISOString();
+  const last = points[points.length - 1]!;
+  if (Date.now() - new Date(last.t).getTime() < 20_000 && last.v === live) {
+    return [...points.slice(0, -1), { t: now, v: live, text: null }];
+  }
+  return [...points, { t: now, v: live, text: null }];
+}
+
 export async function fetchMetricHistory(
   hubId: string,
   metric: string,
   range: MetricRange = "day",
+  liveState?: HubState,
 ): Promise<MetricHistory | null> {
   const meta = METRIC_META[metric];
   if (!meta) return null;
@@ -352,11 +388,13 @@ export async function fetchMetricHistory(
 
   const primaryRaw = await fetchMetricPoints(hubId, metric, sinceIso);
   const isFan = metric.includes("fan") && !metric.includes("target");
-  const primaryPoints = downsamplePoints(
+  const livePrimary = liveValueForMetric(metric, liveState);
+  let primaryPoints = downsamplePoints(
     primaryRaw.filter((p) => p.v != null),
     maxPoints,
     isFan,
   );
+  primaryPoints = extendPointsToNow(primaryPoints, livePrimary);
 
   const companionKey = METRIC_COMPANIONS[metric];
   let series: MetricSeries[] | undefined;
@@ -364,12 +402,17 @@ export async function fetchMetricHistory(
 
   if (companionKey && METRIC_META[companionKey]) {
     const companionRaw = await fetchMetricPoints(hubId, companionKey, sinceIso);
-    const companionPoints = downsamplePoints(
+    const liveCompanion = liveValueForMetric(companionKey, liveState);
+    let companionPoints = downsamplePoints(
       companionRaw.filter((p) => p.v != null),
       maxPoints,
       true,
     );
-    seriesGapNote = seriesOverlapNote(primaryPoints, companionPoints);
+    companionPoints = extendPointsToNow(companionPoints, liveCompanion);
+    seriesGapNote = seriesOverlapNote(
+      primaryPoints.slice(0, -1),
+      companionPoints.slice(0, -1),
+    );
     series = [
       { key: metric, label: "Koneen nopeus", style: "primary", points: primaryPoints },
       {
