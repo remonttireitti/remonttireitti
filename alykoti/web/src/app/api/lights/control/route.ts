@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { uiMirrorPartnerIds } from "@/lib/automation-presets";
+import { expandMirrorCommandIds } from "@/lib/automation-presets";
 import { parseHubHomeDevices } from "@/lib/hub-lights";
 import { fetchPrimaryHub } from "@/lib/hubs";
 import { createClient } from "@/lib/supabase/server";
@@ -142,9 +142,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: false, error: primary.error }, { status: 503 });
     }
 
-    const targetIds = [
-      ...new Set([String(primary.payload.id), ...uiMirrorPartnerIds(id, devices)]),
-    ];
+    const targetIds = expandMirrorCommandIds(id, devices);
     const commandIds: string[] = [];
 
     for (const targetId of targetIds) {

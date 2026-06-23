@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState, useTransition } from "react";
-import { uiMirrorPartnerIds } from "@/lib/automation-presets";
+import { expandMirrorCommandIds } from "@/lib/automation-presets";
 import { FloorPlanView } from "@/components/floor-plan-view";
 import { LightMapDevicePopup } from "@/components/light-map-device-popup";
 import { type FloorPlanMarker } from "@/lib/floor-plan";
@@ -100,11 +100,10 @@ export function HomeFloorPlan({ hub }: Props) {
   function toggleDevice(device: Device) {
     if (!device.controllable || busyId === device.id) return;
     const next = !effectiveOnId(device.id);
-    const partners = uiMirrorPartnerIds(device.id);
-    const affectedIds = [device.id, ...partners];
+    const affectedIds = expandMirrorCommandIds(device.id);
     setOptimisticOn((prev) => {
-      const n = { ...prev, [device.id]: next };
-      for (const partnerId of partners) n[partnerId] = next;
+      const n = { ...prev };
+      for (const affectedId of affectedIds) n[affectedId] = next;
       return n;
     });
     setBusyId(device.id);
