@@ -311,6 +311,8 @@ class AutomationEngine:
         button: str | None = None,
     ) -> None:
         raw: dict[str, Any] = {}
+        sensor_keys = ("temperature", "local_temperature", "humidity", "battery")
+        is_sensor_only = action is None and any(k in payload for k in sensor_keys)
         for key in (
             "action",
             "button",
@@ -323,7 +325,7 @@ class AutomationEngine:
             "humidity",
             "battery",
         ):
-            if key in payload:
+            if key in payload and not (is_sensor_only and key == "state"):
                 raw[key] = payload[key]
         entry = {
             "at": datetime.now(timezone.utc).isoformat(),

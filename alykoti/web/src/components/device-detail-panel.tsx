@@ -256,6 +256,17 @@ export function DeviceDetailPanel({ protocol, deviceIdParam }: Props) {
         <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-900">{flash}</div>
       )}
 
+      {isSensorWithButton && (
+        <section className="rounded-2xl border border-sky-200 bg-sky-50/80 p-5">
+          <h3 className="text-lg font-semibold text-sky-950">Anturi ja kaukosäädin</h3>
+          <p className="mt-2 text-sm text-sky-900">
+            Tämä ei ole valokytkin — sivulla ei ole Päälle/Pois-ohjausta. Lämpö ja kosteus mitataan
+            automaattisesti ja ohjaavat ilmanvaihtoa (korkein kosteus voittaa). Painikkeet (+ / ○ / −)
+            toimivat automaatioiden laukaisimina: paina nappia ja käytä alla olevaa tapahtumaa.
+          </p>
+        </section>
+      )}
+
       {showMultiZwaveControls && (
         <section className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
           <h3 className="text-lg font-semibold text-stone-900">Kanavat</h3>

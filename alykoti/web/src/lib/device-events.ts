@@ -36,6 +36,13 @@ function formatValue(key: string, value: unknown): string {
   return JSON.stringify(value);
 }
 
+function formatSensorReading(value: unknown, unit: string): string {
+  if (typeof value !== "number" || !Number.isFinite(value)) return formatValue("v", value);
+  if (unit === "°C") return `${value.toFixed(1)} °C`;
+  if (unit === "%") return `${Math.round(value)} %`;
+  return `${value} ${unit}`;
+}
+
 export function formatZigbeeEvent(payload: Record<string, unknown>): DeviceLiveEvent | null {
   const at = new Date().toISOString();
 
@@ -76,6 +83,26 @@ export function formatZigbeeEvent(payload: Record<string, unknown>): DeviceLiveE
     };
   }
 
+  const hasSensorReading =
+    payload.temperature != null ||
+    payload.local_temperature != null ||
+    payload.humidity != null ||
+    payload.battery != null;
+
+  if (hasSensorReading) {
+    const parts: string[] = [];
+    const temp = payload.temperature ?? payload.local_temperature;
+    if (temp != null) parts.push(formatSensorReading(temp, "°C"));
+    if (payload.humidity != null) parts.push(formatSensorReading(payload.humidity, "%"));
+    if (payload.battery != null) parts.push(`akku ${formatSensorReading(payload.battery, "%")}`);
+    return {
+      at,
+      label: parts.length ? `Mittaus · ${parts.join(" · ")}` : "Mittaus",
+      topic: "",
+      raw: payload,
+    };
+  }
+
   const parts: string[] = [];
   if (payload.state != null) parts.push(`state: ${formatValue("state", payload.state)}`);
   if (payload.brightness != null) parts.push(`brightness: ${formatValue("brightness", payload.brightness)}`);
@@ -83,9 +110,6 @@ export function formatZigbeeEvent(payload: Record<string, unknown>): DeviceLiveE
   if (payload.color_temp != null) parts.push(`color_temp: ${formatValue("color_temp", payload.color_temp)}`);
   if (payload.contact != null) parts.push(`contact: ${formatValue("contact", payload.contact)}`);
   if (payload.occupancy != null) parts.push(`occupancy: ${formatValue("occupancy", payload.occupancy)}`);
-  if (payload.temperature != null) parts.push(`temperature: ${formatValue("temperature", payload.temperature)}`);
-  if (payload.humidity != null) parts.push(`humidity: ${formatValue("humidity", payload.humidity)}`);
-  if (payload.battery != null) parts.push(`battery: ${formatValue("battery", payload.battery)}`);
 
   if (parts.length === 0) {
     const keys = Object.keys(payload).filter((k) => payload[k] != null);
