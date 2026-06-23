@@ -68,6 +68,11 @@ export function TrendModal({ history, loading, onClose }: Props) {
 
         {!loading && history && history.points.length > 0 && history.kind === "numeric" && (
           <>
+            {history.footnote && (
+              <p className="mt-3 rounded-lg bg-emerald-50 px-3 py-2 text-xs leading-relaxed text-emerald-950">
+                {history.footnote}
+              </p>
+            )}
             {stats && (
               <dl className="mt-4 grid grid-cols-4 gap-2 text-center text-xs">
                 <Stat label="Nyt" value={formatVal(stats.latest, history.unit)} />

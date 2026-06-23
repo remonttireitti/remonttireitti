@@ -6,6 +6,7 @@ import { useDeviceStatus } from "@/hooks/use-device-status";
 import { useMetricTrend } from "@/hooks/use-metric-trend";
 import { hubLastSeenLabel, isHubOnline, connectivityLevel } from "@/lib/device-status";
 import { inferAirfiOnline } from "@/lib/airfi-telemetry";
+import { computeLtoEfficiency, describeLtoEfficiency } from "@/lib/lto-efficiency";
 import type { Hub } from "@/lib/types";
 import { getCo2BandLabel, getCo2Band } from "@/lib/ventilation-logic";
 
@@ -37,6 +38,20 @@ export function VentilationDiagram({ hub, settingsHref }: Props) {
   };
   const co2Band = s.co2_ppm != null ? getCo2Band(s.co2_ppm, hub.config) : null;
   const supplyTemp = s.supply_room_temp_c;
+
+  const lto = computeLtoEfficiency({
+    outdoor_c: s.outdoor_temp_c ?? null,
+    supply_hru_c: s.supply_hru_temp_c ?? null,
+    supply_room_c: s.supply_room_temp_c ?? null,
+    exhaust_c: s.exhaust_temp_c ?? null,
+    supply_airflow_m3h: s.supply_airflow_m3h ?? null,
+    exhaust_airflow_m3h: s.exhaust_airflow_m3h ?? null,
+    supply_fan_pct: s.fan_supply_pct ?? null,
+    exhaust_fan_pct: s.fan_exhaust_pct ?? null,
+  });
+  const ltoPct = lto.temp_pct ?? s.lto_temp_efficiency_pct;
+  const ltoEnergyPct = lto.energy_pct ?? s.lto_energy_efficiency_pct;
+  const ltoDesc = describeLtoEfficiency(lto);
 
   const hubOnline = status?.hub.online ?? isHubOnline(hub.last_seen_at);
   const airfiOnline =
@@ -152,27 +167,27 @@ export function VentilationDiagram({ hub, settingsHref }: Props) {
             onClick={() => showTrend("lto_temp_efficiency_pct")}
             className="absolute z-10 -translate-x-1/2 -translate-y-1/2 rounded-xl border border-emerald-300 bg-emerald-50/95 px-2 py-1.5 text-center shadow-md backdrop-blur transition hover:ring-2 hover:ring-emerald-400 sm:px-3 sm:py-2"
             style={{ left: "50%", top: "21%" }}
-            title="Näytä LTO-trendi"
+            title={ltoDesc.modalExplanation}
           >
             <p className="text-[9px] font-semibold uppercase tracking-wide text-emerald-800 sm:text-[10px]">
               LTO höytys
             </p>
             <p className="text-sm font-bold text-emerald-950 sm:text-lg">
-              {s.lto_temp_efficiency_pct != null
-                ? `${s.lto_temp_efficiency_pct.toFixed(0)} %`
-                : "—"}
+              {ltoPct != null ? `${ltoPct.toFixed(1)} %` : "—"}
             </p>
-            {s.lto_temp_efficiency_pct == null &&
+            {ltoDesc.badgeSub && (
+              <p className="text-[9px] font-medium text-emerald-800 sm:text-[10px]">{ltoDesc.badgeSub}</p>
+            )}
+            {ltoPct == null &&
               (s.fan_supply_pct == null || s.fan_supply_pct < 10) &&
               (s.fan_exhaust_pct == null || s.fan_exhaust_pct < 10) && (
                 <p className="text-[9px] text-emerald-700 sm:text-[10px]">Tuuletus seis</p>
               )}
-            {s.lto_energy_efficiency_pct != null &&
-              s.lto_energy_efficiency_pct !== s.lto_temp_efficiency_pct && (
-                <p className="text-[9px] text-emerald-800 sm:text-[10px]">
-                  Energia {s.lto_energy_efficiency_pct.toFixed(0)} %
-                </p>
-              )}
+            {ltoEnergyPct != null && ltoEnergyPct !== ltoPct && (
+              <p className="text-[9px] text-emerald-800 sm:text-[10px]">
+                Energia {ltoEnergyPct.toFixed(1)} %
+              </p>
+            )}
           </button>
 
           <FanSpeedBadge

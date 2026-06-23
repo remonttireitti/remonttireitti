@@ -8,8 +8,8 @@ import {
 import { inferProtocolFromId, parseZwaveDeviceId } from "@/lib/device-protocol";
 import { zwaveEndpointItemKey } from "@/lib/device-item-overrides";
 import { anchorForLight } from "@/lib/lights-config";
-import { zwaveNodeId } from "@/lib/zwave-detail";
-import type { DeviceCapability, HubDeviceOverride, HubHomeDevice, HubLightState, HubState } from "@/lib/types";
+import { groupZwaveDevicesForList, zwaveNodeId } from "@/lib/zwave-detail";
+import type { DeviceCapability, HubDeviceOverride, HubHomeDevice, HubLightState, HubState, ZwaveProperty } from "@/lib/types";
 
 export type HubLightDevice = {
   id: string;
@@ -36,6 +36,8 @@ export type HubLightDevice = {
   endpoint: number | null;
   node_id: number | null;
   power_w: number | null;
+  battery_pct?: number | null;
+  voltage_v?: number | null;
   model?: string | null;
   manufacturer?: string | null;
   description?: string | null;
@@ -104,7 +106,12 @@ function mapDevice(
     locked: d.locked ?? null,
     capabilities,
     capabilitiesLabel: formatCapabilitiesSummary(capabilities),
-    readingLabel: sensorReadingLabel(d, o?.item_names, zwaveParsed?.nodeId, allOverrides),
+    readingLabel: sensorReadingLabel(
+      d,
+      o?.item_names ?? (zwaveParsed ? allOverrides?.[zwaveNodeId(zwaveParsed.nodeId)]?.item_names : undefined),
+      zwaveParsed?.nodeId,
+      allOverrides,
+    ),
     temperature_c:
       typeof d.temperature_c === "number" && Number.isFinite(d.temperature_c) ? d.temperature_c : null,
     humidity_pct:
@@ -127,11 +134,58 @@ function mapDevice(
     model: d.model ?? null,
     manufacturer: d.manufacturer ?? null,
     description: d.description ?? null,
-    ...(typeof (d as { battery_pct?: number }).battery_pct === "number" &&
-    Number.isFinite((d as { battery_pct?: number }).battery_pct)
-      ? { battery_pct: (d as { battery_pct?: number }).battery_pct }
-      : {}),
+    battery_pct:
+      typeof d.battery_pct === "number" && Number.isFinite(d.battery_pct) ? d.battery_pct : null,
+    voltage_v: typeof d.voltage_v === "number" && Number.isFinite(d.voltage_v) ? d.voltage_v : null,
   };
+}
+
+function zwavePropertiesForDevice(
+  device: HubLightDevice,
+  rawDevice: HubHomeDevice | undefined,
+  node: NonNullable<HubState["zwave_nodes"]>[string],
+): ZwaveProperty[] {
+  if (rawDevice?.zwave_properties?.length) return rawDevice.zwave_properties;
+  const endpoint = device.endpoint ?? 0;
+  const onEndpoint = node.properties.filter((p) => p.endpoint === endpoint);
+  if (onEndpoint.length > 0) return onEndpoint;
+  if ((node.endpoints?.length ?? 0) <= 1) return node.properties;
+  return onEndpoint;
+}
+
+function enrichZwaveReading(
+  device: HubLightDevice,
+  raw: HubState["home_devices"] | undefined,
+  zwaveNodes: HubState["zwave_nodes"] | undefined,
+  overrides?: HubState["device_overrides"],
+): HubLightDevice {
+  if (device.protocol !== "zwave" || device.node_id == null || !zwaveNodes) return device;
+  const node = zwaveNodes[String(device.node_id)];
+  if (!node?.properties?.length) return device;
+
+  const rawDevice = raw?.[device.id] as HubHomeDevice | undefined;
+  const properties = zwavePropertiesForDevice(device, rawDevice, node);
+  if (!properties.length) return device;
+
+  const nodeOverride = overrides?.[zwaveNodeId(device.node_id)];
+  const readingLabel = sensorReadingLabel(
+    { ...(rawDevice ?? { protocol: "zwave", kind: device.kind, name: device.name }), zwave_properties: properties },
+    nodeOverride?.item_names ?? overrides?.[device.id]?.item_names,
+    device.node_id,
+    overrides,
+  );
+  return readingLabel ? { ...device, readingLabel } : device;
+}
+
+/** Group multi-endpoint Z-Wave nodes and enrich readings from hub MQTT state. */
+export function prepareDevicesForList(
+  devices: HubLightDevice[],
+  raw?: HubState["home_devices"],
+  zwaveNodes?: HubState["zwave_nodes"],
+  overrides?: HubState["device_overrides"],
+): HubLightDevice[] {
+  const enriched = devices.map((device) => enrichZwaveReading(device, raw, zwaveNodes, overrides));
+  return groupZwaveDevicesForList(enriched);
 }
 
 export function parseHubHomeDevices(
@@ -249,6 +303,7 @@ export function groupDevices(devices: HubLightDevice[]) {
       ids.has("tvoc") ||
       ids.has("pm") ||
       ids.has("illuminance") ||
+      ids.has("battery") ||
       device.kind === "sensor"
     ) {
       sensors.push(device);

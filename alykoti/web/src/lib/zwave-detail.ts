@@ -58,7 +58,7 @@ export function groupZwaveDevicesForList<
     controllable: boolean;
     capabilitiesLabel?: string;
     readingLabel?: string | null;
-    node_id?: number;
+    node_id?: number | null;
     endpoint?: number | null;
   },
 >(devices: T[]): T[] {

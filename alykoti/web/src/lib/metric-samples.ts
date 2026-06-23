@@ -7,6 +7,7 @@ export type MetricMeta = {
   label: string;
   unit?: string;
   kind: MetricKind;
+  footnote?: string;
 };
 
 export const METRIC_META: Record<string, MetricMeta> = {
@@ -14,7 +15,13 @@ export const METRIC_META: Record<string, MetricMeta> = {
   supply_temp_c: { label: "Tuloilma", unit: "°C", kind: "numeric" },
   exhaust_temp_c: { label: "Poistoilma T3", unit: "°C", kind: "numeric" },
   exhaust_hru_temp_c: { label: "Jäteilma T4", unit: "°C", kind: "numeric" },
-  lto_temp_efficiency_pct: { label: "LTO lämpöhöytys", unit: "%", kind: "numeric" },
+  lto_temp_efficiency_pct: {
+    label: "LTO lämpöhöytys",
+    unit: "%",
+    kind: "numeric",
+    footnote:
+      "Kuinka suuri osa poistoilman lämmöstä siirtyy tuloilmaan. Esim. +7,0 °C / 6,9 °C = 7 asteen lämpö talteen 6,9 asteen saatavilla olevasta erosta. 100 % = tulo yhtä lämmin kuin poisto (täysi LTO) — ei tarkoita että kaikki lämpö poistettaisiin talosta; jäteilma T4 näyttää mitä lähtee ulos.",
+  },
   lto_energy_efficiency_pct: { label: "LTO energiahöytys", unit: "%", kind: "numeric" },
   fan_supply_pct: { label: "Tulonopeus", unit: "%", kind: "numeric" },
   fan_exhaust_pct: { label: "Poistonopeus", unit: "%", kind: "numeric" },
@@ -41,6 +48,7 @@ export type MetricHistory = {
   label: string;
   unit?: string;
   kind: MetricKind;
+  footnote?: string;
   points: MetricPoint[];
 };
 
