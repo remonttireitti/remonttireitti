@@ -81,7 +81,7 @@ const SAUNA_SHOWER_SWITCH_PAIRS = [
     eteinenNode: 52,
     eteinenEp: 2,
     takkaNode: 84,
-    takkaEp: 2,
+    takkaEp: 1,
     eteinenHint: "eteisen valokytkin",
     takkaHint: "suihkuvalo takka",
   },
@@ -106,8 +106,8 @@ function stripReverseSaunaShowerRules(rules: AutomationRule[]): AutomationRule[]
 }
 
 /**
- * Eteisen ja takkahuoneen kytkimet peilaavat toisiaan (sama huone, kaksi kytkintä / valo).
- * Kanava 1 = sauna, kanava 2 = suihku. Fibaro: sauna OUT1 (e1), suihku OUT2 (e2).
+ * Eteisen seinäkytkin (node 52) kanava 1/2 → takkahuoneen omat laitteet.
+ * Jokaisessa relemoduulissa vain OUT1 (endpoint 1) on käytössä.
  */
 export function buildSaunaShowerMirrorPresets(
   devices: HubLightDevice[],
@@ -126,10 +126,10 @@ export function buildSaunaShowerMirrorPresets(
     }
     if (!eteinen || !takka) continue;
 
-    const eteEp = eteinen.endpoint ?? pair.eteinenEp;
-    const takkaEp = takka.endpoint ?? pair.takkaEp;
+    const eteId = `zwave:${pair.eteinenNode}:e${pair.eteinenEp}`;
+    const takkaId = `zwave:${pair.takkaNode}:e${pair.takkaEp}`;
 
-    rules.push(switchMirrorRule(pair.name, eteinen.id, eteEp, takka.id));
+    rules.push(switchMirrorRule(pair.name, eteId, pair.eteinenEp, takkaId));
   }
 
   return { rules, missing };
