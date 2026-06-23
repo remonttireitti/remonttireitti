@@ -22,6 +22,9 @@ export const CAPABILITY_LABELS: Record<DeviceCapabilityId, string> = {
   tvoc: "TVOC",
   pm: "Hiukkaset",
   illuminance: "Valoisuus",
+  smoke: "Savu",
+  water_leak: "Vesivuoto",
+  input: "Tulo IN",
 };
 
 const CONTROL_CAPABILITIES: DeviceCapabilityId[] = ["switch", "dimmer", "lock", "relay", "fan", "cover"];
@@ -94,6 +97,8 @@ export function inferKindFromCapabilities(caps: DeviceCapability[]): HubHomeDevi
     ids.has("tvoc") ||
     ids.has("pm") ||
     ids.has("illuminance") ||
+    ids.has("smoke") ||
+    ids.has("water_leak") ||
     ids.has("battery");
   if (ids.has("button") && hasEnv) return "sensor";
   if (ids.has("lock")) return "lock";
@@ -234,6 +239,7 @@ export function sensorReadingLabel(
   allOverrides?: HubState["device_overrides"],
   extraProperties?: ZwaveProperty[],
 ): string | null {
+  const caps = normalizeCapabilities(device.capabilities);
   const parts: string[] = [];
   const seen = new Set<string>();
   const add = (value: string) => {
@@ -259,6 +265,7 @@ export function sensorReadingLabel(
   if (
     device.temperature_c != null &&
     Number.isFinite(device.temperature_c) &&
+    hasCapability(caps, "temperature") &&
     !hasZwaveScalarCoverage(properties, "temperature")
   ) {
     named("reading:temperature", `${device.temperature_c.toFixed(1)} °C`);
@@ -266,6 +273,7 @@ export function sensorReadingLabel(
   if (
     device.humidity_pct != null &&
     Number.isFinite(device.humidity_pct) &&
+    hasCapability(caps, "humidity") &&
     !hasZwaveScalarCoverage(properties, "humidity")
   ) {
     named("reading:humidity", `${Math.round(device.humidity_pct)} %`);
@@ -273,48 +281,63 @@ export function sensorReadingLabel(
   if (
     device.battery_pct != null &&
     Number.isFinite(device.battery_pct) &&
+    hasCapability(caps, "battery") &&
     !hasZwaveScalarCoverage(properties, "battery")
   ) {
-    named("reading:battery", `Akku ${Math.round(device.battery_pct)} %`);
+    named("reading:battery", `${Math.round(device.battery_pct)} %`);
   }
   if (
     device.voltage_v != null &&
     Number.isFinite(device.voltage_v) &&
+    hasCapability(caps, "meter") &&
     !hasZwaveScalarCoverage(properties, "voltage")
   ) {
     add(`${device.voltage_v.toFixed(1)} V`);
   }
-  if (device.co2_ppm != null && Number.isFinite(device.co2_ppm)) {
+  if (device.co2_ppm != null && Number.isFinite(device.co2_ppm) && hasCapability(caps, "co2")) {
     named("reading:co2", `${Math.round(device.co2_ppm)} ppm CO₂`);
   }
   if (
     device.illuminance_lux != null &&
     Number.isFinite(device.illuminance_lux) &&
+    hasCapability(caps, "illuminance") &&
     !hasZwaveScalarCoverage(properties, "illuminance")
   ) {
     named("reading:illuminance", `${Math.round(device.illuminance_lux)} lx`);
   }
-  if (device.power_w != null && Number.isFinite(device.power_w)) {
+  if (device.power_w != null && Number.isFinite(device.power_w) && hasCapability(caps, "energy")) {
     named("reading:power", `${Math.round(device.power_w)} W`);
   }
 
-  if (device.sensor_state) {
-    const alarmInProps = properties.some((p) => p.cc === 48 || p.cc === 113);
-    if (!alarmInProps) {
+  const alarmInProps = properties.some((p) => p.cc === 48 || p.cc === 113);
+  if (device.sensor_state && !alarmInProps) {
+    if (device.sensor_state === "smoke" && hasCapability(caps, "smoke")) {
+      add(formatAlarmReading(device.sensor_state, device.on));
+    } else if (device.sensor_state === "water_leak" && hasCapability(caps, "water_leak")) {
+      add(formatAlarmReading(device.sensor_state, device.on));
+    } else if (device.sensor_state === "co" && hasCapability(caps, "co2")) {
+      add(formatAlarmReading(device.sensor_state, device.on));
+    } else if (device.sensor_state === "motion" && hasCapability(caps, "motion")) {
+      add(formatAlarmReading(device.sensor_state, device.on));
+    } else if (device.sensor_state === "contact" && hasCapability(caps, "contact")) {
       add(formatAlarmReading(device.sensor_state, device.on));
     }
-  } else if (device.on != null && hasCapability(device.capabilities, "contact")) {
-    add(device.on ? "Avoin" : "Kiinni");
-  } else if (device.on != null && hasCapability(device.capabilities, "occupancy")) {
-    add(device.on ? "Paikalla" : "Tyhjä");
-  } else if (device.on != null && hasCapability(device.capabilities, "motion")) {
-    add(device.on ? "Liike" : "Ei liikettä");
+  } else if (!device.sensor_state) {
+    if (device.on != null && hasCapability(caps, "contact")) {
+      add(device.on ? "Avoin" : "Kiinni");
+    } else if (device.on != null && hasCapability(caps, "occupancy")) {
+      add(device.on ? "Paikalla" : "Tyhjä");
+    } else if (device.on != null && hasCapability(caps, "motion")) {
+      add(device.on ? "Liike" : "Ei liikettä");
+    } else if (device.on != null && hasCapability(caps, "input")) {
+      add(device.on ? "Päällä" : "Pois");
+    }
   }
 
-  if (device.locked != null) {
+  if (device.locked != null && hasCapability(caps, "lock")) {
     named("reading:locked", device.locked ? "Lukossa" : "Auki");
   }
-  if (device.on != null && hasCapability(device.capabilities, "switch")) {
+  if (device.on != null && hasCapability(caps, "switch") && canWrite(caps, "switch")) {
     named("reading:switch", device.on ? "Päällä" : "Pois");
   }
 

@@ -127,7 +127,11 @@ def _discover_capabilities(device: dict[str, Any]) -> list[dict[str, Any]]:
             ):
                 if name in _SKIP_BINARY_NAMES:
                     continue
-                if name in ("contact", "contact_sensor") or "contact" in name:
+                if name in ("water_leak",):
+                    add("water_leak", True, False)
+                elif name in ("smoke",):
+                    add("smoke", True, False)
+                elif name in ("contact", "contact_sensor") or "contact" in name:
                     add("contact", True, False)
                 elif name in ("occupancy", "presence"):
                     add("occupancy", True, False)
@@ -416,6 +420,8 @@ def _device_needs_telemetry(meta: dict[str, Any]) -> bool:
             "contact",
             "motion",
             "occupancy",
+            "smoke",
+            "water_leak",
         }
     )
 

@@ -143,9 +143,9 @@ export function formatZwavePropertyValue(
     return `${Math.round(value)} %`;
   }
 
-  if (prop?.cc === 48 || prop?.cc === 113) {
+    if (prop?.cc === 48 || prop?.cc === 113) {
     const active = zwaveValueIsActive(value);
-    if (p.includes("smoke") || p.includes("fire") || p.includes("heat")) {
+    if (p.includes("smoke") || p.includes("fire")) {
       return active ? "Hälytys" : "OK";
     }
     if (p.includes("water") || p.includes("leak") || p.includes("flood") || p.includes("moisture")) {

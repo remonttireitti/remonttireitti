@@ -143,7 +143,10 @@ export type DeviceCapabilityId =
   | "button"
   | "tvoc"
   | "pm"
-  | "illuminance";
+  | "illuminance"
+  | "smoke"
+  | "water_leak"
+  | "input";
 
 export type DeviceCapability = {
   id: DeviceCapabilityId;

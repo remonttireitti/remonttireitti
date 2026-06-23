@@ -169,7 +169,11 @@ function enrichZwaveReading(
 
   const nodeOverride = overrides?.[zwaveNodeId(device.node_id)];
   const readingLabel = sensorReadingLabel(
-    { ...(rawDevice ?? { protocol: "zwave", kind: device.kind, name: device.name }), zwave_properties: properties },
+    {
+      ...(rawDevice ?? { protocol: "zwave", kind: device.kind, name: device.name }),
+      capabilities: device.capabilities,
+      zwave_properties: properties,
+    },
     nodeOverride?.item_names ?? overrides?.[device.id]?.item_names,
     device.node_id,
     overrides,

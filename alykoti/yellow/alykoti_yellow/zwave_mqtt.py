@@ -44,7 +44,6 @@ CC_DEFAULT: dict[int, list[tuple[str, bool, bool]]] = {
     50: [("energy", True, False), ("meter", True, False)],
     62: [("fan", True, True)],
     64: [("temperature", True, False)],
-    113: [("motion", True, False)],
     128: [("battery", True, False)],
 }
 
@@ -77,11 +76,11 @@ def _merge_cap(caps: dict[str, dict[str, Any]], cap: dict[str, Any]) -> None:
         caps[id_] = dict(cap)
 
 
-def _cc48_sensor_state(prop: str | None) -> str:
+def _cc48_sensor_state(prop: str | None) -> str | None:
     p = (prop or "").casefold()
     if any(x in p for x in ("water", "leak", "flood", "moisture")):
         return "water_leak"
-    if any(x in p for x in ("smoke", "fire", "heat")):
+    if any(x in p for x in ("smoke", "fire")):
         return "smoke"
     if "carbon" in p or p == "co":
         return "co"
@@ -91,30 +90,32 @@ def _cc48_sensor_state(prop: str | None) -> str:
         return "tamper"
     if any(x in p for x in ("door", "window", "contact")):
         return "contact"
-    return "contact"
+    return None
 
 
-def _cc113_sensor_state(prop: str | None, value: Any) -> str:
+def _cc113_sensor_state(prop: str | None, value: Any) -> str | None:
     p = (prop or "").casefold()
-    if "home security" in p or "intrusion" in p:
-        return "motion"
-    if "access control" in p:
-        return "contact"
-    if "water" in p:
+    if "water" in p or "leak" in p or "flood" in p:
         return "water_leak"
     if "smoke" in p or "fire" in p:
         return "smoke"
     if "co " in p or p.startswith("co") or "carbon" in p:
         return "co"
+    if "home security" in p or "intrusion" in p or "motion" in p:
+        return "motion"
+    if "access control" in p or "door" in p or "window" in p:
+        return "contact"
     if isinstance(value, str):
         v = value.casefold()
-        if "motion" in v or "occupancy" in v:
-            return "motion"
-        if "water" in v or "leak" in v:
+        if "water" in v or "leak" in v or "flood" in v:
             return "water_leak"
         if "smoke" in v or "fire" in v:
             return "smoke"
-    return "motion"
+        if "motion" in v or "occupancy" in v or "intrusion" in v:
+            return "motion"
+        if "door" in v or "window" in v or "access" in v:
+            return "contact"
+    return None
 
 
 def _property_caps(cc: int, prop: str | None) -> list[tuple[str, bool, bool]]:
@@ -133,13 +134,30 @@ def _property_caps(cc: int, prop: str | None) -> list[tuple[str, bool, bool]]:
         return [("temperature", True, False)]
     if cc == 48:
         state = _cc48_sensor_state(prop)
-        if state in ("water_leak", "smoke", "co"):
-            return [("contact", True, False)]
+        if state == "water_leak":
+            return [("water_leak", True, False)]
+        if state == "smoke":
+            return [("smoke", True, False)]
+        if state == "co":
+            return [("co2", True, False)]
         if state == "motion":
             return [("motion", True, False)]
-        return [("contact", True, False)]
+        if state in ("contact", "tamper"):
+            return [("contact", True, False)]
+        return [("input", True, False)]
     if cc == 113:
-        return [("motion", True, False)]
+        state = _cc113_sensor_state(prop, None)
+        if state == "water_leak":
+            return [("water_leak", True, False)]
+        if state == "smoke":
+            return [("smoke", True, False)]
+        if state == "co":
+            return [("co2", True, False)]
+        if state == "motion":
+            return [("motion", True, False)]
+        if state == "contact":
+            return [("contact", True, False)]
+        return []
     return CC_DEFAULT.get(cc, [])
 
 
@@ -265,6 +283,18 @@ def _infer_caps_from_name(name: str) -> list[dict[str, Any]]:
         return [_cap("switch", True, True)]
     if kind == "sensor":
         n = name.casefold()
+        if "palohälytin" in n or "palohalytin" in n or "smoke" in n:
+            return [
+                _cap("smoke", True, False),
+                _cap("temperature", True, False),
+                _cap("battery", True, False),
+            ]
+        if "vesivuoto" in n or "water leak" in n or "leak" in n:
+            return [
+                _cap("water_leak", True, False),
+                _cap("temperature", True, False),
+                _cap("battery", True, False),
+            ]
         if "ovikello" in n or "motion" in n or "liike" in n:
             return [_cap("motion", True, False)]
         if "ovi" in n or "contact" in n:
@@ -395,12 +425,15 @@ def _apply_cc_value(
     elif cc == 48:
         if isinstance(value, bool):
             dev["on"] = value
-            dev["sensor_state"] = _cc48_sensor_state(prop_name)
         elif isinstance(value, (int, float)):
             dev["on"] = value > 0
-            dev["sensor_state"] = _cc48_sensor_state(prop_name)
+        state = _cc48_sensor_state(prop_name)
+        if state:
+            dev["sensor_state"] = state
     elif cc == 113:
-        dev["sensor_state"] = _cc113_sensor_state(prop_name, value)
+        state = _cc113_sensor_state(prop_name, value)
+        if state:
+            dev["sensor_state"] = state
         on = _zwave_value_to_on(value)
         if on is not None:
             dev["on"] = on
