@@ -187,6 +187,10 @@ export type HubHomeDevice = {
   humidity_pct?: number | null;
   co2_ppm?: number | null;
   tvoc_ppb?: number | null;
+  /** Z-Wave CC 49 voltage (V). */
+  voltage_v?: number | null;
+  /** Zigbee / Z-Wave battery level %. */
+  battery_pct?: number | null;
   /** Z-Wave CC 49 illuminance (lux). */
   illuminance_lux?: number | null;
   /** Z-Wave CC 48/113 sensor subtype: water_leak, smoke, co, motion, contact, tamper. */

@@ -1,4 +1,3 @@
-import { resolveZwavePropertyLabel } from "@/lib/device-item-overrides";
 import { formatZwavePropertiesReading } from "@/lib/zwave-detail";
 import type { DeviceCapability, DeviceCapabilityId, HubHomeDevice, HubState, ZwaveProperty } from "@/lib/types";
 
@@ -192,63 +191,132 @@ export function sensorStateLabel(state: string | null | undefined): string | nul
   return SENSOR_STATE_LABELS[state] ?? state;
 }
 
+function formatAlarmReading(sensorState: string, on: boolean | undefined | null): string {
+  switch (sensorState) {
+    case "water_leak":
+      return on ? "Vuoto" : "Kuiva";
+    case "smoke":
+    case "co":
+      return on ? "Hälytys" : "OK";
+    case "motion":
+      return on ? "Liike" : "Ei liikettä";
+    case "contact":
+      return on ? "Avoin" : "Kiinni";
+    case "tamper":
+      return on ? "Peukaloitu" : "OK";
+    default:
+      if (on == null) return sensorStateLabel(sensorState) ?? sensorState;
+      return on ? (sensorStateLabel(sensorState) ?? sensorState) : "OK";
+  }
+}
+
+function hasZwaveScalarCoverage(properties: ZwaveProperty[] | undefined, field: string): boolean {
+  if (!properties?.length) return false;
+  return properties.some((prop) => {
+    const name = (prop.property ?? "").toLowerCase();
+    if (field === "temperature" && prop.cc === 49) {
+      return name.includes("temperature") || name.includes("air") || !name;
+    }
+    if (field === "humidity" && prop.cc === 49) return name.includes("humidity");
+    if (field === "battery" && prop.cc === 128) return true;
+    if (field === "voltage" && prop.cc === 49) return name.includes("voltage");
+    if (field === "illuminance" && prop.cc === 49) {
+      return name.includes("luminance") || name.includes("illuminance");
+    }
+    return name.includes(field);
+  });
+}
+
 export function sensorReadingLabel(
   device: HubHomeDevice,
   itemNames?: Record<string, string>,
   zwaveNodeIdNum?: number,
   allOverrides?: HubState["device_overrides"],
+  extraProperties?: ZwaveProperty[],
 ): string | null {
   const parts: string[] = [];
+  const seen = new Set<string>();
+  const add = (value: string) => {
+    const trimmed = value.trim();
+    if (trimmed && !seen.has(trimmed)) {
+      seen.add(trimmed);
+      parts.push(trimmed);
+    }
+  };
   const named = (key: string, value: string) => {
     const custom = itemNames?.[key]?.trim();
-    return custom ? `${custom}: ${value}` : value;
+    add(custom ? `${custom}: ${value}` : value);
   };
 
-  if (device.zwave_properties?.length && zwaveNodeIdNum != null && allOverrides) {
-    for (const p of device.zwave_properties) {
-      const label = resolveZwavePropertyLabel(zwaveNodeIdNum, p, allOverrides);
-      const val = formatZwaveValue(p.value);
-      if (val !== "—") parts.push(`${label}: ${val}`);
+  const properties = [...(extraProperties ?? []), ...(device.zwave_properties ?? [])];
+  if (properties.length > 0 && zwaveNodeIdNum != null) {
+    const fromProps = formatZwavePropertiesReading(properties, zwaveNodeIdNum, allOverrides);
+    if (fromProps) {
+      for (const part of fromProps.split(" · ")) add(part);
     }
-    return parts.length > 0 ? parts.join(" · ") : null;
   }
 
-  if (device.temperature_c != null && Number.isFinite(device.temperature_c)) {
-    parts.push(named("reading:temperature", `${device.temperature_c.toFixed(1)} °C`));
+  if (
+    device.temperature_c != null &&
+    Number.isFinite(device.temperature_c) &&
+    !hasZwaveScalarCoverage(properties, "temperature")
+  ) {
+    named("reading:temperature", `${device.temperature_c.toFixed(1)} °C`);
   }
-  if (device.humidity_pct != null && Number.isFinite(device.humidity_pct)) {
-    parts.push(named("reading:humidity", `${Math.round(device.humidity_pct)} %`));
+  if (
+    device.humidity_pct != null &&
+    Number.isFinite(device.humidity_pct) &&
+    !hasZwaveScalarCoverage(properties, "humidity")
+  ) {
+    named("reading:humidity", `${Math.round(device.humidity_pct)} %`);
   }
-  const batteryPct = (device as { battery_pct?: number | null }).battery_pct;
-  if (batteryPct != null && Number.isFinite(batteryPct)) {
-    parts.push(named("reading:battery", `${Math.round(batteryPct)} %`));
+  if (
+    device.battery_pct != null &&
+    Number.isFinite(device.battery_pct) &&
+    !hasZwaveScalarCoverage(properties, "battery")
+  ) {
+    named("reading:battery", `Akku ${Math.round(device.battery_pct)} %`);
+  }
+  if (
+    device.voltage_v != null &&
+    Number.isFinite(device.voltage_v) &&
+    !hasZwaveScalarCoverage(properties, "voltage")
+  ) {
+    add(`${device.voltage_v.toFixed(1)} V`);
   }
   if (device.co2_ppm != null && Number.isFinite(device.co2_ppm)) {
-    parts.push(named("reading:co2", `${Math.round(device.co2_ppm)} ppm CO₂`));
+    named("reading:co2", `${Math.round(device.co2_ppm)} ppm CO₂`);
   }
-  if (device.illuminance_lux != null && Number.isFinite(device.illuminance_lux)) {
-    parts.push(named("reading:illuminance", `${Math.round(device.illuminance_lux)} lx`));
+  if (
+    device.illuminance_lux != null &&
+    Number.isFinite(device.illuminance_lux) &&
+    !hasZwaveScalarCoverage(properties, "illuminance")
+  ) {
+    named("reading:illuminance", `${Math.round(device.illuminance_lux)} lx`);
   }
   if (device.power_w != null && Number.isFinite(device.power_w)) {
-    parts.push(named("reading:power", `${Math.round(device.power_w)} W`));
+    named("reading:power", `${Math.round(device.power_w)} W`);
   }
-  const stateLabel = sensorStateLabel(device.sensor_state);
-  if (stateLabel && device.on != null) {
-    parts.push(named("reading:sensor_state", device.on ? stateLabel : `${stateLabel} OK`));
-  } else if (stateLabel) {
-    parts.push(named("reading:sensor_state", stateLabel));
+
+  if (device.sensor_state) {
+    const alarmInProps = properties.some((p) => p.cc === 48 || p.cc === 113);
+    if (!alarmInProps) {
+      add(formatAlarmReading(device.sensor_state, device.on));
+    }
+  } else if (device.on != null && hasCapability(device.capabilities, "contact")) {
+    add(device.on ? "Avoin" : "Kiinni");
+  } else if (device.on != null && hasCapability(device.capabilities, "occupancy")) {
+    add(device.on ? "Paikalla" : "Tyhjä");
+  } else if (device.on != null && hasCapability(device.capabilities, "motion")) {
+    add(device.on ? "Liike" : "Ei liikettä");
   }
+
   if (device.locked != null) {
-    parts.push(named("reading:locked", device.locked ? "Lukossa" : "Auki"));
+    named("reading:locked", device.locked ? "Lukossa" : "Auki");
   }
   if (device.on != null && hasCapability(device.capabilities, "switch")) {
-    parts.push(named("reading:switch", device.on ? "Päällä" : "Pois"));
+    named("reading:switch", device.on ? "Päällä" : "Pois");
   }
-  if (device.on != null && hasCapability(device.capabilities, "contact") && !stateLabel) {
-    parts.push(device.on ? "Avoin" : "Kiinni");
-  }
-  if (device.on != null && hasCapability(device.capabilities, "motion") && !stateLabel) {
-    parts.push(device.on ? "Liike" : "Ei liikettä");
-  }
+
   return parts.length > 0 ? parts.join(" · ") : null;
 }

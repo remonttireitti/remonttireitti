@@ -306,9 +306,15 @@ function DeviceSection({
                 </p>
               </div>
               {sensorMode || (!device.controllable && !lockMode) ? (
-                <span className="shrink-0 text-xs text-stone-500">
+                <span
+                  className={`shrink-0 text-right ${
+                    device.readingLabel
+                      ? "max-w-[55%] text-sm font-medium tabular-nums text-stone-800"
+                      : "text-xs text-stone-500"
+                  }`}
+                >
                   {device.readingLabel || (on ? "Päällä" : "Pois")}
-                  {readOnlyHint ? " · ei ohjaus" : ""}
+                  {readOnlyHint && !device.readingLabel ? " · ei ohjaus" : ""}
                 </span>
               ) : lockMode && device.controllable ? (
                 <div className="flex shrink-0 flex-col items-end gap-1">
@@ -363,9 +369,15 @@ function DeviceSection({
                   </div>
                 </div>
               ) : (
-                <span className="shrink-0 text-xs text-stone-500">
-                  {on ? "Päällä" : "Pois"}
-                  {readOnlyHint ? " · ei ohjaus" : ""}
+                <span
+                  className={`shrink-0 text-right ${
+                    device.readingLabel
+                      ? "max-w-[55%] text-sm font-medium tabular-nums text-stone-800"
+                      : "text-xs text-stone-500"
+                  }`}
+                >
+                  {device.readingLabel || (on ? "Päällä" : "Pois")}
+                  {readOnlyHint && !device.readingLabel ? " · ei ohjaus" : ""}
                 </span>
               )}
             </li>

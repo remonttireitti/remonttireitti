@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { groupDevices, parseHubHomeDevices } from "@/lib/hub-lights";
+import { groupDevices, parseHubHomeDevices, prepareDevicesForList } from "@/lib/hub-lights";
 import { normalizeHomeDevices } from "@/lib/device-normalize";
 import { fetchPrimaryHub } from "@/lib/hubs";
 import { isHubOnline } from "@/lib/device-status";
@@ -25,7 +25,12 @@ export async function GET() {
           airthingsState: hub.state,
         })
       : undefined;
-    const devices = parseHubHomeDevices(homeDevices, hub?.state?.lights, hub?.state?.device_overrides);
+    const devices = prepareDevicesForList(
+      parseHubHomeDevices(homeDevices, hub?.state?.lights, hub?.state?.device_overrides),
+      homeDevices,
+      hub?.state?.zwave_nodes,
+      hub?.state?.device_overrides,
+    );
     const grouped = groupDevices(devices);
 
     if (hub && (hubOnline || devices.length > 0)) {

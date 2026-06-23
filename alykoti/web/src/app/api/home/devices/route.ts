@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { inferProtocolFromId, parseZwaveDeviceId } from "@/lib/device-protocol";
-import { parseHubHomeDevices } from "@/lib/hub-lights";
+import { parseHubHomeDevices, prepareDevicesForList } from "@/lib/hub-lights";
 import { normalizeHomeDevices } from "@/lib/device-normalize";
 import { fetchPrimaryHub } from "@/lib/hubs";
 import { isHubOnline } from "@/lib/device-status";
@@ -29,9 +29,10 @@ export async function GET() {
     airthingsState: hub.state,
   });
 
-  const devices = parseHubHomeDevices(
+  const devices = prepareDevicesForList(
+    parseHubHomeDevices(homeDevices, hub.state.lights, hub.state.device_overrides),
     homeDevices,
-    hub.state.lights,
+    hub.state.zwave_nodes,
     hub.state.device_overrides,
   ).map((d) => ({
     id: d.id,
