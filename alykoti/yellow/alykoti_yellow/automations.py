@@ -110,8 +110,9 @@ COMMAND_COOLDOWN_SEC = 0.5
 COLOR_COOLDOWN_SEC = 0.9
 MULTI_TARGET_DELAY_SEC = 0.55
 SWITCH_STATE_DEBOUNCE_SEC = 0.45
-SWITCH_STATE_DEBOUNCE_OFF_SEC = 0.12
-MIRROR_ECHO_SUPPRESS_SEC = 0.8
+SWITCH_STATE_DEBOUNCE_OFF_SEC = 0.25
+MIRROR_ECHO_SUPPRESS_SEC = 8.0
+MIRROR_PAIR_BLOCK_SEC = 10.0
 MIRROR_COOLDOWN_ON_SEC = 0.15
 
 
@@ -287,6 +288,7 @@ class AutomationEngine:
         self._zwave_path_to_node: dict[str, int] = {}
         self._switch_last_fire: dict[str, tuple[float, bool]] = {}
         self._mirror_echo_until: dict[str, float] = {}
+        self._mirror_pair_block: dict[str, float] = {}
         self._lock = threading.Lock()
         self._events: deque[dict[str, Any]] = deque(maxlen=60)
         self._device_events: dict[str, deque[dict[str, Any]]] = {}
@@ -548,17 +550,17 @@ class AutomationEngine:
             on = self._zwave_value_to_on(payload.get("value"))
             if on is None:
                 return
+            device_keys = self._zwave_event_device_keys(node_id, endpoint)
             for device_key in device_keys:
                 self._set_light_state(device_key, on)
-            for action_id in self._zwave_switch_action_ids(endpoint, on):
-                for device_key in device_keys:
-                    self._record_device_event(
-                        device_key,
-                        {"state": "ON" if on else "OFF", "endpoint": endpoint},
-                        action=action_id,
-                        button=str(endpoint),
-                    )
-                    self._handle_switch_state(device_key, on, endpoint=endpoint)
+            for device_key in device_keys:
+                self._record_device_event(
+                    device_key,
+                    {"state": "ON" if on else "OFF", "endpoint": endpoint},
+                    action="on" if on else "off",
+                    button=str(endpoint),
+                )
+                self._handle_switch_state(device_key, on, endpoint=endpoint)
             return
 
         if cc in (48, 113):
@@ -576,15 +578,12 @@ class AutomationEngine:
 
     def _zwave_event_device_keys(self, node_id: int, endpoint: int) -> list[str]:
         ep_key = f"zwave:{node_id}:e{endpoint}"
+        if endpoint > 0:
+            return [ep_key]
         root_key = f"zwave:{node_id}"
-        keys: list[str] = []
-        if ep_key in self._home_devices:
-            keys.append(ep_key)
         if root_key in self._home_devices:
-            keys.append(root_key)
-        if not keys:
-            keys = [ep_key, root_key]
-        return keys
+            return [root_key]
+        return [ep_key]
 
     def _zwave_trigger_matches(
         self,
@@ -634,6 +633,16 @@ class AutomationEngine:
         with self._lock:
             for device_id in device_ids:
                 self._mirror_echo_until[device_id] = deadline
+
+    def _block_mirror_pair(self, from_key: str, to_key: str) -> None:
+        """Estä heti paluupeilaus (B→A) kun A→B juuri ajettiin."""
+        deadline = time.monotonic() + MIRROR_PAIR_BLOCK_SEC
+        with self._lock:
+            self._mirror_pair_block[f"{to_key}->{from_key}"] = deadline
+
+    def _is_mirror_pair_blocked(self, from_key: str, to_key: str) -> bool:
+        with self._lock:
+            return time.monotonic() < self._mirror_pair_block.get(f"{from_key}->{to_key}", 0.0)
 
     def _handle_switch_state(
         self,
@@ -701,18 +710,35 @@ class AutomationEngine:
                 if not isinstance(target_id, str) or target_id == device_key:
                     continue
                 for j, expanded_id in enumerate(self._expand_targets(target_id)):
+                    if self._is_mirror_pair_blocked(device_key, expanded_id):
+                        self._log_event(
+                            "skipped",
+                            rule_id=rule_id,
+                            target_id=expanded_id,
+                            message="Peilaus estetty (paluu)",
+                        )
+                        continue
                     if i > 0 or j > 0:
                         time.sleep(MULTI_TARGET_DELAY_SEC)
+                    st = self._get_light_state(expanded_id)
+                    if bool(st.get("on")) == on:
+                        self._log_event(
+                            "skipped",
+                            rule_id=rule_id,
+                            target_id=expanded_id,
+                            message="Jo oikeassa tilassa",
+                        )
+                        continue
                     if self._command_on_cooldown(expanded_id, "mirror", on=on):
                         continue
-                    st = self._get_light_state(expanded_id)
                     ok = self._apply(
                         expanded_id,
                         on,
                         int(st.get("brightness") or 200) if on else 0,
                     )
                     if ok:
-                        self._mark_mirror_echo(expanded_id)
+                        self._mark_mirror_echo(device_key, expanded_id)
+                        self._block_mirror_pair(device_key, expanded_id)
                     self._log_event(
                         "ok" if ok else "failed",
                         rule_id=rule_id,

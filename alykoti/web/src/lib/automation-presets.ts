@@ -65,11 +65,10 @@ function switchMirrorRule(
   };
 }
 
-/** Tunnetut sauna/suihku-kytkinparit: eteinen (52) ↔ takkahuone (82/84). */
+/** Tunnetut sauna/suihku-kytkinparit: vain eteinen → takkahuone (ei paluusilmukkaa). */
 const SAUNA_SHOWER_SWITCH_PAIRS = [
   {
-    nameTo: "Sauna — eteinen → takkahuone",
-    nameBack: "Sauna — takkahuone → eteinen",
+    name: "Sauna — eteinen → takkahuone",
     eteinenNode: 52,
     eteinenEp: 1,
     takkaNode: 82,
@@ -78,8 +77,7 @@ const SAUNA_SHOWER_SWITCH_PAIRS = [
     takkaHint: "saunavalo takka",
   },
   {
-    nameTo: "Suihku — eteinen → takkahuone",
-    nameBack: "Suihku — takkahuone → eteinen",
+    name: "Suihku — eteinen → takkahuone",
     eteinenNode: 52,
     eteinenEp: 2,
     takkaNode: 84,
@@ -95,6 +93,16 @@ function isSaunaShowerMirrorRule(rule: AutomationRule): boolean {
   if (n.includes("sauna") || n.includes("suihku")) return true;
   if (rule.trigger.kind !== "device") return false;
   return /^zwave:(52|82|84|86|87)/.test(rule.trigger.device_id);
+}
+
+/** Poista takkahuone→eteinen paluusäännöt (aiheuttivat silmukan). */
+function stripReverseSaunaShowerRules(rules: AutomationRule[]): AutomationRule[] {
+  return rules.filter((r) => {
+    if (!isSaunaShowerMirrorRule(r)) return true;
+    if (r.trigger.kind !== "device") return true;
+    const tid = r.trigger.device_id;
+    return tid.startsWith("zwave:52:");
+  });
 }
 
 /**
@@ -121,10 +129,7 @@ export function buildSaunaShowerMirrorPresets(
     const eteEp = eteinen.endpoint ?? pair.eteinenEp;
     const takkaEp = takka.endpoint ?? pair.takkaEp;
 
-    rules.push(
-      switchMirrorRule(pair.nameTo, eteinen.id, eteEp, takka.id),
-      switchMirrorRule(pair.nameBack, takka.id, takkaEp, eteinen.id),
-    );
+    rules.push(switchMirrorRule(pair.name, eteinen.id, eteEp, takka.id));
   }
 
   return { rules, missing };
@@ -132,15 +137,12 @@ export function buildSaunaShowerMirrorPresets(
 
 /** Korjaa vanhat (monikohde-)säännöt nykyiseen kytkinpari-malliin. */
 export function repairSaunaShowerMirrorRules(rules: AutomationRule[]): AutomationRule[] {
-  const kept = rules.filter((r) => !isSaunaShowerMirrorRule(r));
+  const kept = stripReverseSaunaShowerRules(rules.filter((r) => !isSaunaShowerMirrorRule(r)));
   const hardcoded: AutomationRule[] = [];
   for (const pair of SAUNA_SHOWER_SWITCH_PAIRS) {
     const eteId = `zwave:${pair.eteinenNode}:e${pair.eteinenEp}`;
     const takkaId = `zwave:${pair.takkaNode}:e${pair.takkaEp}`;
-    hardcoded.push(
-      switchMirrorRule(pair.nameTo, eteId, pair.eteinenEp, takkaId),
-      switchMirrorRule(pair.nameBack, takkaId, pair.takkaEp, eteId),
-    );
+    hardcoded.push(switchMirrorRule(pair.name, eteId, pair.eteinenEp, takkaId));
   }
   return [...kept, ...hardcoded];
 }
@@ -149,6 +151,8 @@ export function mergeMirrorPresets(
   existing: AutomationRule[],
   presets: AutomationRule[],
 ): AutomationRule[] {
-  const kept = existing.filter((r) => !isSaunaShowerMirrorRule(r));
+  const kept = stripReverseSaunaShowerRules(
+    existing.filter((r) => !isSaunaShowerMirrorRule(r)),
+  );
   return [...kept, ...presets];
 }
