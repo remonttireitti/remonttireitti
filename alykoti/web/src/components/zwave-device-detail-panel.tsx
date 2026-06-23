@@ -60,7 +60,7 @@ export function ZwaveDeviceDetailPanel({ deviceIdParam }: Props) {
       if (json.zwaveNode?.config) {
         setConfigDrafts((prev) => {
           const next = { ...prev };
-          for (const c of json.zwaveNode!.config) {
+          for (const c of json.zwaveNode!.config ?? []) {
             if (next[c.param] === undefined && c.value != null) {
               next[c.param] = String(c.value);
             }
@@ -104,7 +104,7 @@ export function ZwaveDeviceDetailPanel({ deviceIdParam }: Props) {
     if (!zwaveNode) return [];
     const seen = new Set<string>();
     const out: ZwaveProperty[] = [];
-    for (const p of zwaveNode.properties) {
+    for (const p of zwaveNode.properties ?? []) {
       const key = `${p.cc}:${p.endpoint}:${p.property ?? ""}`;
       if (seen.has(key)) continue;
       seen.add(key);
@@ -330,12 +330,12 @@ export function ZwaveDeviceDetailPanel({ deviceIdParam }: Props) {
         </section>
       )}
 
-      {zwaveNode && zwaveNode.config.length > 0 && (
+      {zwaveNode && (zwaveNode.config ?? []).length > 0 && (
         <section className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
           <h3 className="text-lg font-semibold text-stone-900">Asetukset (Configuration)</h3>
           <p className="mt-1 text-xs text-stone-500">CC 112 — Z-Wave JS UI -parametrit</p>
           <ul className="mt-4 space-y-4">
-            {zwaveNode.config.map((param) => {
+            {(zwaveNode.config ?? []).map((param) => {
               const options =
                 param.states?.map((s) => ({ label: s.text, value: s.value })) ??
                 configParamOptions(param.param);

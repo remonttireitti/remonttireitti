@@ -81,13 +81,13 @@ export function mergeZwaveNodeOverrides(
     ...node,
     name: nodeOverride?.display_name?.trim() || node.name,
     room: nodeOverride?.room ?? node.room,
-    endpoints: node.endpoints.map((ep) => ({
+    endpoints: (node.endpoints ?? []).map((ep) => ({
       ...ep,
       label: resolveZwaveEndpointLabel(node.node_id, ep.endpoint, ep.label, overrides, ep.device_id),
       properties: ep.properties?.map(mapProperty),
     })),
-    properties: node.properties.map(mapProperty),
-    config: node.config.map((c) => ({
+    properties: (node.properties ?? []).map(mapProperty),
+    config: (node.config ?? []).map((c) => ({
       ...c,
       label: resolveZwaveConfigLabel(node.node_id, c, overrides),
     })),

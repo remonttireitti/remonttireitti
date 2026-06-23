@@ -15,7 +15,7 @@ export function zwaveNodeForDevice(
   const parsed = parseZwaveDeviceId(deviceId);
   if (!parsed) return null;
   const node = zwaveNodes[String(parsed.nodeId)];
-  return node ?? null;
+  return node ? normalizeZwaveNodeDetail(node) : null;
 }
 
 export function zwaveNodeForParam(
@@ -26,7 +26,18 @@ export function zwaveNodeForParam(
   const decoded = decodeURIComponent(param).trim();
   const parsed = parseZwaveDeviceId(decoded.includes(":") ? decoded : `zwave:${decoded}`);
   if (!parsed) return null;
-  return zwaveNodes[String(parsed.nodeId)] ?? null;
+  const node = zwaveNodes[String(parsed.nodeId)];
+  return node ? normalizeZwaveNodeDetail(node) : null;
+}
+
+/** Varmista että endpoints/properties/config ovat taulukoita (vanha hub-state voi puuttua). */
+export function normalizeZwaveNodeDetail(node: ZwaveNodeDetail): ZwaveNodeDetail {
+  return {
+    ...node,
+    endpoints: Array.isArray(node.endpoints) ? node.endpoints : [],
+    properties: Array.isArray(node.properties) ? node.properties : [],
+    config: Array.isArray(node.config) ? node.config : [],
+  };
 }
 
 function mergeReadingLabels(labels: Array<string | null | undefined>): string | null {
@@ -228,6 +239,7 @@ export function endpointShowsBinaryState(ep: ZwaveNodeEndpoint): boolean {
     ep.controllable === true ||
     hasCapability(caps, "switch") ||
     hasCapability(caps, "relay") ||
+    hasCapability(caps, "fan") ||
     hasCapability(caps, "contact") ||
     canWrite(caps, "switch")
   );

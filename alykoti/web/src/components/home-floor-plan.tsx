@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState, useTransition } from "react";
+import { uiMirrorPartnerIds } from "@/lib/automation-presets";
 import { FloorPlanView } from "@/components/floor-plan-view";
 import { LightMapDevicePopup } from "@/components/light-map-device-popup";
 import { type FloorPlanMarker } from "@/lib/floor-plan";
@@ -99,7 +100,13 @@ export function HomeFloorPlan({ hub }: Props) {
   function toggleDevice(device: Device) {
     if (!device.controllable || busyId === device.id) return;
     const next = !effectiveOnId(device.id);
-    setOptimisticOn((prev) => ({ ...prev, [device.id]: next }));
+    const partners = uiMirrorPartnerIds(device.id);
+    const affectedIds = [device.id, ...partners];
+    setOptimisticOn((prev) => {
+      const n = { ...prev, [device.id]: next };
+      for (const partnerId of partners) n[partnerId] = next;
+      return n;
+    });
     setBusyId(device.id);
     setStatusHint("Lähetetään hubille…");
     startTransition(async () => {
@@ -117,7 +124,7 @@ export function HomeFloorPlan({ hub }: Props) {
         if (!json.ok) {
           setOptimisticOn((prev) => {
             const n = { ...prev };
-            delete n[device.id];
+            for (const affectedId of affectedIds) delete n[affectedId];
             return n;
           });
           setStatusHint(json.error ?? "Ohjaus epäonnistui");
@@ -136,7 +143,7 @@ export function HomeFloorPlan({ hub }: Props) {
             setStatusHint("Hub ei suorittanut komentoa — tarkista laitteen yhteys.");
             setOptimisticOn((prev) => {
               const n = { ...prev };
-              delete n[device.id];
+              for (const affectedId of affectedIds) delete n[affectedId];
               return n;
             });
             void load();

@@ -271,6 +271,12 @@ def execute_command(cmd: dict) -> bool:
 
         if ok and cmd_id:
             _queue_ack(cmd_id)
+        if (
+            ok
+            and device_id.startswith("zwave:")
+            and not payload.get("_skip_ui_mirror")
+        ):
+            get_engine().apply_ui_mirror(device_id, on)
         return ok
 
     if command == "set_fan_pct" and config.AIRFI_WRITES:

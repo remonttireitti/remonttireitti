@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import mqtt, { type MqttClient } from "mqtt";
 import { formatZigbeeEvent, formatZwaveEvent, type DeviceLiveEvent } from "@/lib/device-events";
 import { inferProtocolFromId, parseZwaveDeviceId } from "@/lib/device-protocol";
-import { parseHubHomeDevices } from "@/lib/hub-lights";
+import { normalizeHomeDevices } from "@/lib/device-normalize";
+import { parseHubHomeDevices, prepareDevicesForList } from "@/lib/hub-lights";
 import { fetchPrimaryHub } from "@/lib/hubs";
 import {
   isMqttConfigured,
@@ -49,9 +50,16 @@ export async function GET(
   }
 
   const hubState = hub.state as HubState | undefined;
-  const devices = parseHubHomeDevices(
-    hubState?.home_devices,
-    hubState?.lights,
+  const homeDevices = normalizeHomeDevices(hubState?.home_devices, {
+    integrations: hubState?.integrations,
+    airthingsState: hubState,
+  });
+  const devices = prepareDevicesForList(
+    parseHubHomeDevices(homeDevices, hubState?.lights, hubState?.device_overrides, {
+      includeHidden: true,
+    }),
+    homeDevices,
+    hubState?.zwave_nodes,
     hubState?.device_overrides,
   );
 

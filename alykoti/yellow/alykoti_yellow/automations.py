@@ -1168,6 +1168,92 @@ class AutomationEngine:
             return None
         return {"host": host, "channel": channel}
 
+    def _resolve_zwave_id(self, node_id: int, endpoint: int | None = None) -> str:
+        preferred = f"zwave:{node_id}:e{endpoint}" if endpoint is not None else f"zwave:{node_id}"
+        if preferred in self._home_devices:
+            return preferred
+        root = f"zwave:{node_id}"
+        if root in self._home_devices:
+            return root
+        prefix = f"zwave:{node_id}:e"
+        matches = sorted(k for k in self._home_devices if k.startswith(prefix))
+        return matches[0] if matches else preferred
+
+    def _ui_mirror_partners(self, device_id: str) -> list[str]:
+        """Sauna/suihku-ryhmän muut laitteet (52↔82↔86 ja 52↔84↔87)."""
+        try:
+            node_id, endpoint = parse_zwave_device_id(
+                device_id if ":" in device_id else f"zwave:{device_id}",
+            )
+        except ValueError:
+            return []
+        groups = (
+            (52, 1, 82, 1, 86, 1),
+            (52, 2, 84, 1, 87, 1),
+        )
+        for switch_node, switch_ep, takka_node, takka_ep, local_node, local_ep in groups:
+            members = (
+                (switch_node, switch_ep),
+                (takka_node, takka_ep),
+                (local_node, local_ep),
+            )
+            matched = False
+            for member_node, member_ep in members:
+                if node_id != member_node:
+                    continue
+                if member_ep is not None and endpoint is not None and endpoint != member_ep:
+                    continue
+                matched = True
+                break
+            if not matched:
+                continue
+            partners: list[str] = []
+            for member_node, member_ep in members:
+                resolved = self._resolve_zwave_id(member_node, member_ep)
+                if resolved == device_id:
+                    continue
+                try:
+                    p_node, p_ep = parse_zwave_device_id(resolved)
+                except ValueError:
+                    partners.append(resolved)
+                    continue
+                if p_node == node_id and (p_ep or endpoint) == (endpoint or p_ep):
+                    continue
+                partners.append(resolved)
+            return partners
+        return []
+
+    def apply_ui_mirror(self, device_id: str, on: bool) -> None:
+        """Peilaa UI-komennon sauna/suihku-ryhmän muihin laitteisiin."""
+        if self._is_mirror_echo(device_id):
+            return
+        for partner in self._ui_mirror_partners(device_id):
+            if self._is_mirror_echo(partner):
+                continue
+            if self._is_mirror_pair_blocked(device_id, partner):
+                continue
+            st = self._get_light_state(partner)
+            if bool(st.get("on")) == on:
+                continue
+            for target in self._expand_targets(partner):
+                if self._command_on_cooldown(target, "mirror", on=on):
+                    continue
+                ok = self._apply(
+                    target,
+                    on,
+                    int(st.get("brightness") or 200) if on else 0,
+                )
+                if ok:
+                    self._mark_mirror_echo(device_id, target)
+                    self._block_mirror_pair(device_id, target)
+                    self._log_event(
+                        "ok",
+                        device_id=device_id,
+                        target_id=target,
+                        action_type="mirror",
+                        message=f"UI-peilaus → {'ON' if on else 'OFF'}",
+                    )
+
 
 _engine: AutomationEngine | None = None
 

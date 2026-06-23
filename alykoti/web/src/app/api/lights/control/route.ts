@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { uiMirrorPartnerIds } from "@/lib/automation-presets";
 import { parseHubHomeDevices } from "@/lib/hub-lights";
 import { fetchPrimaryHub } from "@/lib/hubs";
 import { createClient } from "@/lib/supabase/server";
@@ -48,6 +49,64 @@ function resolveZwaveTopics(
   return { mqtt_set_topic, lock_set_topic };
 }
 
+function findHubDevice(
+  devices: ReturnType<typeof parseHubHomeDevices>,
+  id: string,
+) {
+  return (
+    devices.find((d) => d.id === id) ??
+    devices.find((d) => {
+      const a = parseZwaveDeviceId(d.id);
+      const b = parseZwaveDeviceId(id);
+      if (!a || !b) return false;
+      return a.nodeId === b.nodeId && (a.endpoint ?? 1) === (b.endpoint ?? 1);
+    })
+  );
+}
+
+function buildSetDevicePayload(
+  id: string,
+  on: boolean,
+  hubState: HubState,
+  devices: ReturnType<typeof parseHubHomeDevices>,
+  brightness?: number,
+  color?: { hue?: number; saturation?: number; color_temp?: number },
+): { payload: Record<string, unknown>; error?: string } {
+  const device = findHubDevice(devices, id);
+  const payload: Record<string, unknown> = { id: device?.id ?? id, on, brightness: brightness ?? null };
+  if (color) payload.color = color;
+  const resolvedId = String(payload.id);
+  const zwaveTopics = resolvedId.startsWith("zwave:")
+    ? resolveZwaveTopics(resolvedId, hubState, device?.mqttSetTopic, device?.lockSetTopic)
+    : {};
+  if (zwaveTopics.mqtt_set_topic) payload.mqtt_set_topic = zwaveTopics.mqtt_set_topic;
+  else if (device?.mqttSetTopic) payload.mqtt_set_topic = device.mqttSetTopic;
+  if (zwaveTopics.lock_set_topic) payload.lock_set_topic = zwaveTopics.lock_set_topic;
+  else if (device?.lockSetTopic) payload.lock_set_topic = device.lockSetTopic;
+  if (
+    resolvedId.startsWith("zwave:") &&
+    typeof payload.mqtt_set_topic !== "string" &&
+    typeof payload.lock_set_topic !== "string"
+  ) {
+    return {
+      payload,
+      error: "Laitteen ohjauspolku puuttuu — odota synkkiä tai avaa laite uudelleen.",
+    };
+  }
+  if (device?.protocol === "shelly") {
+    const raw = hubState.home_devices?.[resolvedId];
+    if (raw?.host) payload.host = raw.host;
+    if (typeof raw?.channel === "number") payload.channel = raw.channel;
+    if (typeof raw?.gen === "number") payload.gen = raw.gen;
+  }
+  if (device?.protocol === "tasmota") {
+    const raw = hubState.home_devices?.[resolvedId];
+    if (raw?.host) payload.host = raw.host;
+    if (typeof raw?.channel === "number") payload.channel = raw.channel;
+  }
+  return { payload };
+}
+
 export async function POST(request: Request) {
   let body: {
     id?: string;
@@ -78,57 +137,49 @@ export async function POST(request: Request) {
   if (hub) {
     const hubState = (hub.state as HubState) ?? {};
     const devices = parseHubHomeDevices(hubState.home_devices, hubState.lights, hubState.device_overrides);
-    const device = devices.find((d) => d.id === id);
-    const payload: Record<string, unknown> = { id, on, brightness: brightness ?? null };
-    if (color) payload.color = color;
-    const zwaveTopics = id.startsWith("zwave:")
-      ? resolveZwaveTopics(id, hubState, device?.mqttSetTopic, device?.lockSetTopic)
-      : {};
-    if (zwaveTopics.mqtt_set_topic) payload.mqtt_set_topic = zwaveTopics.mqtt_set_topic;
-    else if (device?.mqttSetTopic) payload.mqtt_set_topic = device.mqttSetTopic;
-    if (zwaveTopics.lock_set_topic) payload.lock_set_topic = zwaveTopics.lock_set_topic;
-    else if (device?.lockSetTopic) payload.lock_set_topic = device.lockSetTopic;
-    if (
-      id.startsWith("zwave:") &&
-      typeof payload.mqtt_set_topic !== "string" &&
-      typeof payload.lock_set_topic !== "string"
-    ) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error: "Laitteen ohjauspolku puuttuu — odota synkkiä tai avaa laite uudelleen.",
-        },
-        { status: 503 },
+    const primary = buildSetDevicePayload(id, on, hubState, devices, brightness, color);
+    if (primary.error) {
+      return NextResponse.json({ ok: false, error: primary.error }, { status: 503 });
+    }
+
+    const targetIds = [
+      ...new Set([String(primary.payload.id), ...uiMirrorPartnerIds(id, devices)]),
+    ];
+    const commandIds: string[] = [];
+
+    for (const targetId of targetIds) {
+      const built = buildSetDevicePayload(
+        targetId,
+        on,
+        hubState,
+        devices,
+        brightness,
+        targetId === id ? color : undefined,
       );
-    }
-    if (device?.protocol === "shelly") {
-      const raw = hub.state.home_devices?.[id];
-      if (raw?.host) payload.host = raw.host;
-      if (typeof raw?.channel === "number") payload.channel = raw.channel;
-      if (typeof raw?.gen === "number") payload.gen = raw.gen;
-    }
-    if (device?.protocol === "tasmota") {
-      const raw = hub.state.home_devices?.[id];
-      if (raw?.host) payload.host = raw.host;
-      if (typeof raw?.channel === "number") payload.channel = raw.channel;
-    }
-
-    const { data, error } = await supabase
-      .from("commands")
-      .insert({
-        hub_id: hub.id,
-        user_id: user.id,
-        command: "set_device",
-        payload,
-      })
-      .select("id")
-      .single();
-
-    if (error) {
-      return NextResponse.json({ ok: false, error: "Komennon lähetys epäonnistui." }, { status: 500 });
+      if (built.error) continue;
+      if (targetId !== id) built.payload._skip_ui_mirror = true;
+      const { data, error } = await supabase
+        .from("commands")
+        .insert({
+          hub_id: hub.id,
+          user_id: user.id,
+          command: "set_device",
+          payload: built.payload,
+        })
+        .select("id")
+        .single();
+      if (error) {
+        return NextResponse.json({ ok: false, error: "Komennon lähetys epäonnistui." }, { status: 500 });
+      }
+      commandIds.push(data.id);
     }
 
-    return NextResponse.json({ ok: true, queued: true, commandId: data.id });
+    return NextResponse.json({
+      ok: true,
+      queued: true,
+      commandId: commandIds[0],
+      mirrorCommandIds: commandIds.slice(1),
+    });
   }
 
   if (isZigbeeConfigured()) {

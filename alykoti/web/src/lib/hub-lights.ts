@@ -83,8 +83,9 @@ function mapDevice(
   d: HubHomeDevice,
   o: HubDeviceOverride | undefined,
   allOverrides?: HubState["device_overrides"],
+  includeHidden = false,
 ): HubLightDevice | null {
-  if (o?.hidden) return null;
+  if (o?.hidden && !includeHidden) return null;
 
   const capabilities = normalizeCapabilities(d.capabilities);
   const kind = d.kind ?? (capabilities.length ? inferKindFromCapabilities(capabilities) : "other");
@@ -208,11 +209,12 @@ export function parseHubHomeDevices(
   raw: HubState["home_devices"] | undefined,
   legacyLights?: HubState["lights"],
   overrides?: HubState["device_overrides"],
+  options?: { includeHidden?: boolean },
 ): HubLightDevice[] {
   if (raw && typeof raw === "object") {
     return Object.entries(raw)
       .map(([id, device]) =>
-        mapDevice(id, device as HubHomeDevice, overrides?.[id], overrides),
+        mapDevice(id, device as HubHomeDevice, overrides?.[id], overrides, options?.includeHidden),
       )
       .filter((d): d is HubLightDevice => d != null);
   }
@@ -239,6 +241,23 @@ export function parseHubHomeDevices(
     power_w: null,
     role: "light" as const,
   }));
+}
+
+/** Kaikki home_devices-rivit yhdelle Z-Wave-solmulle (myös piilotetut). */
+export function hubLightDevicesForZwaveNode(
+  hubState: HubState | undefined,
+  nodeId: number,
+): HubLightDevice[] {
+  const raw = hubState?.home_devices;
+  if (!raw || typeof raw !== "object") return [];
+  const overrides = hubState?.device_overrides;
+  const out: HubLightDevice[] = [];
+  for (const [id, device] of Object.entries(raw)) {
+    if (parseZwaveDeviceId(id)?.nodeId !== nodeId) continue;
+    const mapped = mapDevice(id, device as HubHomeDevice, overrides?.[id], overrides, true);
+    if (mapped) out.push(mapped);
+  }
+  return out;
 }
 
 export function parseHubLights(
