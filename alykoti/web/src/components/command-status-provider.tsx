@@ -51,7 +51,10 @@ export function CommandStatusProvider({ children }: { children: ReactNode }) {
 export function useHubCommandStatus(): CommandStatusContextValue {
   const ctx = useContext(CommandStatusContext);
   if (!ctx) {
-    throw new Error("useHubCommandStatus requires CommandStatusProvider");
+    return {
+      trackCommandIds: () => {},
+      activeCount: 0,
+    };
   }
   return ctx;
 }

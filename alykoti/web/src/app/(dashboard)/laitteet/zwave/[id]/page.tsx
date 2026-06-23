@@ -1,4 +1,8 @@
+import { notFound } from "next/navigation";
 import { ZwaveDeviceDetailPanel } from "@/components/zwave-device-detail-panel";
+import { fetchPrimaryHub } from "@/lib/hubs";
+import { loadZwaveDeviceDetail } from "@/lib/zwave-device-detail-load";
+import { createClient } from "@/lib/supabase/server";
 
 type Props = {
   params: Promise<{ id: string }>;
@@ -6,5 +10,15 @@ type Props = {
 
 export default async function ZwaveDevicePage({ params }: Props) {
   const { id } = await params;
-  return <ZwaveDeviceDetailPanel deviceIdParam={id} />;
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) notFound();
+
+  const hub = await fetchPrimaryHub(supabase, user.id);
+  const initial = hub ? loadZwaveDeviceDetail(hub, id) : null;
+  if (!initial) notFound();
+
+  return <ZwaveDeviceDetailPanel deviceIdParam={id} initial={initial} />;
 }

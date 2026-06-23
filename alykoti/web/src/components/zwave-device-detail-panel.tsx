@@ -18,27 +18,34 @@ import { configParamOptions, endpointShowsBinaryState, formatEndpointBinaryState
 import { hubDeviceToZwaveEndpoint } from "@/lib/zwave-device-resolve";
 import { ItemRenameField } from "@/components/item-rename-field";
 import { useHubCommandStatus } from "@/components/command-status-provider";
+import type { ZwaveDeviceDetailPayload } from "@/lib/zwave-device-detail-load";
 
 type Props = {
   deviceIdParam: string;
+  initial?: ZwaveDeviceDetailPayload | null;
 };
 
-type DeviceResponse = {
-  device: HubLightDevice;
-  zwaveNode?: ZwaveNodeDetail | null;
-  zwaveSiblings?: HubLightDevice[];
-  recentEvents?: DeviceLiveEvent[];
-};
+type DeviceResponse = ZwaveDeviceDetailPayload;
 
-export function ZwaveDeviceDetailPanel({ deviceIdParam }: Props) {
-  const [device, setDevice] = useState<HubLightDevice | null>(null);
-  const [zwaveNode, setZwaveNode] = useState<ZwaveNodeDetail | null>(null);
-  const [siblings, setSiblings] = useState<HubLightDevice[]>([]);
-  const [events, setEvents] = useState<DeviceLiveEvent[]>([]);
+function configDraftsFromNode(zwaveNode: ZwaveNodeDetail | null | undefined): Record<number, string> {
+  const drafts: Record<number, string> = {};
+  for (const c of zwaveNode?.config ?? []) {
+    if (c.value != null) drafts[c.param] = String(c.value);
+  }
+  return drafts;
+}
+
+export function ZwaveDeviceDetailPanel({ deviceIdParam, initial }: Props) {
+  const [device, setDevice] = useState<HubLightDevice | null>(initial?.device ?? null);
+  const [zwaveNode, setZwaveNode] = useState<ZwaveNodeDetail | null>(initial?.zwaveNode ?? null);
+  const [siblings, setSiblings] = useState<HubLightDevice[]>(initial?.zwaveSiblings ?? []);
+  const [events, setEvents] = useState<DeviceLiveEvent[]>(initial?.recentEvents ?? []);
   const [error, setError] = useState<string | null>(null);
   const [flash, setFlash] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
-  const [configDrafts, setConfigDrafts] = useState<Record<number, string>>({});
+  const [configDrafts, setConfigDrafts] = useState<Record<number, string>>(() =>
+    configDraftsFromNode(initial?.zwaveNode),
+  );
   const { trackCommandIds } = useHubCommandStatus();
 
   const encodedParam = encodeURIComponent(deviceIdParam);
@@ -82,6 +89,9 @@ export function ZwaveDeviceDetailPanel({ deviceIdParam }: Props) {
 
   useEffect(() => {
     const source = new EventSource(`/api/devices/${encodedParam}/events?protocol=zwave`);
+    source.onerror = () => {
+      source.close();
+    };
     source.addEventListener("event", (msg) => {
       try {
         const evt = JSON.parse((msg as MessageEvent).data) as DeviceLiveEvent;

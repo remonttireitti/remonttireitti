@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
-import { hubDeviceEventsToLive } from "@/lib/device-events";
 import { inferDeviceApiProtocol } from "@/lib/device-protocol";
+import { jsonSafe } from "@/lib/json-safe";
+import { fetchPrimaryHub } from "@/lib/hubs";
+import { loadZwaveDeviceDetail } from "@/lib/zwave-device-detail-load";
+import { createClient } from "@/lib/supabase/server";
 import { normalizeHomeDevices } from "@/lib/device-normalize";
 import { parseHubHomeDevices, prepareDevicesForList } from "@/lib/hub-lights";
-import { fetchPrimaryHub } from "@/lib/hubs";
-import { createClient } from "@/lib/supabase/server";
 import { resolveZigbeeDeviceContext } from "@/lib/zigbee-device-resolve";
-import { resolveZwaveDeviceContext } from "@/lib/zwave-device-resolve";
+import { hubDeviceEventsToLive } from "@/lib/device-events";
 import type { HubState } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -34,6 +35,24 @@ export async function GET(
     return NextResponse.json({ error: "no_hub" }, { status: 404 });
   }
 
+  if (protocol === "zwave") {
+    try {
+      const detail = loadZwaveDeviceDetail(hub, param);
+      if (!detail) {
+        return NextResponse.json({ error: "device_not_found" }, { status: 404 });
+      }
+      return NextResponse.json(
+        jsonSafe({
+          configured: true,
+          ...detail,
+        }),
+      );
+    } catch (err) {
+      console.error("zwave device detail failed", param, err);
+      return NextResponse.json({ error: "device_detail_failed" }, { status: 500 });
+    }
+  }
+
   const hubState = hub.state as HubState | undefined;
   const homeDevices = normalizeHomeDevices(hubState?.home_devices, {
     integrations: hubState?.integrations,
@@ -48,39 +67,20 @@ export async function GET(
     hubState?.device_overrides,
   );
 
-  if (protocol === "zwave") {
-    try {
-      const ctx = resolveZwaveDeviceContext(param, devices, hubState);
-      if (!ctx) {
-        return NextResponse.json({ error: "device_not_found" }, { status: 404 });
-      }
-      return NextResponse.json({
-        configured: true,
-        device: ctx.device,
-        itemNames: hubState?.device_overrides?.[ctx.fullId]?.item_names ?? {},
-        zwaveNode: ctx.zwaveNode,
-        zwaveSiblings: ctx.zwaveSiblings,
-        hubOnline: hub.last_seen_at != null,
-        recentEvents: hubDeviceEventsToLive(hubState?.device_live_events, ctx.fullId),
-      });
-    } catch (err) {
-      console.error("zwave device detail failed", param, err);
-      return NextResponse.json({ error: "device_detail_failed" }, { status: 500 });
-    }
-  }
-
   const ctx = resolveZigbeeDeviceContext(param, devices, hubState);
   if (!ctx) {
     return NextResponse.json({ error: "device_not_found" }, { status: 404 });
   }
 
-  return NextResponse.json({
-    configured: true,
-    device: ctx.device,
-    itemNames: hubState?.device_overrides?.[ctx.fullId]?.item_names ?? {},
-    zwaveNode: null,
-    zwaveSiblings: [],
-    hubOnline: hub.last_seen_at != null,
-    recentEvents: hubDeviceEventsToLive(hubState?.device_live_events, ctx.fullId),
-  });
+  return NextResponse.json(
+    jsonSafe({
+      configured: true,
+      device: ctx.device,
+      itemNames: hubState?.device_overrides?.[ctx.fullId]?.item_names ?? {},
+      zwaveNode: null,
+      zwaveSiblings: [],
+      hubOnline: hub.last_seen_at != null,
+      recentEvents: hubDeviceEventsToLive(hubState?.device_live_events, ctx.fullId),
+    }),
+  );
 }
