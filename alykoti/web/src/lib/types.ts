@@ -253,6 +253,8 @@ export type HubDeviceOverride = {
   room?: string | null;
   floor_anchor?: string | null;
   hidden?: boolean;
+  /** Yksittäisten ohjausten, lukemien ja asetusten nimet (avain: ep:1, p:49:2:, cfg:40, reading:battery). */
+  item_names?: Record<string, string>;
 };
 
 /** hubs.config — ilmanvaihto + automaatiot + sähköhintajaksot */

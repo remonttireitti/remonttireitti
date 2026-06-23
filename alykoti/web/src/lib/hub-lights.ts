@@ -6,7 +6,9 @@ import {
   sensorReadingLabel,
 } from "@/lib/capabilities";
 import { inferProtocolFromId, parseZwaveDeviceId } from "@/lib/device-protocol";
+import { zwaveEndpointItemKey } from "@/lib/device-item-overrides";
 import { anchorForLight } from "@/lib/lights-config";
+import { zwaveNodeId } from "@/lib/zwave-detail";
 import type { DeviceCapability, HubDeviceOverride, HubHomeDevice, HubLightState, HubState } from "@/lib/types";
 
 export type HubLightDevice = {
@@ -52,10 +54,29 @@ export function kindLabel(kind: HubHomeDevice["kind"]): string {
   return KIND_LABEL[kind] ?? "Laite";
 }
 
+function resolveDeviceDisplayName(
+  id: string,
+  d: HubHomeDevice,
+  o: HubDeviceOverride | undefined,
+  allOverrides?: HubState["device_overrides"],
+): string {
+  if (o?.display_name?.trim()) return o.display_name.trim();
+
+  const zwave = parseZwaveDeviceId(id);
+  if (zwave?.endpoint != null && allOverrides) {
+    const parent = allOverrides[zwaveNodeId(zwave.nodeId)];
+    const epName = parent?.item_names?.[zwaveEndpointItemKey(zwave.endpoint)]?.trim();
+    if (epName) return epName;
+  }
+
+  return d.name?.trim() || id;
+}
+
 function mapDevice(
   id: string,
   d: HubHomeDevice,
   o: HubDeviceOverride | undefined,
+  allOverrides?: HubState["device_overrides"],
 ): HubLightDevice | null {
   if (o?.hidden) return null;
 
@@ -68,7 +89,7 @@ function mapDevice(
 
   return {
     id,
-    name: o?.display_name?.trim() || d.name?.trim() || id,
+    name: resolveDeviceDisplayName(id, d, o, allOverrides),
     on: d.on === true,
     brightness:
       typeof d.brightness === "number" && Number.isFinite(d.brightness) ? d.brightness : null,
@@ -83,7 +104,7 @@ function mapDevice(
     locked: d.locked ?? null,
     capabilities,
     capabilitiesLabel: formatCapabilitiesSummary(capabilities),
-    readingLabel: sensorReadingLabel(d),
+    readingLabel: sensorReadingLabel(d, o?.item_names, zwaveParsed?.nodeId, allOverrides),
     temperature_c:
       typeof d.temperature_c === "number" && Number.isFinite(d.temperature_c) ? d.temperature_c : null,
     humidity_pct:
@@ -120,7 +141,9 @@ export function parseHubHomeDevices(
 ): HubLightDevice[] {
   if (raw && typeof raw === "object") {
     return Object.entries(raw)
-      .map(([id, device]) => mapDevice(id, device as HubHomeDevice, overrides?.[id]))
+      .map(([id, device]) =>
+        mapDevice(id, device as HubHomeDevice, overrides?.[id], overrides),
+      )
       .filter((d): d is HubLightDevice => d != null);
   }
 

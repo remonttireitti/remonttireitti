@@ -10,11 +10,13 @@ import {
   labelTriggerAction,
 } from "@/lib/automation-trigger-catalog";
 import { triggerHintToAutomationFields, type DeviceLiveEvent } from "@/lib/device-events";
+import { READING_ITEM_KEYS } from "@/lib/device-item-overrides";
 import { protocolLabel } from "@/lib/device-protocol";
 import { kindLabel, type HubLightDevice } from "@/lib/hub-lights";
 import { LAITTEET } from "@/lib/laitteet-paths";
 import type { ZwaveConfigParam, ZwaveNodeDetail, ZwaveNodeEndpoint, ZwaveProperty } from "@/lib/types";
 import { configParamOptions, formatZwaveValue } from "@/lib/zwave-detail";
+import { ItemRenameField } from "@/components/item-rename-field";
 
 type Props = {
   protocol: "zigbee" | "zwave";
@@ -33,6 +35,7 @@ const HUE_PRESETS = [
 
 type DeviceResponse = {
   device: HubLightDevice;
+  itemNames?: Record<string, string>;
   zwaveNode?: ZwaveNodeDetail | null;
   zwaveSiblings?: HubLightDevice[];
   recentEvents?: DeviceLiveEvent[];
@@ -40,6 +43,7 @@ type DeviceResponse = {
 
 export function DeviceDetailPanel({ protocol, deviceIdParam }: Props) {
   const [device, setDevice] = useState<HubLightDevice | null>(null);
+  const [itemNames, setItemNames] = useState<Record<string, string>>({});
   const [zwaveNode, setZwaveNode] = useState<ZwaveNodeDetail | null>(null);
   const [zwaveSiblings, setZwaveSiblings] = useState<HubLightDevice[]>([]);
   const [events, setEvents] = useState<DeviceLiveEvent[]>([]);
@@ -63,6 +67,7 @@ export function DeviceDetailPanel({ protocol, deviceIdParam }: Props) {
       }
       const json = (await res.json()) as DeviceResponse;
       setDevice(json.device);
+      setItemNames(json.itemNames ?? {});
       setZwaveNode(json.zwaveNode ?? null);
       setZwaveSiblings(json.zwaveSiblings ?? []);
       if (json.recentEvents?.length) {
@@ -488,19 +493,73 @@ export function DeviceDetailPanel({ protocol, deviceIdParam }: Props) {
       {(device.readingLabel ||
         device.temperature_c != null ||
         device.humidity_pct != null ||
-        device.power_w != null) && (
+        device.power_w != null ||
+        (device as { battery_pct?: number }).battery_pct != null) && (
         <section className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
-          <h3 className="text-lg font-semibold text-stone-900">Tila</h3>
-          <p className="mt-2 text-sm text-stone-700">
-            {device.readingLabel ??
-              [
-                device.temperature_c != null ? `${device.temperature_c.toFixed(1)} °C` : null,
-                device.humidity_pct != null ? `${Math.round(device.humidity_pct)} %` : null,
-                device.power_w != null ? `${Math.round(device.power_w)} W` : null,
-              ]
-                .filter(Boolean)
-                .join(" · ")}
-          </p>
+          <h3 className="text-lg font-semibold text-stone-900">Tila ja mittaukset</h3>
+          <p className="mt-1 text-xs text-stone-500">Nimeä jokainen lukema — nimet näkyvät listanäkymässä.</p>
+          <ul className="mt-3 space-y-2 text-sm text-stone-700">
+            {device.temperature_c != null && (
+              <ReadingRow
+                deviceId={device.id}
+                itemKey={READING_ITEM_KEYS.temperature}
+                label={itemNames[READING_ITEM_KEYS.temperature] || "Lämpötila"}
+                value={`${device.temperature_c.toFixed(1)} °C`}
+                onRenamed={() => void loadDevice()}
+              />
+            )}
+            {device.humidity_pct != null && (
+              <ReadingRow
+                deviceId={device.id}
+                itemKey={READING_ITEM_KEYS.humidity}
+                label={itemNames[READING_ITEM_KEYS.humidity] || "Kosteus"}
+                value={`${Math.round(device.humidity_pct)} %`}
+                onRenamed={() => void loadDevice()}
+              />
+            )}
+            {typeof (device as { battery_pct?: number }).battery_pct === "number" && (
+              <ReadingRow
+                deviceId={device.id}
+                itemKey={READING_ITEM_KEYS.battery}
+                label={itemNames[READING_ITEM_KEYS.battery] || "Akku"}
+                value={`${Math.round((device as { battery_pct?: number }).battery_pct!)} %`}
+                onRenamed={() => void loadDevice()}
+              />
+            )}
+            {device.co2_ppm != null && (
+              <ReadingRow
+                deviceId={device.id}
+                itemKey={READING_ITEM_KEYS.co2}
+                label={itemNames[READING_ITEM_KEYS.co2] || "CO₂"}
+                value={`${Math.round(device.co2_ppm)} ppm`}
+                onRenamed={() => void loadDevice()}
+              />
+            )}
+            {device.illuminance_lux != null && (
+              <ReadingRow
+                deviceId={device.id}
+                itemKey={READING_ITEM_KEYS.illuminance}
+                label={itemNames[READING_ITEM_KEYS.illuminance] || "Valoisuus"}
+                value={`${Math.round(device.illuminance_lux)} lx`}
+                onRenamed={() => void loadDevice()}
+              />
+            )}
+            {device.power_w != null && (
+              <ReadingRow
+                deviceId={device.id}
+                itemKey={READING_ITEM_KEYS.power}
+                label={itemNames[READING_ITEM_KEYS.power] || "Teho"}
+                value={`${Math.round(device.power_w)} W`}
+                onRenamed={() => void loadDevice()}
+              />
+            )}
+            {device.readingLabel &&
+              device.temperature_c == null &&
+              device.humidity_pct == null &&
+              (device as { battery_pct?: number }).battery_pct == null && (
+                <li className="text-stone-700">{device.readingLabel}</li>
+              )}
+          </ul>
         </section>
       )}
     </div>
@@ -621,6 +680,32 @@ function ZwavePropertyRow({
           </button>
         )}
       </div>
+    </li>
+  );
+}
+
+function ReadingRow({
+  deviceId,
+  itemKey,
+  label,
+  value,
+  onRenamed,
+}: {
+  deviceId: string;
+  itemKey: string;
+  label: string;
+  value: string;
+  onRenamed: () => void;
+}) {
+  return (
+    <li className="flex justify-between gap-4">
+      <ItemRenameField
+        deviceId={deviceId}
+        itemKey={itemKey}
+        currentName={label}
+        onRenamed={onRenamed}
+      />
+      <span className="shrink-0 font-medium">{value}</span>
     </li>
   );
 }

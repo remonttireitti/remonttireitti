@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { hubDeviceEventsToLive } from "@/lib/device-events";
+import { mergeZwaveNodeOverrides } from "@/lib/device-item-overrides";
 import { inferProtocolFromId, parseZwaveDeviceId } from "@/lib/device-protocol";
 import { parseHubHomeDevices, type HubLightDevice } from "@/lib/hub-lights";
 import { fetchPrimaryHub } from "@/lib/hubs";
@@ -101,11 +102,15 @@ export async function GET(
   const hubState = hub.state as HubState | undefined;
   let device = devices.find((d) => d.id === fullId);
 
-  const zwaveNode =
+  const zwaveNodeRaw =
     protocol === "zwave"
       ? zwaveNodeForDevice(fullId, hubState?.zwave_nodes) ??
         zwaveNodeForParam(param, hubState?.zwave_nodes)
       : null;
+
+  const zwaveNode = zwaveNodeRaw
+    ? mergeZwaveNodeOverrides(zwaveNodeRaw, hubState?.device_overrides)
+    : null;
 
   const zwaveSiblings =
     protocol === "zwave" && zwaveNode
@@ -126,6 +131,7 @@ export async function GET(
   return NextResponse.json({
     configured: true,
     device,
+    itemNames: hubState?.device_overrides?.[device.id]?.item_names ?? {},
     zwaveNode,
     zwaveSiblings,
     hubOnline: hub.last_seen_at != null,

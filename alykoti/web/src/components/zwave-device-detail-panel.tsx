@@ -6,10 +6,16 @@ import { canWrite, hasCapability } from "@/lib/capabilities";
 import { pressTypesForTrigger } from "@/lib/automation-actions";
 import { listTriggerActionsForDevice } from "@/lib/automation-trigger-catalog";
 import { triggerHintToAutomationFields, type DeviceLiveEvent } from "@/lib/device-events";
+import {
+  zwaveConfigItemKey,
+  zwaveEndpointItemKey,
+  zwavePropertyItemKey,
+} from "@/lib/device-item-overrides";
 import { kindLabel, type HubLightDevice } from "@/lib/hub-lights";
 import { LAITTEET } from "@/lib/laitteet-paths";
 import type { ZwaveConfigParam, ZwaveNodeDetail, ZwaveNodeEndpoint, ZwaveProperty } from "@/lib/types";
-import { configParamOptions, endpointShowsBinaryState, formatEndpointBinaryState, formatZwaveValue } from "@/lib/zwave-detail";
+import { configParamOptions, endpointShowsBinaryState, formatEndpointBinaryState, formatZwaveValue, zwaveNodeId } from "@/lib/zwave-detail";
+import { ItemRenameField } from "@/components/item-rename-field";
 
 type Props = {
   deviceIdParam: string;
@@ -193,6 +199,7 @@ export function ZwaveDeviceDetailPanel({ deviceIdParam }: Props) {
   const nodeName = zwaveNode?.name ?? device.name;
   const nodeRoom = zwaveNode?.room ?? device.room;
   const nodeId = zwaveNode?.node_id ?? device.node_id;
+  const overrideDeviceId = nodeId != null ? zwaveNodeId(nodeId) : device.id;
 
   return (
     <div className="mt-6 space-y-6">
@@ -240,6 +247,7 @@ export function ZwaveDeviceDetailPanel({ deviceIdParam }: Props) {
       {endpoints.some((ep) => ep.controllable) && (
         <section className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
           <h3 className="text-lg font-semibold text-stone-900">Ohjaus</h3>
+          <p className="mt-1 text-xs text-stone-500">Nimeä jokainen kanava erikseen — nimet näkyvät listassa ja automaatioissa.</p>
           <div className="mt-4 space-y-4">
             {endpoints
               .filter((ep) => ep.controllable)
@@ -247,8 +255,10 @@ export function ZwaveDeviceDetailPanel({ deviceIdParam }: Props) {
                 <EndpointControl
                   key={ep.device_id}
                   endpoint={ep}
+                  overrideDeviceId={overrideDeviceId}
                   pending={pending}
                   onToggle={(on) => controlEndpoint(ep, on)}
+                  onRenamed={() => void loadDevice()}
                 />
               ))}
           </div>
@@ -263,11 +273,16 @@ export function ZwaveDeviceDetailPanel({ deviceIdParam }: Props) {
         <section className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
           <h3 className="text-lg font-semibold text-stone-900">Tila</h3>
           {nodeReadings.length > 0 && (
-            <ul className="mt-3 space-y-2 text-sm text-stone-700">
+            <ul className="mt-3 space-y-3 text-sm text-stone-700">
               {nodeReadings.map((p) => (
                 <li key={`${p.cc}-${p.endpoint}-${p.property ?? ""}`} className="flex justify-between gap-4">
-                  <span>{p.label}</span>
-                  <span className="font-medium">{formatZwaveValue(p.value)}</span>
+                  <ItemRenameField
+                    deviceId={overrideDeviceId}
+                    itemKey={zwavePropertyItemKey(p)}
+                    currentName={p.label}
+                    onRenamed={() => void loadDevice()}
+                  />
+                  <span className="shrink-0 font-medium">{formatZwaveValue(p.value)}</span>
                 </li>
               ))}
             </ul>
@@ -283,8 +298,13 @@ export function ZwaveDeviceDetailPanel({ deviceIdParam }: Props) {
             >
               {binaryEndpoints.map((ep) => (
                 <li key={ep.device_id} className="flex justify-between gap-4 text-stone-600">
-                  <span>{ep.label}</span>
-                  <span className={ep.on ? "font-medium text-amber-700" : ""}>
+                  <ItemRenameField
+                    deviceId={overrideDeviceId}
+                    itemKey={zwaveEndpointItemKey(ep.endpoint)}
+                    currentName={ep.label}
+                    onRenamed={() => void loadDevice()}
+                  />
+                  <span className={`shrink-0 ${ep.on ? "font-medium text-amber-700" : ""}`}>
                     {formatEndpointBinaryState(ep)}
                   </span>
                 </li>
@@ -309,7 +329,14 @@ export function ZwaveDeviceDetailPanel({ deviceIdParam }: Props) {
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <div>
                       <p className="font-medium text-stone-900">
-                        [{nodeId}-112-0-{param.param}] {param.label}
+                        [{nodeId}-112-0-{param.param}]{" "}
+                        <ItemRenameField
+                          deviceId={overrideDeviceId}
+                          itemKey={zwaveConfigItemKey(param.param)}
+                          currentName={param.label}
+                          className="inline-flex"
+                          onRenamed={() => void loadDevice()}
+                        />
                       </p>
                       <p className="mt-0.5 font-mono text-[10px] text-stone-400">{param.mqtt_topic}</p>
                     </div>
@@ -411,12 +438,16 @@ export function ZwaveDeviceDetailPanel({ deviceIdParam }: Props) {
 
 function EndpointControl({
   endpoint,
+  overrideDeviceId,
   pending,
   onToggle,
+  onRenamed,
 }: {
   endpoint: ZwaveNodeEndpoint;
+  overrideDeviceId: string;
   pending: boolean;
   onToggle: (on: boolean) => void;
+  onRenamed: () => void;
 }) {
   const canDim = canWrite(endpoint.capabilities ?? [], "dimmer");
 
@@ -424,7 +455,12 @@ function EndpointControl({
     <div className="rounded-xl border border-stone-100 bg-stone-50 p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <p className="font-medium text-stone-900">{endpoint.label}</p>
+          <ItemRenameField
+            deviceId={overrideDeviceId}
+            itemKey={zwaveEndpointItemKey(endpoint.endpoint)}
+            currentName={endpoint.label}
+            onRenamed={onRenamed}
+          />
           <p className="text-xs text-stone-500">
             Endpoint {endpoint.endpoint}
             {endpoint.control_cc ? ` · CC ${endpoint.control_cc}` : ""} · {endpoint.on ? "Päällä" : "Pois"}

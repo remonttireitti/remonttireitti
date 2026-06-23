@@ -194,7 +194,6 @@ export function LightingPanel() {
         busyId={busyId}
         onToggle={toggle}
         effectiveOn={effectiveOn}
-        effectiveOn={effectiveOn}
         onRefresh={() => void load()}
       />
 

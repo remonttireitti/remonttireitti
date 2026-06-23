@@ -62,6 +62,38 @@ export async function updateDeviceOverride(
   return { ok: "Tallennettu." };
 }
 
+export async function renameDeviceItem(
+  deviceId: string,
+  itemKey: string,
+  name: string,
+): Promise<DeviceActionState> {
+  const trimmed = name.trim();
+  const overrides = await requireHub();
+  if (overrides.error || !overrides.supabase || !overrides.hub) {
+    return { error: overrides.error ?? "Virhe." };
+  }
+
+  const state = (overrides.hub.state as HubState) ?? {};
+  const existing = { ...(state.device_overrides ?? {}) };
+  const current = { ...(existing[deviceId] ?? {}) };
+  const itemNames = { ...(current.item_names ?? {}) };
+
+  if (trimmed) itemNames[itemKey] = trimmed;
+  else delete itemNames[itemKey];
+
+  existing[deviceId] = { ...current, item_names: itemNames };
+
+  const { error } = await overrides.supabase
+    .from("hubs")
+    .update({ state: { ...state, device_overrides: existing } })
+    .eq("id", overrides.hub.id);
+
+  if (error) return { error: "Tallennus epäonnistui." };
+
+  revalidateLaitteet();
+  return { ok: trimmed ? "Nimi tallennettu." : "Nimi poistettu." };
+}
+
 export async function renameHubDevice(
   deviceId: string,
   newName: string,

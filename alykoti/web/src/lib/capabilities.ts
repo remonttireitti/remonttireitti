@@ -1,4 +1,6 @@
-import type { DeviceCapability, DeviceCapabilityId, HubHomeDevice } from "@/lib/types";
+import { resolveZwavePropertyLabel } from "@/lib/device-item-overrides";
+import { formatZwavePropertiesReading } from "@/lib/zwave-detail";
+import type { DeviceCapability, DeviceCapabilityId, HubHomeDevice, HubState, ZwaveProperty } from "@/lib/types";
 
 export const CAPABILITY_LABELS: Record<DeviceCapabilityId, string> = {
   switch: "Kytkin",
@@ -190,38 +192,57 @@ export function sensorStateLabel(state: string | null | undefined): string | nul
   return SENSOR_STATE_LABELS[state] ?? state;
 }
 
-export function sensorReadingLabel(device: HubHomeDevice): string | null {
+export function sensorReadingLabel(
+  device: HubHomeDevice,
+  itemNames?: Record<string, string>,
+  zwaveNodeIdNum?: number,
+  allOverrides?: HubState["device_overrides"],
+): string | null {
   const parts: string[] = [];
+  const named = (key: string, value: string) => {
+    const custom = itemNames?.[key]?.trim();
+    return custom ? `${custom}: ${value}` : value;
+  };
+
+  if (device.zwave_properties?.length && zwaveNodeIdNum != null && allOverrides) {
+    for (const p of device.zwave_properties) {
+      const label = resolveZwavePropertyLabel(zwaveNodeIdNum, p, allOverrides);
+      const val = formatZwaveValue(p.value);
+      if (val !== "—") parts.push(`${label}: ${val}`);
+    }
+    return parts.length > 0 ? parts.join(" · ") : null;
+  }
+
   if (device.temperature_c != null && Number.isFinite(device.temperature_c)) {
-    parts.push(`${device.temperature_c.toFixed(1)} °C`);
+    parts.push(named("reading:temperature", `${device.temperature_c.toFixed(1)} °C`));
   }
   if (device.humidity_pct != null && Number.isFinite(device.humidity_pct)) {
-    parts.push(`${Math.round(device.humidity_pct)} %`);
+    parts.push(named("reading:humidity", `${Math.round(device.humidity_pct)} %`));
   }
   const batteryPct = (device as { battery_pct?: number | null }).battery_pct;
   if (batteryPct != null && Number.isFinite(batteryPct)) {
-    parts.push(`Akku ${Math.round(batteryPct)} %`);
+    parts.push(named("reading:battery", `${Math.round(batteryPct)} %`));
   }
   if (device.co2_ppm != null && Number.isFinite(device.co2_ppm)) {
-    parts.push(`${Math.round(device.co2_ppm)} ppm CO₂`);
+    parts.push(named("reading:co2", `${Math.round(device.co2_ppm)} ppm CO₂`));
   }
   if (device.illuminance_lux != null && Number.isFinite(device.illuminance_lux)) {
-    parts.push(`${Math.round(device.illuminance_lux)} lx`);
+    parts.push(named("reading:illuminance", `${Math.round(device.illuminance_lux)} lx`));
   }
   if (device.power_w != null && Number.isFinite(device.power_w)) {
-    parts.push(`${Math.round(device.power_w)} W`);
+    parts.push(named("reading:power", `${Math.round(device.power_w)} W`));
   }
   const stateLabel = sensorStateLabel(device.sensor_state);
   if (stateLabel && device.on != null) {
-    parts.push(device.on ? stateLabel : `${stateLabel} OK`);
+    parts.push(named("reading:sensor_state", device.on ? stateLabel : `${stateLabel} OK`));
   } else if (stateLabel) {
-    parts.push(stateLabel);
+    parts.push(named("reading:sensor_state", stateLabel));
   }
   if (device.locked != null) {
-    parts.push(device.locked ? "Lukossa" : "Auki");
+    parts.push(named("reading:locked", device.locked ? "Lukossa" : "Auki"));
   }
   if (device.on != null && hasCapability(device.capabilities, "switch")) {
-    parts.push(device.on ? "Päällä" : "Pois");
+    parts.push(named("reading:switch", device.on ? "Päällä" : "Pois"));
   }
   if (device.on != null && hasCapability(device.capabilities, "contact") && !stateLabel) {
     parts.push(device.on ? "Avoin" : "Kiinni");
