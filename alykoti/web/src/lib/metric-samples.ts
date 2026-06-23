@@ -25,6 +25,8 @@ export const METRIC_META: Record<string, MetricMeta> = {
   lto_energy_efficiency_pct: { label: "LTO energiahöytys", unit: "%", kind: "numeric" },
   fan_supply_pct: { label: "Tulonopeus", unit: "%", kind: "numeric" },
   fan_exhaust_pct: { label: "Poistonopeus", unit: "%", kind: "numeric" },
+  fan_supply_target: { label: "Tulo pyydetty", unit: "%", kind: "numeric" },
+  fan_exhaust_target: { label: "Poisto pyydetty", unit: "%", kind: "numeric" },
   co2_ppm: { label: "CO₂", unit: "ppm", kind: "numeric" },
   humidity_pct: { label: "Kosteus", unit: "%", kind: "numeric" },
   pm25_ugm3: { label: "PM2.5", unit: "µg/m³", kind: "numeric" },
@@ -43,13 +45,22 @@ export type MetricPoint = {
   text: string | null;
 };
 
+export type MetricSeries = {
+  key: string;
+  label: string;
+  style: "primary" | "secondary";
+  points: MetricPoint[];
+};
+
 export type MetricHistory = {
   metric: string;
   label: string;
   unit?: string;
   kind: MetricKind;
   footnote?: string;
+  rangeHours: number;
   points: MetricPoint[];
+  series?: MetricSeries[];
 };
 
 type SampleRow = {
@@ -59,7 +70,53 @@ type SampleRow = {
   value_text: string | null;
 };
 
-const RETENTION_DAYS = 7;
+const RETENTION_DAYS = 31;
+
+/** Pyydetty nopeus näytetään toteutuneen rinnalla. */
+const METRIC_COMPANIONS: Record<string, string> = {
+  fan_supply_pct: "fan_supply_target",
+  fan_exhaust_pct: "fan_exhaust_target",
+};
+
+function downsamplePoints(points: MetricPoint[], maxPoints: number): MetricPoint[] {
+  if (points.length <= maxPoints) return points;
+  const bucketSize = Math.ceil(points.length / maxPoints);
+  const result: MetricPoint[] = [];
+  for (let i = 0; i < points.length; i += bucketSize) {
+    const slice = points.slice(i, i + bucketSize).filter((p) => p.v != null) as { t: string; v: number }[];
+    if (slice.length === 0) continue;
+    const avg = slice.reduce((s, p) => s + p.v, 0) / slice.length;
+    result.push({ t: slice[slice.length - 1]!.t, v: avg, text: null });
+  }
+  return result;
+}
+
+async function fetchMetricPoints(
+  hubId: string,
+  metric: string,
+  since: string,
+): Promise<MetricPoint[]> {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from("hub_metric_samples")
+    .select("value, value_text, recorded_at")
+    .eq("hub_id", hubId)
+    .eq("metric", metric)
+    .gte("recorded_at", since)
+    .order("recorded_at", { ascending: true })
+    .limit(4000);
+
+  if (error) {
+    console.warn("[metrics] Haku epäonnistui:", error.message);
+    return [];
+  }
+
+  return (data ?? []).map((row) => ({
+    t: String(row.recorded_at),
+    v: row.value != null ? Number(row.value) : null,
+    text: row.value_text != null ? String(row.value_text) : null,
+  }));
+}
 
 function num(v: number | null | undefined): number | null {
   if (v == null || !Number.isFinite(v)) return null;
@@ -82,6 +139,8 @@ export function buildMetricSamples(
     { hub_id: hubId, metric: "lto_energy_efficiency_pct", value: num(state.lto_energy_efficiency_pct), value_text: null },
     { hub_id: hubId, metric: "fan_supply_pct", value: num(state.fan_supply_pct), value_text: null },
     { hub_id: hubId, metric: "fan_exhaust_pct", value: num(state.fan_exhaust_pct), value_text: null },
+    { hub_id: hubId, metric: "fan_supply_target", value: num(state.fan_supply_target), value_text: null },
+    { hub_id: hubId, metric: "fan_exhaust_target", value: num(state.fan_exhaust_target), value_text: null },
     { hub_id: hubId, metric: "co2_ppm", value: num(state.co2_ppm), value_text: null },
     { hub_id: hubId, metric: "humidity_pct", value: num(state.humidity_pct), value_text: null },
     { hub_id: hubId, metric: "pm25_ugm3", value: num(state.pm25_ugm3), value_text: null },
@@ -168,26 +227,40 @@ export async function fetchMetricHistory(
   if (!meta) return null;
 
   const since = new Date(Date.now() - hours * 3_600_000).toISOString();
-  const supabase = createAdminClient();
-  const { data, error } = await supabase
-    .from("hub_metric_samples")
-    .select("value, value_text, recorded_at")
-    .eq("hub_id", hubId)
-    .eq("metric", metric)
-    .gte("recorded_at", since)
-    .order("recorded_at", { ascending: true })
-    .limit(2000);
+  const maxPoints = hours <= 25 ? 1500 : hours <= 170 ? 400 : 300;
 
-  if (error) {
-    console.warn("[metrics] Haku epäonnistui:", error.message);
-    return { metric, ...meta, points: [] };
+  const primaryRaw = await fetchMetricPoints(hubId, metric, since);
+  const primaryPoints = downsamplePoints(
+    primaryRaw.filter((p) => p.v != null),
+    maxPoints,
+  );
+
+  const companionKey = METRIC_COMPANIONS[metric];
+  let series: MetricSeries[] | undefined;
+
+  if (companionKey && METRIC_META[companionKey]) {
+    const companionMeta = METRIC_META[companionKey]!;
+    const companionRaw = await fetchMetricPoints(hubId, companionKey, since);
+    const companionPoints = downsamplePoints(
+      companionRaw.filter((p) => p.v != null),
+      maxPoints,
+    );
+    series = [
+      { key: metric, label: "Toteutunut", style: "primary", points: primaryPoints },
+      {
+        key: companionKey,
+        label: "Pyydetty",
+        style: "secondary",
+        points: companionPoints,
+      },
+    ];
   }
 
-  const points: MetricPoint[] = (data ?? []).map((row) => ({
-    t: String(row.recorded_at),
-    v: row.value != null ? Number(row.value) : null,
-    text: row.value_text != null ? String(row.value_text) : null,
-  }));
-
-  return { metric, ...meta, points };
+  return {
+    metric,
+    ...meta,
+    rangeHours: hours,
+    points: primaryPoints,
+    series,
+  };
 }

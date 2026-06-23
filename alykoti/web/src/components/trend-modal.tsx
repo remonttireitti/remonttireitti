@@ -1,29 +1,75 @@
 "use client";
 
-import type { MetricHistory } from "@/lib/metric-samples";
+import { useCallback, useEffect, useState } from "react";
+import { TrendChart } from "@/components/trend-chart";
+import type { MetricHistory, MetricPoint } from "@/lib/metric-samples";
+
+const RANGES = [
+  { id: "day", label: "Päivä", hours: 24 },
+  { id: "week", label: "Viikko", hours: 168 },
+  { id: "month", label: "Kuukausi", hours: 720 },
+] as const;
+
+type RangeId = (typeof RANGES)[number]["id"];
 
 type Props = {
-  history: MetricHistory | null;
-  loading: boolean;
+  metric: string;
   onClose: () => void;
 };
 
-export function TrendModal({ history, loading, onClose }: Props) {
-  if (!history && !loading) return null;
+export function TrendModal({ metric, onClose }: Props) {
+  const [range, setRange] = useState<RangeId>("day");
+  const [history, setHistory] = useState<MetricHistory | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const hours = RANGES.find((r) => r.id === range)?.hours ?? 24;
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(
+        `/api/device/history?metric=${encodeURIComponent(metric)}&hours=${hours}`,
+        { cache: "no-store" },
+      );
+      if (res.ok) {
+        setHistory(await res.json());
+      } else {
+        setHistory(null);
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [metric, hours]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
 
   const title = history?.label ?? "Trendi";
-  const numericPoints =
-    history?.kind === "numeric"
-      ? (history.points.filter((p) => p.v != null) as { t: string; v: number }[])
-      : [];
+  const rangeLabel = RANGES.find((r) => r.id === range)?.label ?? "";
+
+  const series =
+    history?.series ??
+    (history
+      ? [
+          {
+            key: history.metric,
+            label: "Arvo",
+            style: "primary" as const,
+            points: history.points,
+          },
+        ]
+      : []);
+
+  const primaryPoints = series.find((s) => s.style === "primary")?.points ?? [];
+  const numericPoints = primaryPoints.filter((p): p is MetricPoint & { v: number } => p.v != null);
 
   const stats =
     numericPoints.length > 0
       ? {
           min: Math.min(...numericPoints.map((p) => p.v)),
           max: Math.max(...numericPoints.map((p) => p.v)),
-          avg:
-            numericPoints.reduce((s, p) => s + p.v, 0) / numericPoints.length,
+          avg: numericPoints.reduce((s, p) => s + p.v, 0) / numericPoints.length,
           latest: numericPoints[numericPoints.length - 1]?.v,
         }
       : null;
@@ -35,17 +81,17 @@ export function TrendModal({ history, loading, onClose }: Props) {
       role="presentation"
     >
       <div
-        className="w-full max-w-md rounded-2xl border border-stone-200 bg-white p-5 shadow-xl"
+        className="w-full max-w-2xl rounded-2xl border border-stone-200 bg-white p-5 shadow-xl"
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-labelledby="trend-title"
       >
-        <div className="flex items-start justify-between gap-3">
+        <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h2 id="trend-title" className="text-lg font-bold text-stone-900">
               {title}
             </h2>
-            <p className="text-xs text-stone-500">Viimeiset 24 h</p>
+            <p className="text-xs text-stone-500">{rangeLabel}</p>
           </div>
           <button
             type="button"
@@ -56,13 +102,32 @@ export function TrendModal({ history, loading, onClose }: Props) {
           </button>
         </div>
 
+        <div className="mt-3 flex gap-1 rounded-xl bg-stone-100 p-1" role="tablist">
+          {RANGES.map((r) => (
+            <button
+              key={r.id}
+              type="button"
+              role="tab"
+              aria-selected={range === r.id}
+              onClick={() => setRange(r.id)}
+              className={`flex-1 rounded-lg px-3 py-1.5 text-sm font-medium transition ${
+                range === r.id
+                  ? "bg-white text-stone-900 shadow-sm"
+                  : "text-stone-600 hover:text-stone-900"
+              }`}
+            >
+              {r.label}
+            </button>
+          ))}
+        </div>
+
         {loading && (
           <p className="mt-6 text-sm text-stone-500">Ladataan historiaa…</p>
         )}
 
         {!loading && history && history.points.length === 0 && (
           <p className="mt-6 text-sm text-stone-500">
-            Ei vielä historiaa. Data kertyy synkin ja pingin myötä.
+            Ei vielä historiaa tälle aikavälille. Data kertyy synkin myötä.
           </p>
         )}
 
@@ -82,17 +147,18 @@ export function TrendModal({ history, loading, onClose }: Props) {
               </dl>
             )}
             <div className="mt-4">
-              <TrendSparkline
-                points={numericPoints}
-                unit={history.unit}
-                color={sparkColor(history.metric)}
-              />
+              <TrendChart metric={history.metric} unit={history.unit} series={series} />
             </div>
+            {metric.includes("fan") && (
+              <p className="mt-2 text-center text-[10px] text-stone-400">
+                Väri: hidas vihreä → keltainen → oranssi → nopea punainen
+              </p>
+            )}
           </>
         )}
 
         {!loading && history && history.points.length > 0 && history.kind === "categorical" && (
-          <ul className="mt-4 max-h-64 space-y-2 overflow-y-auto text-sm">
+          <ul className="mt-4 max-h-72 space-y-2 overflow-y-auto text-sm">
             {[...history.points].reverse().map((p, i) => (
               <li
                 key={`${p.t}-${i}`}
@@ -111,61 +177,6 @@ export function TrendModal({ history, loading, onClose }: Props) {
   );
 }
 
-function TrendSparkline({
-  points,
-  unit,
-  color,
-}: {
-  points: { t: string; v: number }[];
-  unit?: string;
-  color: string;
-}) {
-  const w = 320;
-  const h = 120;
-  const pad = 8;
-  const vals = points.map((p) => p.v);
-  const min = Math.min(...vals);
-  const max = Math.max(...vals);
-  const range = max - min || 1;
-
-  const coords = points.map((p, i) => {
-    const x = pad + (i / Math.max(points.length - 1, 1)) * (w - pad * 2);
-    const y = pad + (1 - (p.v - min) / range) * (h - pad * 2);
-    return `${x},${y}`;
-  });
-
-  const first = points[0];
-  const last = points[points.length - 1];
-
-  return (
-    <div>
-      <svg viewBox={`0 0 ${w} ${h}`} className="w-full" aria-hidden>
-        <polyline
-          fill="none"
-          stroke={color}
-          strokeWidth="2"
-          strokeLinejoin="round"
-          strokeLinecap="round"
-          points={coords.join(" ")}
-        />
-        {coords.length > 0 && (() => {
-          const last = coords[coords.length - 1].split(",");
-          return (
-            <circle cx={last[0]} cy={last[1]} r="3" fill={color} />
-          );
-        })()}
-      </svg>
-      <div className="mt-1 flex justify-between text-[10px] text-stone-500">
-        <span>{formatTime(first.t)}</span>
-        <span>
-          {formatVal(last.v, unit)}
-        </span>
-        <span>{formatTime(last.t)}</span>
-      </div>
-    </div>
-  );
-}
-
 function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div>
@@ -175,7 +186,8 @@ function Stat({ label, value }: { label: string; value: string }) {
   );
 }
 
-function formatVal(v: number, unit?: string): string {
+function formatVal(v: number | undefined, unit?: string): string {
+  if (v == null) return "—";
   const n = Number.isInteger(v) ? String(v) : v.toFixed(1);
   return unit ? `${n} ${unit}` : n;
 }
@@ -187,12 +199,4 @@ function formatTime(iso: string): string {
     hour: "2-digit",
     minute: "2-digit",
   });
-}
-
-function sparkColor(metric: string): string {
-  if (metric.includes("temp")) return "#0284c7";
-  if (metric.includes("fan") || metric.includes("lto")) return "#059669";
-  if (metric === "co2_ppm") return "#d97706";
-  if (metric.includes("online")) return "#64748b";
-  return "#57534e";
 }

@@ -17,7 +17,7 @@ export async function GET(request: Request) {
 
   const url = new URL(request.url);
   const metric = url.searchParams.get("metric");
-  const hours = Math.min(168, Math.max(1, Number(url.searchParams.get("hours") ?? "24")));
+  const hours = Math.min(720, Math.max(1, Number(url.searchParams.get("hours") ?? "24")));
 
   if (!metric) {
     return NextResponse.json({ error: "metric_required" }, { status: 400 });
