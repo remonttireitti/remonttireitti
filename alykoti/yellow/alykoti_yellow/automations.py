@@ -437,7 +437,18 @@ class AutomationEngine:
                 self._handle_action(device_key, action, button_str)
                 return
 
-            sensor_keys = ("temperature", "local_temperature", "humidity", "battery")
+            sensor_keys = (
+                "temperature",
+                "local_temperature",
+                "humidity",
+                "battery",
+                "contact",
+                "contact_state",
+                "water_leak",
+                "smoke",
+                "occupancy",
+                "presence",
+            )
             if any(key in payload for key in sensor_keys):
                 self._record_device_event(device_key, payload)
                 with self._lock:
@@ -454,6 +465,22 @@ class AutomationEngine:
                         batt = payload.get("battery")
                         if isinstance(batt, (int, float)):
                             meta["battery_pct"] = float(batt)
+                        contact = payload.get("contact")
+                        if contact is None:
+                            contact = payload.get("contact_state")
+                        if isinstance(contact, bool):
+                            meta["on"] = contact
+                            meta["sensor_state"] = "contact"
+                        for key, state in (
+                            ("water_leak", "water_leak"),
+                            ("smoke", "smoke"),
+                            ("occupancy", "motion"),
+                            ("presence", "motion"),
+                        ):
+                            if key in payload and isinstance(payload[key], bool):
+                                meta["on"] = payload[key]
+                                meta["sensor_state"] = state
+                                break
                 return
 
             if "state" in payload or "brightness" in payload:

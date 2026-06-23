@@ -387,7 +387,7 @@ def fetch_zigbee_home(
     sensor_names = {
         key[len("zigbee:") :]
         for key, meta in out.items()
-        if key.startswith("zigbee:") and meta.get("kind") == "sensor"
+        if key.startswith("zigbee:") and _device_needs_telemetry(meta)
     }
     if sensor_names:
         try:
@@ -402,6 +402,24 @@ def fetch_zigbee_home(
     return out
 
 
+def _device_needs_telemetry(meta: dict[str, Any]) -> bool:
+    caps = meta.get("capabilities") or []
+    if not isinstance(caps, list):
+        return False
+    ids = {c.get("id") for c in caps if isinstance(c, dict)}
+    return bool(
+        ids
+        & {
+            "temperature",
+            "humidity",
+            "battery",
+            "contact",
+            "motion",
+            "occupancy",
+        }
+    )
+
+
 def _apply_sensor_payload(device: dict[str, Any], state: dict[str, Any]) -> None:
     temp = state.get("temperature")
     if temp is None:
@@ -414,6 +432,27 @@ def _apply_sensor_payload(device: dict[str, Any], state: dict[str, Any]) -> None
     batt = state.get("battery")
     if isinstance(batt, (int, float)):
         device["battery_pct"] = float(batt)
+
+    for key in ("water_leak", "smoke", "gas", "occupancy", "presence"):
+        if key not in state:
+            continue
+        val = state[key]
+        if isinstance(val, bool):
+            device["on"] = val
+            if key == "water_leak":
+                device["sensor_state"] = "water_leak"
+            elif key == "smoke":
+                device["sensor_state"] = "smoke"
+            elif key in ("occupancy", "presence"):
+                device["sensor_state"] = "motion"
+            break
+
+    contact = state.get("contact")
+    if contact is None:
+        contact = state.get("contact_state")
+    if isinstance(contact, bool):
+        device["on"] = contact
+        device["sensor_state"] = "contact"
 
 
 def _fetch_sensor_states(
@@ -445,7 +484,19 @@ def _fetch_sensor_states(
         if not isinstance(state, dict):
             return
         bucket = readings.setdefault(name, {})
-        for key in ("temperature", "local_temperature", "humidity", "battery"):
+        for key in (
+            "temperature",
+            "local_temperature",
+            "humidity",
+            "battery",
+            "contact",
+            "contact_state",
+            "water_leak",
+            "smoke",
+            "occupancy",
+            "presence",
+            "gas",
+        ):
             if key in state:
                 bucket[key] = state[key]
 

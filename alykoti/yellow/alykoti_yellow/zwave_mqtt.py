@@ -45,6 +45,7 @@ CC_DEFAULT: dict[int, list[tuple[str, bool, bool]]] = {
     62: [("fan", True, True)],
     64: [("temperature", True, False)],
     113: [("motion", True, False)],
+    128: [("battery", True, False)],
 }
 
 
@@ -384,6 +385,8 @@ def _apply_cc_value(
                 dev["co2_ppm"] = float(value)
             elif "luminance" in p or "illuminance" in p:
                 dev["illuminance_lux"] = float(value)
+            elif "voltage" in p:
+                dev["voltage_v"] = float(value)
             elif "temperature" in p or "air" in p or not p:
                 dev["temperature_c"] = float(value)
     elif cc == 50:
@@ -401,6 +404,9 @@ def _apply_cc_value(
         on = _zwave_value_to_on(value)
         if on is not None:
             dev["on"] = on
+    elif cc == 128:
+        if isinstance(value, (int, float)):
+            dev["battery_pct"] = float(value)
 
 
 def _zwave_value_to_on(value: Any) -> bool | None:
@@ -414,6 +420,10 @@ def _zwave_value_to_on(value: Any) -> bool | None:
             return True
         if v in ("false", "off", "closed", "idle", "inactive", "no_motion"):
             return False
+        if any(x in v for x in ("alarm", "smoke", "fire", "leak", "water", "intrusion")):
+            if "idle" in v or "clear" in v or "no " in v:
+                return False
+            return True
     return None
 
 
