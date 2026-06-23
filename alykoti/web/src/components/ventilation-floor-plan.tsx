@@ -107,9 +107,9 @@ export function VentilationFloorPlan({ hub, settingsHref }: Props) {
       <FloorPlanView
         title="Ilmanvaihto"
         markers={markers}
-        onMarkerClick={(id) => {
-          if (id === VENTILATION_ROOM_IDS.co2) showTrend("co2_ppm");
-          if (id === VENTILATION_ROOM_IDS.fans) showTrend("fan_supply_pct");
+        onMarkerClick={(marker) => {
+          if (marker.id === VENTILATION_ROOM_IDS.co2) showTrend("co2_ppm");
+          if (marker.id === VENTILATION_ROOM_IDS.fans) showTrend("fan_supply_pct");
         }}
         headerRight={
           <Link

@@ -43,6 +43,8 @@ export type FloorPlanMarker = FloorPlanAnchor & {
   active?: boolean;
   sub?: string | null;
   deviceId?: string;
+  pinMode?: "bulb" | "label";
+  controllable?: boolean;
 };
 
 export function anchorToStyle(anchor: Pick<FloorPlanAnchor, "left" | "top">): {
@@ -60,9 +62,11 @@ export function buildDeviceMarkers(
   options?: {
     effectiveOn?: (id: string) => boolean;
     kind?: FloorPlanOverlayKind;
+    pinMode?: "bulb" | "label";
   },
 ): FloorPlanMarker[] {
   const kind = options?.kind ?? "light";
+  const pinMode = options?.pinMode ?? "label";
   const withRoom = devices.filter((d) => d.roomAnchorId && roomById(d.roomAnchorId));
   const byRoom = new Map<string, DeviceMapInput[]>();
 
@@ -89,9 +93,15 @@ export function buildDeviceMarkers(
         left: room.left + offset.left,
         top: room.top + offset.top,
         kind,
-        value: deviceMapValue({ ...device, on }),
-        sub: deviceMapSub({ ...device, on }),
+        pinMode,
+        controllable: device.controllable,
         active: on,
+        ...(pinMode === "bulb"
+          ? { value: null, sub: null }
+          : {
+              value: deviceMapValue({ ...device, on }),
+              sub: deviceMapSub({ ...device, on }),
+            }),
       });
     });
   }

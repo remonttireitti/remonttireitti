@@ -1,12 +1,14 @@
 "use client";
 
 import Image from "next/image";
-import type { ReactNode } from "react";
+import { useCallback, useRef, type ReactNode } from "react";
 import {
   anchorToStyle,
   FLOOR_PLAN_IMAGE,
   type FloorPlanMarker,
 } from "@/lib/floor-plan";
+
+const LONG_PRESS_MS = 500;
 
 type Props = {
   title?: string;
@@ -15,7 +17,8 @@ type Props = {
   footer?: ReactNode;
   className?: string;
   hideHeader?: boolean;
-  onMarkerClick?: (id: string) => void;
+  onMarkerClick?: (marker: FloorPlanMarker) => void;
+  onMarkerLongPress?: (marker: FloorPlanMarker) => void;
 };
 
 export function FloorPlanView({
@@ -26,7 +29,12 @@ export function FloorPlanView({
   className = "",
   hideHeader = false,
   onMarkerClick,
+  onMarkerLongPress,
 }: Props) {
+  const visible = markers.filter(
+    (m) => m.pinMode === "bulb" || m.value != null || m.sub != null,
+  );
+
   return (
     <section
       className={`overflow-hidden rounded-2xl border border-stone-200 bg-stone-100 shadow-sm ${className}`}
@@ -48,15 +56,22 @@ export function FloorPlanView({
           sizes="(max-width: 768px) 100vw, 1024px"
         />
 
-        {markers
-          .filter((marker) => marker.value != null || marker.sub != null)
-          .map((marker) => (
-          <FloorPlanMarkerPin
-            key={marker.id}
-            marker={marker}
-            onClick={onMarkerClick ? () => onMarkerClick(marker.id) : undefined}
-          />
-        ))}
+        {visible.map((marker) =>
+          marker.pinMode === "bulb" ? (
+            <BulbPin
+              key={marker.id}
+              marker={marker}
+              onClick={onMarkerClick ? () => onMarkerClick(marker) : undefined}
+              onLongPress={onMarkerLongPress ? () => onMarkerLongPress(marker) : undefined}
+            />
+          ) : (
+            <LabelPin
+              key={marker.id}
+              marker={marker}
+              onClick={onMarkerClick ? () => onMarkerClick(marker) : undefined}
+            />
+          ),
+        )}
       </div>
 
       {footer}
@@ -64,7 +79,94 @@ export function FloorPlanView({
   );
 }
 
-function FloorPlanMarkerPin({
+function useTapOrLongPress(onClick?: () => void, onLongPress?: () => void) {
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressedRef = useRef(false);
+
+  const clear = useCallback(() => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+  }, []);
+
+  return {
+    onPointerDown: (e: React.PointerEvent) => {
+      if (!onClick && !onLongPress) return;
+      longPressedRef.current = false;
+      e.currentTarget.setPointerCapture(e.pointerId);
+      clear();
+      timerRef.current = setTimeout(() => {
+        longPressedRef.current = true;
+        onLongPress?.();
+      }, LONG_PRESS_MS);
+    },
+    onPointerUp: () => {
+      clear();
+      if (!longPressedRef.current) onClick?.();
+    },
+    onPointerCancel: clear,
+    onContextMenu: (e: React.MouseEvent) => e.preventDefault(),
+  };
+}
+
+function BulbPin({
+  marker,
+  onClick,
+  onLongPress,
+}: {
+  marker: FloorPlanMarker;
+  onClick?: () => void;
+  onLongPress?: () => void;
+}) {
+  const pos = anchorToStyle(marker);
+  const active = marker.active === true;
+  const handlers = useTapOrLongPress(onClick, onLongPress);
+  const interactive = onClick || onLongPress;
+
+  return (
+    <button
+      type="button"
+      title={marker.label}
+      aria-label={`${marker.label}, ${active ? "päällä" : "pois"}`}
+      disabled={!interactive}
+      className={`absolute z-10 flex h-9 w-9 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-2 shadow-md transition touch-none select-none sm:h-10 sm:w-10 ${
+        active
+          ? "border-amber-400 bg-amber-100 text-amber-500 shadow-amber-200/80 ring-2 ring-amber-300/60"
+          : "border-stone-300/90 bg-white/95 text-stone-400 hover:border-stone-400"
+      } ${interactive ? "cursor-pointer active:scale-95" : "cursor-default"}`}
+      style={pos}
+      {...handlers}
+    >
+      <BulbIcon on={active} />
+    </button>
+  );
+}
+
+function BulbIcon({ on }: { on: boolean }) {
+  return (
+    <svg viewBox="0 0 24 24" className="h-5 w-5" fill="currentColor" aria-hidden>
+      {on ? (
+        <>
+          <path d="M12 2a7 7 0 0 0-4 12.74V18a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-3.26A7 7 0 0 0 12 2Z" />
+          <path d="M9 19h6M10 22h4" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" />
+        </>
+      ) : (
+        <>
+          <path
+            d="M12 2a7 7 0 0 0-4 12.74V18a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-3.26A7 7 0 0 0 12 2Z"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.75"
+          />
+          <path d="M9 19h6M10 22h4" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" />
+        </>
+      )}
+    </svg>
+  );
+}
+
+function LabelPin({
   marker,
   onClick,
 }: {
@@ -91,12 +193,7 @@ function FloorPlanMarkerPin({
       {marker.value != null && (
         <p className="text-xs font-bold leading-tight sm:text-sm">{marker.value}</p>
       )}
-      {marker.sub && (
-        <p className="text-[8px] opacity-70 sm:text-[9px]">{marker.sub}</p>
-      )}
-      {marker.value == null && marker.kind === "light" && (
-        <p className="text-[10px] text-stone-500">—</p>
-      )}
+      {marker.sub && <p className="text-[8px] opacity-70 sm:text-[9px]">{marker.sub}</p>}
     </Tag>
   );
 }
@@ -113,10 +210,6 @@ function markerTone(marker: FloorPlanMarker): string {
         : "border-stone-300 bg-white/90 text-stone-700 hover:ring-stone-300";
     case "climate":
       return "border-sky-300 bg-sky-50/95 text-sky-950 hover:ring-sky-400";
-    case "device":
-      return marker.active
-        ? "border-violet-300 bg-violet-50/95 text-violet-950 hover:ring-violet-400"
-        : "border-stone-300 bg-white/90 text-stone-700 hover:ring-stone-300";
     default:
       return "border-blue-300 bg-blue-50/95 text-blue-950 hover:ring-blue-400";
   }

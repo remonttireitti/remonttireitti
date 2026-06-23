@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState, useTransition } from "react";
 import { FloorPlanView } from "@/components/floor-plan-view";
+import { LightMapDevicePopup } from "@/components/light-map-device-popup";
 import { buildDeviceMarkers, type FloorPlanMarker } from "@/lib/floor-plan";
 import { inferProtocolFromId, protocolLabel } from "@/lib/device-protocol";
 import { kindLabel } from "@/lib/hub-lights";
@@ -44,6 +45,7 @@ export function LightingPanel() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [optimisticOn, setOptimisticOn] = useState<Record<string, boolean>>({});
   const [flash, setFlash] = useState<string | null>(null);
+  const [popupDevice, setPopupDevice] = useState<Device | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -130,11 +132,16 @@ export function LightingPanel() {
       name: d.name,
       roomAnchorId: d.roomAnchorId,
       on: effectiveOn(d),
-      brightness: d.brightness,
-      readingLabel: d.readingLabel,
       controllable: d.controllable,
     })),
+    { pinMode: "bulb" },
   );
+
+  function deviceFromMarker(marker: FloorPlanMarker): Device | undefined {
+    const id = marker.deviceId;
+    if (!id) return undefined;
+    return mapDevices.find((d) => d.id === id);
+  }
 
   return (
     <div className="mt-6 space-y-6">
@@ -175,19 +182,38 @@ export function LightingPanel() {
       <FloorPlanView
         title="Valot kartalla"
         markers={markers}
-        onMarkerClick={(anchorId) => {
-          const deviceId = anchorId.includes(":") ? anchorId.split(":").slice(1).join(":") : anchorId;
-          const light = mapDevices.find((l) => l.id === deviceId);
+        onMarkerClick={(marker) => {
+          const light = deviceFromMarker(marker);
           if (light?.controllable) toggle(light, !effectiveOn(light));
+        }}
+        onMarkerLongPress={(marker) => {
+          const light = deviceFromMarker(marker);
+          if (light) setPopupDevice(light);
         }}
         footer={
           markers.length === 0 ? (
             <p className="border-t border-stone-200 bg-white px-4 py-3 text-xs text-stone-500">
-              Kartalle tulee laitteet kun valitset niille huoneen Asetuksissa (Laitteet → Muokkaa).
+              Kartalle tulee valot kun valitset niille huoneen Asetuksissa (Laitteet → Muokkaa).
             </p>
-          ) : undefined
+          ) : (
+            <p className="border-t border-stone-200 bg-white px-4 py-2 text-center text-[10px] text-stone-400">
+              Napauta lamppua ohjataksesi · pitkä painallus asetuksiin
+            </p>
+          )
         }
       />
+
+      {popupDevice && (
+        <LightMapDevicePopup
+          device={{
+            ...popupDevice,
+            on: effectiveOn(popupDevice),
+            protocol: popupDevice.protocol,
+          }}
+          onClose={() => setPopupDevice(null)}
+          onToggle={() => toggle(popupDevice, !effectiveOn(popupDevice))}
+        />
+      )}
 
       <DeviceSection
         title="Valot"
