@@ -36,6 +36,19 @@ export function inferProtocolFromId(id: string, fallback?: string): DeviceProtoc
   return "zigbee";
 }
 
+/** API: /devices/11 → zwave, ei oletus-zigbeeä. */
+export function inferDeviceApiProtocol(
+  param: string,
+  protocolParam?: string | null,
+): DeviceProtocol {
+  if (protocolParam === "zwave" || protocolParam === "zigbee") return protocolParam;
+  const decoded = decodeURIComponent(param).trim();
+  if (decoded.startsWith("zigbee:")) return "zigbee";
+  if (decoded.startsWith("zwave:") || parseZwaveDeviceId(decoded)) return "zwave";
+  if (/^\d+$/.test(decoded)) return "zwave";
+  return inferProtocolFromId(decoded);
+}
+
 const ZWAVE_ID_RE = /^zwave:(\d+)(?::e(\d+))?$/;
 
 /** Parse zwave:52 or zwave:52:e1 → node id and optional endpoint. */

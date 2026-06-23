@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import mqtt, { type MqttClient } from "mqtt";
 import { formatZigbeeEvent, formatZwaveEvent, type DeviceLiveEvent } from "@/lib/device-events";
-import { inferProtocolFromId, parseZwaveDeviceId } from "@/lib/device-protocol";
+import { inferDeviceApiProtocol, parseZwaveDeviceId } from "@/lib/device-protocol";
 import { normalizeHomeDevices } from "@/lib/device-normalize";
 import { parseHubHomeDevices, prepareDevicesForList } from "@/lib/hub-lights";
 import { fetchPrimaryHub } from "@/lib/hubs";
@@ -31,10 +31,7 @@ export async function GET(
   const { deviceId: param } = await context.params;
   const url = new URL(request.url);
   const protocolParam = url.searchParams.get("protocol");
-  const protocol =
-    protocolParam === "zwave" || protocolParam === "zigbee"
-      ? protocolParam
-      : inferProtocolFromId(decodeURIComponent(param));
+  const protocol = inferDeviceApiProtocol(param, protocolParam);
 
   const supabase = await createClient();
   const {

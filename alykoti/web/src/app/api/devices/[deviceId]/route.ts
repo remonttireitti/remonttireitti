@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { hubDeviceEventsToLive } from "@/lib/device-events";
-import { inferProtocolFromId } from "@/lib/device-protocol";
+import { inferDeviceApiProtocol } from "@/lib/device-protocol";
 import { normalizeHomeDevices } from "@/lib/device-normalize";
 import { parseHubHomeDevices, prepareDevicesForList } from "@/lib/hub-lights";
 import { fetchPrimaryHub } from "@/lib/hubs";
@@ -19,10 +19,7 @@ export async function GET(
   const { deviceId: param } = await context.params;
   const url = new URL(request.url);
   const protocolParam = url.searchParams.get("protocol");
-  const protocol =
-    protocolParam === "zwave" || protocolParam === "zigbee"
-      ? protocolParam
-      : inferProtocolFromId(decodeURIComponent(param));
+  const protocol = inferDeviceApiProtocol(param, protocolParam);
 
   const supabase = await createClient();
   const {
@@ -52,19 +49,24 @@ export async function GET(
   );
 
   if (protocol === "zwave") {
-    const ctx = resolveZwaveDeviceContext(param, devices, hubState);
-    if (!ctx) {
-      return NextResponse.json({ error: "device_not_found" }, { status: 404 });
+    try {
+      const ctx = resolveZwaveDeviceContext(param, devices, hubState);
+      if (!ctx) {
+        return NextResponse.json({ error: "device_not_found" }, { status: 404 });
+      }
+      return NextResponse.json({
+        configured: true,
+        device: ctx.device,
+        itemNames: hubState?.device_overrides?.[ctx.fullId]?.item_names ?? {},
+        zwaveNode: ctx.zwaveNode,
+        zwaveSiblings: ctx.zwaveSiblings,
+        hubOnline: hub.last_seen_at != null,
+        recentEvents: hubDeviceEventsToLive(hubState?.device_live_events, ctx.fullId),
+      });
+    } catch (err) {
+      console.error("zwave device detail failed", param, err);
+      return NextResponse.json({ error: "device_detail_failed" }, { status: 500 });
     }
-    return NextResponse.json({
-      configured: true,
-      device: ctx.device,
-      itemNames: hubState?.device_overrides?.[ctx.fullId]?.item_names ?? {},
-      zwaveNode: ctx.zwaveNode,
-      zwaveSiblings: ctx.zwaveSiblings,
-      hubOnline: hub.last_seen_at != null,
-      recentEvents: hubDeviceEventsToLive(hubState?.device_live_events, ctx.fullId),
-    });
   }
 
   const ctx = resolveZigbeeDeviceContext(param, devices, hubState);

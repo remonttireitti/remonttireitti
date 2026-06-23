@@ -257,11 +257,20 @@ export function resolveZwaveDeviceContext(
     device = buildStubZwaveDevice(nodeId, fullId, storedNode);
   }
 
+  // /laitteet/zwave/11 — numerosolmu aina näkyviin, vaikka synkki puuttuisi hetkellisesti
+  if (!device && /^\d+$/.test(decoded)) {
+    device = buildStubZwaveDevice(nodeId, fullId, storedNode);
+  }
+
   if (!device) return null;
 
   let zwaveNode = mergeNodeEndpoints(storedNode, siblings, nodeId);
   if (zwaveNode) {
-    zwaveNode = mergeZwaveNodeOverrides(zwaveNode, hubState?.device_overrides);
+    try {
+      zwaveNode = mergeZwaveNodeOverrides(zwaveNode, hubState?.device_overrides);
+    } catch {
+      zwaveNode = normalizeZwaveNodeDetail(zwaveNode);
+    }
     zwaveNode = normalizeZwaveNodeDetail(zwaveNode);
   }
 
