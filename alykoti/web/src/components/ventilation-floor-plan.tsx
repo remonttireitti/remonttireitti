@@ -26,7 +26,14 @@ type Props = {
 export function VentilationFloorPlan({ hub, settingsHref }: Props) {
   const { status } = useDeviceStatus();
   const { showTrend, modal } = useMetricTrend();
-  const s = hub.state;
+  const live = status?.live;
+  const s = {
+    ...hub.state,
+    co2_ppm: live?.co2_ppm ?? hub.state.co2_ppm,
+    humidity_pct: live?.humidity_pct ?? hub.state.humidity_pct,
+    pm25_ugm3: live?.pm25_ugm3 ?? hub.state.pm25_ugm3,
+    temperature_c: live?.temperature_c ?? hub.state.temperature_c,
+  };
 
   const hubOnline = status?.hub.online ?? isHubOnline(hub.last_seen_at);
   const airfiOnline =

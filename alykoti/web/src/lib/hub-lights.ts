@@ -5,12 +5,17 @@ import {
   normalizeCapabilities,
   sensorReadingLabel,
 } from "@/lib/capabilities";
-import { resolveDeviceRole, groupDevicesByRole } from "@/lib/device-roles";
+import { inferDeviceRole, groupDevicesByRole } from "@/lib/device-roles";
 import type { DeviceRole } from "@/lib/device-roles";
 import { inferProtocolFromId, parseZwaveDeviceId } from "@/lib/device-protocol";
-import { zwaveEndpointItemKey } from "@/lib/device-item-overrides";
+import {
+  channelItemKey,
+  parseWifiChannelDeviceId,
+  wifiHostOverrideKey,
+  zwaveEndpointItemKey,
+} from "@/lib/device-item-overrides";
 import { anchorForLight } from "@/lib/lights-config";
-import { resolveRoomAnchorId } from "@/lib/rooms";
+import { resolveRoomAnchorId, roomLabelForId } from "@/lib/rooms";
 import { groupZwaveDevicesForList, zwaveNodeId } from "@/lib/zwave-detail";
 import type { DeviceCapability, HubDeviceOverride, HubHomeDevice, HubLightState, HubState, ZwaveProperty } from "@/lib/types";
 
@@ -45,6 +50,8 @@ export type HubLightDevice = {
   manufacturer?: string | null;
   description?: string | null;
   role: DeviceRole;
+  inferredRole: DeviceRole;
+  roleOverride: DeviceRole | null;
 };
 
 const KIND_LABEL: Record<HubHomeDevice["kind"], string> = {
@@ -75,6 +82,13 @@ function resolveDeviceDisplayName(
     if (epName) return epName;
   }
 
+  const wifiCh = parseWifiChannelDeviceId(id);
+  if (wifiCh && allOverrides) {
+    const parent = allOverrides[wifiHostOverrideKey(wifiCh.protocol, wifiCh.host)];
+    const chName = parent?.item_names?.[channelItemKey(wifiCh.channel)]?.trim();
+    if (chName) return chName;
+  }
+
   return d.name?.trim() || id;
 }
 
@@ -94,21 +108,25 @@ function mapDevice(
   const zigbeeName = id.startsWith("zigbee:") ? id.slice("zigbee:".length) : id;
   const zwaveParsed = parseZwaveDeviceId(id);
 
+  const displayName = resolveDeviceDisplayName(id, d, o, allOverrides);
+  const inferredRoomAnchorId =
+    resolveRoomAnchorId(o?.room ?? d.room ?? null, o?.floor_anchor, displayName) ??
+    anchorForLight(zigbeeName) ??
+    null;
+  const explicitRoom = o?.room ?? d.room ?? null;
+  const inferredRoomLabel = roomLabelForId(inferredRoomAnchorId);
+
   const mapped: HubLightDevice = {
     id,
-    name: resolveDeviceDisplayName(id, d, o, allOverrides),
+    name: displayName,
     on: d.on === true,
     brightness:
       typeof d.brightness === "number" && Number.isFinite(d.brightness) ? d.brightness : null,
     reachable: true,
-    roomAnchorId:
-      o?.floor_anchor ??
-      resolveRoomAnchorId(o?.room ?? d.room ?? null, o?.floor_anchor, resolveDeviceDisplayName(id, d, o, allOverrides)) ??
-      anchorForLight(zigbeeName) ??
-      null,
+    roomAnchorId: o?.floor_anchor ?? inferredRoomAnchorId,
     protocol: inferProtocolFromId(id, d.protocol),
     kind,
-    room: o?.room ?? d.room ?? null,
+    room: explicitRoom ?? inferredRoomLabel,
     controllable,
     mqttSetTopic: d.mqtt_set_topic ?? null,
     lockSetTopic: d.lock_set_topic ?? null,
@@ -147,9 +165,12 @@ function mapDevice(
       typeof d.battery_pct === "number" && Number.isFinite(d.battery_pct) ? d.battery_pct : null,
     voltage_v: typeof d.voltage_v === "number" && Number.isFinite(d.voltage_v) ? d.voltage_v : null,
     role: "other_control" as DeviceRole,
+    inferredRole: "other_control" as DeviceRole,
+    roleOverride: o?.role ?? null,
   };
 
-  mapped.role = resolveDeviceRole(mapped, o);
+  mapped.inferredRole = inferDeviceRole(mapped);
+  mapped.role = o?.role ?? mapped.inferredRole;
   return mapped;
 }
 
@@ -240,6 +261,8 @@ export function parseHubHomeDevices(
     node_id: null,
     power_w: null,
     role: "light" as const,
+    inferredRole: "light" as const,
+    roleOverride: null,
   }));
 }
 
@@ -283,6 +306,8 @@ export function parseHubLights(
   | "node_id"
   | "power_w"
   | "role"
+  | "inferredRole"
+  | "roleOverride"
 >[] {
   if (!raw || typeof raw !== "object") return [];
 

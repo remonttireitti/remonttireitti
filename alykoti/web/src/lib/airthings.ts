@@ -118,6 +118,30 @@ export function isAirthingsConfigured(): boolean {
   return getConfig() !== null;
 }
 
+/** Yhdistä tuore Airthings-mittaus hubin tilaan (ohjaus + näyttö). */
+export function mergeAirthingsHubState(
+  hubState: HubState,
+  airthings: HubState | null | undefined,
+): HubState {
+  if (!airthings) return hubState;
+  const merged: HubState = { ...hubState };
+  if (airthings.co2_ppm != null) merged.co2_ppm = airthings.co2_ppm;
+  if (airthings.humidity_pct != null) merged.humidity_pct = airthings.humidity_pct;
+  if (airthings.temperature_c != null) merged.temperature_c = airthings.temperature_c;
+  if (airthings.tvoc_ppb != null) merged.tvoc_ppb = airthings.tvoc_ppb;
+  if (airthings.pm1_ugm3 != null) merged.pm1_ugm3 = airthings.pm1_ugm3;
+  if (airthings.pm25_ugm3 != null) merged.pm25_ugm3 = airthings.pm25_ugm3;
+  if (airthings.pm10_ugm3 != null) merged.pm10_ugm3 = airthings.pm10_ugm3;
+  merged.airthings_source = "cloud";
+  return merged;
+}
+
+/** Tuorein sisäilman mittaus (Airthings pilvi + hubin tallennettu tila). */
+export async function resolveIndoorAirState(hubState: HubState): Promise<HubState> {
+  const airthings = await fetchAirthingsState();
+  return mergeAirthingsHubState(hubState, airthings);
+}
+
 export type AirthingsDeviceInfo = {
   serial: string;
   name: string;

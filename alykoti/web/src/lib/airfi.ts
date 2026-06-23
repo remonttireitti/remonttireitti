@@ -35,6 +35,7 @@ const INPUT = {
   temp_setpoint_read: 28, // 3x00028 x10°C
   filter_interval: 31, // 3x00031
   error_info: 32, // 3x00032 bitmask E0-E9
+  aux2_status: 37, // 3x00038 AUX2 — LTO ohituspelti (tehdas: ulkoilmapellin rele)
   hood_flap_open: 40, // 3x00040 liesikuvun läppä
   supply_airflow_m3h: 45, // 3x00045
   exhaust_airflow_m3h: 46, // 3x00046
@@ -70,6 +71,7 @@ export type AirfiState = {
   internal_humidity_pct: number | null;
   lto_temp_efficiency_pct: number | null;
   lto_energy_efficiency_pct: number | null;
+  lto_bypass_on: boolean;
   direct_control: boolean;
   fireplace_active: boolean;
   hood_flap_open: boolean;
@@ -192,6 +194,11 @@ export async function fetchAirfiState(): Promise<AirfiState | null> {
       INPUT.emergency_stop_status,
       INPUT.error_info - INPUT.emergency_stop_status + 1,
     );
+    const extended = await readInputBlock(
+      client,
+      INPUT.error_info + 1,
+      INPUT.aux2_status - INPUT.error_info,
+    );
     const flows = await readInputBlock(client, INPUT.supply_airflow_m3h, 2);
     const hoodFlap = await readRegister(client, client.readInputRegisters, INPUT.hood_flap_open);
     const holdingLow = await readHoldingBlock(
@@ -248,6 +255,7 @@ export async function fetchAirfiState(): Promise<AirfiState | null> {
     const machineFault = reg(status, statusBase, INPUT.machine_fault);
     const forcedControl = reg(status, statusBase, INPUT.forced_control);
     const emergencyInput = reg(status, statusBase, INPUT.emergency_stop_status);
+    const aux2Status = reg(extended, INPUT.error_info + 1, INPUT.aux2_status);
 
     const supply_airflow_m3h =
       flows?.[0] != null && flows[0] > 0 ? flows[0] : null;
@@ -293,6 +301,7 @@ export async function fetchAirfiState(): Promise<AirfiState | null> {
       internal_humidity_pct: humidity,
       lto_temp_efficiency_pct: lto.temp_pct,
       lto_energy_efficiency_pct: lto.energy_pct,
+      lto_bypass_on: (aux2Status ?? 0) > 0,
       direct_control: (directControl ?? 0) > 0,
       fireplace_active: (fireplaceHold ?? fireplaceStatus ?? 0) > 0,
       hood_flap_open: (hoodFlap ?? 0) > 0,
@@ -430,6 +439,7 @@ export function hubStateToAirfiState(state: HubState): AirfiState | null {
     internal_humidity_pct: state.humidity_pct ?? null,
     lto_temp_efficiency_pct: state.lto_temp_efficiency_pct ?? null,
     lto_energy_efficiency_pct: state.lto_energy_efficiency_pct ?? null,
+    lto_bypass_on: state.lto_bypass_on ?? false,
     direct_control: state.direct_control ?? false,
     fireplace_active: state.fireplace_active ?? false,
     hood_flap_open: state.hood_active ?? false,
@@ -538,6 +548,7 @@ export function airfiToHubState(airfi: AirfiState): Partial<HubState> {
     exhaust_airflow_m3h: airfi.exhaust_airflow_m3h,
     lto_temp_efficiency_pct: airfi.lto_temp_efficiency_pct,
     lto_energy_efficiency_pct: airfi.lto_energy_efficiency_pct,
+    lto_bypass_on: airfi.lto_bypass_on,
     fan_speed: airfi.supply_fan_pct,
     fan_speed_target: airfi.supply_target_pct,
     direct_control: airfi.direct_control,

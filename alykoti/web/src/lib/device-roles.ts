@@ -51,8 +51,52 @@ function capabilityIds(device: HubLightDevice): Set<string> {
   return new Set(device.capabilities.map((c) => c.id));
 }
 
+function normalizeNameKey(value: string): string {
+  return value
+    .toLowerCase()
+    .trim()
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "")
+    .replace(/\s+/g, " ");
+}
+
+/** Päättele rooli laitteen nimestä (suomi/englanti). */
+export function inferDeviceRoleFromName(name: string): DeviceRole | null {
+  const n = normalizeNameKey(name);
+  if (!n) return null;
+
+  if (/palohalyt|palohaly|smoke|fire/.test(n)) return "fire_alarm";
+  if (/vuoto|leak/.test(n) || (/\bwater\b/.test(n) && !/water_heater/.test(n))) return "leak_detector";
+  if (/liike|motion/.test(n)) return "motion";
+  if (/\b(ovi|ikkuna|contact)\b/.test(n)) return "contact";
+  if (/lammitys|heating|lattia|radiator|floorheat/.test(n)) return "heating";
+
+  if (/valokytkin/.test(n)) return "light_switch";
+  const hasLightWord = /\b(valo|light|lamppu)\b/.test(n) || /\bvalo\b/.test(n);
+  const hasSwitchWord = /\b(kytkin|switch)\b/.test(n);
+  if (hasSwitchWord && !hasLightWord) return "light_switch";
+  if (hasLightWord) return "light";
+
+  if (/anturi|sensor|temp|kosteus|co2|humidity/.test(n)) return "sensor";
+  if (/lukko|lock/.test(n)) return "other_control";
+  if (/\b(energia|em|mittari|meter)\b/.test(n)) return "other_control";
+
+  return null;
+}
+
+function nameInferenceSources(device: HubLightDevice): string[] {
+  return [device.name, device.description, device.model].filter(
+    (v): v is string => typeof v === "string" && v.trim().length > 0,
+  );
+}
+
 /** Päättele rooli ominaisuuksista kun käyttäjä ei ole valinnut. */
 export function inferDeviceRole(device: HubLightDevice): DeviceRole {
+  for (const source of nameInferenceSources(device)) {
+    const fromName = inferDeviceRoleFromName(source);
+    if (fromName) return fromName;
+  }
+
   const ids = capabilityIds(device);
   const state = device.sensor_state?.toLowerCase() ?? "";
 

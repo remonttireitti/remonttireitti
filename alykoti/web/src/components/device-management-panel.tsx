@@ -37,6 +37,8 @@ type Device = {
   locked?: boolean | null;
   node_id?: number;
   role?: DeviceRole;
+  inferredRole?: DeviceRole;
+  roleOverride?: DeviceRole | null;
 };
 
 type DevicesResponse = {
@@ -257,7 +259,7 @@ export function DeviceManagementPanel({
                 setEditingId(d.id);
                 setEditName(d.name);
                 setEditRoom(d.room ?? "");
-                setEditRole(d.role ?? "");
+                setEditRole(d.roleOverride ?? "");
               }}
               onEditCancel={() => setEditingId(null)}
               onEditName={setEditName}
@@ -298,7 +300,7 @@ export function DeviceManagementPanel({
             setEditingId(d.id);
             setEditName(d.name);
             setEditRoom(d.room ?? "");
-            setEditRole(d.role ?? "");
+            setEditRole(d.roleOverride ?? "");
           }}
           onEditCancel={() => setEditingId(null)}
           onEditName={setEditName}
@@ -485,7 +487,12 @@ function DeviceListSection({
                       onChange={(e) => onEditRole(e.target.value as DeviceRole | "")}
                       className="mt-1 w-full rounded-lg border border-stone-200 px-3 py-2"
                     >
-                      <option value="">Automaattinen (päättele ominaisuuksista)</option>
+                      <option value="">
+                        Automaattinen
+                        {device.inferredRole
+                          ? ` (${deviceRoleLabel(device.inferredRole)})`
+                          : " (päättele ominaisuuksista)"}
+                      </option>
                       {DEVICE_ROLE_OPTIONS.map((opt) => (
                         <option key={opt.id} value={opt.id}>
                           {opt.label}
@@ -514,7 +521,9 @@ function DeviceListSection({
                     <p className="text-xs text-stone-500">
                       {protocolLabel(device.protocol)} ·{" "}
                       {device.capabilitiesLabel || kindLabel(device.kind as "light")}
-                      {device.role ? ` · ${deviceRoleLabel(device.role)}` : " · automaattinen"}
+                      {device.roleOverride
+                        ? ` · ${deviceRoleLabel(device.role)}`
+                        : ` · Automaattinen: ${deviceRoleLabel(device.inferredRole ?? device.role)}`}
                       {device.room ? ` · ${device.room}` : ""}
                       {device.readingLabel
                         ? ` · ${device.readingLabel}`

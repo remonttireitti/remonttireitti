@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import re
 import socket
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any
@@ -141,10 +142,38 @@ def _normalize_hosts(configured: list[dict[str, Any]]) -> dict[str, dict[str, An
     return hosts
 
 
-def _channel_name(base: str, channel: int, total: int) -> str:
+def _channel_name(base: str, channel: int, total: int, switch_name: str | None = None) -> str:
+    if switch_name:
+        return switch_name
     if total <= 1:
         return base
     return f"{base} kanava {channel + 1}"
+
+
+def _switch_texts_from_status(status0: dict[str, Any]) -> dict[int, str]:
+    texts: dict[int, str] = {}
+    for source in (status0.get("StatusSTS"), status0.get("Status")):
+        if not isinstance(source, dict):
+            continue
+        for key, value in source.items():
+            if not isinstance(value, str) or not value.strip():
+                continue
+            if key == "SwitchText":
+                texts[0] = value.strip()
+                continue
+            match = re.fullmatch(r"SwitchText(\d+)", key)
+            if match:
+                texts[int(match.group(1))] = value.strip()
+    return texts
+
+
+def _resolve_base_name(host: str, configured_name: str, friendly_name: str | None) -> str:
+    configured = configured_name.strip()
+    if configured and configured != host:
+        return configured
+    if friendly_name and friendly_name.strip():
+        return friendly_name.strip()
+    return configured or host
 
 
 def _read_power(host: str, channel: int) -> bool | None:
@@ -166,16 +195,24 @@ def _read_power(host: str, channel: int) -> bool | None:
 def fetch_tasmota_devices(configured: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
     out: dict[str, dict[str, Any]] = {}
     for host, meta in _normalize_hosts(configured).items():
-        name = meta["name"]
+        status0 = _cmnd(host, "Status 0")
+        status = status0.get("Status") if isinstance(status0, dict) else None
+        friendly_name = None
+        if isinstance(status, dict):
+            friendly_name = status.get("FriendlyName") or status.get("Hostname")
+        name = _resolve_base_name(host, meta["name"], str(friendly_name) if friendly_name else None)
+        switch_texts = _switch_texts_from_status(status0) if isinstance(status0, dict) else {}
+
         channels = _detect_channels(host)
         for ch in channels:
             on = _read_power(host, ch)
             if on is None:
                 continue
+            switch_name = switch_texts.get(ch)
             out[f"tasmota:{host}:{ch}"] = {
                 "protocol": "tasmota",
                 "kind": "switch",
-                "name": _channel_name(name, ch, len(channels)),
+                "name": _channel_name(name, ch, len(channels), switch_name),
                 "on": on,
                 "brightness": None,
                 "controllable": True,

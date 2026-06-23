@@ -1,5 +1,6 @@
 import { canPingAirfiFromRuntime } from "@/lib/airfi-runtime";
 import { pingAirfiFast } from "@/lib/airfi";
+import { resolveIndoorAirState } from "@/lib/airthings";
 import { inferAirfiOnline } from "@/lib/airfi-telemetry";
 import {
   buildOfflineMessage,
@@ -59,6 +60,7 @@ export async function getDeviceStatus(
   );
   const level = connectivityLevel(hubConn, airfiConn);
   const state = expireTimedModes(hub.state);
+  const indoorAir = await resolveIndoorAirState(state);
   const lto = enrichLtoFromHubState(state);
   state.lto_temp_efficiency_pct = lto.lto_temp_efficiency_pct;
   state.lto_energy_efficiency_pct = lto.lto_energy_efficiency_pct;
@@ -84,6 +86,11 @@ export async function getDeviceStatus(
       fan_exhaust_target: state.fan_exhaust_target ?? null,
       lto_temp_efficiency_pct: state.lto_temp_efficiency_pct ?? null,
       lto_energy_efficiency_pct: state.lto_energy_efficiency_pct ?? null,
+      co2_ppm: indoorAir.co2_ppm ?? null,
+      humidity_pct: indoorAir.humidity_pct ?? null,
+      pm25_ugm3: indoorAir.pm25_ugm3 ?? null,
+      temperature_c: indoorAir.temperature_c ?? null,
+      lto_bypass_on: state.lto_bypass_on ?? false,
       fireplace_until: state.fireplace_until ?? null,
       hood_until: state.hood_until ?? null,
       away_until: state.away_until ?? null,

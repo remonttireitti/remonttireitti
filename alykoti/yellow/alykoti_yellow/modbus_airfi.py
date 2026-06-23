@@ -94,6 +94,7 @@ INPUT = {
     "temp_setpoint_read": 28,
     "filter_interval": 31,
     "error_info": 32,
+    "aux2_status": 37,  # 3x00038 AUX2 — LTO ohituspelti (tehdas: ulkoilmapellin rele)
     "hood_flap_open": 40,
     "supply_airflow_m3h": 45,
     "exhaust_airflow_m3h": 46,
@@ -120,6 +121,8 @@ _INPUT_CORE_START = INPUT["outdoor_temp"]
 _INPUT_CORE_COUNT = INPUT["fan_supply_pct"] - INPUT["outdoor_temp"] + 1
 _INPUT_STATUS_START = INPUT["emergency_stop_status"]
 _INPUT_STATUS_COUNT = INPUT["error_info"] - INPUT["emergency_stop_status"] + 1
+_INPUT_EXTENDED_START = INPUT["error_info"] + 1
+_INPUT_EXTENDED_COUNT = INPUT["aux2_status"] - _INPUT_EXTENDED_START + 1
 # h0 (nopeus) ei ole luettavissa kaikilla laiteversioilla — blokkiluku osoitteesta 0 epäonnistuu.
 _HOLDING_BLOCK_START = HOLDING["emergency_stop"]
 _HOLDING_BLOCK_COUNT = HOLDING["away_mode"] - HOLDING["emergency_stop"] + 1
@@ -392,6 +395,13 @@ def _read_snapshot(
             address=_INPUT_STATUS_START,
             count=_INPUT_STATUS_COUNT,
         )
+        inputs_extended = _read_registers(
+            client,
+            unit,
+            read_fn=client.read_input_registers,
+            address=_INPUT_EXTENDED_START,
+            count=_INPUT_EXTENDED_COUNT,
+        )
         holdings = _read_registers(
             client,
             unit,
@@ -472,6 +482,7 @@ def _read_snapshot(
         "temp_setpoint_c": temp_c,
         "filter_change_per_year": filter_interval,
         "sauna_mode": (_reg(holdings_extra, _HOLDING_EXTRA_START, HOLDING["sauna_mode"]) or 0) > 0,
+        "lto_bypass_on": (_reg(inputs_extended, _INPUT_EXTENDED_START, INPUT["aux2_status"]) or 0) > 0,
         # 3x00017 = todellinen hätäseis-tila. 4x00002 (h1) on kirjoitusrekisteri — älä käytä statusnäyttöön.
         "emergency_stop": (emergency_input or 0) > 0,
         "fault": (

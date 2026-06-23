@@ -294,61 +294,118 @@ function renderLine(
   yForValue: (v: number) => number,
   gradientBySpeed: boolean,
 ) {
-  if (points.length < 2) {
-    if (points.length === 1) {
-      const x = xForTime(points[0]!.t);
-      const y = yForValue(points[0]!.v);
-      return <circle cx={x} cy={y} r="3" fill={color ?? speedColor(points[0]!.v)} />;
-    }
-    return null;
+  if (points.length === 0) return null;
+
+  if (points.length === 1) {
+    const x = xForTime(points[0]!.t);
+    const y = yForValue(points[0]!.v);
+    return <circle cx={x} cy={y} r="3" fill={color ?? speedColor(points[0]!.v)} />;
   }
 
-  if (gradientBySpeed) {
-    return (
-      <g>
-        {points.slice(0, -1).map((p, i) => {
-          const next = points[i + 1]!;
-          const x1 = xForTime(p.t);
-          const y1 = yForValue(p.v);
-          const x2 = xForTime(next.t);
-          const y2 = yForValue(next.v);
-          const mid = (p.v + next.v) / 2;
-          return (
-            <line
-              key={`${p.t}-${i}`}
-              x1={x1}
-              y1={y1}
-              x2={x2}
-              y2={y2}
-              stroke={speedColor(mid)}
-              strokeWidth="2.5"
-              strokeLinecap="round"
-            />
-          );
-        })}
-      </g>
-    );
-  }
-
-  const d = points
-    .map((p, i) => {
-      const x = xForTime(p.t);
-      const y = yForValue(p.v);
-      return `${i === 0 ? "M" : "L"}${x},${y}`;
-    })
-    .join(" ");
+  const segments = splitPointsByGap(points, inferMaxGapMs(points));
 
   return (
-    <path
-      d={d}
-      fill="none"
-      stroke={color ?? "#57534e"}
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeDasharray={dashed ? "6 4" : undefined}
-    />
+    <g>
+      {segments.map((seg, segIdx) => {
+        if (seg.length < 2) {
+          const p = seg[0]!;
+          const x = xForTime(p.t);
+          const y = yForValue(p.v);
+          return (
+            <circle
+              key={`${p.t}-dot-${segIdx}`}
+              cx={x}
+              cy={y}
+              r="3"
+              fill={color ?? speedColor(p.v)}
+            />
+          );
+        }
+
+        if (gradientBySpeed) {
+          return (
+            <g key={`seg-${segIdx}`}>
+              {seg.slice(0, -1).map((p, i) => {
+                const next = seg[i + 1]!;
+                const x1 = xForTime(p.t);
+                const y1 = yForValue(p.v);
+                const x2 = xForTime(next.t);
+                const y2 = yForValue(next.v);
+                const mid = (p.v + next.v) / 2;
+                return (
+                  <line
+                    key={`${p.t}-${i}`}
+                    x1={x1}
+                    y1={y1}
+                    x2={x2}
+                    y2={y2}
+                    stroke={speedColor(mid)}
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                  />
+                );
+              })}
+            </g>
+          );
+        }
+
+        const d = seg
+          .map((p, i) => {
+            const x = xForTime(p.t);
+            const y = yForValue(p.v);
+            return `${i === 0 ? "M" : "L"}${x},${y}`;
+          })
+          .join(" ");
+
+        return (
+          <path
+            key={`seg-${segIdx}`}
+            d={d}
+            fill="none"
+            stroke={color ?? "#57534e"}
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeDasharray={dashed ? "6 4" : undefined}
+          />
+        );
+      })}
+    </g>
   );
+}
+
+/** Älä yhdistä pisteitä viivalla jos mittauksia puuttuu — estää harhaanjohtavan kaato-viivan. */
+function inferMaxGapMs(points: (MetricPoint & { v: number })[]): number {
+  if (points.length < 2) return 5 * 60 * 1000;
+  const gaps: number[] = [];
+  for (let i = 1; i < points.length; i++) {
+    gaps.push(new Date(points[i]!.t).getTime() - new Date(points[i - 1]!.t).getTime());
+  }
+  gaps.sort((a, b) => a - b);
+  const median = gaps[Math.floor(gaps.length / 2)] ?? 60_000;
+  // 3× tyypillinen väli, vähintään 3 min, enintään 15 min
+  return Math.min(15 * 60 * 1000, Math.max(3 * 60 * 1000, median * 3));
+}
+
+function splitPointsByGap(
+  points: (MetricPoint & { v: number })[],
+  maxGapMs: number,
+): (MetricPoint & { v: number })[][] {
+  const segments: (MetricPoint & { v: number })[][] = [];
+  let current: (MetricPoint & { v: number })[] = [points[0]!];
+  for (let i = 1; i < points.length; i++) {
+    const prev = points[i - 1]!;
+    const p = points[i]!;
+    const gap = new Date(p.t).getTime() - new Date(prev.t).getTime();
+    if (gap > maxGapMs) {
+      segments.push(current);
+      current = [p];
+    } else {
+      current.push(p);
+    }
+  }
+  segments.push(current);
+  return segments;
 }
 
 /** Hidas vihreä → keltainen → oranssi → nopea punainen */

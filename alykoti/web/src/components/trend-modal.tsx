@@ -77,10 +77,18 @@ export function TrendModal({ metric, onClose }: Props) {
           min: Math.min(...numericPoints.map((p) => p.v)),
           max: Math.max(...numericPoints.map((p) => p.v)),
           avg: numericPoints.reduce((s, p) => s + p.v, 0) / numericPoints.length,
-          latest: numericPoints[numericPoints.length - 1]?.v,
+          latest: history?.currentValue ?? numericPoints[numericPoints.length - 1]?.v,
           targetLatest: secondaryNumeric[secondaryNumeric.length - 1]?.v,
         }
-      : null;
+      : history?.currentValue != null
+        ? {
+            min: history.currentValue,
+            max: history.currentValue,
+            avg: history.currentValue,
+            latest: history.currentValue,
+            targetLatest: undefined as number | undefined,
+          }
+        : null;
 
   return (
     <div

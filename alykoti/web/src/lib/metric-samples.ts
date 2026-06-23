@@ -23,19 +23,24 @@ export const METRIC_META: Record<string, MetricMeta> = {
       "Kuinka suuri osa poistoilman lämmöstä siirtyy tuloilmaan. Esim. +7,0 °C / 6,9 °C = 7 asteen lämpö talteen 6,9 asteen saatavilla olevasta erosta. 100 % = tulo yhtä lämmin kuin poisto (täysi LTO) — ei tarkoita että kaikki lämpö poistettaisiin talosta; jäteilma T4 näyttää mitä lähtee ulos.",
   },
   lto_energy_efficiency_pct: { label: "LTO energiahöytys", unit: "%", kind: "numeric" },
+  lto_bypass_on: {
+    label: "LTO ohitus",
+    kind: "categorical",
+    footnote: "Onko lämmöntalteenotto ohitettu (ohituspelti auki). Rekisteri 3x00038 AUX2.",
+  },
   fan_supply_pct: {
     label: "Tulonopeus",
     unit: "%",
     kind: "numeric",
     footnote:
-      "Jatkuva viiva = mitä IV-kone raportoi. Katkoviiva = automaatin laskema tavoite (CO₂, kosteus, tila). Jos viivat eri kohdissa, data on vielä kerääntymässä tai yhteys katkesi.",
+      "Jatkuva viiva = mitä IV-kone raportoi. Katkoviiva = automaatin laskema tavoite (CO₂, kosteus, tila). Katko viivassa = mittausdata puuttui (ei yhdistetä aukkoa suoralla viivalla).",
   },
   fan_exhaust_pct: {
     label: "Poistonopeus",
     unit: "%",
     kind: "numeric",
     footnote:
-      "Jatkuva viiva = mitä IV-kone raportoi. Katkoviiva = automaatin laskema tavoite (CO₂, kosteus, tila). Jos viivat eivät ole samaan aikaan, synkki tai mittaus oli poissa.",
+      "Jatkuva viiva = mitä IV-kone raportoi. Katkoviiva = automaatin laskema tavoite (CO₂, kosteus, tila). Katko viivassa = mittausdata puuttui (ei yhdistetä aukkoa suoralla viivalla).",
   },
   fan_supply_target: { label: "Tulo pyydetty", unit: "%", kind: "numeric" },
   fan_exhaust_target: { label: "Poisto pyydetty", unit: "%", kind: "numeric" },
@@ -82,6 +87,9 @@ export type MetricHistory = {
   series?: MetricSeries[];
   /** Selitys kun tavoite- ja toteutusdata eivät osu päällekkäin */
   seriesGapNote?: string;
+  /** Nykyarvo (tuore mittaus, sama lähde kuin IV-näkymä). */
+  currentValue?: number | null;
+  currentAt?: string | null;
 };
 
 type SampleRow = {
@@ -98,6 +106,18 @@ const METRIC_COMPANIONS: Record<string, string> = {
   fan_supply_pct: "fan_supply_target",
   fan_exhaust_pct: "fan_exhaust_target",
 };
+
+/** Hetkelliset mittarit — älä keskiarvota trendialasampauksessa. */
+const INSTANT_SAMPLE_METRICS = new Set([
+  "co2_ppm",
+  "humidity_pct",
+  "pm25_ugm3",
+  "temperature_c",
+  "outdoor_temp_c",
+  "supply_temp_c",
+  "exhaust_temp_c",
+  "exhaust_hru_temp_c",
+]);
 
 function hoursSinceHelsinkiMidnight(now = new Date()): number {
   const parts = new Intl.DateTimeFormat("en-GB", {
@@ -210,9 +230,11 @@ async function fetchMetricPoints(
   }));
 }
 
-function num(v: number | null | undefined): number | null {
-  if (v == null || !Number.isFinite(v)) return null;
-  return v;
+function num(v: number | string | null | undefined): number | null {
+  if (v == null) return null;
+  const n = typeof v === "number" ? v : Number(v);
+  if (!Number.isFinite(n)) return null;
+  return n;
 }
 
 export function buildMetricSamples(
@@ -255,6 +277,12 @@ export function buildMetricSamples(
       metric: "hood_active",
       value: state.hood_active ? 1 : 0,
       value_text: state.hood_active ? "Auki" : "Kiinni",
+    },
+    {
+      hub_id: hubId,
+      metric: "lto_bypass_on",
+      value: state.lto_bypass_on ? 1 : 0,
+      value_text: state.lto_bypass_on ? "Päällä" : "Pois",
     },
   ];
 
@@ -358,14 +386,16 @@ export async function recordHubMetrics(
 
 function liveValueForMetric(metric: string, state?: HubState): number | null {
   if (!state) return null;
-  const v = (state as Record<string, unknown>)[metric];
-  return typeof v === "number" && Number.isFinite(v) ? v : null;
+  return num((state as Record<string, unknown>)[metric] as number | null | undefined);
 }
 
 /** Jatka käyrää nykyhetkeen hubin live-arvolla. */
 function extendPointsToNow(points: MetricPoint[], live: number | null): MetricPoint[] {
-  if (live == null || points.length === 0) return points;
+  if (live == null) return points;
   const now = new Date().toISOString();
+  if (points.length === 0) {
+    return [{ t: now, v: live, text: null }];
+  }
   const last = points[points.length - 1]!;
   if (Date.now() - new Date(last.t).getTime() < 20_000 && last.v === live) {
     return [...points.slice(0, -1), { t: now, v: live, text: null }];
@@ -388,11 +418,13 @@ export async function fetchMetricHistory(
 
   const primaryRaw = await fetchMetricPoints(hubId, metric, sinceIso);
   const isFan = metric.includes("fan") && !metric.includes("target");
+  const useStepSample = isFan || INSTANT_SAMPLE_METRICS.has(metric);
   const livePrimary = liveValueForMetric(metric, liveState);
+  const nowIso = new Date().toISOString();
   let primaryPoints = downsamplePoints(
     primaryRaw.filter((p) => p.v != null),
     maxPoints,
-    isFan,
+    useStepSample,
   );
   primaryPoints = extendPointsToNow(primaryPoints, livePrimary);
 
@@ -434,5 +466,7 @@ export async function fetchMetricHistory(
     points: primaryPoints,
     series,
     seriesGapNote,
+    currentValue: livePrimary,
+    currentAt: livePrimary != null ? nowIso : null,
   };
 }

@@ -76,10 +76,16 @@ function zwaveIdsMatch(a: string, b: string): boolean {
   return (pa.endpoint ?? 1) === (pb.endpoint ?? 1);
 }
 
-/** Sauna/suihku-ryhmät: eteisen kytkin + takkahuoneen rele + eteisen valo. */
+/** UI-peilaus: vain valoparit (82↔86 sauna, 84↔87 suihku). Eteisen valo ei kuulu. */
+const SAUNA_SHOWER_LIGHT_PAIRS = [
+  { takkaNode: 82, takkaEp: 1, localNode: 86, localEp: 1, takkaHint: "sauna", localHint: "sauna" },
+  { takkaNode: 84, takkaEp: 1, localNode: 87, localEp: 1, takkaHint: "suihku", localHint: "suihku" },
+] as const;
+
+/** Seinäkytkin (52) ohjaa molempia valoja huoneessa — ei peilaa eteisen valoa. */
 const SAUNA_SHOWER_SWITCH_PAIRS = [
   {
-    name: "Sauna — eteinen → takkahuone + eteinen",
+    name: "Sauna — eteisen kytkin → sauna (82 + 86)",
     eteinenNode: 52,
     eteinenEp: 1,
     takkaNode: 82,
@@ -88,10 +94,10 @@ const SAUNA_SHOWER_SWITCH_PAIRS = [
     localEp: 1,
     eteinenHint: "eteisen valokytkin",
     takkaHint: "saunavalo takka",
-    localHint: "saunavalo eteis",
+    localHint: "saunavalo eteinen",
   },
   {
-    name: "Suihku — eteinen → takkahuone + eteinen",
+    name: "Suihku — eteisen kytkin → suihku (84 + 87)",
     eteinenNode: 52,
     eteinenEp: 2,
     takkaNode: 84,
@@ -100,29 +106,46 @@ const SAUNA_SHOWER_SWITCH_PAIRS = [
     localEp: 1,
     eteinenHint: "eteisen valokytkin",
     takkaHint: "suihkuvalo takka",
-    localHint: "suihkuvalo eteis",
+    localHint: "suihkuvalo eteinen",
   },
 ] as const;
 
-type SaunaShowerPair = (typeof SAUNA_SHOWER_SWITCH_PAIRS)[number];
+type SaunaShowerSwitchPair = (typeof SAUNA_SHOWER_SWITCH_PAIRS)[number];
+type SaunaShowerLightPair = (typeof SAUNA_SHOWER_LIGHT_PAIRS)[number];
 
-function zwaveInSaunaShowerGroup(deviceId: string, pair: SaunaShowerPair): boolean {
+function zwaveMatchesNodeEp(
+  deviceId: string,
+  nodeId: number,
+  endpoint: number,
+): boolean {
   const parsed = parseZwaveDeviceId(deviceId.includes(":") ? deviceId : `zwave:${deviceId}`);
-  if (!parsed) return false;
-  if (parsed.nodeId === pair.eteinenNode) {
-    return parsed.endpoint == null || parsed.endpoint === pair.eteinenEp;
-  }
-  if (parsed.nodeId === pair.takkaNode) {
-    return parsed.endpoint == null || parsed.endpoint === pair.takkaEp;
-  }
-  if (parsed.nodeId === pair.localNode) {
-    return parsed.endpoint == null || parsed.endpoint === pair.localEp;
-  }
-  return false;
+  if (!parsed || parsed.nodeId !== nodeId) return false;
+  return parsed.endpoint == null || parsed.endpoint === endpoint;
 }
 
-function zwaveIdsForPair(
-  pair: SaunaShowerPair,
+function zwaveInSaunaShowerLightPair(deviceId: string, pair: SaunaShowerLightPair): boolean {
+  return (
+    zwaveMatchesNodeEp(deviceId, pair.takkaNode, pair.takkaEp) ||
+    zwaveMatchesNodeEp(deviceId, pair.localNode, pair.localEp)
+  );
+}
+
+function zwaveIdsForLightPair(
+  pair: SaunaShowerLightPair,
+  devices: HubLightDevice[],
+): { takka: string; local: string } {
+  return {
+    takka:
+      findZwaveByNode(devices, pair.takkaNode, pair.takkaEp, pair.takkaHint)?.id ??
+      `zwave:${pair.takkaNode}:e${pair.takkaEp}`,
+    local:
+      findZwaveByNode(devices, pair.localNode, pair.localEp, pair.localHint)?.id ??
+      `zwave:${pair.localNode}:e${pair.localEp}`,
+  };
+}
+
+function zwaveIdsForSwitchPair(
+  pair: SaunaShowerSwitchPair,
   devices: HubLightDevice[],
 ): { eteinen: string; takka: string; local: string } {
   return {
@@ -138,22 +161,21 @@ function zwaveIdsForPair(
   };
 }
 
-/** UI-ohjauksessa samaan ryhmään kuuluvat laitteet (ei itseä). */
+/** UI-ohjauksessa valopari (82↔86 tai 84↔87). Ei eteisen kytkintä eikä eteisen valoa. */
 export function uiMirrorPartnerIds(
   deviceId: string,
   devices: HubLightDevice[] = [],
 ): string[] {
-  for (const pair of SAUNA_SHOWER_SWITCH_PAIRS) {
-    if (!zwaveInSaunaShowerGroup(deviceId, pair)) continue;
+  for (const pair of SAUNA_SHOWER_LIGHT_PAIRS) {
+    if (!zwaveInSaunaShowerLightPair(deviceId, pair)) continue;
     const ids =
       devices.length > 0
-        ? zwaveIdsForPair(pair, devices)
+        ? zwaveIdsForLightPair(pair, devices)
         : {
-            eteinen: `zwave:${pair.eteinenNode}:e${pair.eteinenEp}`,
             takka: `zwave:${pair.takkaNode}:e${pair.takkaEp}`,
             local: `zwave:${pair.localNode}:e${pair.localEp}`,
           };
-    return [ids.eteinen, ids.takka, ids.local].filter((id) => !zwaveIdsMatch(id, deviceId));
+    return [ids.takka, ids.local].filter((id) => !zwaveIdsMatch(id, deviceId));
   }
   return [];
 }
@@ -163,7 +185,7 @@ function isSaunaShowerMirrorRule(rule: AutomationRule): boolean {
   const n = rule.name.toLocaleLowerCase("fi");
   if (n.includes("sauna") || n.includes("suihku")) return true;
   if (rule.trigger.kind !== "device") return false;
-  return /^zwave:(52|82|84|86|87)/.test(rule.trigger.device_id);
+  return /^zwave:52:/.test(rule.trigger.device_id);
 }
 
 /** Poista takkahuone→eteinen paluusäännöt (aiheuttivat silmukan). */
@@ -177,8 +199,8 @@ function stripReverseSaunaShowerRules(rules: AutomationRule[]): AutomationRule[]
 }
 
 /**
- * Eteisen seinäkytkin (node 52) kanava 1/2 → takkahuoneen rele + eteisen valo.
- * Jokaisessa relemoduulissa vain OUT1 (endpoint 1) on käytössä.
+ * Eteisen seinäkytkin (node 52) kanava 1/2 → sauna (82+86) tai suihku (84+87).
+ * UI-peilaus on erillinen: vain 82↔86 ja 84↔87.
  */
 export function buildSaunaShowerMirrorPresets(
   devices: HubLightDevice[],
@@ -197,11 +219,11 @@ export function buildSaunaShowerMirrorPresets(
       missing.push(`Takkahuoneen rele (zwave:${pair.takkaNode}:e${pair.takkaEp})`);
     }
     if (!local) {
-      missing.push(`Eteisen valo (zwave:${pair.localNode}:e${pair.localEp})`);
+      missing.push(`Sauna/suihku-valo (zwave:${pair.localNode}:e${pair.localEp})`);
     }
     if (!eteinen || !takka || !local) continue;
 
-    const { eteinen: eteId, takka: takkaId, local: localId } = zwaveIdsForPair(pair, devices);
+    const { eteinen: eteId, takka: takkaId, local: localId } = zwaveIdsForSwitchPair(pair, devices);
     const ruleId = `mirror-${pair.eteinenNode}-e${pair.eteinenEp}-to-${pair.takkaNode}`;
 
     rules.push(switchMirrorRule(pair.name, ruleId, eteId, pair.eteinenEp, [takkaId, localId]));

@@ -35,6 +35,11 @@ export function VentilationDiagram({ hub, settingsHref }: Props) {
     fan_exhaust_target: live?.fan_exhaust_target ?? hub.state.fan_exhaust_target,
     lto_temp_efficiency_pct: live?.lto_temp_efficiency_pct ?? hub.state.lto_temp_efficiency_pct,
     lto_energy_efficiency_pct: live?.lto_energy_efficiency_pct ?? hub.state.lto_energy_efficiency_pct,
+    lto_bypass_on: live?.lto_bypass_on ?? hub.state.lto_bypass_on,
+    co2_ppm: live?.co2_ppm ?? hub.state.co2_ppm,
+    humidity_pct: live?.humidity_pct ?? hub.state.humidity_pct,
+    pm25_ugm3: live?.pm25_ugm3 ?? hub.state.pm25_ugm3,
+    temperature_c: live?.temperature_c ?? hub.state.temperature_c,
   };
   const co2Band = s.co2_ppm != null ? getCo2Band(s.co2_ppm, hub.config) : null;
   const supplyTemp = s.supply_room_temp_c;
@@ -52,6 +57,8 @@ export function VentilationDiagram({ hub, settingsHref }: Props) {
   const ltoPct = lto.temp_pct ?? s.lto_temp_efficiency_pct;
   const ltoEnergyPct = lto.energy_pct ?? s.lto_energy_efficiency_pct;
   const ltoDesc = describeLtoEfficiency(lto);
+  const ltoBypassOn = s.lto_bypass_on === true;
+  const ltoBypassLabel = s.lto_bypass_on == null ? "—" : ltoBypassOn ? "Päällä" : "Pois";
 
   const hubOnline = status?.hub.online ?? isHubOnline(hub.last_seen_at);
   const airfiOnline =
@@ -190,6 +197,29 @@ export function VentilationDiagram({ hub, settingsHref }: Props) {
             )}
           </button>
 
+          <button
+            type="button"
+            onClick={() => showTrend("lto_bypass_on")}
+            className={`absolute z-10 -translate-x-1/2 -translate-y-1/2 rounded-xl border px-2 py-1.5 text-center shadow-md backdrop-blur transition hover:ring-2 sm:px-3 sm:py-2 ${
+              ltoBypassOn
+                ? "border-amber-300 bg-amber-50/95 hover:ring-amber-400"
+                : "border-stone-300 bg-white/95 hover:ring-stone-400"
+            }`}
+            style={{ left: "50%", top: "36%" }}
+            title="LTO ohitus — ohituspelti auki/pois (3x00038)"
+          >
+            <p className="text-[9px] font-semibold uppercase tracking-wide text-stone-600 sm:text-[10px]">
+              LTO ohitus
+            </p>
+            <p
+              className={`text-sm font-bold sm:text-lg ${
+                ltoBypassOn ? "text-amber-900" : "text-stone-800"
+              }`}
+            >
+              {ltoBypassLabel}
+            </p>
+          </button>
+
           <FanSpeedBadge
             label="Tulo"
             requested={s.fan_supply_target}
@@ -247,6 +277,14 @@ export function VentilationDiagram({ hub, settingsHref }: Props) {
               )}
               {s.fireplace_active && <StatusDot label="Takka" warn onTrend={() => showTrend("fireplace_active")} />}
               {s.hood_active && <StatusDot label="Liesi" warn onTrend={() => showTrend("hood_active")} />}
+              {s.lto_bypass_on != null && (
+                <StatusDot
+                  label={`LTO ohitus ${ltoBypassLabel.toLowerCase()}`}
+                  warn={ltoBypassOn}
+                  ok={!ltoBypassOn}
+                  onTrend={() => showTrend("lto_bypass_on")}
+                />
+              )}
             </div>
           </div>
         </div>

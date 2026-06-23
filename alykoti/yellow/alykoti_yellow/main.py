@@ -522,6 +522,7 @@ def _airfi_snapshot(state: dict) -> dict:
         "fan_exhaust_target",
         "lto_temp_efficiency_pct",
         "lto_energy_efficiency_pct",
+        "lto_bypass_on",
         "humidity_pct",
         "emergency_stop",
         "machine_fault",

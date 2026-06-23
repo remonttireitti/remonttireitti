@@ -8,7 +8,7 @@ import {
   zwaveNodeForParam,
   zwaveNodeId,
 } from "@/lib/zwave-detail";
-import type { DeviceRole } from "@/lib/device-roles";
+import { inferDeviceRole, type DeviceRole } from "@/lib/device-roles";
 import type { HubState, ZwaveNodeDetail, ZwaveNodeEndpoint } from "@/lib/types";
 
 export type ZwaveDeviceContext = {
@@ -58,7 +58,7 @@ function hubLightFromZwaveEndpoint(
   const controllable =
     ep.controllable === true || (ep.controllable !== false && inferControllable(capabilities));
 
-  return {
+  const mapped: HubLightDevice = {
     id: deviceId,
     name: override?.display_name?.trim() || ep.label || node.name,
     on: ep.on === true,
@@ -90,7 +90,12 @@ function hubLightFromZwaveEndpoint(
     battery_pct: null,
     voltage_v: null,
     role: "other_control" as DeviceRole,
+    inferredRole: "other_control" as DeviceRole,
+    roleOverride: override?.role ?? null,
   };
+  mapped.inferredRole = inferDeviceRole(mapped);
+  mapped.role = override?.role ?? mapped.inferredRole;
+  return mapped;
 }
 
 function siblingsFromZwaveNode(node: ZwaveNodeDetail, hubState?: HubState): HubLightDevice[] {
@@ -162,7 +167,7 @@ function buildStubZwaveDevice(
   fullId: string,
   storedNode: ZwaveNodeDetail,
 ): HubLightDevice {
-  return {
+  const mapped: HubLightDevice = {
     id: fullId,
     name: storedNode.name !== `Node ${nodeId}` ? storedNode.name : `Z-Wave ${nodeId}`,
     on: false,
@@ -193,7 +198,12 @@ function buildStubZwaveDevice(
     battery_pct: null,
     voltage_v: null,
     role: "other_control",
+    inferredRole: "other_control",
+    roleOverride: null,
   };
+  mapped.inferredRole = inferDeviceRole(mapped);
+  mapped.role = mapped.inferredRole;
+  return mapped;
 }
 
 /** Resolve zwave/77 → device + node detail even when only zwave:77:e1 or zwave_nodes exists. */

@@ -1180,23 +1180,19 @@ class AutomationEngine:
         return matches[0] if matches else preferred
 
     def _ui_mirror_partners(self, device_id: str) -> list[str]:
-        """Sauna/suihku-ryhmän muut laitteet (52↔82↔86 ja 52↔84↔87)."""
+        """UI-peilaus vain valopareihin: 82↔86 (sauna), 84↔87 (suihku). Ei node 52."""
         try:
             node_id, endpoint = parse_zwave_device_id(
                 device_id if ":" in device_id else f"zwave:{device_id}",
             )
         except ValueError:
             return []
-        groups = (
-            (52, 1, 82, 1, 86, 1),
-            (52, 2, 84, 1, 87, 1),
+        pairs = (
+            (82, 1, 86, 1),
+            (84, 1, 87, 1),
         )
-        for switch_node, switch_ep, takka_node, takka_ep, local_node, local_ep in groups:
-            members = (
-                (switch_node, switch_ep),
-                (takka_node, takka_ep),
-                (local_node, local_ep),
-            )
+        for takka_node, takka_ep, local_node, local_ep in pairs:
+            members = ((takka_node, takka_ep), (local_node, local_ep))
             matched = False
             for member_node, member_ep in members:
                 if node_id != member_node:
@@ -1211,13 +1207,6 @@ class AutomationEngine:
             for member_node, member_ep in members:
                 resolved = self._resolve_zwave_id(member_node, member_ep)
                 if resolved == device_id:
-                    continue
-                try:
-                    p_node, p_ep = parse_zwave_device_id(resolved)
-                except ValueError:
-                    partners.append(resolved)
-                    continue
-                if p_node == node_id and (p_ep or endpoint) == (endpoint or p_ep):
                     continue
                 partners.append(resolved)
             return partners

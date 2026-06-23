@@ -22,16 +22,25 @@ FILES[ROOT / "install/alykoti-yellow.service"] = (
 )
 
 
+def _emit(text: str) -> None:
+    """Print SSH output safely on Windows consoles (cp1252)."""
+    try:
+        print(text)
+    except UnicodeEncodeError:
+        enc = getattr(sys.stdout, "encoding", None) or "utf-8"
+        print(text.encode(enc, errors="replace").decode(enc, errors="replace"))
+
+
 def run(client: paramiko.SSHClient, cmd: str, timeout: int = 60) -> int:
     print("$", cmd)
     _stdin, stdout, stderr = client.exec_command(cmd, timeout=timeout)
-    out = stdout.read().decode()
-    err = stderr.read().decode()
+    out = stdout.read().decode(errors="replace")
+    err = stderr.read().decode(errors="replace")
     code = stdout.channel.recv_exit_status()
     if out.strip():
-        print(out.strip())
+        _emit(out.strip())
     if err.strip():
-        print("ERR:", err.strip())
+        _emit(f"ERR: {err.strip()}")
     print("exit", code)
     return code
 

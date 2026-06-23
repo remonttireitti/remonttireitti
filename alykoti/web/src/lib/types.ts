@@ -309,6 +309,8 @@ export type HubState = {
   lto_temp_efficiency_pct?: number | null;
   /** LTO energiahöytys % (painotettu ilmamäärällä/nopeudella) */
   lto_energy_efficiency_pct?: number | null;
+  /** LTO ohitus päällä (3x00038 AUX2 / ohituspelti) */
+  lto_bypass_on?: boolean;
   fan_supply_target?: number | null;
   fan_exhaust_target?: number | null;
   direct_control?: boolean;

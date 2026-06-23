@@ -1,6 +1,6 @@
 import { canPingAirfiFromRuntime } from "@/lib/airfi-runtime";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { fetchAirthingsState } from "@/lib/airthings";
+import { fetchAirthingsState, mergeAirthingsHubState } from "@/lib/airthings";
 import { hasAirfiTelemetry } from "@/lib/airfi-telemetry";
 import { normalizeAutomationRules } from "@/lib/automation";
 import { repairSaunaShowerMirrorRules } from "@/lib/automation-presets";
@@ -198,6 +198,7 @@ export async function syncDevice(
     "temp_setpoint_c",
     "filter_change_per_year",
     "sauna_mode",
+    "lto_bypass_on",
     "forced_control",
     "emergency_stop",
     "airfi_modbus_pause_until",
@@ -223,18 +224,7 @@ export async function syncDevice(
 
   const airthingsState = quick ? null : await fetchAirthingsState();
   if (airthingsState) {
-    if (airthingsState.co2_ppm != null) mergedState.co2_ppm = airthingsState.co2_ppm;
-    if (airthingsState.humidity_pct != null) {
-      mergedState.humidity_pct = airthingsState.humidity_pct;
-    }
-    if (airthingsState.temperature_c != null) {
-      mergedState.temperature_c = airthingsState.temperature_c;
-    }
-    if (airthingsState.tvoc_ppb != null) mergedState.tvoc_ppb = airthingsState.tvoc_ppb;
-    if (airthingsState.pm1_ugm3 != null) mergedState.pm1_ugm3 = airthingsState.pm1_ugm3;
-    if (airthingsState.pm25_ugm3 != null) mergedState.pm25_ugm3 = airthingsState.pm25_ugm3;
-    if (airthingsState.pm10_ugm3 != null) mergedState.pm10_ugm3 = airthingsState.pm10_ugm3;
-    mergedState.airthings_source = "cloud";
+    Object.assign(mergedState, mergeAirthingsHubState(mergedState, airthingsState));
   }
 
   if (!quick) {
@@ -327,6 +317,7 @@ export async function syncDevice(
         key === "freezing_alarm" ||
         key === "machine_fault" ||
         key === "sauna_mode" ||
+        key === "lto_bypass_on" ||
         key === "emergency_stop" ||
         key === "fault"
       ) {

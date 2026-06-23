@@ -5,6 +5,27 @@ export function zwaveEndpointItemKey(endpoint: number): string {
   return `ep:${endpoint}`;
 }
 
+export function channelItemKey(channel: number): string {
+  return `ch:${channel}`;
+}
+
+const WIFI_CHANNEL_ID_RE = /^(shelly|tasmota):([^:]+):(\d+)$/;
+
+/** shelly:host:0 / tasmota:host:1 — ei :em -päätteitä. */
+export function parseWifiChannelDeviceId(
+  id: string,
+): { protocol: "shelly" | "tasmota"; host: string; channel: number } | null {
+  const m = WIFI_CHANNEL_ID_RE.exec(id.trim());
+  if (!m) return null;
+  const channel = Number.parseInt(m[3]!, 10);
+  if (!Number.isFinite(channel)) return null;
+  return { protocol: m[1] as "shelly" | "tasmota", host: m[2]!, channel };
+}
+
+export function wifiHostOverrideKey(protocol: "shelly" | "tasmota", host: string): string {
+  return `${protocol}:${host}`;
+}
+
 export function zwavePropertyItemKey(p: Pick<ZwaveProperty, "cc" | "endpoint" | "property">): string {
   return `p:${p.cc}:${p.endpoint}:${p.property ?? ""}`;
 }

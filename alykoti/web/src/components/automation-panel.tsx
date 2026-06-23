@@ -362,7 +362,8 @@ export function AutomationPanel({
             Luo sauna- ja suihku-kytkinsäännöt
           </button>
           <p className="mt-1 text-xs text-stone-500">
-            Eteinen ↔ takkahuone: kanava 1 = sauna, kanava 2 = suihku. Sammutus lähetetään heti.
+            Eteisen kytkin (52): kanava 1 → sauna 82+86, kanava 2 → suihku 84+87. Webistä valot
+            peilataan vain 82↔86 ja 84↔87.
           </p>
         </div>
 
@@ -459,7 +460,7 @@ export function AutomationPanel({
                     className="mt-1 w-full rounded-xl border border-stone-200 px-3 py-2 text-sm"
                   />
                   <p className="mt-1 text-xs text-stone-500">
-                    Eteinen ↔ takkahuone: kanava 1 = sauna, kanava 2 = suihku.
+                    Eteisen kytkin: kanava 1 = sauna (82+86), kanava 2 = suihku (84+87).
                   </p>
                 </label>
               )}

@@ -102,7 +102,8 @@ def probe_shelly(host: str, timeout: float = 1.5) -> dict[str, Any] | None:
     if isinstance(result, dict):
         model = str(result.get("model") or result.get("app") or "Shelly")
         device_id = result.get("id")
-        name = str(device_id) if device_id else host
+        configured_name = str(device_id) if device_id else host
+        name = _resolve_base_name(host, configured_name, 2, str(device_id) if device_id else None)
         switches = _switch_channels(status_result) if status_result else []
         em = _em_status(status_result) if status_result else None
         return {
@@ -200,7 +201,82 @@ def _normalize_hosts(configured: list[dict[str, Any]]) -> dict[str, dict[str, An
     return hosts
 
 
-def _channel_name(base: str, channel: int, total: int) -> str:
+def _fetch_device_name_gen2(host: str) -> str | None:
+    config_rpc = _rpc(host, "Shelly.GetConfig")
+    config_result = config_rpc.get("result") if config_rpc else None
+    if isinstance(config_result, dict):
+        name = config_result.get("name")
+        if isinstance(name, str) and name.strip():
+            return name.strip()
+        device_cfg = config_result.get("device")
+        if isinstance(device_cfg, dict):
+            name = device_cfg.get("name")
+            if isinstance(name, str) and name.strip():
+                return name.strip()
+
+    sys_rpc = _rpc(host, "Sys.GetConfig")
+    sys_result = sys_rpc.get("result") if sys_rpc else None
+    if isinstance(sys_result, dict):
+        device = sys_result.get("device")
+        if isinstance(device, dict):
+            name = device.get("name")
+            if isinstance(name, str) and name.strip():
+                return name.strip()
+    return None
+
+
+def _fetch_switch_name_gen2(host: str, channel: int) -> str | None:
+    rpc = _rpc(host, "Switch.GetConfig", {"id": channel})
+    result = rpc.get("result") if rpc else None
+    if isinstance(result, dict):
+        name = result.get("name")
+        if isinstance(name, str) and name.strip():
+            return name.strip()
+    return None
+
+
+def _fetch_device_name_gen1(host: str) -> str | None:
+    try:
+        resp = requests.get(f"http://{host}/settings", timeout=3.0)
+        resp.raise_for_status()
+        data = resp.json()
+    except Exception:
+        return None
+    if not isinstance(data, dict):
+        return None
+    name = data.get("name")
+    if isinstance(name, str) and name.strip():
+        return name.strip()
+    device = data.get("device")
+    if isinstance(device, dict):
+        name = device.get("name")
+        if isinstance(name, str) and name.strip():
+            return name.strip()
+    return None
+
+
+def _resolve_base_name(host: str, configured_name: str, gen: int, device_id: str | None = None) -> str:
+    """Käytä laitteen omaa nimeä jos käyttäjä ei ole antanut omaa."""
+    if configured_name.strip() and configured_name.strip() not in {host, str(device_id or "").strip()}:
+        return configured_name.strip()
+
+    if gen == 2:
+        fetched = _fetch_device_name_gen2(host)
+        if fetched:
+            return fetched
+    else:
+        fetched = _fetch_device_name_gen1(host)
+        if fetched:
+            return fetched
+
+    if device_id:
+        return str(device_id)
+    return configured_name.strip() or host
+
+
+def _channel_name(base: str, channel: int, total: int, switch_name: str | None = None) -> str:
+    if switch_name:
+        return switch_name
     if total <= 1:
         return base
     return f"{base} kanava {channel + 1}"
@@ -313,9 +389,16 @@ def _extract_phases(em: dict[str, Any]) -> dict[str, dict[str, Any]]:
 def fetch_shelly_devices(configured: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
     out: dict[str, dict[str, Any]] = {}
     for host, meta in _normalize_hosts(configured).items():
-        name = meta["name"]
         gen = meta["gen"]
         model = meta["model"]
+        device_id: str | None = None
+
+        if gen == 2:
+            info_rpc = _rpc(host, "Shelly.GetDeviceInfo")
+            info_result = info_rpc.get("result") if info_rpc else None
+            if isinstance(info_result, dict) and info_result.get("id"):
+                device_id = str(info_result["id"])
+        name = _resolve_base_name(host, meta["name"], gen, device_id)
 
         if gen == 1:
             fetched = _gen1_fetch(host, name, model)
@@ -336,10 +419,11 @@ def fetch_shelly_devices(configured: list[dict[str, Any]]) -> dict[str, dict[str
             sw = _switch_status(result, ch)
             if not sw:
                 continue
+            switch_name = _fetch_switch_name_gen2(host, ch) if gen == 2 else None
             out[f"shelly:{host}:{ch}"] = {
                 "protocol": "shelly",
                 "kind": "switch",
-                "name": _channel_name(name, ch, len(switches)),
+                "name": _channel_name(name, ch, len(switches), switch_name),
                 "on": sw.get("output") is True,
                 "brightness": None,
                 "controllable": True,
