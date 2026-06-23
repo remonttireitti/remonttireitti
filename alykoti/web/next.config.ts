@@ -26,8 +26,23 @@ const nextConfig: NextConfig = {
       },
       {
         source: "/koti/valot",
-        destination: "/laitteet/valot",
+        destination: "/valot",
         permanent: true,
+      },
+      {
+        source: "/laitteet/valot",
+        destination: "/valot",
+        permanent: true,
+      },
+      {
+        source: "/asetukset",
+        destination: "/laitteet",
+        permanent: false,
+      },
+      {
+        source: "/asetukset/:path*",
+        destination: "/laitteet/:path*",
+        permanent: false,
       },
       {
         source: "/koti/laitteet",

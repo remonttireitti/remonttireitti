@@ -1,6 +1,10 @@
 import { SettingsSubNav } from "@/components/settings-sub-nav";
 
-export default function LaitteetLayout({ children }: { children: React.ReactNode }) {
+export default function IlmanvaihtoAsetuksetLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <div className="mx-auto flex max-w-6xl gap-8">
       <aside className="hidden w-44 shrink-0 md:block">

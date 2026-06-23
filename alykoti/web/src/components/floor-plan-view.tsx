@@ -14,6 +14,7 @@ type Props = {
   headerRight?: ReactNode;
   footer?: ReactNode;
   className?: string;
+  hideHeader?: boolean;
   onMarkerClick?: (id: string) => void;
 };
 
@@ -23,16 +24,19 @@ export function FloorPlanView({
   headerRight,
   footer,
   className = "",
+  hideHeader = false,
   onMarkerClick,
 }: Props) {
   return (
     <section
       className={`overflow-hidden rounded-2xl border border-stone-200 bg-stone-100 shadow-sm ${className}`}
     >
-      <div className="flex items-center justify-between gap-3 border-b border-stone-200 bg-white px-4 py-3">
-        <h2 className="text-lg font-semibold text-stone-900">{title}</h2>
-        {headerRight}
-      </div>
+      {!hideHeader && (
+        <div className="flex items-center justify-between gap-3 border-b border-stone-200 bg-white px-4 py-3">
+          <h2 className="text-lg font-semibold text-stone-900">{title}</h2>
+          {headerRight}
+        </div>
+      )}
 
       <div className="relative aspect-[4/3] w-full min-h-[280px] bg-stone-200 sm:min-h-[420px]">
         <Image

@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { ElectricityPricePanel } from "@/components/electricity-price-panel";
 import { HomeFloorPlan } from "@/components/home-floor-plan";
-import { KotiSubNav } from "@/components/koti-sub-nav";
 import { fetchElectricityPrices } from "@/lib/electricity-prices";
 import { fetchHubs } from "@/lib/hubs";
 import { isHubOnline } from "@/lib/device-status";
@@ -33,37 +32,25 @@ export default async function OverviewPage() {
   const primaryHub = hubs[0] ?? null;
 
   return (
-    <div className="mx-auto max-w-5xl">
-      <header>
-        <h1 className="text-2xl font-bold tracking-tight">Koti</h1>
-        <p className="mt-1 text-sm text-stone-600">
-          Yleiskatsaus — laitteet ja integraatiot omalla sivullaan.
-        </p>
-        <KotiSubNav />
-      </header>
+    <div className="mx-auto max-w-5xl space-y-6">
+      <ElectricityPricePanel initial={electricityPrices} className="mt-0" />
 
-      <div className="mt-6">
-        <HomeFloorPlan hub={primaryHub} />
-      </div>
+      <HomeFloorPlan hub={primaryHub} />
 
-      <ElectricityPricePanel initial={electricityPrices} />
-
-      <div className="mt-6 grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-3">
         <StatCard label="Keskusyksiköt" value={String(hubs.length)} />
         <StatCard label="Online" value={String(online)} />
         <StatCard label="CO₂ keskiarvo" value={avgCo2 != null ? `${avgCo2} ppm` : "—"} />
       </div>
 
       {hubs.length === 0 && (
-        <div className="mt-8 rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
-          <p className="text-sm text-stone-600">
-            Aloita lisäämällä keskusyksikkö.
-          </p>
+        <div className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
+          <p className="text-sm text-stone-600">Aloita lisäämällä keskusyksikkö asetuksista.</p>
           <Link
             href={LAITTEET.keskusyksikko}
             className="mt-3 inline-block text-sm font-medium text-stone-800 hover:underline"
           >
-            Laitteet & integraatiot →
+            Keskusyksikkö →
           </Link>
         </div>
       )}

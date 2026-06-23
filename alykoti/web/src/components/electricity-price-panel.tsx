@@ -11,9 +11,10 @@ const HELSINKI = "Europe/Helsinki";
 
 type Props = {
   initial: ElectricityPrices | null;
+  className?: string;
 };
 
-export function ElectricityPricePanel({ initial }: Props) {
+export function ElectricityPricePanel({ initial, className = "mt-8" }: Props) {
   const [data, setData] = useState<ElectricityPrices | null>(initial);
   const [error, setError] = useState<string | null>(null);
   const [now, setNow] = useState(() => new Date());
@@ -86,7 +87,7 @@ export function ElectricityPricePanel({ initial }: Props) {
 
   if (!data) {
     return (
-      <section className="mt-8 rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
+      <section className={`rounded-2xl border border-stone-200 bg-white p-5 shadow-sm ${className}`}>
         <h2 className="font-semibold text-stone-900">Sahkon hinta</h2>
         <p className="mt-3 text-sm text-stone-500">
           {error ?? "Ladataan porssihintoja..."}
@@ -101,7 +102,7 @@ export function ElectricityPricePanel({ initial }: Props) {
   const yTicks = [0, yMax * 0.25, yMax * 0.5, yMax * 0.75, yMax];
 
   return (
-    <section className="mt-8 rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
+    <section className={`rounded-2xl border border-stone-200 bg-white p-5 shadow-sm ${className}`}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="font-semibold text-stone-900">Sähkön hinta</h2>
