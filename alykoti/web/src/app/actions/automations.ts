@@ -211,7 +211,7 @@ export async function installSaunaShowerMirrorPresets(): Promise<AutomationActio
   const result = await saveRules(ctx.supabase, ctx.hub.id, row?.config, merged);
   if (result.ok) {
     return {
-      ok: "Sauna- ja suihkuvalosäännöt lisätty (kytkin kanava 1/2 → peilaa valot). Yellow päivittää ~30 s.",
+      ok: "Sauna- ja suihku-kytkinsäännöt päivitetty (eteinen ↔ takkahuone). Yellow päivittää ~30 s.",
     };
   }
   return result;

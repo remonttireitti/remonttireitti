@@ -110,6 +110,9 @@ COMMAND_COOLDOWN_SEC = 0.5
 COLOR_COOLDOWN_SEC = 0.9
 MULTI_TARGET_DELAY_SEC = 0.55
 SWITCH_STATE_DEBOUNCE_SEC = 0.45
+SWITCH_STATE_DEBOUNCE_OFF_SEC = 0.12
+MIRROR_ECHO_SUPPRESS_SEC = 0.8
+MIRROR_COOLDOWN_ON_SEC = 0.15
 
 
 def _press_aliases(press: str) -> frozenset[str]:
@@ -283,6 +286,7 @@ class AutomationEngine:
         self._command_cooldown: dict[str, float] = {}
         self._zwave_path_to_node: dict[str, int] = {}
         self._switch_last_fire: dict[str, tuple[float, bool]] = {}
+        self._mirror_echo_until: dict[str, float] = {}
         self._lock = threading.Lock()
         self._events: deque[dict[str, Any]] = deque(maxlen=60)
         self._device_events: dict[str, deque[dict[str, Any]]] = {}
@@ -621,6 +625,16 @@ class AutomationEngine:
             return int(ep)
         return None
 
+    def _is_mirror_echo(self, device_key: str) -> bool:
+        with self._lock:
+            return time.monotonic() < self._mirror_echo_until.get(device_key, 0.0)
+
+    def _mark_mirror_echo(self, *device_ids: str) -> None:
+        deadline = time.monotonic() + MIRROR_ECHO_SUPPRESS_SEC
+        with self._lock:
+            for device_id in device_ids:
+                self._mirror_echo_until[device_id] = deadline
+
     def _handle_switch_state(
         self,
         device_key: str,
@@ -628,11 +642,14 @@ class AutomationEngine:
         *,
         endpoint: int | None,
     ) -> None:
+        if self._is_mirror_echo(device_key):
+            return
         debounce_key = f"{device_key}:{endpoint if endpoint is not None else 'all'}"
         now = time.monotonic()
+        debounce_sec = SWITCH_STATE_DEBOUNCE_OFF_SEC if not on else SWITCH_STATE_DEBOUNCE_SEC
         with self._lock:
             last = self._switch_last_fire.get(debounce_key)
-            if last and last[1] == on and (now - last[0]) < SWITCH_STATE_DEBOUNCE_SEC:
+            if last and last[1] == on and (now - last[0]) < debounce_sec:
                 return
             self._switch_last_fire[debounce_key] = (now, on)
             rules = list(self._rules)
@@ -686,13 +703,16 @@ class AutomationEngine:
                 for j, expanded_id in enumerate(self._expand_targets(target_id)):
                     if i > 0 or j > 0:
                         time.sleep(MULTI_TARGET_DELAY_SEC)
-                    if self._command_on_cooldown(expanded_id, "mirror"):
+                    if self._command_on_cooldown(expanded_id, "mirror", on=on):
                         continue
+                    st = self._get_light_state(expanded_id)
                     ok = self._apply(
                         expanded_id,
                         on,
                         int(st.get("brightness") or 200) if on else 0,
                     )
+                    if ok:
+                        self._mark_mirror_echo(expanded_id)
                     self._log_event(
                         "ok" if ok else "failed",
                         rule_id=rule_id,
@@ -846,12 +866,16 @@ class AutomationEngine:
         with self._lock:
             return dict(self._light_state.get(device_id, {"on": False, "brightness": 128}))
 
-    def _command_on_cooldown(self, device_id: str, action_type: str) -> bool:
+    def _command_on_cooldown(self, device_id: str, action_type: str, *, on: bool | None = None) -> bool:
         """Estää Zigbee2MQTT-timeoutit kun komentoja tulee liikaa."""
+        if action_type == "mirror" and on is False:
+            return False
         now = time.monotonic()
         cooldown = (
             COLOR_COOLDOWN_SEC
             if action_type in ("color_next", "color_prev")
+            else MIRROR_COOLDOWN_ON_SEC
+            if action_type == "mirror" and on is True
             else COMMAND_COOLDOWN_SEC
         )
         key = f"{device_id}:{action_type}"

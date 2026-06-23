@@ -38,124 +38,117 @@ function findZwaveByNode(
   );
 }
 
-/** Eteisen valokytkin → sauna- ja suihkuvaloparit (Z-Wave node 52, kanavat 1/2). */
+function switchMirrorRule(
+  name: string,
+  triggerId: string,
+  endpoint: number,
+  targetId: string,
+): AutomationRule {
+  return {
+    id: newRuleId(),
+    name,
+    enabled: true,
+    trigger: {
+      kind: "device",
+      device_id: triggerId,
+      mode: "switch_state",
+      press: "short",
+      endpoint,
+      button: null,
+      action: null,
+    },
+    action: {
+      type: "mirror",
+      target_ids: [targetId],
+      brightness_pct: null,
+    },
+  };
+}
+
+/** Tunnetut sauna/suihku-kytkinparit: eteinen (52) ↔ takkahuone (82/84). */
+const SAUNA_SHOWER_SWITCH_PAIRS = [
+  {
+    nameTo: "Sauna — eteinen → takkahuone",
+    nameBack: "Sauna — takkahuone → eteinen",
+    eteinenNode: 52,
+    eteinenEp: 1,
+    takkaNode: 82,
+    takkaEp: 1,
+    eteinenHint: "eteisen valokytkin",
+    takkaHint: "saunavalo takka",
+  },
+  {
+    nameTo: "Suihku — eteinen → takkahuone",
+    nameBack: "Suihku — takkahuone → eteinen",
+    eteinenNode: 52,
+    eteinenEp: 2,
+    takkaNode: 84,
+    takkaEp: 2,
+    eteinenHint: "eteisen valokytkin",
+    takkaHint: "suihkuvalo takka",
+  },
+] as const;
+
+function isSaunaShowerMirrorRule(rule: AutomationRule): boolean {
+  if (rule.action.type !== "mirror") return false;
+  const n = rule.name.toLocaleLowerCase("fi");
+  if (n.includes("sauna") || n.includes("suihku")) return true;
+  if (rule.trigger.kind !== "device") return false;
+  return /^zwave:(52|82|84|86|87)/.test(rule.trigger.device_id);
+}
+
+/**
+ * Eteisen ja takkahuoneen kytkimet peilaavat toisiaan (sama huone, kaksi kytkintä / valo).
+ * Kanava 1 = sauna, kanava 2 = suihku. Fibaro: sauna OUT1 (e1), suihku OUT2 (e2).
+ */
 export function buildSaunaShowerMirrorPresets(
   devices: HubLightDevice[],
 ): { rules: AutomationRule[]; missing: string[] } {
   const missing: string[] = [];
-  const switchDev = findZwaveByNode(devices, 52, undefined, "eteisen valokytkin");
-  const switchEp1 = findZwaveByNode(devices, 52, 1, "eteisen valokytkin");
-  const switchEp2 = findZwaveByNode(devices, 52, 2, "eteisen valokytkin");
-  // Fibaro-kaksoisreleet: sauna = OUT1 (e1), suihku = OUT2 (e2) — vahvistettu MQTT-tilasta.
-  const saunaTakka = findZwaveByNode(devices, 82, 1, "saunavalo takka");
-  const saunaEteinen = findZwaveByNode(devices, 86, 1, "saunavalo eteis");
-  const suihkuTakka = findZwaveByNode(devices, 84, 2, "suihkuvalo takka");
-  const suihkuEteinen = findZwaveByNode(devices, 87, 2, "suihkuvalo eteis");
+  const rules: AutomationRule[] = [];
 
-  const triggerCh1 = switchEp1 ?? switchDev;
-  const triggerCh2 = switchEp2 ?? switchDev;
+  for (const pair of SAUNA_SHOWER_SWITCH_PAIRS) {
+    const eteinen = findZwaveByNode(devices, pair.eteinenNode, pair.eteinenEp, pair.eteinenHint);
+    const takka = findZwaveByNode(devices, pair.takkaNode, pair.takkaEp, pair.takkaHint);
+    if (!eteinen) {
+      missing.push(`Eteisen kytkin (zwave:${pair.eteinenNode}:e${pair.eteinenEp})`);
+    }
+    if (!takka) {
+      missing.push(`Takkahuoneen kytkin (zwave:${pair.takkaNode}:e${pair.takkaEp})`);
+    }
+    if (!eteinen || !takka) continue;
 
-  if (!triggerCh1) missing.push("Eteisen valokytkin (zwave:52, kanava 1)");
-  if (!triggerCh2) missing.push("Eteisen valokytkin (zwave:52, kanava 2)");
-  if (!saunaTakka) missing.push("Saunavalo takkahuoneessa");
-  if (!saunaEteinen) missing.push("Saunavalo eteisessa");
-  if (!suihkuTakka) missing.push("Suihkuvalo takkahuoneessa");
-  if (!suihkuEteinen) missing.push("Suihkuvalo eteisessa");
+    const eteEp = eteinen.endpoint ?? pair.eteinenEp;
+    const takkaEp = takka.endpoint ?? pair.takkaEp;
 
-  if (!triggerCh1 || !triggerCh2 || !saunaTakka || !saunaEteinen || !suihkuTakka || !suihkuEteinen) {
-    return { rules: [], missing };
+    rules.push(
+      switchMirrorRule(pair.nameTo, eteinen.id, eteEp, takka.id),
+      switchMirrorRule(pair.nameBack, takka.id, takkaEp, eteinen.id),
+    );
   }
-
-  const ch1Endpoint = triggerCh1.endpoint ?? (triggerCh1.id === switchDev?.id ? 1 : undefined);
-  const ch2Endpoint = triggerCh2.endpoint ?? (triggerCh2.id === switchDev?.id ? 2 : undefined);
-
-  const rules: AutomationRule[] = [
-    {
-      id: newRuleId(),
-      name: "Saunavalot — seuraa eteisen kytkintä (kanava 1)",
-      enabled: true,
-      trigger: {
-        kind: "device",
-        device_id: triggerCh1.id,
-        mode: "switch_state",
-        press: "short",
-        endpoint: ch1Endpoint ?? null,
-        button: null,
-        action: null,
-      },
-      action: {
-        type: "mirror",
-        target_ids: [saunaTakka.id, saunaEteinen.id],
-        brightness_pct: null,
-      },
-    },
-    {
-      id: newRuleId(),
-      name: "Suihkuvalot — seuraa eteisen kytkintä (kanava 2)",
-      enabled: true,
-      trigger: {
-        kind: "device",
-        device_id: triggerCh2.id,
-        mode: "switch_state",
-        press: "short",
-        endpoint: ch2Endpoint ?? null,
-        button: null,
-        action: null,
-      },
-      action: {
-        type: "mirror",
-        target_ids: [suihkuTakka.id, suihkuEteinen.id],
-        brightness_pct: null,
-      },
-    },
-  ];
 
   return { rules, missing };
 }
 
-/** Korjaa tunnetut väärät suihku-releen endpointit (OUT2 = e2). */
+/** Korjaa vanhat (monikohde-)säännöt nykyiseen kytkinpari-malliin. */
 export function repairSaunaShowerMirrorRules(rules: AutomationRule[]): AutomationRule[] {
-  const showerRelayFix: Record<string, string> = {
-    "zwave:84:e1": "zwave:84:e2",
-    "zwave:87:e1": "zwave:87:e2",
-  };
-  return rules.map((rule) => {
-    if (rule.action.type !== "mirror") return rule;
-    if (!rule.name.toLocaleLowerCase("fi").includes("suihku")) return rule;
-    const targets = rule.action.target_ids.map((id) => showerRelayFix[id] ?? id);
-    if (targets.every((t, i) => t === rule.action.target_ids[i])) return rule;
-    return { ...rule, action: { ...rule.action, target_ids: targets } };
-  });
+  const kept = rules.filter((r) => !isSaunaShowerMirrorRule(r));
+  const hardcoded: AutomationRule[] = [];
+  for (const pair of SAUNA_SHOWER_SWITCH_PAIRS) {
+    const eteId = `zwave:${pair.eteinenNode}:e${pair.eteinenEp}`;
+    const takkaId = `zwave:${pair.takkaNode}:e${pair.takkaEp}`;
+    hardcoded.push(
+      switchMirrorRule(pair.nameTo, eteId, pair.eteinenEp, takkaId),
+      switchMirrorRule(pair.nameBack, takkaId, pair.takkaEp, eteId),
+    );
+  }
+  return [...kept, ...hardcoded];
 }
 
 export function mergeMirrorPresets(
   existing: AutomationRule[],
   presets: AutomationRule[],
 ): AutomationRule[] {
-  const out = [...existing];
-  for (const preset of presets) {
-    const idx = out.findIndex(
-      (r) =>
-        r.trigger.kind === "device" &&
-        preset.trigger.kind === "device" &&
-        r.trigger.device_id === preset.trigger.device_id &&
-        r.trigger.endpoint === preset.trigger.endpoint &&
-        r.action.type === "mirror",
-    );
-    if (idx >= 0) {
-      out[idx] = {
-        ...out[idx],
-        name: preset.name,
-        trigger: { ...out[idx].trigger, ...preset.trigger, mode: "switch_state" },
-        action: {
-          ...out[idx].action,
-          type: "mirror",
-          target_ids: preset.action.target_ids,
-        },
-      };
-    } else {
-      out.push(preset);
-    }
-  }
-  return out;
+  const kept = existing.filter((r) => !isSaunaShowerMirrorRule(r));
+  return [...kept, ...presets];
 }

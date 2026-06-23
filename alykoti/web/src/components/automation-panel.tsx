@@ -359,10 +359,10 @@ export function AutomationPanel({
             onClick={() => run(() => installSaunaShowerMirrorPresets())}
             className="rounded-xl border border-stone-300 bg-stone-50 px-4 py-2 text-sm font-medium text-stone-800 hover:bg-stone-100 disabled:opacity-50"
           >
-            Luo sauna- ja suihkuvalosäännöt (eteisen kytkin)
+            Luo sauna- ja suihku-kytkinsäännöt
           </button>
           <p className="mt-1 text-xs text-stone-500">
-            Kanava 1 → saunavalot (takkahuone + eteinen), kanava 2 → suihkuvalot. Peilaa tilan, ei togglea.
+            Eteinen ↔ takkahuone: kanava 1 = sauna, kanava 2 = suihku. Sammutus lähetetään heti.
           </p>
         </div>
 
@@ -458,7 +458,9 @@ export function AutomationPanel({
                     placeholder="1 tai 2"
                     className="mt-1 w-full rounded-xl border border-stone-200 px-3 py-2 text-sm"
                   />
-                  <p className="mt-1 text-xs text-stone-500">Eteisen valokytkin: 1 = sauna, 2 = suihku.</p>
+                  <p className="mt-1 text-xs text-stone-500">
+                    Eteinen ↔ takkahuone: kanava 1 = sauna, kanava 2 = suihku.
+                  </p>
                 </label>
               )}
 
