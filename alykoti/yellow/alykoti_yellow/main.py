@@ -56,7 +56,7 @@ log = logging.getLogger("alykoti-yellow")
 
 pending_acks: list[str] = []
 pending_fails: list[dict[str, str]] = []
-_sync_lock = threading.Lock()
+_sync_lock = threading.RLock()
 _feedback_lock = threading.Lock()
 _executed_cmd_ids: dict[str, float] = {}
 cached_integrations: dict = {}
@@ -70,8 +70,7 @@ airfi_poll_state = AirfiPollState(
 cached_hub_state: dict = {}
 
 
-def _poll_interval_sec() -> int:
-    return config.COMMAND_POLL_INTERVAL_SEC
+def _queue_ack(cmd_id: str) -> None:
     if not cmd_id:
         return
     with _feedback_lock:
@@ -95,7 +94,7 @@ def _drain_pending_feedback() -> tuple[list[str], list[dict[str, str]]]:
 
 
 def _remember_executed(cmd_id: str) -> bool:
-    """Return True if this command was already executed recently."""
+    """Return True if this command already succeeded recently."""
     if not cmd_id:
         return False
     now = time.time()
@@ -103,10 +102,14 @@ def _remember_executed(cmd_id: str) -> bool:
         expired = [k for k, t in _executed_cmd_ids.items() if now - t > 120]
         for k in expired:
             del _executed_cmd_ids[k]
-        if cmd_id in _executed_cmd_ids:
-            return True
-        _executed_cmd_ids[cmd_id] = now
-        return False
+        return cmd_id in _executed_cmd_ids
+
+
+def _mark_executed(cmd_id: str) -> None:
+    if not cmd_id:
+        return
+    with _sync_lock:
+        _executed_cmd_ids[cmd_id] = time.time()
 
 
 def execute_command(cmd: dict) -> bool:
@@ -220,10 +223,12 @@ def execute_command(cmd: dict) -> bool:
         if device_id.startswith("zwave:"):
             lock_topic = payload.get("lock_set_topic")
             if isinstance(lock_topic, str):
+                log.info("Z-Wave lukko %s -> %s", device_id, on)
                 ok = set_zwave_lock(config.MQTT_URL, lock_topic, on)
             else:
                 mqtt_topic = payload.get("mqtt_set_topic")
                 if isinstance(mqtt_topic, str):
+                    log.info("Z-Wave ohjaus %s -> %s (%s)", device_id, on, mqtt_topic)
                     ok = set_zwave_device(config.MQTT_URL, mqtt_topic, on)
                     if ok and isinstance(payload.get("brightness"), (int, float)):
                         ok = set_zwave_device(
@@ -513,66 +518,92 @@ def _airfi_snapshot(state: dict) -> dict:
     return {k: state[k] for k in keys if k in state}
 
 
-def _process_sync_response(response: dict, hub_state: dict) -> None:
+def _process_commands(commands: list[dict]) -> int:
+    count = 0
+    with _sync_lock:
+        for cmd in commands:
+            cmd_id = cmd.get("id", "")
+            if cmd_id and _remember_executed(cmd_id):
+                log.debug("Skip duplicate command %s", cmd_id)
+                continue
+            ok = execute_command(cmd)
+            if ok:
+                count += 1
+                if cmd_id:
+                    _mark_executed(cmd_id)
+            elif cmd_id:
+                with _feedback_lock:
+                    already_failed = any(f.get("id") == cmd_id for f in pending_fails)
+                    already_acked = cmd_id in pending_acks
+                if not already_failed and not already_acked:
+                    _queue_fail(cmd_id, "Ohjaus epäonnistui")
+    return count
+
+
+def _process_sync_response(
+    response: dict,
+    hub_state: dict,
+    *,
+    update_engine: bool = True,
+    apply_vent: bool = True,
+) -> int:
     global cached_automations, cached_integrations
 
-    integrations = response.get("integrations")
-    if isinstance(integrations, dict):
-        cached_integrations = integrations
-    automations = response.get("automations")
-    if isinstance(automations, list):
-        cached_automations = automations
-    elif isinstance(response.get("config"), dict):
-        cfg_auto = response["config"].get("automations")
-        if isinstance(cfg_auto, list):
-            cached_automations = cfg_auto
-    get_engine().update_config(
-        cached_automations,
-        cached_integrations,
-        hub_state.get("home_devices") if isinstance(hub_state.get("home_devices"), dict) else None,
-    )
-    with _sync_lock:
-        for cmd in response.get("commands") or []:
-            cmd_id = cmd.get("id", "")
-            if _remember_executed(cmd_id):
-                continue
-            with _feedback_lock:
-                ack_before = len(pending_acks)
-            execute_command(cmd)
-            with _feedback_lock:
-                if (
-                    cmd_id
-                    and len(pending_acks) == ack_before
-                    and not any(f.get("id") == cmd_id for f in pending_fails)
-                ):
-                    pending_fails.append(
-                        {"id": cmd_id, "message": "Ohjaus epäonnistui"},
-                    )
-    apply_ventilation(response, hub_state if hub_state.get("airfi_online") else None)
+    if update_engine:
+        integrations = response.get("integrations")
+        if isinstance(integrations, dict):
+            cached_integrations = integrations
+        automations = response.get("automations")
+        if isinstance(automations, list):
+            cached_automations = automations
+        elif isinstance(response.get("config"), dict):
+            cfg_auto = response["config"].get("automations")
+            if isinstance(cfg_auto, list):
+                cached_automations = cfg_auto
+        get_engine().update_config(
+            cached_automations,
+            cached_integrations,
+            hub_state.get("home_devices") if isinstance(hub_state.get("home_devices"), dict) else None,
+        )
+
+    commands = response.get("commands") or []
+    cmd_count = _process_commands(commands)
+    if commands:
+        log.info("Komennot suoritettu: %s", cmd_count)
+    if apply_vent:
+        apply_ventilation(response, hub_state if hub_state.get("airfi_online") else None)
+    return cmd_count
 
 
 def run_fast_poll_loop() -> None:
     global cached_hub_state
 
-    log.info("Nopea komentopollaus %ss välein", _poll_interval_sec())
+    log.info("Nopea komentopollaus %ss välein", config.COMMAND_POLL_INTERVAL_SEC)
     while True:
-        acks, fails = _drain_pending_feedback()
-        snapshot = _airfi_snapshot(cached_hub_state)
-
-        response = quick_pull(
-            config.SYNC_URL,
-            config.DEVICE_TOKEN,
-            snapshot,
-            acks,
-            fails,
-        )
-        if response:
-            _process_sync_response(response, cached_hub_state)
-        time.sleep(_poll_interval_sec())
+        try:
+            acks, fails = _drain_pending_feedback()
+            snapshot = _airfi_snapshot(cached_hub_state)
+            response = quick_pull(
+                config.SYNC_URL,
+                config.DEVICE_TOKEN,
+                snapshot,
+                acks,
+                fails,
+            )
+            if response:
+                _process_sync_response(
+                    response,
+                    cached_hub_state,
+                    update_engine=False,
+                    apply_vent=False,
+                )
+        except Exception as exc:
+            log.warning("Komentopollaus virhe: %s", exc)
+        time.sleep(config.COMMAND_POLL_INTERVAL_SEC)
 
 
 def run_loop() -> None:
-    global pending_acks, pending_fails, cached_integrations, cached_automations, cached_shelly_discovered, cached_tasmota_discovered, cached_hub_state
+    global cached_shelly_discovered, cached_tasmota_discovered, cached_hub_state
 
     engine = get_engine()
     engine.start()
@@ -582,20 +613,20 @@ def run_loop() -> None:
         sys.exit(1)
 
     log.info(
-        "Synkki käynnissä → %s (interval %ss)",
+        "Synkki käynnissä → %s (tila %ss, komento %ss)",
         config.SYNC_URL,
         config.SYNC_INTERVAL_SEC,
+        config.COMMAND_POLL_INTERVAL_SEC if config.COMMAND_POLL_ENABLED else "off",
     )
 
     while True:
-        acks, fails = _drain_pending_feedback()
-
         state = build_state(
             cached_integrations,
             cached_shelly_discovered,
             cached_tasmota_discovered,
         )
 
+        acks, fails = _drain_pending_feedback()
         response = sync_post(
             config.SYNC_URL,
             config.DEVICE_TOKEN,
@@ -607,10 +638,9 @@ def run_loop() -> None:
 
         if response:
             cached_hub_state = state
-            _process_sync_response(response, state)
+            _process_sync_response(response, state, update_engine=True, apply_vent=True)
             devices = state.get("home_devices") or {}
             lights = sum(1 for d in devices.values() if d.get("kind") == "light")
-            switches = sum(1 for d in devices.values() if d.get("kind") == "switch")
             auto_count = len(cached_automations)
             log.info(
                 "Sync OK — airfi=%s devices=%s lights=%s zwave=%s shelly=%s tasmota=%s cmds=%s automations=%s",
@@ -631,10 +661,11 @@ def run_loop() -> None:
 
 def main() -> None:
     if config.COMMAND_POLL_ENABLED:
-        poll_thread = threading.Thread(
-            target=run_fast_poll_loop, name="command-poll", daemon=True
-        )
-        poll_thread.start()
+        threading.Thread(
+            target=run_fast_poll_loop,
+            name="command-poll",
+            daemon=True,
+        ).start()
     run_loop()
 
 

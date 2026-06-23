@@ -568,21 +568,41 @@ def _mqtt_client(_broker_url: str) -> mqtt.Client:
         return mqtt.Client()
 
 
-def _publish_mqtt_value(broker_url: str, topic: str, value: Any) -> bool:
-    host, port = _parse_mqtt_url(broker_url)
-    payload = json.dumps({"value": value})
-    client = _mqtt_client(broker_url)
-    try:
-        client.connect(host, port, keepalive=30)
+_mqtt_publish_lock = threading.Lock()
+_mqtt_publishers: dict[str, mqtt.Client] = {}
+
+
+def _get_mqtt_publisher(broker_url: str) -> mqtt.Client:
+    with _mqtt_publish_lock:
+        existing = _mqtt_publishers.get(broker_url)
+        if existing is not None:
+            return existing
+        host, port = _parse_mqtt_url(broker_url)
+        client = _mqtt_client(broker_url)
+        client.connect(host, port, keepalive=60)
         client.loop_start()
-        set_topic = topic if topic.endswith("/set") else f"{topic}/set"
-        client.publish(set_topic, payload)
-        time.sleep(0.3)
-        client.loop_stop()
-        client.disconnect()
+        _mqtt_publishers[broker_url] = client
+        return client
+
+
+def _publish_mqtt_value(broker_url: str, topic: str, value: Any) -> bool:
+    payload = json.dumps({"value": value})
+    set_topic = topic if topic.endswith("/set") else f"{topic}/set"
+    try:
+        client = _get_mqtt_publisher(broker_url)
+        info = client.publish(set_topic, payload, qos=1)
+        info.wait_for_publish(timeout=2.0)
         return True
     except Exception as exc:
         log.warning("Z-Wave MQTT publish failed (%s): %s", topic, exc)
+        with _mqtt_publish_lock:
+            stale = _mqtt_publishers.pop(broker_url, None)
+        if stale is not None:
+            try:
+                stale.loop_stop()
+                stale.disconnect()
+            except Exception:
+                pass
         return False
 
 

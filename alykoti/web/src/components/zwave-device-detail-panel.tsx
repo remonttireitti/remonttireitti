@@ -16,6 +16,7 @@ import { LAITTEET } from "@/lib/laitteet-paths";
 import type { ZwaveConfigParam, ZwaveNodeDetail, ZwaveNodeEndpoint, ZwaveProperty } from "@/lib/types";
 import { configParamOptions, endpointShowsBinaryState, formatEndpointBinaryState, formatZwaveValue, zwaveNodeId } from "@/lib/zwave-detail";
 import { ItemRenameField } from "@/components/item-rename-field";
+import { useHubCommandStatus } from "@/components/command-status-provider";
 
 type Props = {
   deviceIdParam: string;
@@ -37,6 +38,7 @@ export function ZwaveDeviceDetailPanel({ deviceIdParam }: Props) {
   const [flash, setFlash] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const [configDrafts, setConfigDrafts] = useState<Record<number, string>>({});
+  const { trackCommandIds } = useHubCommandStatus();
 
   const encodedParam = encodeURIComponent(deviceIdParam);
 
@@ -122,6 +124,9 @@ export function ZwaveDeviceDetailPanel({ deviceIdParam }: Props) {
   }, [device, events]);
 
   function controlEndpoint(ep: ZwaveNodeEndpoint, on: boolean) {
+    setDevice((prev) =>
+      prev?.id === ep.device_id ? { ...prev, on } : prev,
+    );
     startTransition(async () => {
       try {
         const res = await fetch("/api/lights/control", {
@@ -129,14 +134,21 @@ export function ZwaveDeviceDetailPanel({ deviceIdParam }: Props) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ id: ep.device_id, on }),
         });
-        const json = (await res.json()) as { ok?: boolean; error?: string };
-        if (!json.ok) setFlash(json.error ?? "Ohjaus epäonnistui");
-        else {
-          setFlash(null);
+        const json = (await res.json()) as {
+          ok?: boolean;
+          error?: string;
+          commandId?: string;
+        };
+        if (!json.ok) {
+          setFlash(json.error ?? "Ohjaus epäonnistui");
           await loadDevice();
+        } else {
+          setFlash(null);
+          if (json.commandId) trackCommandIds([json.commandId]);
         }
       } catch {
         setFlash("Ohjaus epäonnistui");
+        await loadDevice();
       }
     });
   }

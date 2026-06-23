@@ -25,7 +25,7 @@ SYNC_URL = os.environ.get(
 SYNC_INTERVAL_SEC = max(10, int(os.environ.get("SYNC_INTERVAL_SEC", "30")))
 COMMAND_POLL_INTERVAL_SEC = max(
     1,
-    int(os.environ.get("COMMAND_POLL_INTERVAL_SEC", os.environ.get("COMMAND_POLL_SEC", "2"))),
+    int(os.environ.get("COMMAND_POLL_INTERVAL_SEC", os.environ.get("COMMAND_POLL_SEC", "1"))),
 )
 COMMAND_POLL_ENABLED = os.environ.get("COMMAND_POLL_ENABLED", "1").strip() in (
     "1",

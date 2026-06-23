@@ -34,16 +34,16 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, error: "Hubia ei löydy." }, { status: 503 });
   }
 
-  const { error } = await supabase.from("commands").insert({
+  const { data, error } = await supabase.from("commands").insert({
     hub_id: hub.id,
     user_id: user.id,
     command: "set_zwave_property",
     payload: { mqtt_topic, value },
-  });
+  }).select("id").single();
 
   if (error) {
     return NextResponse.json({ ok: false, error: "Komennon lähetys epäonnistui." }, { status: 500 });
   }
 
-  return NextResponse.json({ ok: true, queued: true });
+  return NextResponse.json({ ok: true, queued: true, commandId: data.id });
 }

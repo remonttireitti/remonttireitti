@@ -17,6 +17,7 @@ import { LAITTEET } from "@/lib/laitteet-paths";
 import type { ZwaveConfigParam, ZwaveNodeDetail, ZwaveNodeEndpoint, ZwaveProperty } from "@/lib/types";
 import { configParamOptions, formatZwaveValue, toggleZwaveValue } from "@/lib/zwave-detail";
 import { ItemRenameField } from "@/components/item-rename-field";
+import { useHubCommandStatus } from "@/components/command-status-provider";
 
 type Props = {
   protocol: "zigbee" | "zwave";
@@ -51,6 +52,7 @@ export function DeviceDetailPanel({ protocol, deviceIdParam }: Props) {
   const [flash, setFlash] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const [brightness, setBrightness] = useState(50);
+  const { trackCommandIds } = useHubCommandStatus();
 
   const listHref = protocol === "zigbee" ? LAITTEET.zigbee : LAITTEET.zwave;
   const encodedParam = encodeURIComponent(deviceIdParam);
@@ -164,6 +166,9 @@ export function DeviceDetailPanel({ protocol, deviceIdParam }: Props) {
     mqttSetTopic?: string | null,
     lockSetTopic?: string | null,
   ) {
+    if (typeof body.on === "boolean") {
+      setDevice((prev) => (prev ? { ...prev, on: body.on as boolean } : prev));
+    }
     startTransition(async () => {
       try {
         const payload: Record<string, unknown> = { id: targetId, ...body };
@@ -174,14 +179,21 @@ export function DeviceDetailPanel({ protocol, deviceIdParam }: Props) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
         });
-        const json = (await res.json()) as { ok?: boolean; error?: string };
-        if (!json.ok) setFlash(json.error ?? "Ohjaus epäonnistui");
-        else {
+        const json = (await res.json()) as {
+          ok?: boolean;
+          error?: string;
+          commandId?: string;
+        };
+        if (!json.ok) {
+          setFlash(json.error ?? "Ohjaus epäonnistui");
+          void loadDevice();
+        } else {
           setFlash(null);
-          await loadDevice();
+          if (json.commandId) trackCommandIds([json.commandId]);
         }
       } catch {
         setFlash("Ohjaus epäonnistui");
+        void loadDevice();
       }
     });
   }
