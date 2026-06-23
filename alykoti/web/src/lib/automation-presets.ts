@@ -46,10 +46,11 @@ export function buildSaunaShowerMirrorPresets(
   const switchDev = findZwaveByNode(devices, 52, undefined, "eteisen valokytkin");
   const switchEp1 = findZwaveByNode(devices, 52, 1, "eteisen valokytkin");
   const switchEp2 = findZwaveByNode(devices, 52, 2, "eteisen valokytkin");
-  const saunaTakka = findZwaveByNode(devices, 82, undefined, "saunavalo takka");
-  const saunaEteinen = findZwaveByNode(devices, 86, undefined, "saunavalo eteis");
-  const suihkuTakka = findZwaveByNode(devices, 84, undefined, "suihkuvalo takka");
-  const suihkuEteinen = findZwaveByNode(devices, 87, undefined, "suihkuvalo eteis");
+  // Fibaro-kaksoisreleet: sauna = OUT1 (e1), suihku = OUT2 (e2) — vahvistettu MQTT-tilasta.
+  const saunaTakka = findZwaveByNode(devices, 82, 1, "saunavalo takka");
+  const saunaEteinen = findZwaveByNode(devices, 86, 1, "saunavalo eteis");
+  const suihkuTakka = findZwaveByNode(devices, 84, 2, "suihkuvalo takka");
+  const suihkuEteinen = findZwaveByNode(devices, 87, 2, "suihkuvalo eteis");
 
   const triggerCh1 = switchEp1 ?? switchDev;
   const triggerCh2 = switchEp2 ?? switchDev;
@@ -112,13 +113,28 @@ export function buildSaunaShowerMirrorPresets(
   return { rules, missing };
 }
 
+/** Korjaa tunnetut väärät suihku-releen endpointit (OUT2 = e2). */
+export function repairSaunaShowerMirrorRules(rules: AutomationRule[]): AutomationRule[] {
+  const showerRelayFix: Record<string, string> = {
+    "zwave:84:e1": "zwave:84:e2",
+    "zwave:87:e1": "zwave:87:e2",
+  };
+  return rules.map((rule) => {
+    if (rule.action.type !== "mirror") return rule;
+    if (!rule.name.toLocaleLowerCase("fi").includes("suihku")) return rule;
+    const targets = rule.action.target_ids.map((id) => showerRelayFix[id] ?? id);
+    if (targets.every((t, i) => t === rule.action.target_ids[i])) return rule;
+    return { ...rule, action: { ...rule.action, target_ids: targets } };
+  });
+}
+
 export function mergeMirrorPresets(
   existing: AutomationRule[],
   presets: AutomationRule[],
 ): AutomationRule[] {
   const out = [...existing];
   for (const preset of presets) {
-    const dup = existing.some(
+    const idx = out.findIndex(
       (r) =>
         r.trigger.kind === "device" &&
         preset.trigger.kind === "device" &&
@@ -126,7 +142,20 @@ export function mergeMirrorPresets(
         r.trigger.endpoint === preset.trigger.endpoint &&
         r.action.type === "mirror",
     );
-    if (!dup) out.push(preset);
+    if (idx >= 0) {
+      out[idx] = {
+        ...out[idx],
+        name: preset.name,
+        trigger: { ...out[idx].trigger, ...preset.trigger, mode: "switch_state" },
+        action: {
+          ...out[idx].action,
+          type: "mirror",
+          target_ids: preset.action.target_ids,
+        },
+      };
+    } else {
+      out.push(preset);
+    }
   }
   return out;
 }

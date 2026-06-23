@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { fetchAirthingsState } from "@/lib/airthings";
 import { hasAirfiTelemetry } from "@/lib/airfi-telemetry";
 import { normalizeAutomationRules } from "@/lib/automation";
+import { repairSaunaShowerMirrorRules } from "@/lib/automation-presets";
 import {
   airfiToHubState,
   applyVentilationControl,
@@ -153,7 +154,7 @@ export async function syncDevice(
     .eq("status", "delivered")
     .lt("delivered_at", commandStaleBefore);
 
-  const config = parseHubConfig(hub.config);
+  let config = parseHubConfig(hub.config);
   const storedMode = hub.control_mode as HubControlMode;
   let mergedState = expireTimedModes({
     ...parseState(hub.state),
@@ -552,10 +553,17 @@ export async function syncDevice(
       ? mergedState.integrations
       : undefined;
 
-  const automations =
+  let automations =
     config.automations?.length
       ? config.automations
       : normalizeAutomationRules(mergedState.automations);
+  const repaired = repairSaunaShowerMirrorRules(automations);
+  const automationsChanged = JSON.stringify(repaired) !== JSON.stringify(automations);
+  if (automationsChanged && config.automations?.length) {
+    config = { ...config, automations: repaired };
+    await supabase.from("hubs").update({ config }).eq("id", hub.id);
+  }
+  automations = repaired;
 
   return {
     control_mode: effectiveMode,

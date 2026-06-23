@@ -366,10 +366,11 @@ class AutomationEngine:
             if isinstance(home_devices, dict):
                 for device_id, meta in home_devices.items():
                     if isinstance(meta, dict):
-                        self._light_state.setdefault(device_id, {
-                            "on": bool(meta.get("on")),
-                            "brightness": meta.get("brightness") if isinstance(meta.get("brightness"), (int, float)) else 128,
-                        })
+                        st = self._light_state.setdefault(device_id, {"on": False, "brightness": 128})
+                        st["on"] = bool(meta.get("on"))
+                        b = meta.get("brightness")
+                        if isinstance(b, (int, float)):
+                            st["brightness"] = int(b)
                 self._home_devices = home_devices
             elif not hasattr(self, "_home_devices"):
                 self._home_devices = {}
@@ -543,6 +544,8 @@ class AutomationEngine:
             on = self._zwave_value_to_on(payload.get("value"))
             if on is None:
                 return
+            for device_key in device_keys:
+                self._set_light_state(device_key, on)
             for action_id in self._zwave_switch_action_ids(endpoint, on):
                 for device_key in device_keys:
                     self._record_device_event(
@@ -683,15 +686,6 @@ class AutomationEngine:
                 for j, expanded_id in enumerate(self._expand_targets(target_id)):
                     if i > 0 or j > 0:
                         time.sleep(MULTI_TARGET_DELAY_SEC)
-                    st = self._get_light_state(expanded_id)
-                    if bool(st.get("on")) == on:
-                        self._log_event(
-                            "skipped",
-                            rule_id=rule_id,
-                            target_id=expanded_id,
-                            message="Jo oikeassa tilassa",
-                        )
-                        continue
                     if self._command_on_cooldown(expanded_id, "mirror"):
                         continue
                     ok = self._apply(
