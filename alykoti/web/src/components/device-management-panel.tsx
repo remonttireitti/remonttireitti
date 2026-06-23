@@ -61,6 +61,7 @@ export function DeviceManagementPanel({
   const [pending, startTransition] = useTransition();
   const [busyId, setBusyId] = useState<string | null>(null);
   const [controlFlash, setControlFlash] = useState<string | null>(null);
+  const [optimisticOn, setOptimisticOn] = useState<Record<string, boolean>>({});
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [editRoom, setEditRoom] = useState("");
@@ -76,6 +77,24 @@ export function DeviceManagementPanel({
     return () => clearInterval(id);
   }, [load]);
 
+  useEffect(() => {
+    if (!data?.devices) return;
+    setOptimisticOn((prev) => {
+      if (Object.keys(prev).length === 0) return prev;
+      const next = { ...prev };
+      for (const d of data.devices) {
+        if (next[d.id] !== undefined && next[d.id] === d.on) {
+          delete next[d.id];
+        }
+      }
+      return next;
+    });
+  }, [data]);
+
+  function effectiveOn(device: Device): boolean {
+    return optimisticOn[device.id] ?? device.on;
+  }
+
   function run(action: () => Promise<DeviceActionState>) {
     startTransition(async () => {
       const result = await action();
@@ -85,7 +104,8 @@ export function DeviceManagementPanel({
   }
 
   function toggleDevice(device: Device, on: boolean) {
-    if (!device.controllable || pending) return;
+    if (!device.controllable || busyId === device.id) return;
+    setOptimisticOn((prev) => ({ ...prev, [device.id]: on }));
     setBusyId(device.id);
     startTransition(async () => {
       try {
@@ -95,13 +115,24 @@ export function DeviceManagementPanel({
           body: JSON.stringify({ id: device.id, on }),
         });
         const json = (await res.json()) as { ok?: boolean; error?: string };
-        if (!json.ok) setControlFlash(json.error ?? "Ohjaus epäonnistui");
-        else {
+        if (!json.ok) {
+          setControlFlash(json.error ?? "Ohjaus epäonnistui");
+          setOptimisticOn((prev) => {
+            const next = { ...prev };
+            delete next[device.id];
+            return next;
+          });
+        } else {
           setControlFlash(null);
-          await load();
+          void load();
         }
       } catch {
         setControlFlash("Ohjaus epäonnistui");
+        setOptimisticOn((prev) => {
+          const next = { ...prev };
+          delete next[device.id];
+          return next;
+        });
       } finally {
         setBusyId(null);
       }
@@ -242,6 +273,7 @@ export function DeviceManagementPanel({
               onRefresh={() => void load()}
               onToggle={toggleDevice}
               busyId={busyId}
+              effectiveOn={effectiveOn}
             />
           ))
         )
@@ -278,6 +310,7 @@ export function DeviceManagementPanel({
           onRefresh={() => void load()}
           onToggle={toggleDevice}
           busyId={busyId}
+          effectiveOn={effectiveOn}
           emptyText={
             protocol
               ? `Ei ${protocolLabel(protocol)}-laitteita — odota synkkiä tai käynnistä paritus.`
@@ -345,6 +378,7 @@ function DeviceListSection({
   onRefresh,
   onToggle,
   busyId,
+  effectiveOn,
   emptyText,
 }: {
   title: string;
@@ -362,6 +396,7 @@ function DeviceListSection({
   onRefresh: () => void;
   onToggle?: (device: Device, on: boolean) => void;
   busyId?: string | null;
+  effectiveOn?: (device: Device) => boolean;
   emptyText?: string;
 }) {
   return (
@@ -382,7 +417,12 @@ function DeviceListSection({
         <p className="mt-4 text-sm text-stone-600">{emptyText ?? "Ei laitteita tässä ryhmässä."}</p>
       ) : (
         <ul className="mt-4 divide-y divide-stone-100">
-          {devices.map((device) => (
+          {devices.map((device) => {
+            const on = effectiveOn ? effectiveOn(device) : device.on;
+            const busy = busyId === device.id;
+            const showControl =
+              device.controllable && onToggle && !isZwaveNodeAggregate(device);
+            return (
             <li key={device.id} className="py-4 first:pt-0">
               {editingId === device.id ? (
                 <form
@@ -432,32 +472,52 @@ function DeviceListSection({
                       {device.room ? ` · ${device.room}` : ""}
                       {device.readingLabel
                         ? ` · ${device.readingLabel}`
-                        : device.on
+                        : !showControl && on
                           ? " · päällä"
                           : ""}
                     </p>
                     <p className="mt-0.5 font-mono text-[10px] text-stone-400">{device.id}</p>
                   </div>
-                  <div className="flex flex-wrap gap-2">
-                    {device.controllable && onToggle && !isZwaveNodeAggregate(device) && (
-                      <>
-                        <button
-                          type="button"
-                          disabled={pending || busyId === device.id}
-                          onClick={() => onToggle(device, true)}
-                          className="rounded-lg bg-stone-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-stone-800 disabled:opacity-50"
+                  <div className="flex flex-wrap items-center gap-2">
+                    {showControl && (
+                      <div className="flex flex-col items-end gap-1">
+                        <span
+                          className={`text-xs font-semibold ${
+                            on ? "text-amber-700" : "text-stone-500"
+                          }`}
                         >
-                          Päälle
-                        </button>
-                        <button
-                          type="button"
-                          disabled={pending || busyId === device.id}
-                          onClick={() => onToggle(device, false)}
-                          className="rounded-lg border border-stone-300 px-3 py-1.5 text-xs font-semibold text-stone-800 hover:bg-stone-50 disabled:opacity-50"
-                        >
-                          Pois
-                        </button>
-                      </>
+                          {busy ? "Lähetetään…" : on ? "Päällä" : "Pois"}
+                        </span>
+                        <div className="flex gap-1">
+                          <button
+                            type="button"
+                            disabled={busy}
+                            onClick={() => onToggle!(device, true)}
+                            className={`rounded-lg px-3 py-1.5 text-xs font-semibold disabled:opacity-50 ${
+                              on
+                                ? "bg-amber-400 text-amber-950 ring-2 ring-amber-500/40"
+                                : "bg-stone-900 text-white hover:bg-stone-800"
+                            }`}
+                          >
+                            Päälle
+                          </button>
+                          <button
+                            type="button"
+                            disabled={busy}
+                            onClick={() => onToggle!(device, false)}
+                            className={`rounded-lg border px-3 py-1.5 text-xs font-semibold disabled:opacity-50 ${
+                              !on
+                                ? "border-stone-400 bg-stone-200 text-stone-900 ring-2 ring-stone-400/50"
+                                : "border-stone-300 text-stone-800 hover:bg-stone-50"
+                            }`}
+                          >
+                            Pois
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                    {!showControl && device.controllable === false && !device.readingLabel && (
+                      <span className="text-xs text-stone-500">{on ? "Päällä" : "Pois"}</span>
                     )}
                     {(device.protocol === "zigbee" || device.protocol === "zwave") && (
                       <Link
@@ -489,7 +549,8 @@ function DeviceListSection({
                 </div>
               )}
             </li>
-          ))}
+            );
+          })}
         </ul>
       )}
     </section>
