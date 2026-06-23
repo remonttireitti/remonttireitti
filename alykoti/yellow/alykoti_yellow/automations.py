@@ -721,20 +721,33 @@ class AutomationEngine:
                     if i > 0 or j > 0:
                         time.sleep(MULTI_TARGET_DELAY_SEC)
                     st = self._get_light_state(expanded_id)
-                    if bool(st.get("on")) == on:
-                        self._log_event(
-                            "skipped",
-                            rule_id=rule_id,
-                            target_id=expanded_id,
-                            message="Jo oikeassa tilassa",
-                        )
-                        continue
-                    if self._command_on_cooldown(expanded_id, "mirror", on=on):
+                    mirror_mode = str(act.get("mirror_mode") or "state")
+                    if mirror_mode == "toggle_on_press":
+                        if not on:
+                            self._log_event(
+                                "skipped",
+                                rule_id=rule_id,
+                                target_id=expanded_id,
+                                message="Seinäkytkin OFF — ohitetaan (toggle)",
+                            )
+                            continue
+                        target_on = not bool(st.get("on"))
+                    else:
+                        target_on = on
+                        if bool(st.get("on")) == target_on:
+                            self._log_event(
+                                "skipped",
+                                rule_id=rule_id,
+                                target_id=expanded_id,
+                                message="Jo oikeassa tilassa",
+                            )
+                            continue
+                    if self._command_on_cooldown(expanded_id, "mirror", on=target_on):
                         continue
                     ok = self._apply(
                         expanded_id,
-                        on,
-                        int(st.get("brightness") or 200) if on else 0,
+                        target_on,
+                        int(st.get("brightness") or 200) if target_on else 0,
                     )
                     if ok:
                         self._mark_mirror_echo(device_key, expanded_id)
@@ -1063,6 +1076,8 @@ class AutomationEngine:
             topic = self._zwave_topic(device_id)
             if topic:
                 ok = set_zwave_device(config.MQTT_URL, topic, on)
+            else:
+                log.warning("Z-Wave ohjaus: ei mqtt_set_topic (%s)", device_id)
         elif device_id.startswith("shelly:"):
             meta = self._shelly_meta(device_id)
             if meta:
@@ -1083,22 +1098,37 @@ class AutomationEngine:
         return ok
 
     def _zwave_topic(self, device_id: str) -> str | None:
-        meta = self._home_devices.get(device_id)
-        if isinstance(meta, dict):
+        def topic_from_meta(meta: dict[str, Any] | None) -> str | None:
+            if not isinstance(meta, dict):
+                return None
             topic = meta.get("mqtt_set_topic")
             if isinstance(topic, str) and topic.strip():
                 return topic.strip()
-        if device_id.startswith("zwave:"):
-            try:
-                node_id, ep = parse_zwave_device_id(device_id)
-            except ValueError:
-                return None
-            if ep is not None:
-                root = self._home_devices.get(f"zwave:{node_id}")
-                if isinstance(root, dict):
-                    topic = root.get("mqtt_set_topic")
-                    if isinstance(topic, str) and topic.strip():
-                        return topic.strip()
+            return None
+
+        direct = topic_from_meta(self._home_devices.get(device_id))
+        if direct:
+            return direct
+        if not device_id.startswith("zwave:"):
+            return None
+        try:
+            node_id, ep = parse_zwave_device_id(device_id)
+        except ValueError:
+            return None
+        if ep is not None:
+            ep_key = f"zwave:{node_id}:e{ep}"
+            ep_topic = topic_from_meta(self._home_devices.get(ep_key))
+            if ep_topic:
+                return ep_topic
+        root_topic = topic_from_meta(self._home_devices.get(f"zwave:{node_id}"))
+        if root_topic:
+            return root_topic
+        prefix = f"zwave:{node_id}:e"
+        for key, meta in self._home_devices.items():
+            if key.startswith(prefix) or key == f"zwave:{node_id}":
+                topic = topic_from_meta(meta if isinstance(meta, dict) else None)
+                if topic:
+                    return topic
         return None
 
     def _lock_topic(self, device_id: str) -> str | None:

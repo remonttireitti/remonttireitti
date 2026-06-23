@@ -4,10 +4,10 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState, useTransition } from "react";
 import { FloorPlanView } from "@/components/floor-plan-view";
 import { LightMapDevicePopup } from "@/components/light-map-device-popup";
-import { buildDeviceMarkers, type FloorPlanMarker } from "@/lib/floor-plan";
+import { type FloorPlanMarker } from "@/lib/floor-plan";
 import {
   deviceIdForPin,
-  pinsToMarkers,
+  mergeFloorPlanMarkers,
   type FloorPlanDeviceSnapshot,
   type FloorPlanPin,
 } from "@/lib/floor-plan-pins";
@@ -18,7 +18,6 @@ import Link from "next/link";
 
 type Device = FloorPlanDeviceSnapshot & {
   room: string | null;
-  roomAnchorId?: string | null;
   role?: DeviceRole;
   protocol?: string;
   brightness?: number | null;
@@ -28,6 +27,29 @@ type Props = {
   hub: Hub | null;
 };
 
+async function pollCommandUntilDone(commandId: string): Promise<"acked" | "failed" | "timeout"> {
+  const deadline = Date.now() + 120_000;
+  while (Date.now() < deadline) {
+    await new Promise((r) => setTimeout(r, 1_500));
+    try {
+      const res = await fetch(`/api/device/commands?track=${encodeURIComponent(commandId)}`, {
+        cache: "no-store",
+      });
+      if (!res.ok) continue;
+      const json = (await res.json()) as {
+        commands?: Array<{ status: string; error_message?: string | null }>;
+      };
+      const cmd = json.commands?.[0];
+      if (!cmd) continue;
+      if (cmd.status === "acked") return "acked";
+      if (cmd.status === "failed") return "failed";
+    } catch {
+      /* retry */
+    }
+  }
+  return "timeout";
+}
+
 export function HomeFloorPlan({ hub }: Props) {
   void hub;
   const router = useRouter();
@@ -36,6 +58,7 @@ export function HomeFloorPlan({ hub }: Props) {
   const [optimisticOn, setOptimisticOn] = useState<Record<string, boolean>>({});
   const [popupDevice, setPopupDevice] = useState<Device | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [statusHint, setStatusHint] = useState<string | null>(null);
   const [, startTransition] = useTransition();
 
   const load = useCallback(async () => {
@@ -59,8 +82,8 @@ export function HomeFloorPlan({ hub }: Props) {
     return () => clearInterval(id);
   }, [load]);
 
-  const lights = devices.filter(
-    (d) => d.roomAnchorId && d.role && LIGHT_PAGE_ROLES.includes(d.role),
+  const mapDevices = devices.filter(
+    (d) => d.roomAnchorId && (!d.role || LIGHT_PAGE_ROLES.includes(d.role)),
   );
 
   function effectiveOnId(id: string): boolean {
@@ -78,6 +101,7 @@ export function HomeFloorPlan({ hub }: Props) {
     const next = !effectiveOnId(device.id);
     setOptimisticOn((prev) => ({ ...prev, [device.id]: next }));
     setBusyId(device.id);
+    setStatusHint("Lähetetään hubille…");
     startTransition(async () => {
       try {
         const res = await fetch("/api/lights/control", {
@@ -85,16 +109,43 @@ export function HomeFloorPlan({ hub }: Props) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ id: device.id, on: next }),
         });
-        const json = (await res.json()) as { ok?: boolean };
-        if (json.ok) {
-          setPopupDevice((prev) => (prev?.id === device.id ? { ...prev, on: next } : prev));
-          void load();
-        } else {
+        const json = (await res.json()) as {
+          ok?: boolean;
+          commandId?: string;
+          error?: string;
+        };
+        if (!json.ok) {
           setOptimisticOn((prev) => {
             const n = { ...prev };
             delete n[device.id];
             return n;
           });
+          setStatusHint(json.error ?? "Ohjaus epäonnistui");
+          return;
+        }
+
+        setPopupDevice((prev) => (prev?.id === device.id ? { ...prev, on: next } : prev));
+
+        if (json.commandId) {
+          setStatusHint("Odottaa Yellowia (~30 s)…");
+          const result = await pollCommandUntilDone(json.commandId);
+          if (result === "acked") {
+            setStatusHint(null);
+            void load();
+          } else if (result === "failed") {
+            setStatusHint("Hub ei suorittanut komentoa — tarkista laitteen yhteys.");
+            setOptimisticOn((prev) => {
+              const n = { ...prev };
+              delete n[device.id];
+              return n;
+            });
+            void load();
+          } else {
+            setStatusHint("Ei vahvistusta vielä — synkki jatkuu taustalla.");
+          }
+        } else {
+          setStatusHint(null);
+          void load();
         }
       } finally {
         setBusyId(null);
@@ -123,24 +174,18 @@ export function HomeFloorPlan({ hub }: Props) {
     return deviceById(id);
   }
 
-  const useCustomPins = pins.length > 0;
-  const markers: FloorPlanMarker[] = useCustomPins
-    ? pinsToMarkers(pins, devices, effectiveOnId)
-    : buildDeviceMarkers(
-        lights.map((d) => ({
-          id: d.id,
-          name: d.name,
-          roomAnchorId: d.roomAnchorId ?? null,
-          on: effectiveOnId(d.id),
-          controllable: d.controllable,
-        })),
-        { kind: "light", pinMode: "bulb" },
-      );
+  const markers = mergeFloorPlanMarkers(
+    pins,
+    mapDevices,
+    devices,
+    effectiveOnId,
+    { kind: "light", pinMode: "bulb" },
+  );
 
   function onMarkerClick(marker: FloorPlanMarker) {
-    if (useCustomPins) {
-      const pin = pins.find((p) => p.id === marker.id);
-      if (pin) runPinAction(pin);
+    const pin = pins.find((p) => p.id === marker.id);
+    if (pin && pin.action.type !== "none") {
+      runPinAction(pin);
       return;
     }
     const device = deviceFromMarker(marker);
@@ -166,33 +211,29 @@ export function HomeFloorPlan({ hub }: Props) {
         onMarkerClick={onMarkerClick}
         onMarkerLongPress={onMarkerLongPress}
         footer={
-          markers.length === 0 ? (
-            <p className="border-t border-stone-200 bg-white px-4 py-3 text-xs text-stone-500">
-              {useCustomPins ? (
-                <>
-                  Ei näkyviä pisteitä.{" "}
-                  <Link href="/laitteet/pohjakuva" className="font-medium text-stone-700 underline">
-                    Muokkaa pohjakuvaa
-                  </Link>
-                </>
-              ) : (
-                <>
-                  Valot kartalla kun niille on valittu huone ja tyyppi Valo — tai{" "}
-                  <Link href="/laitteet/pohjakuva" className="font-medium text-stone-700 underline">
-                    luo oma kartta
-                  </Link>
-                  .
-                </>
-              )}
-            </p>
-          ) : (
-            <p className="border-t border-stone-200 bg-white px-4 py-2 text-center text-[10px] text-stone-400">
-              Napauta ohjataksesi · pitkä painallus asetuksiin ·{" "}
-              <Link href="/laitteet/pohjakuva" className="underline">
-                muokkaa karttaa
-              </Link>
-            </p>
-          )
+          <>
+            {statusHint && (
+              <p className="border-t border-amber-200 bg-amber-50 px-4 py-2 text-center text-xs text-amber-900">
+                {statusHint}
+              </p>
+            )}
+            {markers.length === 0 ? (
+              <p className="border-t border-stone-200 bg-white px-4 py-3 text-xs text-stone-500">
+                Valot kartalla kun niille on valittu huone — tai{" "}
+                <Link href="/laitteet/pohjakuva" className="font-medium text-stone-700 underline">
+                  luo oma kartta
+                </Link>
+                .
+              </p>
+            ) : (
+              <p className="border-t border-stone-200 bg-white px-4 py-2 text-center text-[10px] text-stone-400">
+                Napauta ohjataksesi · pitkä painallus asetuksiin ·{" "}
+                <Link href="/laitteet/pohjakuva" className="underline">
+                  muokkaa karttaa
+                </Link>
+              </p>
+            )}
+          </>
         }
       />
 

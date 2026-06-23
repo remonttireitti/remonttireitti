@@ -113,18 +113,22 @@ export async function POST(request: Request) {
       if (typeof raw?.channel === "number") payload.channel = raw.channel;
     }
 
-    const { error } = await supabase.from("commands").insert({
-      hub_id: hub.id,
-      user_id: user.id,
-      command: "set_device",
-      payload,
-    });
+    const { data, error } = await supabase
+      .from("commands")
+      .insert({
+        hub_id: hub.id,
+        user_id: user.id,
+        command: "set_device",
+        payload,
+      })
+      .select("id")
+      .single();
 
     if (error) {
       return NextResponse.json({ ok: false, error: "Komennon lähetys epäonnistui." }, { status: 500 });
     }
 
-    return NextResponse.json({ ok: true, queued: true });
+    return NextResponse.json({ ok: true, queued: true, commandId: data.id });
   }
 
   if (isZigbeeConfigured()) {

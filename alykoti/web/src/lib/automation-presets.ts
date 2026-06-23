@@ -1,4 +1,4 @@
-import { newRuleId, type AutomationRule } from "@/lib/automation";
+import type { AutomationRule } from "@/lib/automation";
 import { parseZwaveDeviceId } from "@/lib/device-protocol";
 import type { HubLightDevice } from "@/lib/hub-lights";
 
@@ -40,12 +40,14 @@ function findZwaveByNode(
 
 function switchMirrorRule(
   name: string,
+  stableId: string,
   triggerId: string,
   endpoint: number,
   targetId: string,
+  mirrorMode: "state" | "toggle_on_press" = "toggle_on_press",
 ): AutomationRule {
   return {
-    id: newRuleId(),
+    id: stableId,
     name,
     enabled: true,
     trigger: {
@@ -59,6 +61,7 @@ function switchMirrorRule(
     },
     action: {
       type: "mirror",
+      mirror_mode: mirrorMode,
       target_ids: [targetId],
       brightness_pct: null,
     },
@@ -128,8 +131,9 @@ export function buildSaunaShowerMirrorPresets(
 
     const eteId = `zwave:${pair.eteinenNode}:e${pair.eteinenEp}`;
     const takkaId = `zwave:${pair.takkaNode}:e${pair.takkaEp}`;
+    const ruleId = `mirror-${pair.eteinenNode}-e${pair.eteinenEp}-to-${pair.takkaNode}`;
 
-    rules.push(switchMirrorRule(pair.name, eteId, pair.eteinenEp, takkaId));
+    rules.push(switchMirrorRule(pair.name, ruleId, eteId, pair.eteinenEp, takkaId));
   }
 
   return { rules, missing };
@@ -142,7 +146,8 @@ export function repairSaunaShowerMirrorRules(rules: AutomationRule[]): Automatio
   for (const pair of SAUNA_SHOWER_SWITCH_PAIRS) {
     const eteId = `zwave:${pair.eteinenNode}:e${pair.eteinenEp}`;
     const takkaId = `zwave:${pair.takkaNode}:e${pair.takkaEp}`;
-    hardcoded.push(switchMirrorRule(pair.name, eteId, pair.eteinenEp, takkaId));
+    const ruleId = `mirror-${pair.eteinenNode}-e${pair.eteinenEp}-to-${pair.takkaNode}`;
+    hardcoded.push(switchMirrorRule(pair.name, ruleId, eteId, pair.eteinenEp, takkaId));
   }
   return [...kept, ...hardcoded];
 }

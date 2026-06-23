@@ -1,7 +1,7 @@
 import { FloorPlanEditor } from "@/components/floor-plan-editor";
 import { parseHubHomeDevices, prepareDevicesForList } from "@/lib/hub-lights";
 import { normalizeHomeDevices } from "@/lib/device-normalize";
-import type { FloorPlanDeviceSnapshot, FloorPlanPin } from "@/lib/floor-plan-pins";
+import type { FloorPlanPin } from "@/lib/floor-plan-pins";
 import { fetchPrimaryHub } from "@/lib/hubs";
 import type { HubState } from "@/lib/types";
 import { createClient } from "@/lib/supabase/server";
@@ -33,7 +33,7 @@ export default async function PohjakuvaPage() {
     airthingsState: state,
   });
 
-  const devices: FloorPlanDeviceSnapshot[] = prepareDevicesForList(
+  const devices = prepareDevicesForList(
     parseHubHomeDevices(homeDevices, state.lights, state.device_overrides),
     homeDevices,
     state.zwave_nodes,
@@ -43,6 +43,8 @@ export default async function PohjakuvaPage() {
     name: d.name,
     on: d.on,
     controllable: d.controllable,
+    roomAnchorId: d.roomAnchorId,
+    role: d.role,
     readingLabel: d.readingLabel,
     temperature_c: d.temperature_c,
     humidity_pct: d.humidity_pct,

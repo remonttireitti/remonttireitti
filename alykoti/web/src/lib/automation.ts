@@ -51,6 +51,8 @@ export type AutomationAction = {
   target_ids: string[];
   /** 0–100 % set_brightness */
   brightness_pct?: number | null;
+  /** mirror: state = sama tila, toggle_on_press = seinäkytkin (hetkellinen OFF sivuuttaa) */
+  mirror_mode?: "state" | "toggle_on_press" | null;
 };
 
 export type AutomationRule = {
@@ -235,6 +237,10 @@ function parseAction(raw: Record<string, unknown> | undefined): AutomationAction
     brightness_pct:
       typeof raw.brightness_pct === "number" && Number.isFinite(raw.brightness_pct)
         ? Math.max(0, Math.min(100, Math.round(raw.brightness_pct)))
+        : null,
+    mirror_mode:
+      raw.mirror_mode === "toggle_on_press" || raw.mirror_mode === "state"
+        ? raw.mirror_mode
         : null,
   };
 }

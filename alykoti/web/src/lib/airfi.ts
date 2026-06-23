@@ -453,7 +453,6 @@ export function computeVentilationTargets(
 ): VentilationTargets | null {
   if (!airfi || airfi.emergency_stop || airfi.away_mode) return null;
   if (airfi.machine_fault || airfi.freezing_alarm) return null;
-  if (airfi.airfi_errors.length > 0) return null;
 
   let supply: number;
   let exhaust: number;
@@ -492,7 +491,9 @@ export function computeVentilationTargets(
 
   const needsWrite =
     !targetsMatch(airfi, writeSupply, writeExhaust) ||
-    airfi.fireplace_active !== fireplace;
+    airfi.fireplace_active !== fireplace ||
+    Math.abs((airfi.supply_fan_pct ?? 0) - displaySupply) > FAN_RAMP_STEP_PCT ||
+    Math.abs((airfi.exhaust_fan_pct ?? 0) - displayExhaust) > FAN_RAMP_STEP_PCT;
 
   return {
     supply: writeSupply,

@@ -873,7 +873,7 @@ def _write_registers(
 
 
 def airfi_machine_blocks_ventilation(state: dict[str, Any]) -> bool:
-    """Koneen tila estää tuuletuksen (hätäseis, E1, vikat)."""
+    """Koneen tila estää tuuletuksen (hätäseis, vikatilat)."""
     if state.get("emergency_stop"):
         return True
     if state.get("machine_fault"):
@@ -881,10 +881,9 @@ def airfi_machine_blocks_ventilation(state: dict[str, Any]) -> bool:
     if state.get("freezing_alarm"):
         return True
     raw = state.get("airfi_error_raw")
-    if isinstance(raw, int) and raw > 0:
+    if isinstance(raw, int) and (raw & 2) != 0:
         return True
-    errors = state.get("airfi_errors")
-    return isinstance(errors, list) and len(errors) > 0
+    return False
 
 
 def airfi_auto_ventilation_blocked(state: dict[str, Any]) -> bool:

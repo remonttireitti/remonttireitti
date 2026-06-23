@@ -1,4 +1,5 @@
 import type { FloorPlanMarker } from "@/lib/floor-plan";
+import { buildDeviceMarkers, type FloorPlanOverlayKind } from "@/lib/floor-plan";
 import { deviceMapSub, deviceMapValue } from "@/lib/rooms";
 
 export type FloorPlanPinIcon =
@@ -66,12 +67,85 @@ export type FloorPlanDeviceSnapshot = {
   name: string;
   on: boolean;
   controllable: boolean;
+  roomAnchorId?: string | null;
   readingLabel?: string | null;
   temperature_c?: number | null;
   humidity_pct?: number | null;
   co2_ppm?: number | null;
   sensor_state?: string | null;
 };
+
+export function pinIdForDevice(deviceId: string): string {
+  return `device:${deviceId}`;
+}
+
+export function linkedDeviceIds(pins: FloorPlanPin[]): Set<string> {
+  const ids = new Set<string>();
+  for (const pin of pins) {
+    const id = deviceIdForPin(pin);
+    if (id) ids.add(id);
+  }
+  return ids;
+}
+
+/** Luo pinnit nykyisistä huoneankkureista (automaattinen sijoitus). */
+export function buildPinsFromAutoLayout(
+  devices: FloorPlanDeviceSnapshot[],
+  existingPins: FloorPlanPin[] = [],
+): FloorPlanPin[] {
+  const linked = linkedDeviceIds(existingPins);
+  const withRoom = devices.filter((d) => d.roomAnchorId && !linked.has(d.id));
+  const markers = buildDeviceMarkers(
+    withRoom.map((d) => ({
+      id: d.id,
+      name: d.name,
+      roomAnchorId: d.roomAnchorId ?? null,
+      on: d.on,
+      controllable: d.controllable,
+    })),
+    { kind: "light", pinMode: "bulb" },
+  );
+
+  return markers
+    .filter((m) => m.deviceId)
+    .map((m) => ({
+      id: pinIdForDevice(m.deviceId!),
+      label: m.label,
+      left: m.left,
+      top: m.top,
+      icon: "bulb" as const,
+      action: { type: "toggle" as const, deviceId: m.deviceId! },
+      showValue: false,
+    }));
+}
+
+/** Yhdistä automaattiset (huone) + käyttäjän pinnit; sama laite vain kerran. */
+export function mergeFloorPlanMarkers(
+  pins: FloorPlanPin[],
+  autoLayoutDevices: FloorPlanDeviceSnapshot[],
+  allDevices: FloorPlanDeviceSnapshot[],
+  effectiveOn?: (id: string) => boolean,
+  options?: { kind?: FloorPlanOverlayKind; pinMode?: "bulb" | "label" },
+): FloorPlanMarker[] {
+  const linked = linkedDeviceIds(pins);
+  const custom = pinsToMarkers(pins, allDevices, effectiveOn);
+  const auto = buildDeviceMarkers(
+    autoLayoutDevices
+      .filter((d) => d.roomAnchorId && !linked.has(d.id))
+      .map((d) => ({
+        id: d.id,
+        name: d.name,
+        roomAnchorId: d.roomAnchorId ?? null,
+        on: effectiveOn ? effectiveOn(d.id) : d.on,
+        controllable: d.controllable,
+      })),
+    {
+      kind: options?.kind ?? "light",
+      pinMode: options?.pinMode ?? "bulb",
+    },
+  );
+  return [...auto, ...custom];
+}
 
 export function clampPinCoord(value: number): number {
   return Math.max(2, Math.min(98, Math.round(value * 10) / 10));

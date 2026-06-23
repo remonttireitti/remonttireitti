@@ -2,23 +2,33 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useCallback, useRef, useState, useTransition } from "react";
+import { useCallback, useMemo, useRef, useState, useTransition } from "react";
 import { saveFloorPlanPins } from "@/app/actions/floor-plan";
 import { FloorPlanPinIconView } from "@/components/floor-plan-pin-icons";
-import { anchorToStyle, FLOOR_PLAN_IMAGE } from "@/lib/floor-plan";
+import { anchorToStyle, buildDeviceMarkers, FLOOR_PLAN_IMAGE } from "@/lib/floor-plan";
+import { LIGHT_PAGE_ROLES } from "@/lib/device-roles";
+import type { DeviceRole } from "@/lib/device-roles";
 import {
+  buildPinsFromAutoLayout,
   clampPinCoord,
   FLOOR_PLAN_ACTION_TYPES,
   FLOOR_PLAN_PIN_ICONS,
+  linkedDeviceIds,
+  pinIdForDevice,
   type FloorPlanDeviceSnapshot,
   type FloorPlanPin,
   type FloorPlanPinAction,
   type FloorPlanPinIcon,
 } from "@/lib/floor-plan-pins";
 
+type EditorDevice = FloorPlanDeviceSnapshot & {
+  roomAnchorId?: string | null;
+  role?: DeviceRole;
+};
+
 type Props = {
   initialPins: FloorPlanPin[];
-  devices: FloorPlanDeviceSnapshot[];
+  devices: EditorDevice[];
 };
 
 export function FloorPlanEditor({ initialPins, devices }: Props) {
@@ -32,6 +42,32 @@ export function FloorPlanEditor({ initialPins, devices }: Props) {
   const dragRef = useRef<{ id: string; pointerId: number } | null>(null);
 
   const selected = pins.find((p) => p.id === selectedId) ?? null;
+
+  const mapDevices = useMemo(
+    () =>
+      devices.filter(
+        (d) => d.roomAnchorId && (!d.role || LIGHT_PAGE_ROLES.includes(d.role)),
+      ),
+    [devices],
+  );
+
+  const ghostMarkers = useMemo(() => {
+    const linked = linkedDeviceIds(pins);
+    return buildDeviceMarkers(
+      mapDevices
+        .filter((d) => !linked.has(d.id))
+        .map((d) => ({
+          id: d.id,
+          name: d.name,
+          roomAnchorId: d.roomAnchorId ?? null,
+          on: d.on,
+          controllable: d.controllable,
+        })),
+      { kind: "light", pinMode: "bulb" },
+    );
+  }, [pins, mapDevices]);
+
+  const importableCount = ghostMarkers.length;
 
   const updatePin = useCallback((id: string, patch: Partial<FloorPlanPin>) => {
     setPins((prev) => prev.map((p) => (p.id === id ? { ...p, ...patch } : p)));
@@ -52,18 +88,46 @@ export function FloorPlanEditor({ initialPins, devices }: Props) {
   }
 
   function addPin(left: number, top: number) {
+    const first = mapDevices.find((d) => d.controllable) ?? mapDevices[0];
     const pin: FloorPlanPin = {
       id: crypto.randomUUID(),
-      label: "Uusi piste",
+      label: first?.name ?? "Uusi piste",
       left,
       top,
       icon: "bulb",
-      action: { type: "none" },
-      showValue: true,
+      action: first
+        ? { type: "toggle", deviceId: first.id }
+        : { type: "none" },
+      showValue: false,
     };
     setPins((prev) => [...prev, pin]);
     setSelectedId(pin.id);
     setPlacing(false);
+  }
+
+  function importAllFromLayout() {
+    const imported = buildPinsFromAutoLayout(mapDevices, pins);
+    if (imported.length === 0) return;
+    setPins((prev) => [...prev, ...imported]);
+    setSelectedId(imported[0]!.id);
+    setMessage(`Tuotu ${imported.length} laitetta kartalle — muista tallentaa.`);
+  }
+
+  function importGhostDevice(deviceId: string, label: string, left: number, top: number) {
+    const pin: FloorPlanPin = {
+      id: pinIdForDevice(deviceId),
+      label,
+      left,
+      top,
+      icon: "bulb",
+      action: { type: "toggle", deviceId },
+      showValue: false,
+    };
+    setPins((prev) => {
+      if (prev.some((p) => p.id === pin.id)) return prev;
+      return [...prev, pin];
+    });
+    setSelectedId(pin.id);
   }
 
   function onMapPointerDown(e: React.PointerEvent<HTMLDivElement>) {
@@ -110,10 +174,19 @@ export function FloorPlanEditor({ initialPins, devices }: Props) {
         <div>
           <h1 className="text-2xl font-semibold text-stone-900">Pohjakuva</h1>
           <p className="mt-1 text-sm text-stone-500">
-            Lisää pisteitä, valitse ikoni ja entiteetti. Vedä pisteitä paikalleen.
+            Harmaat = automaattisesti sijoitetut valot. Tuo ne muokattaviksi tai lisää omia pisteitä.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          {importableCount > 0 && (
+            <button
+              type="button"
+              onClick={importAllFromLayout}
+              className="rounded-lg border border-sky-300 bg-sky-50 px-3 py-2 text-sm font-medium text-sky-900 hover:bg-sky-100"
+            >
+              Tuo valot ({importableCount})
+            </button>
+          )}
           <button
             type="button"
             onClick={() => setPlacing((v) => !v)}
@@ -162,6 +235,25 @@ export function FloorPlanEditor({ initialPins, devices }: Props) {
               sizes="(max-width: 1024px) 100vw, 720px"
             />
 
+            {ghostMarkers.map((ghost) => {
+              if (!ghost.deviceId) return null;
+              const pos = anchorToStyle(ghost);
+              return (
+                <button
+                  key={`ghost-${ghost.deviceId}`}
+                  type="button"
+                  title={`${ghost.label} — klikkaa tuodaksesi muokattavaksi`}
+                  onClick={() =>
+                    importGhostDevice(ghost.deviceId!, ghost.label, ghost.left, ghost.top)
+                  }
+                  className="absolute z-[5] flex h-9 w-9 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-2 border-dashed border-stone-400/80 bg-white/60 text-stone-400 shadow-sm hover:border-sky-400 hover:bg-sky-50 hover:text-sky-600 sm:h-10 sm:w-10"
+                  style={pos}
+                >
+                  <FloorPlanPinIconView icon="bulb" className="h-5 w-5 opacity-70" />
+                </button>
+              );
+            })}
+
             {pins.map((pin) => {
               const pos = anchorToStyle(pin);
               const isSelected = pin.id === selectedId;
@@ -190,7 +282,7 @@ export function FloorPlanEditor({ initialPins, devices }: Props) {
             })}
           </div>
           <p className="border-t border-stone-200 bg-white px-4 py-2 text-xs text-stone-500">
-            Valitse piste ja muokkaa oikealta · vedä siirtääksesi · tallenna muutokset
+            Harmaat pisteet = nykyiset valot · klikkaa tuodaksesi · vedä omia pisteitä · tallenna
           </p>
         </section>
 
