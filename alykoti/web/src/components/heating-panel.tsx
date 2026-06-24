@@ -11,10 +11,10 @@ import {
   DEFAULT_HYSTERESIS_C,
   DEFAULT_MIN_OFF_SEC,
   DEFAULT_MIN_ON_SEC,
-  thermostatSummary,
   type HeatingThermostat,
 } from "@/lib/heating-thermostats";
 import type { HubLightDevice } from "@/lib/hub-lights";
+import { HeatingThermostatCard } from "@/components/heating-thermostat-card";
 import { protocolLabel } from "@/lib/device-protocol";
 
 type HeatingResponse = {
@@ -71,15 +71,32 @@ export function HeatingPanel() {
     return devices.find((d) => d.id === id);
   }
 
-  function run(action: () => Promise<HeatingActionState>) {
+  function run(action: () => Promise<HeatingActionState>, options?: { clearForm?: boolean }) {
     startTransition(async () => {
       const result = await action();
       setFlash(result);
       if (result.ok) {
-        setForm(EMPTY_FORM);
+        if (options?.clearForm) setForm(EMPTY_FORM);
         await load();
       }
     });
+  }
+
+  function saveZoneTarget(zone: HeatingThermostat, target_temp_c: number) {
+    run(() =>
+      saveThermostat({
+        id: zone.id,
+        name: zone.name,
+        enabled: zone.enabled,
+        sensor_device_id: zone.sensor_device_id,
+        actuator_device_id: zone.actuator_device_id,
+        target_temp_c,
+        hysteresis_c: zone.hysteresis_c,
+        min_on_sec: zone.min_on_sec,
+        min_off_sec: zone.min_off_sec,
+        room: zone.room,
+      }),
+    );
   }
 
   return (
@@ -115,101 +132,60 @@ export function HeatingPanel() {
         <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-900">{flash.error}</div>
       )}
 
-      <section className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
-        <h2 className="text-lg font-semibold text-stone-900">Termostaattialueet</h2>
-        <p className="mt-1 text-sm text-stone-600">
-          Yellow säätää lämmitystä automaattisesti anturin lämpötilan perusteella.
-        </p>
+      <section className="space-y-4">
+        <div>
+          <h2 className="text-lg font-semibold text-stone-900">Termostaatit</h2>
+          <p className="mt-1 text-sm text-stone-600">
+            Säädä tavoitelämpötilaa +/- -painikkeilla. Yellow ohjaa lämmitystä automaattisesti.
+          </p>
+        </div>
 
         {thermostats.length > 0 ? (
-          <ul className="mt-4 space-y-2">
-            {thermostats.map((zone) => {
-              const sensor = deviceById(zone.sensor_device_id);
-              const actuator = deviceById(zone.actuator_device_id);
-              const currentTemp =
-                sensor?.temperature_c != null
-                  ? `${sensor.temperature_c.toFixed(1)} °C`
-                  : sensor?.readingLabel ?? "—";
-              return (
-                <li
-                  key={zone.id}
-                  className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-stone-100 bg-stone-50 px-3 py-3 text-sm"
-                >
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="font-medium text-stone-900">{zone.name}</p>
-                      <span
-                        className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                          zone.enabled
-                            ? "bg-amber-100 text-amber-900"
-                            : "bg-stone-200 text-stone-600"
-                        }`}
-                      >
-                        {zone.enabled ? "Käytössä" : "Pois"}
-                      </span>
-                    </div>
-                    <p className="mt-0.5 text-xs text-stone-500">{thermostatSummary(zone, devices)}</p>
-                    <p className="mt-1 text-xs text-stone-500">
-                      Anturi: {sensor?.name ?? zone.sensor_device_id}
-                      {currentTemp !== "—" ? ` (${currentTemp})` : ""}
-                      {" · "}
-                      Toimilainen: {actuator?.name ?? zone.actuator_device_id}
-                      {actuator ? ` (${actuator.on ? "päällä" : "pois"})` : ""}
-                    </p>
-                    <p className="text-xs text-stone-500">
-                      Tavoite {zone.target_temp_c.toFixed(1)} °C · hystereesi {zone.hysteresis_c.toFixed(1)} °C
-                    </p>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      disabled={pending}
-                      onClick={() =>
-                        run(() => toggleThermostat(zone.id, !zone.enabled))
-                      }
-                      className="rounded-lg border border-stone-200 px-2.5 py-1 text-xs font-medium"
-                    >
-                      {zone.enabled ? "Pysäytä" : "Käynnistä"}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setForm({
-                          id: zone.id,
-                          name: zone.name,
-                          enabled: zone.enabled,
-                          sensor_device_id: zone.sensor_device_id,
-                          actuator_device_id: zone.actuator_device_id,
-                          target_temp_c: zone.target_temp_c,
-                          hysteresis_c: zone.hysteresis_c,
-                          min_on_sec: zone.min_on_sec ?? DEFAULT_MIN_ON_SEC,
-                          min_off_sec: zone.min_off_sec ?? DEFAULT_MIN_OFF_SEC,
-                        })
-                      }
-                      className="rounded-lg border border-stone-200 px-2.5 py-1 text-xs font-medium"
-                    >
-                      Muokkaa
-                    </button>
-                    <button
-                      type="button"
-                      disabled={pending}
-                      onClick={() => {
-                        if (window.confirm(`Poistetaanko "${zone.name}"?`)) {
-                          run(() => deleteThermostat(zone.id));
-                        }
-                      }}
-                      className="rounded-lg border border-red-200 px-2.5 py-1 text-xs font-medium text-red-800"
-                    >
-                      Poista
-                    </button>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            {thermostats.map((zone) => (
+              <HeatingThermostatCard
+                key={zone.id}
+                zone={zone}
+                sensor={deviceById(zone.sensor_device_id)}
+                actuator={deviceById(zone.actuator_device_id)}
+                pending={pending}
+                onToggleEnabled={() => run(() => toggleThermostat(zone.id, !zone.enabled))}
+                onSetTarget={(target) => saveZoneTarget(zone, target)}
+                onEdit={() =>
+                  setForm({
+                    id: zone.id,
+                    name: zone.name,
+                    enabled: zone.enabled,
+                    sensor_device_id: zone.sensor_device_id,
+                    actuator_device_id: zone.actuator_device_id,
+                    target_temp_c: zone.target_temp_c,
+                    hysteresis_c: zone.hysteresis_c,
+                    min_on_sec: zone.min_on_sec ?? DEFAULT_MIN_ON_SEC,
+                    min_off_sec: zone.min_off_sec ?? DEFAULT_MIN_OFF_SEC,
+                  })
+                }
+                onDelete={() => {
+                  if (window.confirm(`Poistetaanko "${zone.name}"?`)) {
+                    run(() => deleteThermostat(zone.id), { clearForm: true });
+                  }
+                }}
+              />
+            ))}
+          </div>
         ) : (
-          <p className="mt-4 text-sm text-stone-500">Ei termostaattialueita vielä.</p>
+          <p className="rounded-2xl border border-dashed border-stone-200 bg-stone-50 px-4 py-8 text-center text-sm text-stone-500">
+            Ei termostaatteja vielä — luo ensimmäinen alla.
+          </p>
         )}
+      </section>
+
+      <section className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
+        <h2 className="text-lg font-semibold text-stone-900">
+          {form.id ? "Muokkaa termostaattia" : "Uusi termostaatti"}
+        </h2>
+        <p className="mt-1 text-sm text-stone-600">
+          Valitse lämpötila-anturi, lämmitystoimilainen ja tavoitelämpötila.
+        </p>
 
         <div className="mt-5 grid gap-3 sm:grid-cols-2">
           <label className="block sm:col-span-2">
@@ -344,18 +320,20 @@ export function HeatingPanel() {
             type="button"
             disabled={pending}
             onClick={() =>
-              run(() =>
-                saveThermostat({
-                  id: form.id || undefined,
-                  name: form.name,
-                  enabled: form.enabled,
-                  sensor_device_id: form.sensor_device_id,
-                  actuator_device_id: form.actuator_device_id,
-                  target_temp_c: form.target_temp_c,
-                  hysteresis_c: form.hysteresis_c,
-                  min_on_sec: form.min_on_sec,
-                  min_off_sec: form.min_off_sec,
-                }),
+              run(
+                () =>
+                  saveThermostat({
+                    id: form.id || undefined,
+                    name: form.name,
+                    enabled: form.enabled,
+                    sensor_device_id: form.sensor_device_id,
+                    actuator_device_id: form.actuator_device_id,
+                    target_temp_c: form.target_temp_c,
+                    hysteresis_c: form.hysteresis_c,
+                    min_on_sec: form.min_on_sec,
+                    min_off_sec: form.min_off_sec,
+                  }),
+                { clearForm: true },
               )
             }
             className="rounded-xl bg-stone-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"

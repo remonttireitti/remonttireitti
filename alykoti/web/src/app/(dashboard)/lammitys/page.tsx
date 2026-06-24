@@ -3,7 +3,7 @@ import { RoleDevicesPanel } from "@/components/role-devices-panel";
 
 export default function HeatingPage() {
   return (
-    <div className="mx-auto max-w-5xl space-y-8">
+    <div className="mx-auto w-full max-w-[min(100%,72rem)] space-y-8">
       <HeatingPanel />
       <RoleDevicesPanel
         pageTitle="Lämpötila turvallisuuslaitteista"
