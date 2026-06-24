@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import {
-  aggregateDailyKwh,
   appendCostInsights,
   computeDailyKwh,
   computeEnergyInsights,
@@ -10,6 +9,7 @@ import {
   fetchDailyTempAverages,
   fetchEnergySamples,
   findEmMeters,
+  findPrimaryEmMeter,
   sumKwhFromDaily,
 } from "@/lib/energy-samples";
 import { computeEnergyCostSummary } from "@/lib/energy-cost";
@@ -63,6 +63,7 @@ export async function GET() {
   }
 
   const meters = findEmMeters(hub.state.home_devices);
+  const primaryMeterId = findPrimaryEmMeter(meters);
   const since = new Date(Date.now() - HISTORY_DAYS * 86_400_000);
   const overrides = (hub.state as HubState)?.device_overrides;
 
@@ -98,11 +99,11 @@ export async function GET() {
     }),
   );
 
-  const aggregatedDaily = aggregateDailyKwh(meterResults.map((m) => m.daily30));
-  const todayVals = meterResults
-    .map((m) => m.today_kwh)
-    .filter((v): v is number => v != null && v >= 0);
-  const todayKwh = todayVals.length ? todayVals.reduce((s, v) => s + v, 0) : null;
+  const primaryMeter = primaryMeterId
+    ? meterResults.find((m) => m.id === primaryMeterId)
+    : undefined;
+  const aggregatedDaily = primaryMeter?.daily30 ?? [];
+  const todayKwh = primaryMeter?.today_kwh ?? null;
   const weekKwh = sumKwhFromDaily(aggregatedDaily, 7);
   const monthKwh = sumKwhFromDaily(aggregatedDaily, HISTORY_DAYS);
 
@@ -131,12 +132,17 @@ export async function GET() {
     cost,
   );
 
-  const metersForClient = meterResults.map(({ daily30: _d, ...rest }) => rest);
+  const metersForClient = meterResults.map(({ daily30: _d, ...rest }) => ({
+    ...rest,
+    is_primary: rest.id === primaryMeterId,
+    counts_in_total: rest.id === primaryMeterId,
+  }));
 
   return NextResponse.json({
     hubOnline: isHubOnline(hub.last_seen_at),
+    primary_meter_id: primaryMeterId,
     summary: {
-      power_kw_total: sumPowerKw(meterResults),
+      power_kw_total: primaryMeter ? sumPowerKw([primaryMeter]) : null,
       today_kwh: todayKwh,
       week_kwh: weekKwh,
       month_kwh: monthKwh,

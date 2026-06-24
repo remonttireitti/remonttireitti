@@ -77,6 +77,39 @@ export function findEmMeters(
     .sort((a, b) => a.device.name.localeCompare(b.device.name, "fi"));
 }
 
+const EM_PHASE_KEYS = ["a", "b", "c"] as const;
+
+export function isShellyEmId(id: string): boolean {
+  return /^shelly:[^:]+:em$/.test(id);
+}
+
+/** Shelly EM jossa L1–L3 (a, b, c) -vaiheet. */
+export function hasThreePhaseEm(device: HubHomeDevice): boolean {
+  const phases = device.em_phases ?? {};
+  return EM_PHASE_KEYS.every((k) => phases[k] != null);
+}
+
+/**
+ * Päämittari kokonaiskulutukselle — yksi Shelly EM (L1+L2+L3).
+ * Muut mittarit näytetään paneelissa, mutta eivät summautu (sisältyvät jo päämittariin).
+ */
+export function findPrimaryEmMeter(
+  meters: Array<{ id: string; device: HubHomeDevice }>,
+): string | null {
+  if (meters.length === 0) return null;
+
+  const envId = process.env.ENERGY_PRIMARY_METER_ID?.trim();
+  if (envId && meters.some((m) => m.id === envId)) return envId;
+
+  const threePhase = meters.filter((m) => isShellyEmId(m.id) && hasThreePhaseEm(m.device));
+  if (threePhase.length > 0) return threePhase[0]!.id;
+
+  const emOnly = meters.filter((m) => m.id.endsWith(":em"));
+  if (emOnly.length > 0) return emOnly[0]!.id;
+
+  return meters.length === 1 ? meters[0]!.id : null;
+}
+
 function num(v: number | null | undefined): number | null {
   if (v == null || !Number.isFinite(v)) return null;
   return v;

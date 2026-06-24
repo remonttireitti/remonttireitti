@@ -28,10 +28,13 @@ type EnergyMeter = {
   live: MeterLive;
   today_kwh: number | null;
   daily: DailyEnergy[];
+  is_primary?: boolean;
+  counts_in_total?: boolean;
 };
 
 type EnergyResponse = {
   hubOnline?: boolean;
+  primary_meter_id?: string | null;
   summary: {
     power_kw_total: number | null;
     today_kwh: number | null;
@@ -195,7 +198,7 @@ function SummaryHeader({ data }: { data: EnergyResponse }) {
           <p className="mt-1 text-3xl font-bold tabular-nums text-stone-900">
             {fmtKw(summary.power_kw_total)}
           </p>
-          <p className="text-xs text-stone-500">Kokonaisteho nyt (kaikki mittarit)</p>
+          <p className="text-xs text-stone-500">Kokonaisteho nyt (päämittari)</p>
         </div>
         <div className={`rounded-xl px-4 py-2 ring-1 ring-inset ${styles.badge}`}>
           <p className="text-xs font-medium uppercase tracking-wide opacity-80">Kulutusarvio</p>
@@ -375,7 +378,7 @@ function TrendPanel({ data }: { data: EnergyResponse }) {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-lg font-semibold text-stone-900">Kulutustrendi</h2>
-          <p className="text-xs text-stone-500">Päivittäinen kWh — kaikki mittarit yhteensä</p>
+          <p className="text-xs text-stone-500">Päivittäinen kWh — päämittari (L1+L2+L3)</p>
         </div>
         <div className="flex gap-1 rounded-xl bg-stone-100 p-1">
           {TREND_RANGES.map((r) => (
@@ -671,12 +674,25 @@ function DailyBars({ daily }: { daily: DailyEnergy[] }) {
 
 function MeterCard({ meter }: { meter: EnergyMeter }) {
   const totalKw = totalPowerKw(meter.live);
+  const inTotal = meter.counts_in_total !== false;
 
   return (
     <section className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-lg font-semibold text-stone-900">{meter.name}</h2>
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="text-lg font-semibold text-stone-900">{meter.name}</h2>
+            {meter.is_primary && (
+              <span className="rounded-md bg-amber-100 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-amber-900 ring-1 ring-amber-200">
+                Päämittari
+              </span>
+            )}
+            {!inTotal && (
+              <span className="rounded-md bg-stone-100 px-2 py-0.5 text-[10px] font-medium text-stone-600 ring-1 ring-stone-200">
+                Ei kokonaiskulutuksessa
+              </span>
+            )}
+          </div>
           <p className="text-xs text-stone-500">
             {[meter.host, meter.model].filter(Boolean).join(" · ") || "Shelly EM"}
           </p>
@@ -789,7 +805,9 @@ export function EnergyPanel({
           {variant === "page" ? (
             <div>
               <h2 className="text-base font-semibold text-stone-800">Mittarit</h2>
-              <p className="text-xs text-stone-500">Yksittäisten Shelly EM -laitteiden tiedot</p>
+              <p className="text-xs text-stone-500">
+                Yksittäisten laitteiden tiedot — vain päämittari lasketaan kokonaiskulutukseen
+              </p>
               <div className="mt-3 space-y-6">
                 {data.meters.map((meter) => (
                   <MeterCard key={meter.id} meter={meter} />
