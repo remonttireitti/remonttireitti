@@ -38,6 +38,7 @@ export async function GET() {
     homeDevices,
     hub.state.zwave_nodes,
     hub.state.device_overrides,
+    { groupZwaveEndpoints: false },
   );
 
   const config = parseHubConfig(hub.config);

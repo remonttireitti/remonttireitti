@@ -6,8 +6,8 @@ import {
   collectDeviceReadings,
   type DeviceReading,
 } from "@/lib/capabilities";
-import { inferDeviceRole, groupDevicesByRole } from "@/lib/device-roles";
-import type { DeviceRole } from "@/lib/device-roles";
+import { inferDeviceRole, groupDevicesByRole, withDeviceRoleContext } from "@/lib/device-roles";
+import type { DeviceRole, DeviceSecondaryUse } from "@/lib/device-roles";
 import { inferProtocolFromId, parseZwaveDeviceId } from "@/lib/device-protocol";
 import {
   parseWifiChannelDeviceId,
@@ -52,6 +52,8 @@ export type HubLightDevice = {
   manufacturer?: string | null;
   description?: string | null;
   role: DeviceRole;
+  roles: DeviceRole[];
+  secondaryUses: DeviceSecondaryUse[];
   inferredRole: DeviceRole;
   roleOverride: DeviceRole | null;
 };
@@ -163,13 +165,15 @@ function mapDevice(
       typeof d.battery_pct === "number" && Number.isFinite(d.battery_pct) ? d.battery_pct : null,
     voltage_v: typeof d.voltage_v === "number" && Number.isFinite(d.voltage_v) ? d.voltage_v : null,
     role: "other_control" as DeviceRole,
+    roles: ["other_control"] as DeviceRole[],
+    secondaryUses: [],
     inferredRole: "other_control" as DeviceRole,
     roleOverride: o?.role ?? null,
   };
 
   mapped.inferredRole = inferDeviceRole(mapped);
   mapped.role = o?.role ?? mapped.inferredRole;
-  return mapped;
+  return withDeviceRoleContext(mapped, o);
 }
 
 function zwavePropertiesForDevice(
@@ -212,8 +216,21 @@ function enrichZwaveReading(
   );
   if (readings.length === 0) return device;
   const readingLabel = readings.map((r) => `${r.label}: ${r.value}`).join(" · ");
-  return { ...device, readings, readingLabel };
+  let temperature_c = device.temperature_c;
+  if (temperature_c == null) {
+    const tempReading = readings.find((r) => r.value.includes("°C"));
+    if (tempReading) {
+      const parsed = Number.parseFloat(tempReading.value.replace(/[^\d.-]/g, ""));
+      if (Number.isFinite(parsed)) temperature_c = parsed;
+    }
+  }
+  return { ...device, readings, readingLabel, temperature_c };
 }
+
+export type PrepareDevicesOptions = {
+  /** Yhdistä monikanavaiset Z-Wave-solmut yhdeksi riviksi (oletus listanäkymissä). */
+  groupZwaveEndpoints?: boolean;
+};
 
 /** Group multi-endpoint Z-Wave nodes and enrich readings from hub MQTT state. */
 export function prepareDevicesForList(
@@ -221,9 +238,12 @@ export function prepareDevicesForList(
   raw?: HubState["home_devices"],
   zwaveNodes?: HubState["zwave_nodes"],
   overrides?: HubState["device_overrides"],
+  options?: PrepareDevicesOptions,
 ): HubLightDevice[] {
   const enriched = devices.map((device) => enrichZwaveReading(device, raw, zwaveNodes, overrides));
-  return groupZwaveDevicesForList(enriched);
+  const listed =
+    options?.groupZwaveEndpoints === false ? enriched : groupZwaveDevicesForList(enriched);
+  return listed.map((device) => withDeviceRoleContext(device, overrides?.[device.id]));
 }
 
 export function parseHubHomeDevices(
@@ -262,6 +282,8 @@ export function parseHubHomeDevices(
     node_id: null,
     power_w: null,
     role: "light" as const,
+    roles: ["light"] as const,
+    secondaryUses: [] as DeviceSecondaryUse[],
     inferredRole: "light" as const,
     roleOverride: null,
   }));
@@ -308,6 +330,8 @@ export function parseHubLights(
   | "node_id"
   | "power_w"
   | "role"
+  | "roles"
+  | "secondaryUses"
   | "inferredRole"
   | "roleOverride"
 >[] {

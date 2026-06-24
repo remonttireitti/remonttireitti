@@ -30,6 +30,20 @@ def _read_temperature(home_devices: dict[str, Any], sensor_id: str) -> float | N
     temp = meta.get("temperature_c")
     if isinstance(temp, (int, float)) and float(temp) == float(temp):
         return float(temp)
+    for prop in meta.get("zwave_properties") or []:
+        if not isinstance(prop, dict):
+            continue
+        if prop.get("cc") != 49:
+            continue
+        name = str(prop.get("property") or "").casefold()
+        value = prop.get("value")
+        if not isinstance(value, (int, float)):
+            continue
+        if "voltage" in name:
+            continue
+        if "humidity" in name or "luminance" in name or "co2" in name:
+            continue
+        return float(value)
     return None
 
 

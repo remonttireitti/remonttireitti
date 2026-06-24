@@ -520,10 +520,10 @@ def _probe_switch_endpoints(
     gateway: str,
     node_ids: list[int],
 ) -> None:
-    """Releet, himmentimet ja lukot eivät aina julkaise currentValuea — pollaa CC 37/38/98."""
+    """Releet, himmentimet, lukot ja anturit — pollaa CC 37/38/49/98 (Smart Implant jne.)."""
     for node_id in node_ids:
         for ep in range(0, 10):
-            for cc in (37, 38, 98):
+            for cc in (37, 38, 49, 98):
                 _request_poll_value(client, prefix, gateway, node_id, cc, ep)
         time.sleep(0.05)
 
@@ -722,6 +722,11 @@ def fetch_zwave_devices(
         if not caps_map:
             for cap in _infer_caps_from_name(dev["name"]):
                 _merge_cap(caps_map, cap)
+        ccs_seen: set[int] = dev.get("_ccs_seen") or set()
+        if 37 in ccs_seen and endpoint in (1, 2):
+            _merge_cap(caps_map, _cap("switch", True, True))
+        if 49 in ccs_seen:
+            _merge_cap(caps_map, _cap("temperature", True, False))
         caps_list = sorted(caps_map.values(), key=lambda c: c["id"])
         dev["capabilities"] = caps_list
         dev["kind"] = _classify(dev["name"], caps_list)

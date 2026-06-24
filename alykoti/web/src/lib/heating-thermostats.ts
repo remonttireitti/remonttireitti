@@ -56,25 +56,45 @@ export function normalizeHeatingThermostats(raw: unknown): HeatingThermostat[] {
   return out;
 }
 
-export function isTemperatureSensorDevice(device: {
-  temperature_c?: number | null;
-  capabilities?: { id: string }[];
+function hasCelsiusReading(device: {
   readingLabel?: string | null;
+  readings?: { value: string }[];
 }): boolean {
+  if (device.readingLabel?.includes("°C")) return true;
+  return device.readings?.some((r) => r.value.includes("°C")) ?? false;
+}
+
+/** Lämpötila-anturi termostaattiin — sis. Smart Implant -kanavat ja turvallisuuslaitteet. */
+export function isTemperatureSensorDevice(device: HubLightDevice): boolean {
   if (device.temperature_c != null && Number.isFinite(device.temperature_c)) return true;
   if (device.capabilities?.some((c) => c.id === "temperature")) return true;
-  if (device.readingLabel?.includes("°C")) return true;
+  if (hasCelsiusReading(device)) return true;
+  if (device.secondaryUses?.includes("heating_temperature")) return true;
+  if (/lämpöanturi|lämpötila|\btemp\b/i.test(device.name)) return true;
   return false;
 }
 
-export function isHeatingActuatorDevice(device: {
-  controllable?: boolean;
-  role?: string;
-  kind?: string;
-}): boolean {
+/** Lämmitystoimilainen — kaikki ohjattavat releet/kytkimet (Shelly, Implant, Z-Wave). */
+export function isHeatingActuatorDevice(device: HubLightDevice): boolean {
   if (!device.controllable) return false;
-  if (device.role === "heating" || device.role === "other_control") return true;
-  if (device.kind === "switch") return true;
+  const capIds = new Set(device.capabilities?.map((c) => c.id) ?? []);
+  if (capIds.has("lock") || device.kind === "lock") return false;
+
+  if (capIds.has("switch") || capIds.has("relay") || capIds.has("dimmer") || capIds.has("fan")) {
+    return true;
+  }
+  if (
+    device.role === "heating" ||
+    device.role === "other_control" ||
+    device.role === "light_switch" ||
+    device.role === "fan" ||
+    device.role === "dimmer" ||
+    device.role === "light"
+  ) {
+    return true;
+  }
+  if (device.kind === "switch" || device.kind === "fan" || device.kind === "light") return true;
+  if (/rele out|rele \d|out \d/i.test(device.name)) return true;
   return false;
 }
 

@@ -239,7 +239,9 @@ export function HeatingPanel() {
               ))}
             </select>
             {sensors.length === 0 && (
-              <p className="mt-1 text-xs text-stone-500">Ei lämpötila-antureita — tarkista laitelista.</p>
+              <p className="mt-1 text-xs text-stone-500">
+                Ei lämpötila-antureita — Smart Implant -kanavat, turvallisuuslaitteet ja anturit näkyvät synkin jälkeen.
+              </p>
             )}
           </label>
 
@@ -261,7 +263,7 @@ export function HeatingPanel() {
             </select>
             {actuators.length === 0 && (
               <p className="mt-1 text-xs text-stone-500">
-                Ei ohjattavia laitteita — valitse laitteelle tyyppi Lämmitys tai Muu ohjaus.
+                Ei ohjattavia laitteita — valitse Shelly/Tasmota/Implant-rele tai Z-Wave-kytkin (Muu ohjaus / Lämmitys).
               </p>
             )}
           </label>
