@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import {
   isHeatingActuatorDevice,
   isTemperatureSensorDevice,
+  normalizeHeatingPump,
   normalizeHeatingThermostats,
 } from "@/lib/heating-thermostats";
 import { parseHubHomeDevices, prepareDevicesForList } from "@/lib/hub-lights";
@@ -43,14 +44,17 @@ export async function GET() {
 
   const config = parseHubConfig(hub.config);
   const thermostats = normalizeHeatingThermostats(config.heating_thermostats);
+  const heatingPump = normalizeHeatingPump(config.heating_pump);
 
   return NextResponse.json({
     configured: true,
     hubOnline: isHubOnline(hub.last_seen_at),
     thermostats,
+    heatingPump,
     sensors: devices.filter(isTemperatureSensorDevice),
     actuators: devices.filter(isHeatingActuatorDevice),
     devices,
     heatingRuntime: hub.state.heating_runtime ?? {},
+    heatingPumpRuntime: hub.state.heating_pump_runtime ?? null,
   });
 }

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState, useTransition } from "react";
 import {
   deleteThermostat,
+  saveHeatingPump,
   saveThermostat,
   toggleThermostat,
   type HeatingActionState,
@@ -11,6 +12,8 @@ import {
   DEFAULT_HYSTERESIS_C,
   DEFAULT_MIN_OFF_SEC,
   DEFAULT_MIN_ON_SEC,
+  DEFAULT_PUMP_START_DELAY_SEC,
+  type HeatingPumpConfig,
   type HeatingThermostat,
 } from "@/lib/heating-thermostats";
 import type { HubLightDevice } from "@/lib/hub-lights";
@@ -21,10 +24,16 @@ type HeatingResponse = {
   configured?: boolean;
   hubOnline?: boolean;
   thermostats?: HeatingThermostat[];
+  heatingPump?: HeatingPumpConfig | null;
   sensors?: HubLightDevice[];
   actuators?: HubLightDevice[];
   devices?: HubLightDevice[];
   heatingRuntime?: Record<string, { last_change_at: string; on: boolean }>;
+  heatingPumpRuntime?: {
+    first_demand_at?: string | null;
+    last_change_at?: string;
+    on: boolean;
+  } | null;
   error?: string;
 };
 
@@ -44,6 +53,10 @@ export function HeatingPanel() {
   const [data, setData] = useState<HeatingResponse | null>(null);
   const [flash, setFlash] = useState<HeatingActionState | null>(null);
   const [form, setForm] = useState(EMPTY_FORM);
+  const [pumpForm, setPumpForm] = useState({
+    enabled: false,
+    actuator_device_id: "",
+  });
   const [pending, startTransition] = useTransition();
 
   const load = useCallback(async () => {
@@ -66,10 +79,21 @@ export function HeatingPanel() {
   const sensors = data?.sensors ?? [];
   const actuators = data?.actuators ?? [];
   const thermostats = data?.thermostats ?? [];
+  const heatingPump = data?.heatingPump ?? null;
+  const pumpRuntime = data?.heatingPumpRuntime;
 
   function deviceById(id: string): HubLightDevice | undefined {
     return devices.find((d) => d.id === id);
   }
+
+  const pumpActuator = heatingPump ? deviceById(heatingPump.actuator_device_id) : undefined;
+
+  useEffect(() => {
+    setPumpForm({
+      enabled: Boolean(heatingPump?.enabled),
+      actuator_device_id: heatingPump?.actuator_device_id ?? "",
+    });
+  }, [heatingPump?.enabled, heatingPump?.actuator_device_id]);
 
   function run(action: () => Promise<HeatingActionState>, options?: { clearForm?: boolean }) {
     startTransition(async () => {
@@ -177,6 +201,73 @@ export function HeatingPanel() {
             Ei termostaatteja vielä — luo ensimmäinen alla.
           </p>
         )}
+      </section>
+
+      <section className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
+        <h2 className="text-lg font-semibold text-stone-900">Lattialämmityspumppu</h2>
+        <p className="mt-1 text-sm text-stone-600">
+          Yksi jaettu pumppu kaikille termostaateille. Käynnistyy{" "}
+          {DEFAULT_PUMP_START_DELAY_SEC / 60} min viiveellä kun ensimmäinen termostaatti pyytää lämpöä, sammuu
+          heti kun mikään ei pyydä.
+        </p>
+
+        {pumpActuator && (
+          <p className="mt-2 text-sm text-stone-700">
+            Tila: {pumpActuator.on ? "päällä" : "pois"}
+            {pumpRuntime?.first_demand_at && !pumpActuator.on
+              ? " · käynnistysviive käynnissä"
+              : ""}
+          </p>
+        )}
+
+        <div className="mt-5 grid gap-3 sm:grid-cols-2">
+          <label className="flex items-center gap-2 sm:col-span-2">
+            <input
+              type="checkbox"
+              checked={pumpForm.enabled}
+              onChange={(e) => setPumpForm((f) => ({ ...f, enabled: e.target.checked }))}
+              className="rounded border-stone-300"
+            />
+            <span className="text-sm text-stone-700">Ohjaa lattialämmityspumppua automaattisesti</span>
+          </label>
+
+          <label className="block sm:col-span-2">
+            <span className="text-sm font-medium text-stone-700">Pumppurele</span>
+            <select
+              value={pumpForm.actuator_device_id}
+              onChange={(e) => setPumpForm((f) => ({ ...f, actuator_device_id: e.target.value }))}
+              disabled={!pumpForm.enabled}
+              className="mt-1 w-full rounded-xl border border-stone-200 px-3 py-2 text-sm disabled:bg-stone-50"
+            >
+              <option value="">Valitse rele/kytkin…</option>
+              {actuators.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.name}
+                  {d.on ? " (päällä)" : " (pois)"}
+                  {d.room ? ` · ${d.room}` : ""}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+
+        <div className="mt-4">
+          <button
+            type="button"
+            disabled={pending}
+            onClick={() =>
+              run(() =>
+                saveHeatingPump({
+                  enabled: pumpForm.enabled,
+                  actuator_device_id: pumpForm.actuator_device_id,
+                }),
+              )
+            }
+            className="rounded-xl bg-stone-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+          >
+            Tallenna pumppuasetus
+          </button>
+        </div>
       </section>
 
       <section className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">

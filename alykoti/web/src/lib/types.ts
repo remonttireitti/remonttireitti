@@ -283,6 +283,13 @@ export type HeatingThermostat = {
   room?: string | null;
 };
 
+export type HeatingPumpConfig = {
+  enabled: boolean;
+  actuator_device_id: string;
+  /** Käynnistysviive sekunteina ensimmäisestä lämpöpyynnöstä (oletus 60). */
+  start_delay_sec?: number;
+};
+
 /** hubs.config — ilmanvaihto + automaatiot + sähköhintajaksot + lämmitys */
 export type HubConfig = VentilationConfig & {
   /** Laite- ja sähköhinta-automaatiot (web → Yellow / cron) */
@@ -291,6 +298,8 @@ export type HubConfig = VentilationConfig & {
   electricity_price_periods?: ElectricityPricePeriod[];
   /** Lämmitystermostaattialueet (anturi + toimilainen + tavoitelämpö) */
   heating_thermostats?: HeatingThermostat[];
+  /** Jaettu lattialämmityspumppu — käynnistyy kun mikä tahansa termostaatti pyytää lämpöä */
+  heating_pump?: HeatingPumpConfig | null;
 };
 
 export type HubState = {
@@ -399,6 +408,12 @@ export type HubState = {
   _last_quick_metrics_at?: string;
   /** Yellow: termostaattien viimeisin ohjaus (anti short-cycle). */
   heating_runtime?: Record<string, { last_change_at: string; on: boolean }>;
+  /** Yellow: lattialämmityspumpun tila ja käynnistysviive. */
+  heating_pump_runtime?: {
+    first_demand_at?: string | null;
+    last_change_at?: string;
+    on: boolean;
+  };
 };
 
 export type Hub = {

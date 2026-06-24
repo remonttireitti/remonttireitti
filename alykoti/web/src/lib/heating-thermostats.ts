@@ -1,12 +1,13 @@
 import { deviceHasTemperatureReading } from "@/lib/device-roles";
-import type { HeatingThermostat } from "@/lib/types";
+import type { HeatingThermostat, HeatingPumpConfig } from "@/lib/types";
 import type { HubLightDevice } from "@/lib/hub-lights";
 
-export type { HeatingThermostat };
+export type { HeatingThermostat, HeatingPumpConfig };
 
 export const DEFAULT_HYSTERESIS_C = 0.5;
 export const DEFAULT_MIN_ON_SEC = 120;
 export const DEFAULT_MIN_OFF_SEC = 120;
+export const DEFAULT_PUMP_START_DELAY_SEC = 60;
 
 export function newThermostatId(): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
@@ -55,6 +56,24 @@ export function normalizeHeatingThermostats(raw: unknown): HeatingThermostat[] {
     out.push(thermostat);
   }
   return out;
+}
+
+export function normalizeHeatingPump(raw: unknown): HeatingPumpConfig | null {
+  if (!raw || typeof raw !== "object") return null;
+  const row = raw as Record<string, unknown>;
+  const actuator = row.actuator_device_id;
+  if (typeof actuator !== "string" || !actuator.includes(":")) return null;
+
+  const start_delay =
+    typeof row.start_delay_sec === "number" && Number.isFinite(row.start_delay_sec)
+      ? Math.max(0, Math.round(row.start_delay_sec))
+      : DEFAULT_PUMP_START_DELAY_SEC;
+
+  return {
+    enabled: row.enabled !== false,
+    actuator_device_id: actuator,
+    start_delay_sec: start_delay,
+  };
 }
 
 /** Lämpötila-anturi termostaattiin — sis. Smart Implant -kanavat ja turvallisuuslaitteet. */

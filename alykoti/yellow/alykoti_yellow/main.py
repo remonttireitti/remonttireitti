@@ -539,6 +539,10 @@ def build_state(
     if isinstance(heating_runtime, dict) and heating_runtime:
         state["heating_runtime"] = heating_runtime
 
+    heating_pump_runtime = cached_hub_state.get("heating_pump_runtime")
+    if isinstance(heating_pump_runtime, dict) and heating_pump_runtime:
+        state["heating_pump_runtime"] = heating_pump_runtime
+
     return state
 
 

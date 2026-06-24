@@ -5,6 +5,7 @@ import {
   DEFAULT_HYSTERESIS_C,
   DEFAULT_MIN_OFF_SEC,
   DEFAULT_MIN_ON_SEC,
+  DEFAULT_PUMP_START_DELAY_SEC,
   newThermostatId,
   normalizeHeatingThermostats,
 } from "@/lib/heating-thermostats";
@@ -146,4 +147,44 @@ export async function toggleThermostat(thermostatId: string, enabled: boolean): 
     .single();
 
   return saveThermostats(ctx.supabase, ctx.hub.id, row?.config, thermostats);
+}
+
+export async function saveHeatingPump(input: {
+  enabled: boolean;
+  actuator_device_id: string;
+}): Promise<HeatingActionState> {
+  const ctx = await requireHub();
+  if (ctx.error || !ctx.supabase || !ctx.hub) return { error: ctx.error ?? "Virhe." };
+
+  const { data: row } = await ctx.supabase
+    .from("hubs")
+    .select("config")
+    .eq("id", ctx.hub.id)
+    .single();
+
+  const config: HubConfig = {
+    ...parseHubConfig(row?.config),
+  };
+
+  if (!input.enabled) {
+    config.heating_pump = null;
+  } else {
+    const actuator = input.actuator_device_id?.trim();
+    if (!actuator?.includes(":")) return { error: "Valitse pumppurele." };
+
+    config.heating_pump = {
+      enabled: true,
+      actuator_device_id: actuator,
+      start_delay_sec: DEFAULT_PUMP_START_DELAY_SEC,
+    };
+  }
+
+  const { error } = await ctx.supabase.from("hubs").update({ config }).eq("id", ctx.hub.id);
+  if (error) return { error: "Tallennus epäonnistui." };
+  revalidateLaitteet();
+  return {
+    ok: input.enabled
+      ? "Pumppuasetus tallennettu. Yellow päivittää asetukset seuraavassa synkissä (~30 s)."
+      : "Pumppuohjaus poistettu käytöstä.",
+  };
 }
