@@ -17,6 +17,37 @@ export type DailyEnergy = {
   kwh: number | null;
 };
 
+export type DailyTemp = {
+  date: string;
+  avg_c: number | null;
+};
+
+export type ModerationLevel = "low" | "moderate" | "high" | "unknown";
+
+export type EnergyModeration = {
+  level: ModerationLevel;
+  label: string;
+  detail: string;
+  today_vs_avg_pct: number | null;
+};
+
+export type EnergyInsight = {
+  tone: "positive" | "warning" | "neutral";
+  text: string;
+};
+
+export type EnergyStatistics = {
+  range_days: number;
+  period_kwh: number | null;
+  prev_period_kwh: number | null;
+  change_pct: number | null;
+  avg_daily_kwh: number | null;
+  max_daily_kwh: number | null;
+  min_daily_kwh: number | null;
+  days_above_avg: number;
+  days_below_avg: number;
+};
+
 export function energyMetricKey(deviceId: string): string {
   return `${ENERGY_METRIC_PREFIX}${deviceId}`;
 }
@@ -189,4 +220,240 @@ export async function fetchEnergySamples(
       wh: Number(row.value),
     }))
     .filter((pt) => Number.isFinite(pt.wh));
+}
+
+/** Yhdistä usean mittarin päivittäiset kWh-summat. */
+export function aggregateDailyKwh(series: DailyEnergy[][]): DailyEnergy[] {
+  const byDate = new Map<string, number | null>();
+
+  for (const daily of series) {
+    for (const row of daily) {
+      const prev = byDate.get(row.date);
+      if (row.kwh == null) {
+        if (!byDate.has(row.date)) byDate.set(row.date, null);
+        continue;
+      }
+      byDate.set(row.date, (prev ?? 0) + row.kwh);
+    }
+  }
+
+  return [...byDate.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([date, kwh]) => ({ date, label: dayLabel(date), kwh }));
+}
+
+export function sumKwhFromDaily(
+  daily: DailyEnergy[],
+  lastNDays?: number,
+): number | null {
+  const slice = lastNDays != null ? daily.slice(-lastNDays) : daily;
+  const vals = slice.map((d) => d.kwh).filter((v): v is number => v != null && v >= 0);
+  if (vals.length === 0) return null;
+  return vals.reduce((s, v) => s + v, 0);
+}
+
+function avgNullable(vals: number[]): number | null {
+  if (vals.length === 0) return null;
+  return vals.reduce((s, v) => s + v, 0) / vals.length;
+}
+
+function pctChange(current: number | null, previous: number | null): number | null {
+  if (current == null || previous == null || previous <= 0) return null;
+  return ((current - previous) / previous) * 100;
+}
+
+export function computeModeration(
+  todayKwh: number | null,
+  avgDailyKwh: number | null,
+): EnergyModeration {
+  if (todayKwh == null || avgDailyKwh == null || avgDailyKwh <= 0) {
+    return {
+      level: "unknown",
+      label: "Ei vertailudataa",
+      detail: "Kulutushistoriaa kertyy synkin myötä — arvio päivittyy muutaman päivän kuluttua.",
+      today_vs_avg_pct: null,
+    };
+  }
+
+  const ratio = todayKwh / avgDailyKwh;
+  const vsPct = (ratio - 1) * 100;
+
+  if (ratio <= 0.75) {
+    return {
+      level: "low",
+      label: "Maltillinen",
+      detail: `Tämän päivän kulutus on ${Math.abs(vsPct).toFixed(0)} % alle 30 pv keskiarvon.`,
+      today_vs_avg_pct: vsPct,
+    };
+  }
+  if (ratio >= 1.35) {
+    return {
+      level: "high",
+      label: "Korkea",
+      detail: `Tämän päivän kulutus on ${vsPct.toFixed(0)} % yli 30 pv keskiarvon.`,
+      today_vs_avg_pct: vsPct,
+    };
+  }
+  return {
+    level: "moderate",
+    label: "Normaali",
+    detail: `Kulutus on lähellä 30 päivän keskiarvoa (${vsPct >= 0 ? "+" : ""}${vsPct.toFixed(0)} %).`,
+    today_vs_avg_pct: vsPct,
+  };
+}
+
+export function computeEnergyStatistics(
+  daily: DailyEnergy[],
+  rangeDays: number,
+): EnergyStatistics {
+  const complete = daily.filter((d) => d.kwh != null);
+  const period = complete.slice(-rangeDays);
+  const prev = complete.slice(-rangeDays * 2, -rangeDays);
+
+  const periodVals = period.map((d) => d.kwh!);
+  const prevVals = prev.map((d) => d.kwh!);
+  const periodKwh = sumKwhFromDaily(period);
+  const prevKwh = sumKwhFromDaily(prev);
+  const avgDaily = avgNullable(periodVals);
+
+  let above = 0;
+  let below = 0;
+  if (avgDaily != null) {
+    for (const v of periodVals) {
+      if (v > avgDaily * 1.05) above++;
+      else if (v < avgDaily * 0.95) below++;
+    }
+  }
+
+  return {
+    range_days: rangeDays,
+    period_kwh: periodKwh,
+    prev_period_kwh: prevKwh,
+    change_pct: pctChange(periodKwh, prevKwh),
+    avg_daily_kwh: avgDaily,
+    max_daily_kwh: periodVals.length ? Math.max(...periodVals) : null,
+    min_daily_kwh: periodVals.length ? Math.min(...periodVals) : null,
+    days_above_avg: above,
+    days_below_avg: below,
+  };
+}
+
+export function computeEnergyInsights(
+  todayKwh: number | null,
+  daily: DailyEnergy[],
+  outdoor: DailyTemp[],
+  indoor: DailyTemp[],
+): EnergyInsight[] {
+  const insights: EnergyInsight[] = [];
+  const todayKey = helsinkiDateKey(new Date().toISOString());
+
+  const pastDaily = daily.filter((d) => d.kwh != null && d.date !== todayKey);
+  const recentKwh = pastDaily.slice(-7).map((d) => d.kwh!);
+  const avgKwh = avgNullable(recentKwh);
+
+  const outdoorPast = outdoor.filter((d) => d.avg_c != null && d.date !== todayKey);
+  const recentOutdoor = outdoorPast.slice(-7).map((d) => d.avg_c!);
+  const avgOutdoor = avgNullable(recentOutdoor);
+
+  const todayOutdoor = outdoor.find((d) => d.date === todayKey)?.avg_c ?? null;
+  const todayIndoor = indoor.find((d) => d.date === todayKey)?.avg_c ?? null;
+
+  if (todayKwh != null && avgKwh != null && todayOutdoor != null && avgOutdoor != null) {
+    const cooler = todayOutdoor < avgOutdoor - 1.5;
+    const warmer = todayOutdoor > avgOutdoor + 1.5;
+    const highUse = todayKwh > avgKwh * 1.12;
+    const lowUse = todayKwh < avgKwh * 0.88;
+
+    if (cooler && highUse) {
+      insights.push({
+        tone: "warning",
+        text: "Päivä oli viileämpi kuin viikon keskiarvo, mutta sähkönkulutus nousi — tarkista lämmitys ja sähkölämmityksen ajastukset.",
+      });
+    } else if (warmer && lowUse) {
+      insights.push({
+        tone: "positive",
+        text: "Lämpimämpi päivä ja kulutus pysyi alle keskiarvon — hyvä energiatehokkuus.",
+      });
+    } else if (cooler && lowUse) {
+      insights.push({
+        tone: "positive",
+        text: "Viileämmästä säästä huolimatta kulutus pysyi maltillisena.",
+      });
+    } else if (warmer && highUse) {
+      insights.push({
+        tone: "warning",
+        text: "Lämpimämpi päivä mutta kulutus korkeampi kuin tavallisesti — tarkista jäähdytys, IV-kone ja muut suuritehoiset laitteet.",
+      });
+    }
+  }
+
+  if (todayKwh != null && avgKwh != null) {
+    const diffPct = ((todayKwh - avgKwh) / avgKwh) * 100;
+    if (Math.abs(diffPct) >= 25) {
+      insights.push({
+        tone: diffPct > 0 ? "warning" : "positive",
+        text:
+          diffPct > 0
+            ? `Tämän päivän kulutus on ${diffPct.toFixed(0)} % korkeampi kuin viimeisen viikon päiväkeskiarvo.`
+            : `Tämän päivän kulutus on ${Math.abs(diffPct).toFixed(0)} % matalampi kuin viimeisen viikon päiväkeskiarvo.`,
+      });
+    }
+  }
+
+  if (todayOutdoor != null && todayIndoor != null) {
+    const delta = todayIndoor - todayOutdoor;
+    if (delta > 18) {
+      insights.push({
+        tone: "neutral",
+        text: `Sisä- ja ulkolämpötilan ero on suuri (${delta.toFixed(1)} °C) — lämmityskuorma on odotetusti korkeampi.`,
+      });
+    }
+  }
+
+  if (insights.length === 0) {
+    insights.push({
+      tone: "neutral",
+      text: "Kulutus ja lämpötilat ovat tänään tavallisella tasolla. Data päivittyy synkin myötä.",
+    });
+  }
+
+  return insights.slice(0, 3);
+}
+
+export async function fetchDailyTempAverages(
+  hubId: string,
+  metric: string,
+  since: Date,
+): Promise<DailyTemp[]> {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from("hub_metric_samples")
+    .select("value, recorded_at")
+    .eq("hub_id", hubId)
+    .eq("metric", metric)
+    .gte("recorded_at", since.toISOString())
+    .order("recorded_at", { ascending: true })
+    .limit(5000);
+
+  if (error) {
+    console.warn("[energy] Lämpötilahaku epäonnistui:", error.message);
+    return [];
+  }
+
+  const buckets = new Map<string, number[]>();
+  for (const row of data ?? []) {
+    const v = Number(row.value);
+    if (!Number.isFinite(v)) continue;
+    const key = helsinkiDateKey(String(row.recorded_at));
+    const arr = buckets.get(key) ?? [];
+    arr.push(v);
+    buckets.set(key, arr);
+  }
+
+  return [...buckets.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([date, vals]) => ({
+      date,
+      avg_c: avgNullable(vals),
+    }));
 }

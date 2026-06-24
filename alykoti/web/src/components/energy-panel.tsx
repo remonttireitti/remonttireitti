@@ -1,6 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { EnergyTrendChart } from "@/components/energy-trend-chart";
+import type {
+  DailyEnergy,
+  EnergyInsight,
+  EnergyModeration,
+  EnergyStatistics,
+} from "@/lib/energy-samples";
 import type { EnergyPhaseReading, EnergyPhases } from "@/lib/types";
 
 type MeterLive = {
@@ -8,12 +15,6 @@ type MeterLive = {
   power_kw: number | null;
   energy_wh: number | null;
   phases: EnergyPhases;
-};
-
-type DailyEnergy = {
-  date: string;
-  label: string;
-  kwh: number | null;
 };
 
 type EnergyMeter = {
@@ -28,6 +29,23 @@ type EnergyMeter = {
 
 type EnergyResponse = {
   hubOnline?: boolean;
+  summary: {
+    power_kw_total: number | null;
+    today_kwh: number | null;
+    week_kwh: number | null;
+    month_kwh: number | null;
+  };
+  moderation: EnergyModeration;
+  trend: {
+    daily: DailyEnergy[];
+    outdoor_temp: { date: string; avg_c: number | null }[];
+    indoor_temp: { date: string; avg_c: number | null }[];
+  };
+  statistics: {
+    week: EnergyStatistics;
+    month: EnergyStatistics;
+  };
+  insights: EnergyInsight[];
   meters: EnergyMeter[];
 };
 
@@ -37,6 +55,16 @@ const PHASE_LABELS: Record<(typeof PHASES)[number], string> = {
   b: "L2",
   c: "L3",
 };
+
+const TREND_RANGES = [
+  { id: 7, label: "7 pv" },
+  { id: 30, label: "30 pv" },
+] as const;
+
+const STAT_RANGES = [
+  { id: "week" as const, label: "7 päivää" },
+  { id: "month" as const, label: "30 päivää" },
+];
 
 function fmtNum(v: number | null | undefined, digits = 1): string {
   if (v == null || !Number.isFinite(v)) return "—";
@@ -51,6 +79,17 @@ function fmtKw(v: number | null | undefined): string {
   if (Math.abs(v) >= 10) return `${fmtNum(v, 1)} kW`;
   if (Math.abs(v) >= 1) return `${fmtNum(v, 2)} kW`;
   return `${fmtNum(v * 1000, 0)} W`;
+}
+
+function fmtKwh(v: number | null | undefined): string {
+  if (v == null || !Number.isFinite(v)) return "—";
+  return `${fmtNum(v, 1)} kWh`;
+}
+
+function fmtPct(v: number | null | undefined): string {
+  if (v == null || !Number.isFinite(v)) return "—";
+  const sign = v > 0 ? "+" : "";
+  return `${sign}${v.toFixed(0)} %`;
 }
 
 function phasePowerKw(p?: EnergyPhaseReading): number | null {
@@ -83,6 +122,331 @@ function fmtW(v: number | null | undefined): string {
   return `${fmtNum(v, 0)} W`;
 }
 
+function moderationStyles(level: EnergyModeration["level"]) {
+  switch (level) {
+    case "low":
+      return {
+        ring: "ring-emerald-200",
+        bg: "bg-emerald-50",
+        badge: "bg-emerald-100 text-emerald-900 ring-emerald-200",
+        bar: "from-emerald-400 to-emerald-600",
+        dot: "bg-emerald-500",
+      };
+    case "moderate":
+      return {
+        ring: "ring-amber-200",
+        bg: "bg-amber-50",
+        badge: "bg-amber-100 text-amber-950 ring-amber-200",
+        bar: "from-amber-400 to-amber-600",
+        dot: "bg-amber-500",
+      };
+    case "high":
+      return {
+        ring: "ring-red-200",
+        bg: "bg-red-50",
+        badge: "bg-red-100 text-red-900 ring-red-200",
+        bar: "from-red-400 to-red-600",
+        dot: "bg-red-500",
+      };
+    default:
+      return {
+        ring: "ring-stone-200",
+        bg: "bg-stone-50",
+        badge: "bg-stone-100 text-stone-700 ring-stone-200",
+        bar: "from-stone-300 to-stone-400",
+        dot: "bg-stone-400",
+      };
+  }
+}
+
+function moderationGaugePct(level: EnergyModeration["level"], vsPct: number | null): number {
+  if (level === "unknown" || vsPct == null) return 50;
+  const clamped = Math.max(-50, Math.min(50, vsPct));
+  return 50 + clamped;
+}
+
+function insightStyles(tone: EnergyInsight["tone"]) {
+  switch (tone) {
+    case "positive":
+      return "border-emerald-200 bg-emerald-50 text-emerald-950";
+    case "warning":
+      return "border-amber-200 bg-amber-50 text-amber-950";
+    default:
+      return "border-stone-200 bg-stone-50 text-stone-800";
+  }
+}
+
+function SummaryHeader({ data }: { data: EnergyResponse }) {
+  const { summary, moderation } = data;
+  const styles = moderationStyles(moderation.level);
+  const gaugePct = moderationGaugePct(moderation.level, moderation.today_vs_avg_pct);
+
+  return (
+    <section className={`rounded-2xl border border-stone-200 bg-white p-5 shadow-sm ring-1 ${styles.ring}`}>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <p className="text-xs font-medium uppercase tracking-wide text-stone-500">
+            Kokonaiskulutus
+          </p>
+          <p className="mt-1 text-3xl font-bold tabular-nums text-stone-900">
+            {fmtKw(summary.power_kw_total)}
+          </p>
+          <p className="text-xs text-stone-500">Kokonaisteho nyt (kaikki mittarit)</p>
+        </div>
+        <div className={`rounded-xl px-4 py-2 ring-1 ring-inset ${styles.badge}`}>
+          <p className="text-xs font-medium uppercase tracking-wide opacity-80">Kulutusarvio</p>
+          <p className="text-lg font-bold">{moderation.label}</p>
+        </div>
+      </div>
+
+      <div className="mt-4 grid gap-3 sm:grid-cols-3">
+        <StatTile label="Tänään" value={fmtKwh(summary.today_kwh)} />
+        <StatTile label="Viikko" value={fmtKwh(summary.week_kwh)} />
+        <StatTile label="30 päivää" value={fmtKwh(summary.month_kwh)} />
+      </div>
+
+      <div className={`mt-4 rounded-xl p-4 ${styles.bg}`}>
+        <div className="flex items-center justify-between gap-3 text-sm">
+          <p className="text-stone-700">{moderation.detail}</p>
+          {moderation.today_vs_avg_pct != null && (
+            <span className="shrink-0 tabular-nums font-semibold text-stone-900">
+              {fmtPct(moderation.today_vs_avg_pct)}
+            </span>
+          )}
+        </div>
+        <div className="relative mt-3 h-2.5 overflow-hidden rounded-full bg-white/70">
+          <div
+            className={`absolute inset-y-0 left-0 rounded-full bg-gradient-to-r ${styles.bar} transition-all duration-700`}
+            style={{ width: `${gaugePct}%` }}
+          />
+          <div
+            className="absolute top-1/2 h-3 w-3 -translate-y-1/2 rounded-full border-2 border-white bg-stone-800 shadow"
+            style={{ left: `calc(${gaugePct}% - 6px)` }}
+          />
+        </div>
+        <div className="mt-1 flex justify-between text-[10px] text-stone-500">
+          <span>Matala</span>
+          <span>Normaali</span>
+          <span>Korkea</span>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function StatTile({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl bg-stone-50 px-4 py-3">
+      <p className="text-xs font-medium uppercase tracking-wide text-stone-500">{label}</p>
+      <p className="mt-1 text-xl font-semibold tabular-nums text-stone-900">{value}</p>
+    </div>
+  );
+}
+
+function InsightsPanel({ insights }: { insights: EnergyInsight[] }) {
+  return (
+    <section className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
+      <h2 className="text-lg font-semibold text-stone-900">Älykäs arvio</h2>
+      <p className="mt-1 text-xs text-stone-500">
+        Yksinkertainen sääntöpohjainen tulkinta lämpötilan ja kulutuksen yhteydestä.
+      </p>
+      <ul className="mt-4 space-y-2">
+        {insights.map((item, i) => (
+          <li
+            key={i}
+            className={`rounded-xl border px-4 py-3 text-sm leading-relaxed ${insightStyles(item.tone)}`}
+          >
+            {item.text}
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function TrendPanel({ data }: { data: EnergyResponse }) {
+  const [rangeDays, setRangeDays] = useState<7 | 30>(7);
+  const [showOutdoor, setShowOutdoor] = useState(true);
+  const [showIndoor, setShowIndoor] = useState(false);
+
+  const hasOutdoor = useMemo(
+    () => data.trend.outdoor_temp.some((d) => d.avg_c != null),
+    [data.trend.outdoor_temp],
+  );
+  const hasIndoor = useMemo(
+    () => data.trend.indoor_temp.some((d) => d.avg_c != null),
+    [data.trend.indoor_temp],
+  );
+
+  return (
+    <section className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-semibold text-stone-900">Kulutustrendi</h2>
+          <p className="text-xs text-stone-500">Päivittäinen kWh — kaikki mittarit yhteensä</p>
+        </div>
+        <div className="flex gap-1 rounded-xl bg-stone-100 p-1">
+          {TREND_RANGES.map((r) => (
+            <button
+              key={r.id}
+              type="button"
+              onClick={() => setRangeDays(r.id)}
+              className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${
+                rangeDays === r.id
+                  ? "bg-white text-stone-900 shadow-sm"
+                  : "text-stone-600 hover:text-stone-900"
+              }`}
+            >
+              {r.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="mt-3 flex flex-wrap gap-4 text-sm">
+        {hasOutdoor && (
+          <label className="flex cursor-pointer items-center gap-2 text-stone-700">
+            <input
+              type="checkbox"
+              checked={showOutdoor}
+              onChange={(e) => setShowOutdoor(e.target.checked)}
+              className="rounded border-stone-300 text-sky-600"
+            />
+            Ulkolämpötila
+          </label>
+        )}
+        {hasIndoor && (
+          <label className="flex cursor-pointer items-center gap-2 text-stone-700">
+            <input
+              type="checkbox"
+              checked={showIndoor}
+              onChange={(e) => setShowIndoor(e.target.checked)}
+              className="rounded border-stone-300 text-rose-600"
+            />
+            Sisälämpötila
+          </label>
+        )}
+        {!hasOutdoor && !hasIndoor && (
+          <p className="text-xs text-stone-500">
+            Lämpötilakerrokset tulevat saataville kun AirFi / Airthings -dataa on kerätty.
+          </p>
+        )}
+      </div>
+
+      <div className="mt-4">
+        <EnergyTrendChart
+          daily={data.trend.daily}
+          outdoor={data.trend.outdoor_temp}
+          indoor={data.trend.indoor_temp}
+          showOutdoor={showOutdoor && hasOutdoor}
+          showIndoor={showIndoor && hasIndoor}
+          lastNDays={rangeDays}
+        />
+      </div>
+    </section>
+  );
+}
+
+function StatisticsPanel({ data }: { data: EnergyResponse }) {
+  const [range, setRange] = useState<"week" | "month">("week");
+  const stats = data.statistics[range];
+
+  return (
+    <section className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-semibold text-stone-900">Tilastot</h2>
+          <p className="text-xs text-stone-500">Vertailu edelliseen jaksoon ja keskiarvoihin</p>
+        </div>
+        <div className="flex gap-1 rounded-xl bg-stone-100 p-1">
+          {STAT_RANGES.map((r) => (
+            <button
+              key={r.id}
+              type="button"
+              onClick={() => setRange(r.id)}
+              className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${
+                range === r.id
+                  ? "bg-white text-stone-900 shadow-sm"
+                  : "text-stone-600 hover:text-stone-900"
+              }`}
+            >
+              {r.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <dl className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <StatItem label="Jakson kulutus" value={fmtKwh(stats.period_kwh)} />
+        <StatItem
+          label="Edellinen jakso"
+          value={fmtKwh(stats.prev_period_kwh)}
+          sub={
+            stats.change_pct != null
+              ? `Muutos ${fmtPct(stats.change_pct)}`
+              : undefined
+          }
+        />
+        <StatItem label="Päiväkeskiarvo" value={fmtKwh(stats.avg_daily_kwh)} />
+        <StatItem
+          label="Min / max päivä"
+          value={
+            stats.min_daily_kwh != null && stats.max_daily_kwh != null
+              ? `${fmtNum(stats.min_daily_kwh, 1)} / ${fmtNum(stats.max_daily_kwh, 1)}`
+              : "—"
+          }
+          unit="kWh"
+        />
+      </dl>
+
+      {stats.avg_daily_kwh != null && (
+        <div className="mt-4 rounded-xl bg-stone-50 px-4 py-3 text-sm text-stone-700">
+          <p>
+            <span className="font-semibold text-stone-900">{stats.days_above_avg}</span> päivää
+            yli keskiarvon ja{" "}
+            <span className="font-semibold text-stone-900">{stats.days_below_avg}</span> päivää alle
+            keskiarvon (±5 % kynnys).
+          </p>
+          {stats.change_pct != null && (
+            <p className="mt-1 text-xs text-stone-500">
+              {stats.change_pct > 5
+                ? "Kulutus on noussut edelliseen jaksoon verrattuna."
+                : stats.change_pct < -5
+                  ? "Kulutus on laskenut edelliseen jaksoon verrattuna."
+                  : "Kulutus on pysynyt lähellä edellistä jaksoa."}
+            </p>
+          )}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function StatItem({
+  label,
+  value,
+  unit,
+  sub,
+}: {
+  label: string;
+  value: string;
+  unit?: string;
+  sub?: string;
+}) {
+  return (
+    <div className="rounded-xl border border-stone-100 bg-stone-50/80 px-4 py-3">
+      <dt className="text-xs font-medium uppercase tracking-wide text-stone-500">{label}</dt>
+      <dd className="mt-1 text-lg font-semibold tabular-nums text-stone-900">
+        {value}
+        {unit && value !== "—" && (
+          <span className="ml-1 text-sm font-normal text-stone-500">{unit}</span>
+        )}
+      </dd>
+      {sub && <dd className="mt-0.5 text-xs text-stone-500">{sub}</dd>}
+    </div>
+  );
+}
+
 function PhaseTable({ phases }: { phases: EnergyPhases }) {
   const hasAny = PHASES.some((k) => phases[k] != null);
   if (!hasAny) {
@@ -95,7 +459,6 @@ function PhaseTable({ phases }: { phases: EnergyPhases }) {
 
   return (
     <div className="mt-4">
-      {/* Mobiili: vaihekortit */}
       <div className="grid gap-3 sm:hidden">
         {PHASES.map((key) => {
           const p = phases[key];
@@ -134,41 +497,40 @@ function PhaseTable({ phases }: { phases: EnergyPhases }) {
         })}
       </div>
 
-      {/* Desktop: taulukko */}
       <div className="mt-0 hidden overflow-x-auto sm:block">
-      <table className="w-full min-w-[24rem] text-sm">
-        <thead>
-          <tr className="border-b border-stone-100 text-left text-xs text-stone-500">
-            <th className="pb-2 pr-4 font-medium">Vaihe</th>
-            <th className="pb-2 pr-4 font-medium">Teho</th>
-            <th className="pb-2 pr-4 font-medium">Jännite</th>
-            <th className="pb-2 pr-4 font-medium">Virta</th>
-            <th className="pb-2 font-medium">PF</th>
-          </tr>
-        </thead>
-        <tbody>
-          {PHASES.map((key) => {
-            const p = phases[key];
-            return (
-              <tr key={key} className="border-b border-stone-50">
-                <td className="py-2 pr-4 font-medium text-stone-800">{PHASE_LABELS[key]}</td>
-                <td className="py-2 pr-4 tabular-nums text-stone-700">
-                  {p?.power_w != null ? fmtW(p.power_w) : fmtKw(phasePowerKw(p))}
-                </td>
-                <td className="py-2 pr-4 tabular-nums text-stone-700">
-                  {p?.voltage_v != null ? `${fmtNum(p.voltage_v, 0)} V` : "—"}
-                </td>
-                <td className="py-2 pr-4 tabular-nums text-stone-700">
-                  {p?.current_a != null ? `${fmtNum(p.current_a, 2)} A` : "—"}
-                </td>
-                <td className="py-2 tabular-nums text-stone-700">
-                  {p?.pf != null ? fmtNum(p.pf, 2) : "—"}
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+        <table className="w-full min-w-[24rem] text-sm">
+          <thead>
+            <tr className="border-b border-stone-100 text-left text-xs text-stone-500">
+              <th className="pb-2 pr-4 font-medium">Vaihe</th>
+              <th className="pb-2 pr-4 font-medium">Teho</th>
+              <th className="pb-2 pr-4 font-medium">Jännite</th>
+              <th className="pb-2 pr-4 font-medium">Virta</th>
+              <th className="pb-2 font-medium">PF</th>
+            </tr>
+          </thead>
+          <tbody>
+            {PHASES.map((key) => {
+              const p = phases[key];
+              return (
+                <tr key={key} className="border-b border-stone-50">
+                  <td className="py-2 pr-4 font-medium text-stone-800">{PHASE_LABELS[key]}</td>
+                  <td className="py-2 pr-4 tabular-nums text-stone-700">
+                    {p?.power_w != null ? fmtW(p.power_w) : fmtKw(phasePowerKw(p))}
+                  </td>
+                  <td className="py-2 pr-4 tabular-nums text-stone-700">
+                    {p?.voltage_v != null ? `${fmtNum(p.voltage_v, 0)} V` : "—"}
+                  </td>
+                  <td className="py-2 pr-4 tabular-nums text-stone-700">
+                    {p?.current_a != null ? `${fmtNum(p.current_a, 2)} A` : "—"}
+                  </td>
+                  <td className="py-2 tabular-nums text-stone-700">
+                    {p?.pf != null ? fmtNum(p.pf, 2) : "—"}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
       </div>
     </div>
   );
@@ -310,7 +672,24 @@ export function EnergyPanel() {
           </p>
         </section>
       ) : (
-        data.meters.map((meter) => <MeterCard key={meter.id} meter={meter} />)
+        <>
+          <SummaryHeader data={data} />
+          <div className="grid gap-6 lg:grid-cols-2">
+            <TrendPanel data={data} />
+            <InsightsPanel insights={data.insights} />
+          </div>
+          <StatisticsPanel data={data} />
+
+          <div>
+            <h2 className="text-base font-semibold text-stone-800">Mittarit</h2>
+            <p className="text-xs text-stone-500">Yksittäisten Shelly EM -laitteiden tiedot</p>
+            <div className="mt-3 space-y-6">
+              {data.meters.map((meter) => (
+                <MeterCard key={meter.id} meter={meter} />
+              ))}
+            </div>
+          </div>
+        </>
       )}
     </div>
   );
