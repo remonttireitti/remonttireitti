@@ -720,6 +720,12 @@ def _write_with_client(
                     e10,
                     e11,
                 )
+                if not e2:
+                    w_off = client.write_register(
+                        HOLDING["direct_control_enabled"], 0, device_id=unit
+                    )
+                    if w_off.isError():
+                        log.warning("Modbus fan rollback h2=0 failed")
             return not (e2 or e10 or e11)
         if away is not None:
             w = client.write_register(HOLDING["away_mode"], 1 if away else 0, device_id=unit)
@@ -947,6 +953,22 @@ def airfi_ventilation_blocked(state: dict[str, Any]) -> bool:
     return airfi_auto_ventilation_blocked(state)
 
 
+def airfi_stuck_direct_emergency(state: dict[str, Any]) -> bool:
+    """Suoraohjaus jäi päälle 0 %:lla — usein aiheuttaa E1/hätäseis -tilan."""
+    if not state.get("direct_control"):
+        return False
+    supply = state.get("fan_supply_pct")
+    exhaust = state.get("fan_exhaust_pct")
+    if not isinstance(supply, (int, float)) or not isinstance(exhaust, (int, float)):
+        return False
+    if int(supply) > 0 or int(exhaust) > 0:
+        return False
+    if state.get("emergency_stop"):
+        return True
+    raw = state.get("airfi_error_raw")
+    return isinstance(raw, int) and (raw & 2) != 0
+
+
 def ack_airfi_alarms(
     *,
     host: str | None,
@@ -977,6 +999,9 @@ def ack_airfi_alarms(
         writes=[
             (HOLDING["constant_pressure_mode"], 0),
             (HOLDING["emergency_stop"], 0),
+            (HOLDING["direct_combined_pct"], 0),
+            (HOLDING["supply_direct_pct"], 0),
+            (HOLDING["exhaust_direct_pct"], 0),
             (HOLDING["direct_control_enabled"], 0),
             (HOLDING["away_mode"], 0),
         ],

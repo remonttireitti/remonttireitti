@@ -13,6 +13,7 @@ from alykoti_yellow.modbus_airfi import (
     AirfiPollState,
     ack_airfi_alarms,
     airfi_ack_cooldown_active,
+    airfi_stuck_direct_emergency,
     airfi_auto_ventilation_blocked,
     airfi_machine_blocks_ventilation,
     airfi_writes_pause_until_iso,
@@ -398,8 +399,30 @@ def _ventilation_block_reason(state: dict | None) -> str | None:
 
 _last_ventilation_write_at: float = 0.0
 _last_ventilation_fail_at: float = 0.0
+_last_airfi_emergency_recovery_at: float = 0.0
 VENTILATION_WRITE_MIN_INTERVAL_SEC = 30.0
 VENTILATION_WRITE_FAIL_BACKOFF_SEC = 120.0
+AIRFI_EMERGENCY_RECOVERY_MIN_INTERVAL_SEC = 180.0
+
+
+def _try_recover_stuck_airfi_emergency(state: dict) -> bool:
+    """Poista suoraohjaus jäljiltä jäänyt E1/hätäseis (ohjelmiston aiheuttama tila)."""
+    global _last_airfi_emergency_recovery_at
+    if not airfi_stuck_direct_emergency(state):
+        return False
+    if airfi_ack_cooldown_active():
+        return False
+    now = time.monotonic()
+    if now - _last_airfi_emergency_recovery_at < AIRFI_EMERGENCY_RECOVERY_MIN_INTERVAL_SEC:
+        return False
+    _last_airfi_emergency_recovery_at = now
+    log.info("AirFi hätäseis + suoraohjaus 0 %% — yritetään palauttaa automaattitilaan")
+    ok = ack_airfi_alarms(**config.airfi_write_kwargs())
+    if ok:
+        log.info("AirFi hätäseis palautettu — suoraohjaus poistettu")
+    else:
+        log.warning("AirFi hätäseis-palautus epäonnistui (Modbus)")
+    return ok
 
 
 def apply_ventilation(response: dict, airfi_state: dict | None = None) -> None:
@@ -419,6 +442,8 @@ def apply_ventilation(response: dict, airfi_state: dict | None = None) -> None:
         return
     reason = _ventilation_block_reason(block_state)
     if reason is not None:
+        if reason in ("hätäseis", "E1"):
+            _try_recover_stuck_airfi_emergency(block_state)
         log.info("AirFi tuuletus ohitetaan — %s", reason)
         return
     vent = response.get("ventilation")
