@@ -81,15 +81,20 @@ _last_modbus_at: float = 0.0
 MODBUS_MIN_GAP_SEC = 5.0
 
 
+def _modbus_pause_locked() -> None:
+    """Kutsu vain kun _modbus_lock on jo pidossa."""
+    global _last_modbus_at
+    now = time.monotonic()
+    wait = MODBUS_MIN_GAP_SEC - (now - _last_modbus_at)
+    if wait > 0:
+        time.sleep(wait)
+    _last_modbus_at = time.monotonic()
+
+
 def _modbus_pause() -> None:
     """Vähintään MODBUS_MIN_GAP_SEC kahden TCP-yhteyden välillä — modeemi ei jumitu."""
-    global _last_modbus_at
     with _modbus_lock:
-        now = time.monotonic()
-        wait = MODBUS_MIN_GAP_SEC - (now - _last_modbus_at)
-        if wait > 0:
-            time.sleep(wait)
-        _last_modbus_at = time.monotonic()
+        _modbus_pause_locked()
 
 
 INPUT = {
@@ -299,19 +304,22 @@ def _connect_tcp(
     *,
     connect_timeout: float,
     read_timeout: float,
+    connect_attempts: int = 3,
 ) -> bool:
     client.comm_params.timeout_connect = connect_timeout
-    try:
-        if not client.connect():
-            return False
-        client.comm_params.timeout_connect = read_timeout
-        if client.socket:
-            client.socket.settimeout(read_timeout)
-            _enable_tcp_keepalive(client.socket)
-        return True
-    except OSError as exc:
-        log.debug("Modbus TCP connect failed: %s", exc)
-        return False
+    for attempt in range(1, max(1, connect_attempts) + 1):
+        try:
+            if client.connect():
+                client.comm_params.timeout_connect = read_timeout
+                if client.socket:
+                    client.socket.settimeout(read_timeout)
+                    _enable_tcp_keepalive(client.socket)
+                return True
+        except OSError as exc:
+            log.debug("Modbus TCP connect failed (%s/%s): %s", attempt, connect_attempts, exc)
+        if attempt < connect_attempts:
+            time.sleep(3.0)
+    return False
 
 
 def _open_client(
@@ -530,41 +538,42 @@ def _read_with_retries(
     attempts = max(1, retry_count + 1)
     last = AirfiSnapshot(ok=False, state={"airfi_online": False})
 
-    for attempt in range(1, attempts + 1):
-        _modbus_pause()
-        client = _open_client(
-            host=host,
-            port=port,
-            serial=serial,
-            baud=baud,
-            read_timeout=read_timeout,
-        )
-        if client is None:
-            return last
-        try:
-            snap = _read_snapshot(
-                client,
-                unit,
-                connect_timeout=connect_timeout,
+    with _modbus_lock:
+        for attempt in range(1, attempts + 1):
+            _modbus_pause_locked()
+            client = _open_client(
+                host=host,
+                port=port,
+                serial=serial,
+                baud=baud,
                 read_timeout=read_timeout,
-                is_tcp=is_tcp,
             )
-            if snap.ok:
-                return snap
-            last = snap
-        except Exception as exc:
-            log.warning(
-                "Modbus read error (yritys %s/%s): %s",
-                attempt,
-                attempts,
-                exc,
-            )
-            last = AirfiSnapshot(ok=False, state={"airfi_online": False})
-        finally:
-            _safe_close(client)
+            if client is None:
+                return last
+            try:
+                snap = _read_snapshot(
+                    client,
+                    unit,
+                    connect_timeout=connect_timeout,
+                    read_timeout=read_timeout,
+                    is_tcp=is_tcp,
+                )
+                if snap.ok:
+                    return snap
+                last = snap
+            except Exception as exc:
+                log.warning(
+                    "Modbus read error (yritys %s/%s): %s",
+                    attempt,
+                    attempts,
+                    exc,
+                )
+                last = AirfiSnapshot(ok=False, state={"airfi_online": False})
+            finally:
+                _safe_close(client)
 
-        if attempt < attempts:
-            time.sleep(retry_delay_sec)
+            if attempt < attempts:
+                time.sleep(retry_delay_sec)
 
     return last
 
@@ -662,6 +671,175 @@ def read_airfi(
     return snap
 
 
+def _read_write_guard(
+    client: _ModbusClient,
+    unit: int,
+) -> tuple[bool, dict[str, Any]]:
+    """Kevyt luku ennen kirjoitusta — vain tuuletus estot ja nykyiset fanit."""
+    fans = _read_registers(
+        client,
+        unit,
+        read_fn=client.read_input_registers,
+        address=INPUT["fan_exhaust_pct"],
+        count=2,
+    )
+    status = _read_registers(
+        client,
+        unit,
+        read_fn=client.read_input_registers,
+        address=INPUT["emergency_stop_status"],
+        count=INPUT["error_info"] - INPUT["emergency_stop_status"] + 1,
+    )
+    if not fans or not status:
+        return False, {"airfi_online": False}
+    base = INPUT["emergency_stop_status"]
+    error_raw = _reg(status, base, INPUT["error_info"])
+    state: dict[str, Any] = {
+        "airfi_online": True,
+        "fan_supply_pct": _parse_pct(fans[1]),
+        "fan_exhaust_pct": _parse_pct(fans[0]),
+        "emergency_stop": (_reg(status, base, INPUT["emergency_stop_status"]) or 0) > 0,
+        "machine_fault": (_reg(status, base, INPUT["machine_fault"]) or 0) > 0,
+        "freezing_alarm": (_reg(status, base, INPUT["freezing_alarm"]) or 0) > 0,
+        "airfi_error_raw": error_raw,
+        "airfi_errors": [e["code"] for e in decode_error_info(error_raw)],
+    }
+    return True, state
+
+
+def _verify_fan_write(
+    client: _ModbusClient,
+    unit: int,
+    supply: int,
+    exhaust: int,
+) -> tuple[bool, dict[str, Any]]:
+    """Kevyt vahvistus samalla yhteydellä — ei täyttä snapshotia."""
+    fans = _read_registers(
+        client,
+        unit,
+        read_fn=client.read_input_registers,
+        address=INPUT["fan_exhaust_pct"],
+        count=2,
+    )
+    status = _read_registers(
+        client,
+        unit,
+        read_fn=client.read_input_registers,
+        address=INPUT["emergency_stop_status"],
+        count=INPUT["error_info"] - INPUT["emergency_stop_status"] + 1,
+    )
+    if not fans or not status:
+        return False, {"airfi_online": False}
+    fan_exhaust = _parse_pct(fans[0])
+    fan_supply = _parse_pct(fans[1])
+    emergency = _reg(status, INPUT["emergency_stop_status"], INPUT["emergency_stop_status"])
+    error_raw = _reg(status, INPUT["emergency_stop_status"], INPUT["error_info"])
+    state: dict[str, Any] = {
+        "airfi_online": True,
+        "fan_supply_pct": fan_supply,
+        "fan_exhaust_pct": fan_exhaust,
+        "emergency_stop": (emergency or 0) > 0,
+        "airfi_error_raw": error_raw,
+        "airfi_errors": [e["code"] for e in decode_error_info(error_raw)],
+    }
+    ok = (
+        _fans_near_target(state, supply, exhaust)
+        and not airfi_machine_blocks_ventilation(state)
+    )
+    return ok, state
+
+
+def _fans_near_target(
+    state: dict[str, Any],
+    supply: int,
+    exhaust: int,
+    *,
+    tolerance: int = 3,
+) -> bool:
+    fs = state.get("fan_supply_pct")
+    fe = state.get("fan_exhaust_pct")
+    if not isinstance(fs, (int, float)) or not isinstance(fe, (int, float)):
+        return False
+    return abs(int(fs) - supply) <= tolerance and abs(int(fe) - exhaust) <= tolerance
+
+
+def _rollback_tcp_direct(client: _ModbusClient, unit: int) -> None:
+    for addr, val in (
+        (HOLDING["direct_control_enabled"], 0),
+        (HOLDING["direct_combined_pct"], 0),
+    ):
+        w = client.write_register(addr, val, device_id=unit)
+        if w.isError():
+            log.warning("Modbus rollback failed reg %s", addr)
+
+
+def _write_fan_registers(
+    client: _ModbusClient,
+    unit: int,
+    supply: int,
+    exhaust: int,
+    *,
+    known_state: dict[str, Any] | None,
+    is_tcp: bool,
+) -> bool:
+    """Kirjoita tuuletinnopeudet — client on jo yhdistetty, ei suljeta täällä."""
+    supply = max(_MIN_FAN_PCT, min(100, int(supply)))
+    exhaust = max(_MIN_FAN_PCT, min(100, int(exhaust)))
+    if is_tcp:
+        # TCP-silta: h2=1 laukaisee usein E1/hätäseisin. h8=1 + h10/h11 toimii (testattu Pi:llä).
+        w2 = client.write_register(HOLDING["direct_control_enabled"], 0, device_id=unit)
+        if w2.isError():
+            log.warning("Modbus h2=0 write failed")
+            return False
+        w8 = client.write_register(HOLDING["constant_pressure_mode"], 1, device_id=unit)
+        if w8.isError():
+            log.warning("Modbus h8=1 write failed")
+            return False
+        time.sleep(1.0)
+        w10 = client.write_register(HOLDING["supply_direct_pct"], supply, device_id=unit)
+        w11 = client.write_register(HOLDING["exhaust_direct_pct"], exhaust, device_id=unit)
+        if w10.isError() or w11.isError():
+            log.warning("Modbus h10/h11 write failed")
+            return False
+        time.sleep(10.0)
+        return True
+
+    # RS485 / ESP-hub: suoraohjaus h2=1 + h10/h11
+    prep = [
+        (HOLDING["constant_pressure_mode"], 0),
+        (HOLDING["emergency_stop"], 0),
+        (HOLDING["away_mode"], 0),
+    ]
+    for addr, val in prep:
+        w = client.write_register(addr, val, device_id=unit)
+        if w.isError():
+            log.warning("Modbus fan prep failed reg %s", addr)
+    for addr, val in (
+        (HOLDING["direct_combined_pct"], 0),
+        (HOLDING["supply_direct_pct"], 0),
+        (HOLDING["exhaust_direct_pct"], 0),
+    ):
+        w = client.write_register(addr, val, device_id=unit)
+        if w.isError():
+            log.warning("Modbus fan prep failed reg %s", addr)
+    w2 = client.write_register(HOLDING["direct_control_enabled"], 1, device_id=unit)
+    w10 = client.write_register(HOLDING["supply_direct_pct"], supply, device_id=unit)
+    w11 = client.write_register(HOLDING["exhaust_direct_pct"], exhaust, device_id=unit)
+    e2, e10, e11 = w2.isError(), w10.isError(), w11.isError()
+    if e2 or e10 or e11:
+        log.warning(
+            "Modbus fan write partial failure: h2=%s supply=%s exhaust=%s",
+            e2,
+            e10,
+            e11,
+        )
+        if not e2:
+            w_off = client.write_register(HOLDING["direct_control_enabled"], 0, device_id=unit)
+            if w_off.isError():
+                log.warning("Modbus fan rollback h2=0 failed")
+    return not (e2 or e10 or e11)
+
+
 def _write_with_client(
     client: _ModbusClient,
     unit: int,
@@ -687,98 +865,14 @@ def _write_with_client(
         return False
     try:
         if supply is not None and exhaust is not None:
-            supply = max(_MIN_FAN_PCT, min(100, int(supply)))
-            exhaust = max(_MIN_FAN_PCT, min(100, int(exhaust)))
-            if is_tcp:
-                # TCP: h2=1 suoraan uuteen nopeuteen laukaisee hätäseis-tilan.
-                # Turvallinen sekvenssi: täsmää nykyinen nopeus → h2 päälle → uusi tavoite.
-                needs_prep = bool(
-                    known_state
-                    and (
-                        known_state.get("emergency_stop")
-                        or (
-                            isinstance(known_state.get("airfi_error_raw"), int)
-                            and (known_state["airfi_error_raw"] & 2) != 0
-                        )
-                    )
-                )
-                if needs_prep:
-                    for addr, val in (
-                        (HOLDING["constant_pressure_mode"], 0),
-                        (HOLDING["emergency_stop"], 0),
-                        (HOLDING["away_mode"], 0),
-                        (HOLDING["direct_control_enabled"], 0),
-                        (HOLDING["direct_combined_pct"], 0),
-                    ):
-                        w = client.write_register(addr, val, device_id=unit)
-                        if w.isError():
-                            log.warning("Modbus fan prep failed reg %s", addr)
-
-                direct_on = bool(known_state and known_state.get("direct_control"))
-                if not direct_on:
-                    live_s, live_e = supply, exhaust
-                    if known_state:
-                        fs = known_state.get("fan_supply_pct")
-                        fe = known_state.get("fan_exhaust_pct")
-                        if isinstance(fs, (int, float)) and isinstance(fe, (int, float)):
-                            live_s, live_e = int(fs), int(fe)
-                    live_s = max(_MIN_FAN_PCT, min(100, live_s))
-                    live_e = max(_MIN_FAN_PCT, min(100, live_e))
-                    for addr, val in (
-                        (HOLDING["supply_direct_pct"], live_s),
-                        (HOLDING["exhaust_direct_pct"], live_e),
-                    ):
-                        w = client.write_register(addr, val, device_id=unit)
-                        if w.isError():
-                            log.warning("Modbus fan match-speed failed reg %s", addr)
-                    time.sleep(1.5)
-                    w2 = client.write_register(
-                        HOLDING["direct_control_enabled"], 1, device_id=unit
-                    )
-                    if w2.isError():
-                        log.warning("Modbus h2 enable failed")
-                        return False
-                    time.sleep(1.0)
-
-                w10 = client.write_register(HOLDING["supply_direct_pct"], supply, device_id=unit)
-                w11 = client.write_register(HOLDING["exhaust_direct_pct"], exhaust, device_id=unit)
-                return not (w10.isError() or w11.isError())
-            # RS485 / ESP-hub: suoraohjaus h2=1 + h10/h11
-            prep = [
-                (HOLDING["constant_pressure_mode"], 0),
-                (HOLDING["emergency_stop"], 0),
-                (HOLDING["away_mode"], 0),
-            ]
-            for addr, val in prep:
-                w = client.write_register(addr, val, device_id=unit)
-                if w.isError():
-                    log.warning("Modbus fan prep failed reg %s", addr)
-            for addr, val in (
-                (HOLDING["direct_combined_pct"], 0),
-                (HOLDING["supply_direct_pct"], 0),
-                (HOLDING["exhaust_direct_pct"], 0),
-            ):
-                w = client.write_register(addr, val, device_id=unit)
-                if w.isError():
-                    log.warning("Modbus fan prep failed reg %s", addr)
-            w2 = client.write_register(HOLDING["direct_control_enabled"], 1, device_id=unit)
-            w10 = client.write_register(HOLDING["supply_direct_pct"], supply, device_id=unit)
-            w11 = client.write_register(HOLDING["exhaust_direct_pct"], exhaust, device_id=unit)
-            e2, e10, e11 = w2.isError(), w10.isError(), w11.isError()
-            if e2 or e10 or e11:
-                log.warning(
-                    "Modbus fan write partial failure: h2=%s supply=%s exhaust=%s",
-                    e2,
-                    e10,
-                    e11,
-                )
-                if not e2:
-                    w_off = client.write_register(
-                        HOLDING["direct_control_enabled"], 0, device_id=unit
-                    )
-                    if w_off.isError():
-                        log.warning("Modbus fan rollback h2=0 failed")
-            return not (e2 or e10 or e11)
+            return _write_fan_registers(
+                client,
+                unit,
+                supply,
+                exhaust,
+                known_state=known_state,
+                is_tcp=is_tcp,
+            )
         if away is not None:
             w = client.write_register(HOLDING["away_mode"], 1 if away else 0, device_id=unit)
             return not w.isError()
@@ -809,50 +903,160 @@ def write_fan_pct(
     connect_timeout: float = 4.0,
     read_timeout: float = 5.0,
     known_state: dict[str, Any] | None = None,
+    retry_count: int = 5,
+    retry_delay_sec: float = 10.0,
 ) -> bool:
-    block_state = known_state if known_state and known_state.get("airfi_online") else None
-    if block_state is None:
-        snap = read_airfi(
-            host=host,
-            tcp_port=tcp_port,
-            serial=serial,
-            baud=baud,
-            unit=unit,
-            connect_timeout=connect_timeout,
-            read_timeout=read_timeout,
-            poll_state=None,
-        )
-        if not snap.ok:
-            log.warning("write_fan_pct estetty — AirFi ei vastaa")
-            return False
-        block_state = snap.state
-    if airfi_machine_blocks_ventilation(block_state):
-        log.warning(
-            "write_fan_pct estetty — hätäseis/vika (errors=%s emergency=%s)",
-            block_state.get("airfi_errors"),
-            block_state.get("emergency_stop"),
-        )
+    """Lue + kirjoita yhdellä Modbus-istunnolla (TCP-silta sallii vain yhden yhteyden)."""
+    is_tcp = bool(host)
+    attempts = max(1, retry_count + 1)
+    if is_tcp:
+        read_timeout = max(read_timeout, 12.0)
+        connect_timeout = max(connect_timeout, 6.0)
+    with _modbus_lock:
+        for attempt in range(1, attempts + 1):
+            _modbus_pause_locked()
+            client = _open_client(
+                host=host,
+                port=tcp_port,
+                serial=serial,
+                baud=baud,
+                read_timeout=read_timeout,
+            )
+            if client is None:
+                return False
+            try:
+                if is_tcp:
+                    if not _connect_tcp(
+                        client,
+                        connect_timeout=connect_timeout,
+                        read_timeout=read_timeout,
+                    ):
+                        if attempt < attempts:
+                            log.info(
+                                "write_fan_pct yhteys epäonnistui (%s/%s) — uudelleen %.0fs kuluttua",
+                                attempt,
+                                attempts,
+                                retry_delay_sec,
+                            )
+                            time.sleep(retry_delay_sec)
+                            continue
+                        log.warning("write_fan_pct estetty — yhteys epäonnistui")
+                        return False
+                    guard_ok, block_state = _read_write_guard(client, unit)
+                    if not guard_ok:
+                        if attempt < attempts:
+                            log.info(
+                                "write_fan_pct luku epäonnistui (%s/%s) — uudelleen %.0fs kuluttua",
+                                attempt,
+                                attempts,
+                                retry_delay_sec,
+                            )
+                            time.sleep(retry_delay_sec)
+                            continue
+                        log.warning("write_fan_pct estetty — AirFi ei vastaa")
+                        return False
+                elif not (known_state and known_state.get("airfi_online")):
+                    snap = _read_snapshot(
+                        client,
+                        unit,
+                        connect_timeout=connect_timeout,
+                        read_timeout=read_timeout,
+                        is_tcp=is_tcp,
+                    )
+                    if not snap.ok:
+                        if attempt < attempts:
+                            log.info(
+                                "write_fan_pct yhteys epäonnistui (%s/%s) — uudelleen %.0fs kuluttua",
+                                attempt,
+                                attempts,
+                                retry_delay_sec,
+                            )
+                            time.sleep(retry_delay_sec)
+                            continue
+                        log.warning("write_fan_pct estetty — AirFi ei vastaa")
+                        return False
+                    block_state = snap.state
+                else:
+                    if not client.connect():
+                        if attempt < attempts:
+                            log.info(
+                                "write_fan_pct yhteys epäonnistui (%s/%s) — uudelleen %.0fs kuluttua",
+                                attempt,
+                                attempts,
+                                retry_delay_sec,
+                            )
+                            time.sleep(retry_delay_sec)
+                            continue
+                        log.warning("write_fan_pct estetty — yhteys epäonnistui")
+                        return False
+                    block_state = known_state
+
+                if airfi_machine_blocks_ventilation(block_state):
+                    log.warning(
+                        "write_fan_pct estetty — hätäseis/vika (errors=%s emergency=%s)",
+                        block_state.get("airfi_errors"),
+                        block_state.get("emergency_stop"),
+                    )
+                    return False
+
+                ok = _write_fan_registers(
+                    client,
+                    unit,
+                    supply,
+                    exhaust,
+                    known_state=block_state,
+                    is_tcp=is_tcp,
+                )
+                if not ok:
+                    if attempt < attempts:
+                        log.info(
+                            "write_fan_pct kirjoitus epäonnistui (%s/%s) — uudelleen %.0fs kuluttua",
+                            attempt,
+                            attempts,
+                            retry_delay_sec,
+                        )
+                        time.sleep(retry_delay_sec)
+                        continue
+                    return False
+
+                verify_ok, verify_state = _verify_fan_write(client, unit, supply, exhaust)
+                if verify_ok:
+                    return True
+
+                if verify_state.get("airfi_online") and (
+                    airfi_machine_blocks_ventilation(verify_state)
+                    or airfi_stuck_direct_emergency(verify_state)
+                ):
+                    log.warning(
+                        "write_fan_pct hylätty — kone hätäseis/vika tai nopeus 0 (fans=%s/%s emergency=%s)",
+                        verify_state.get("fan_supply_pct"),
+                        verify_state.get("fan_exhaust_pct"),
+                        verify_state.get("emergency_stop"),
+                    )
+                    if is_tcp:
+                        _rollback_tcp_direct(client, unit)
+                    return False
+
+                log.warning(
+                    "write_fan_pct ei saavuttanut tavoitetta (fans=%s/%s, tavoite=%s/%s)",
+                    verify_state.get("fan_supply_pct"),
+                    verify_state.get("fan_exhaust_pct"),
+                    supply,
+                    exhaust,
+                )
+                if attempt < attempts:
+                    time.sleep(retry_delay_sec)
+                    continue
+                return False
+            except Exception as exc:
+                log.warning("write_fan_pct failed: %s", exc)
+                if attempt < attempts:
+                    time.sleep(retry_delay_sec)
+                    continue
+                return False
+            finally:
+                _safe_close(client)
         return False
-    client = _open_client(
-        host=host,
-        port=tcp_port,
-        serial=serial,
-        baud=baud,
-        read_timeout=read_timeout,
-    )
-    if client is None:
-        return False
-    _modbus_pause()
-    return _write_with_client(
-        client,
-        unit,
-        connect_timeout=connect_timeout,
-        read_timeout=read_timeout,
-        is_tcp=bool(host),
-        supply=supply,
-        exhaust=exhaust,
-        known_state=block_state,
-    )
 
 
 def write_away(
@@ -1031,37 +1235,49 @@ def ack_airfi_alarms(
     unit: int,
     connect_timeout: float = 4.0,
     read_timeout: float = 5.0,
+    retry_count: int = 2,
+    retry_delay_sec: float = 8.0,
 ) -> bool:
     """Kuittaa hätäseis/E1 — nollaa pakko-ohjaus, suoraohjaus ja poissa (4x00002=0)."""
-    client = _open_client(
-        host=host,
-        port=tcp_port,
-        serial=serial,
-        baud=baud,
-        read_timeout=read_timeout,
-    )
-    if client is None:
-        return False
-    _modbus_pause()
-    ok = _write_registers(
-        client,
-        unit,
-        connect_timeout=connect_timeout,
-        read_timeout=read_timeout,
-        is_tcp=bool(host),
-        writes=[
-            (HOLDING["constant_pressure_mode"], 0),
-            (HOLDING["emergency_stop"], 0),
-            (HOLDING["direct_combined_pct"], 0),
-            (HOLDING["supply_direct_pct"], 0),
-            (HOLDING["exhaust_direct_pct"], 0),
-            (HOLDING["direct_control_enabled"], 0),
-            (HOLDING["away_mode"], 0),
-        ],
-    )
-    if ok:
-        mark_airfi_ack_cooldown()
-    return ok
+    attempts = max(1, retry_count + 1)
+    writes = [
+        (HOLDING["constant_pressure_mode"], 0),
+        (HOLDING["emergency_stop"], 0),
+        (HOLDING["direct_combined_pct"], 0),
+        (HOLDING["supply_direct_pct"], 0),
+        (HOLDING["exhaust_direct_pct"], 0),
+        (HOLDING["direct_control_enabled"], 0),
+        (HOLDING["away_mode"], 0),
+    ]
+    with _modbus_lock:
+        for attempt in range(1, attempts + 1):
+            _modbus_pause_locked()
+            client = _open_client(
+                host=host,
+                port=tcp_port,
+                serial=serial,
+                baud=baud,
+                read_timeout=read_timeout,
+            )
+            if client is None:
+                return False
+            try:
+                ok = _write_registers(
+                    client,
+                    unit,
+                    connect_timeout=connect_timeout,
+                    read_timeout=read_timeout,
+                    is_tcp=bool(host),
+                    writes=writes,
+                )
+                if ok:
+                    mark_airfi_ack_cooldown()
+                    return True
+                if attempt < attempts:
+                    time.sleep(retry_delay_sec)
+            finally:
+                _safe_close(client)
+    return False
 
 
 def write_fireplace(

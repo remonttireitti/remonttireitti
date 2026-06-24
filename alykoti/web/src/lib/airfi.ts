@@ -327,37 +327,38 @@ export async function setDirectFanPct(
   const supply = clampFanPct(supplyPct);
   const exhaust = clampFanPct(exhaustPct);
   const result = await withClient(async (client) => {
-    const holdingLow = await readHoldingBlock(
-      client,
-      HOLDING.emergency_stop,
-      HOLDING.away_mode - HOLDING.emergency_stop + 1,
-    );
-    const reg = (block: number[] | null, base: number, addr: number) => {
-      if (!block) return null;
-      const idx = addr - base;
-      return idx >= 0 && idx < block.length ? block[idx] : null;
-    };
-    const directOn = (reg(holdingLow, HOLDING.emergency_stop, HOLDING.direct_control_enabled) ?? 0) > 0;
-    const supplyInput = await readRegister(client, client.readInputRegisters, INPUT.fan_supply_pct);
-    const exhaustInput = await readRegister(client, client.readInputRegisters, INPUT.fan_exhaust_pct);
-
-    await client.writeRegister(HOLDING.constant_pressure_mode, 0);
-    await client.writeRegister(HOLDING.emergency_stop, 0);
-    await client.writeRegister(HOLDING.away_mode, 0);
-
-    if (!directOn) {
-      const liveS = clampFanPct(supplyInput ?? supply);
-      const liveE = clampFanPct(exhaustInput ?? exhaust);
-      await client.writeRegister(HOLDING.supply_direct_pct, liveS);
-      await client.writeRegister(HOLDING.exhaust_direct_pct, liveE);
-      await new Promise((r) => setTimeout(r, 1500));
-      await client.writeRegister(HOLDING.direct_control_enabled, 1);
-      await new Promise((r) => setTimeout(r, 1000));
+    const emergency = await readRegister(client, client.readInputRegisters, INPUT.emergency_stop_status);
+    const errorRaw = await readRegister(client, client.readInputRegisters, INPUT.error_info);
+    if ((emergency ?? 0) > 0 || ((errorRaw ?? 0) & 2) !== 0) {
+      return false;
     }
 
+    // TCP-silta: h2=1 laukaisee usein E1. Vakiopainesäätö (h8=1) + h10/h11 toimii ilman hätäseisiä.
+    await client.writeRegister(HOLDING.constant_pressure_mode, 0);
+    await client.writeRegister(HOLDING.emergency_stop, 0);
+    await client.writeRegister(HOLDING.direct_control_enabled, 0);
+    await client.writeRegister(HOLDING.away_mode, 0);
+    await client.writeRegister(HOLDING.direct_combined_pct, 0);
+    await client.writeRegister(HOLDING.constant_pressure_mode, 1);
+    await new Promise((r) => setTimeout(r, 1000));
     await client.writeRegister(HOLDING.supply_direct_pct, supply);
     await client.writeRegister(HOLDING.exhaust_direct_pct, exhaust);
-    return true;
+    await new Promise((r) => setTimeout(r, 10000));
+
+    const supplyAfter = await readRegister(client, client.readInputRegisters, INPUT.fan_supply_pct);
+    const exhaustAfter = await readRegister(client, client.readInputRegisters, INPUT.fan_exhaust_pct);
+    const emergencyAfter = await readRegister(client, client.readInputRegisters, INPUT.emergency_stop_status);
+    const errorAfter = await readRegister(client, client.readInputRegisters, INPUT.error_info);
+    if ((emergencyAfter ?? 0) > 0 || ((errorAfter ?? 0) & 2) !== 0) {
+      return false;
+    }
+    if (supplyAfter == null || exhaustAfter == null) {
+      return false;
+    }
+    return (
+      Math.abs(supplyAfter - supply) < FAN_RAMP_STEP_PCT &&
+      Math.abs(exhaustAfter - exhaust) < FAN_RAMP_STEP_PCT
+    );
   });
   return result === true;
 }

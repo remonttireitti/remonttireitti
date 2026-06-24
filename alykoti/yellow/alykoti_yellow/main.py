@@ -300,13 +300,6 @@ def execute_command(cmd: dict) -> bool:
         supply = payload.get("supply_pct")
         exhaust = payload.get("exhaust_pct")
         if isinstance(supply, (int, float)) and isinstance(exhaust, (int, float)):
-            snap = read_airfi(**config.airfi_kwargs(), poll_state=None)
-            if snap.ok and airfi_machine_blocks_ventilation(snap.state):
-                msg = "Tuuletus estetty (hätäseis tai vika koneella)"
-                log.warning("set_fan_pct estetty — %s", msg)
-                if cmd_id:
-                    _queue_fail(cmd_id, msg)
-                return False
             ok = write_fan_pct(
                 **config.airfi_write_kwargs(),
                 supply=int(supply),
