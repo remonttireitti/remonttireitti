@@ -10,7 +10,7 @@ export default function LaitteetLayout({ children }: { children: React.ReactNode
         <SettingsSubNav />
       </aside>
       <div className="min-w-0 flex-1">
-        <div className="mb-6 overflow-x-auto md:hidden">
+        <div className="mb-4 -mx-4 overflow-x-auto px-4 scroll-tabs md:mx-0 md:mb-6 md:hidden md:px-0">
           <SettingsSubNav horizontal />
         </div>
         {children}

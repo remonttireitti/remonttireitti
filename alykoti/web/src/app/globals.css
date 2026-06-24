@@ -2,8 +2,49 @@
 
 body {
   @apply min-h-screen bg-stone-50 text-stone-900 antialiased;
+  -webkit-tap-highlight-color: transparent;
 }
 
-input, select, button {
+input,
+select,
+button,
+textarea {
   font: inherit;
+}
+
+/* Kosketusystävälliset painikkeet (min ~44px) */
+.tap-target {
+  min-height: 2.75rem;
+  min-width: 2.75rem;
+}
+
+/* Mobiili: hieman isommat lomakekentät */
+@media (max-width: 767px) {
+  input[type="text"],
+  input[type="number"],
+  input[type="email"],
+  input[type="password"],
+  select,
+  textarea {
+    font-size: 16px; /* estää iOS-zoomauksen */
+  }
+
+  button:not(.tap-target) {
+    min-height: 2.75rem;
+  }
+}
+
+/* Vaakavierivä alavalikko (asetukset, laitteet) */
+.scroll-tabs {
+  -webkit-overflow-scrolling: touch;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+}
+
+.scroll-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.scroll-tabs > * {
+  scroll-snap-align: start;
 }

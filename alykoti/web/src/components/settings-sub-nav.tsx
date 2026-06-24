@@ -24,7 +24,11 @@ export function SettingsSubNav({ horizontal = false }: { horizontal?: boolean })
 
   return (
     <nav
-      className={horizontal ? "flex min-w-max gap-1" : "flex flex-col gap-0.5"}
+      className={
+        horizontal
+          ? "scroll-tabs flex min-w-max gap-1.5 pb-1"
+          : "flex flex-col gap-0.5"
+      }
       aria-label="Asetukset"
     >
       {ITEMS.map((item) => {
@@ -37,7 +41,7 @@ export function SettingsSubNav({ horizontal = false }: { horizontal?: boolean })
           <Link
             key={item.href}
             href={item.href}
-            className={`rounded-lg px-3 py-2 text-sm font-medium transition whitespace-nowrap ${
+            className={`rounded-lg px-3 py-2.5 text-sm font-medium transition whitespace-nowrap md:py-2 ${
               active
                 ? "bg-stone-900 text-white"
                 : "text-stone-600 hover:bg-stone-100 hover:text-stone-900"

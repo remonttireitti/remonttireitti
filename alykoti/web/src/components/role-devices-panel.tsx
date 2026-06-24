@@ -239,7 +239,7 @@ function DeviceSection({
                         type="button"
                         disabled={busy}
                         onClick={() => onToggle(device, true)}
-                        className={`rounded-lg px-3 py-1.5 text-xs font-semibold disabled:opacity-50 ${
+                        className={`rounded-lg px-4 py-2.5 text-xs font-semibold disabled:opacity-50 md:px-3 md:py-1.5 ${
                           on ? "bg-amber-400 text-amber-950 ring-2 ring-amber-500/40" : "bg-stone-900 text-white"
                         }`}
                       >
@@ -249,7 +249,7 @@ function DeviceSection({
                         type="button"
                         disabled={busy}
                         onClick={() => onToggle(device, false)}
-                        className={`rounded-lg border px-3 py-1.5 text-xs font-semibold disabled:opacity-50 ${
+                        className={`rounded-lg border px-4 py-2.5 text-xs font-semibold disabled:opacity-50 md:px-3 md:py-1.5 ${
                           !on
                             ? "border-stone-400 bg-stone-200 text-stone-900 ring-2 ring-stone-400/50"
                             : "border-stone-300 text-stone-800"
