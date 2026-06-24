@@ -347,7 +347,7 @@ export async function syncDevice(
     const grace =
       prev.airfi_online === true &&
       prevAt != null &&
-      Date.now() - new Date(prevAt).getTime() < 10 * 60_000;
+      Date.now() - new Date(prevAt).getTime() < 3 * 60_000;
     if (grace) {
       mergedState.airfi_online = true;
       mergedState.airfi_updated_at = prevAt;

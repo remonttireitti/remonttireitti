@@ -2,7 +2,7 @@ import { HUB_ONLINE_TIMEOUT_MS } from "@/lib/device-status";
 import type { HubState } from "@/lib/types";
 
 /** Kuinka tuore AirFi-lukeman pitää olla, jotta laite näytetään online-tilassa. */
-export const AIRFI_FRESH_MS = 10 * 60_000;
+export const AIRFI_FRESH_MS = 3 * 60_000;
 
 const AIRFI_READING_KEYS: (keyof HubState)[] = [
   "outdoor_temp_c",

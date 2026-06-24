@@ -690,13 +690,12 @@ def _write_with_client(
             supply = max(_MIN_FAN_PCT, min(100, int(supply)))
             exhaust = max(_MIN_FAN_PCT, min(100, int(exhaust)))
             if is_tcp:
-                # TCP-Modbus: h2=1 laukaisee hätäseis-tilan (i17=1, puhaltimet 0).
-                # Kirjoita vain tavoite-% (h10/h11) ja pidä suoraohjaus pois päältä.
+                # TCP: h2=1 suoraan uuteen nopeuteen laukaisee hätäseis-tilan.
+                # Turvallinen sekvenssi: täsmää nykyinen nopeus → h2 päälle → uusi tavoite.
                 needs_prep = bool(
                     known_state
                     and (
                         known_state.get("emergency_stop")
-                        or known_state.get("direct_control")
                         or (
                             isinstance(known_state.get("airfi_error_raw"), int)
                             and (known_state["airfi_error_raw"] & 2) != 0
@@ -714,6 +713,33 @@ def _write_with_client(
                         w = client.write_register(addr, val, device_id=unit)
                         if w.isError():
                             log.warning("Modbus fan prep failed reg %s", addr)
+
+                direct_on = bool(known_state and known_state.get("direct_control"))
+                if not direct_on:
+                    live_s, live_e = supply, exhaust
+                    if known_state:
+                        fs = known_state.get("fan_supply_pct")
+                        fe = known_state.get("fan_exhaust_pct")
+                        if isinstance(fs, (int, float)) and isinstance(fe, (int, float)):
+                            live_s, live_e = int(fs), int(fe)
+                    live_s = max(_MIN_FAN_PCT, min(100, live_s))
+                    live_e = max(_MIN_FAN_PCT, min(100, live_e))
+                    for addr, val in (
+                        (HOLDING["supply_direct_pct"], live_s),
+                        (HOLDING["exhaust_direct_pct"], live_e),
+                    ):
+                        w = client.write_register(addr, val, device_id=unit)
+                        if w.isError():
+                            log.warning("Modbus fan match-speed failed reg %s", addr)
+                    time.sleep(1.5)
+                    w2 = client.write_register(
+                        HOLDING["direct_control_enabled"], 1, device_id=unit
+                    )
+                    if w2.isError():
+                        log.warning("Modbus h2 enable failed")
+                        return False
+                    time.sleep(1.0)
+
                 w10 = client.write_register(HOLDING["supply_direct_pct"], supply, device_id=unit)
                 w11 = client.write_register(HOLDING["exhaust_direct_pct"], exhaust, device_id=unit)
                 return not (w10.isError() or w11.isError())
