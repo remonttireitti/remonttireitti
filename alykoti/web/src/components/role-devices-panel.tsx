@@ -1,8 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useState, useTransition } from "react";
-import { deviceRoleLabel } from "@/lib/device-roles";
-import type { DeviceRole } from "@/lib/device-roles";
+import {
+  deviceRoleLabel,
+  secondaryUsesLabel,
+  type DeviceRole,
+  type DeviceSecondaryUse,
+} from "@/lib/device-roles";
 import type { DeviceReading } from "@/lib/capabilities";
 import { inferProtocolFromId, protocolLabel, type DeviceProtocol } from "@/lib/device-protocol";
 import { kindLabel } from "@/lib/hub-lights";
@@ -23,11 +27,14 @@ type Device = {
   readings?: DeviceReading[];
   locked?: boolean | null;
   role?: DeviceRole;
+  roles?: DeviceRole[];
+  secondaryUses?: DeviceSecondaryUse[];
 };
 
 type SectionSpec = {
   title: string;
-  roles: DeviceRole[];
+  roles?: DeviceRole[];
+  secondaryUse?: DeviceSecondaryUse;
   empty?: string;
   readOnlyHint?: string;
   sensorMode?: boolean;
@@ -161,7 +168,9 @@ export function RoleDevicesPanel({ sections, pageTitle, pageDescription }: Props
       )}
 
       {sections.map((section) => {
-        const filtered = devices.filter((d) => d.role && roleSet(section.roles).has(d.role));
+        const filtered = section.secondaryUse
+          ? devices.filter((d) => d.secondaryUses?.includes(section.secondaryUse!))
+          : devices.filter((d) => d.role && roleSet(section.roles ?? []).has(d.role));
         return (
           <DeviceSection
             key={section.title}
@@ -246,10 +255,15 @@ function badgeClasses(tone: "ok" | "alert" | "neutral"): string {
   }
 }
 
+function secondaryUseHint(device: Device): string | null {
+  return secondaryUsesLabel(device.secondaryUses ?? []);
+}
+
 function SensorDeviceCard({ device }: { device: Device }) {
   const protocol = inferProtocolFromId(device.id, device.protocol as DeviceProtocol);
   const readings = device.readings ?? [];
   const badge = primarySensorBadge(device);
+  const alsoUsed = secondaryUseHint(device);
 
   return (
     <li className="col-span-full rounded-xl border border-stone-200 bg-stone-50 p-4 sm:col-span-1">
@@ -260,6 +274,7 @@ function SensorDeviceCard({ device }: { device: Device }) {
             {protocolLabel(protocol)}
             {device.room ? ` · ${device.room}` : ""}
             {device.role ? ` · ${deviceRoleLabel(device.role)}` : ""}
+            {alsoUsed ? ` · ${alsoUsed}` : ""}
           </p>
         </div>
         {badge && (
@@ -331,6 +346,7 @@ function DeviceSection({
             const on = effectiveOn(device);
             const busy = busyId === device.id;
             const protocol = inferProtocolFromId(device.id, device.protocol as DeviceProtocol);
+            const alsoUsed = secondaryUseHint(device);
             return (
               <li
                 key={device.id}
@@ -342,6 +358,7 @@ function DeviceSection({
                     {protocolLabel(protocol)}
                     {device.room ? ` · ${device.room}` : ""}
                     {device.role ? ` · ${deviceRoleLabel(device.role)}` : ""}
+                    {alsoUsed ? ` · ${alsoUsed}` : ""}
                     {device.capabilitiesLabel ? ` · ${device.capabilitiesLabel}` : ` · ${kindLabel(device.kind as "light")}`}
                     {device.readingLabel ? ` · ${device.readingLabel}` : ""}
                   </p>

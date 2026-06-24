@@ -24,8 +24,9 @@ import {
   deviceRoleLabel,
   groupDevicesForListByRole,
   isLockDevice,
+  secondaryUsesLabel,
 } from "@/lib/device-roles";
-import type { DeviceRole } from "@/lib/device-roles";
+import type { DeviceRole, DeviceSecondaryUse } from "@/lib/device-roles";
 import { groupZwaveDevicesForList } from "@/lib/zwave-detail";
 import { HOUSE_ROOMS } from "@/lib/rooms";
 import { LAITTEET } from "@/lib/laitteet-paths";
@@ -44,6 +45,8 @@ type Device = {
   locked?: boolean | null;
   node_id?: number;
   role?: DeviceRole;
+  roles?: DeviceRole[];
+  secondaryUses?: DeviceSecondaryUse[];
   inferredRole?: DeviceRole;
   roleOverride?: DeviceRole | null;
 };
@@ -398,8 +401,11 @@ export function DeviceManagementPanel({
           <code className="text-xs">tasmota:…</code>).
         </p>
         <p className="mt-2">
-          Valitse laitetyyppi Muokkaa-valikosta — se määrää näkyykö laite Valot-, Lämmitys- vai
-          Turvallisuus-sivulla. Shelly, Tasmota ja implantit ovat oletuksena Muu ohjaus, eivät valoja.
+          Valitse laitetyyppi Muokkaa-valikosta — se määrää pääroolin (Valot, Lämmitys, Turvallisuus).
+          Turvallisuuslaitteiden lämpötila tunnistetaan automaattisesti lämmitykseen.
+        </p>
+        <p className="mt-2">
+          Shelly, Tasmota ja implantit ovat oletuksena Muu ohjaus, eivät valoja.
         </p>
         <p className="mt-2">
           Valitse huone alasvetovalikosta — laite ilmestyy pohjakuvan oikeaan paikkaan. Huone voidaan
@@ -444,6 +450,9 @@ function listMetaLine(device: Device, showControl: boolean): string {
       : `Automaattinen: ${deviceRoleLabel(device.inferredRole ?? device.role!)}`,
   ];
   if (device.room) parts.push(device.room);
+
+  const alsoUsed = secondaryUsesLabel(device.secondaryUses ?? []);
+  if (alsoUsed) parts.push(alsoUsed);
 
   let reading = device.readingLabel?.trim();
   if (reading && showControl) {

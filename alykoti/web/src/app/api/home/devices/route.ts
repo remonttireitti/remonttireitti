@@ -48,6 +48,8 @@ export async function GET() {
     readings: d.readings,
     locked: d.locked,
     role: d.role,
+    roles: d.roles,
+    secondaryUses: d.secondaryUses,
     inferredRole: d.inferredRole,
     roleOverride: d.roleOverride,
     roomAnchorId: d.roomAnchorId,

@@ -8,7 +8,7 @@ import {
   zwaveNodeForParam,
   zwaveNodeId,
 } from "@/lib/zwave-detail";
-import { inferDeviceRole, type DeviceRole } from "@/lib/device-roles";
+import { inferDeviceRole, withDeviceRoleContext, type DeviceRole } from "@/lib/device-roles";
 import type { HubState, ZwaveNodeDetail, ZwaveNodeEndpoint } from "@/lib/types";
 
 export type ZwaveDeviceContext = {
@@ -102,12 +102,14 @@ function hubLightFromZwaveEndpoint(
     battery_pct: null,
     voltage_v: null,
     role: "other_control" as DeviceRole,
+    roles: ["other_control"] as DeviceRole[],
+    secondaryUses: [],
     inferredRole: "other_control" as DeviceRole,
     roleOverride: override?.role ?? null,
   };
   mapped.inferredRole = inferDeviceRole(mapped);
   mapped.role = override?.role ?? mapped.inferredRole;
-  return mapped;
+  return withDeviceRoleContext(mapped, override);
 }
 
 function siblingsFromZwaveNode(node: ZwaveNodeDetail, hubState?: HubState): HubLightDevice[] {
@@ -221,12 +223,14 @@ function buildStubZwaveDevice(
     battery_pct: null,
     voltage_v: null,
     role: "other_control",
+    roles: ["other_control"],
+    secondaryUses: [],
     inferredRole: "other_control",
     roleOverride: null,
   };
   mapped.inferredRole = inferDeviceRole(mapped);
   mapped.role = mapped.inferredRole;
-  return mapped;
+  return withDeviceRoleContext(mapped);
 }
 
 /** Resolve zwave/77 → device + node detail even when only zwave:77:e1 or zwave_nodes exists. */

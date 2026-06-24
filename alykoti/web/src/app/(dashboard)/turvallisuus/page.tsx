@@ -5,7 +5,7 @@ export default function TurvallisuusPage() {
     <div className="mx-auto max-w-5xl">
       <RoleDevicesPanel
         pageTitle="Turvallisuus"
-        pageDescription="Palohälyttimet, vuotoilmaisimet, liiketunnistimet ja ikkuna/ovikytkimet."
+        pageDescription="Palohälyttimet, vuotoilmaisimet, liiketunnistimet ja ikkuna/ovikytkimet. Lämpötila-anturilla varustetut näkyvät myös Lämmitys-sivulla."
         sections={[
           {
             title: "Palohälyttimet",

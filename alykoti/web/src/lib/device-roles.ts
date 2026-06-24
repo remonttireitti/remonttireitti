@@ -26,10 +26,10 @@ export const DEVICE_ROLE_OPTIONS: {
   { id: "fan", label: "Tuuletin", hint: "Puhaltimet ja tuuletus" },
   { id: "heating", label: "Lämmitys", hint: "Lämmityksen ohjaus" },
   { id: "other_control", label: "Muu ohjaus", hint: "Releet, Shelly, Tasmota jne." },
-  { id: "contact", label: "Ikkuna/ovikytkin", hint: "Turvallisuus" },
+  { id: "contact", label: "Ikkuna/ovikytkin", hint: "Turvallisuus — lämpötila käytettävissä lämmityksessä" },
   { id: "fire_alarm", label: "Palohälytin", hint: "Turvallisuus" },
   { id: "leak_detector", label: "Vuotoilmaisin", hint: "Turvallisuus" },
-  { id: "motion", label: "Liiketunnistin", hint: "Turvallisuus" },
+  { id: "motion", label: "Liiketunnistin", hint: "Turvallisuus — lämpötila käytettävissä lämmityksessä" },
   { id: "sensor", label: "Anturi", hint: "Lämpö, kosteus, CO₂ — ei valoihin" },
 ];
 
@@ -161,13 +161,90 @@ export function resolveDeviceRole(
   return inferDeviceRole(device);
 }
 
+/** Laitteen muut käyttökontekstit (ei tallenneta overridesiin). */
+export type DeviceSecondaryUse = "heating_temperature";
+
+export const DEVICE_SECONDARY_USE_LABEL: Record<DeviceSecondaryUse, string> = {
+  heating_temperature: "Lämmityksen lämpötila",
+};
+
+export function secondaryUsesLabel(uses: DeviceSecondaryUse[]): string | null {
+  if (uses.length === 0) return null;
+  return uses.map((u) => DEVICE_SECONDARY_USE_LABEL[u]).join(" · ");
+}
+
+export function deviceHasTemperatureReading(device: HubLightDevice): boolean {
+  const ids = capabilityIds(device);
+  if (ids.has("temperature")) return true;
+  if (device.temperature_c != null && Number.isFinite(device.temperature_c)) return true;
+  if (device.readings?.some((r) => r.value.includes("°C"))) return true;
+  if (device.readingLabel?.includes("°C")) return true;
+  return false;
+}
+
+/** Kaikki roolit — tällä hetkellä yksi päärooli (override säilyy yksittäisenä). */
+export function resolveDeviceRoles(
+  device: HubLightDevice,
+  override?: HubDeviceOverride,
+): DeviceRole[] {
+  return [resolveDeviceRole(device, override)];
+}
+
+/** Turvallisuuslaitteet, joiden lämpötilaa voi käyttää lämmityksessä. */
+export function inferSecondaryUses(
+  device: HubLightDevice,
+  override?: HubDeviceOverride,
+): DeviceSecondaryUse[] {
+  if (!deviceHasTemperatureReading(device)) return [];
+
+  const primary = resolveDeviceRole(device, override);
+  if (primary === "sensor" || primary === "heating") return [];
+  if (!SECURITY_PAGE_ROLES.includes(primary)) return [];
+
+  return ["heating_temperature"];
+}
+
+export function withDeviceRoleContext(
+  device: HubLightDevice,
+  override?: HubDeviceOverride,
+): HubLightDevice {
+  return {
+    ...device,
+    roles: resolveDeviceRoles(device, override),
+    secondaryUses: inferSecondaryUses(device, override),
+  };
+}
+
+export function deviceMatchesRoles(
+  device: HubLightDevice,
+  roles: DeviceRole[],
+  override?: HubDeviceOverride,
+): boolean {
+  return roles.includes(resolveDeviceRole(device, override));
+}
+
+export function deviceHasSecondaryUse(
+  device: HubLightDevice,
+  use: DeviceSecondaryUse,
+  override?: HubDeviceOverride,
+): boolean {
+  return inferSecondaryUses(device, override).includes(use);
+}
+
 export function filterDevicesByRoles(
   devices: HubLightDevice[],
   roles: DeviceRole[],
   overrides?: Record<string, HubDeviceOverride>,
 ): HubLightDevice[] {
-  const set = new Set(roles);
-  return devices.filter((d) => set.has(resolveDeviceRole(d, overrides?.[d.id])));
+  return devices.filter((d) => deviceMatchesRoles(d, roles, overrides?.[d.id]));
+}
+
+export function filterDevicesBySecondaryUse(
+  devices: HubLightDevice[],
+  use: DeviceSecondaryUse,
+  overrides?: Record<string, HubDeviceOverride>,
+): HubLightDevice[] {
+  return devices.filter((d) => deviceHasSecondaryUse(d, use, overrides?.[d.id]));
 }
 
 export function isLockDevice(device: {
