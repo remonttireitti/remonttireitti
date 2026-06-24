@@ -180,6 +180,10 @@ export function formatZwavePropertyValue(
     return Number.isInteger(value) ? String(value) : value.toFixed(1);
   }
 
+  if (typeof value === "object" && value !== null) {
+    return null;
+  }
+
   return formatZwaveValue(value);
 }
 
@@ -192,8 +196,16 @@ export function formatZwavePropertiesReading(
   const parts: string[] = [];
   const seen = new Set<string>();
   for (const prop of properties) {
+    const pName = (prop.property ?? "").toLowerCase();
+    if (
+      /insidehandles|supporteddoorhandles|supportedmodes|doorstatuscomponent|bolt|latch|timeout/i.test(
+        pName,
+      )
+    ) {
+      continue;
+    }
     const val = formatZwavePropertyValue(prop.value, prop);
-    if (!val) continue;
+    if (!val || val === "—") continue;
     const label = resolveZwavePropertyLabel(nodeId, prop, overrides);
     const compact =
       label && !/^(lämpöanturi|jännite in|tulo in|arvo|cc \d+)/i.test(label)
@@ -228,7 +240,7 @@ export function formatZwaveValue(value: unknown): string {
     if (v === "false" || v === "off") return "Pois";
     if (v === "open") return "Avoin";
     if (v === "closed") return "Kiinni";
-    return value;
+    return value.length > 48 ? `${value.slice(0, 45)}…` : value;
   }
   return JSON.stringify(value);
 }

@@ -375,6 +375,50 @@ function isZwaveNodeAggregate(device: Device): boolean {
   );
 }
 
+function isLockDevice(device: Device): boolean {
+  return device.locked != null || device.kind === "lock";
+}
+
+function showPowerToggle(
+  device: Device,
+  onToggle: ((device: Device, on: boolean) => void) | undefined,
+): boolean {
+  return (
+    device.controllable === true &&
+    !!onToggle &&
+    !isZwaveNodeAggregate(device) &&
+    !isLockDevice(device)
+  );
+}
+
+function listMetaLine(device: Device, showControl: boolean): string {
+  const parts: string[] = [
+    protocolLabel(device.protocol),
+    device.capabilitiesLabel || kindLabel(device.kind as "light"),
+    device.roleOverride
+      ? deviceRoleLabel(device.role!)
+      : `Automaattinen: ${deviceRoleLabel(device.inferredRole ?? device.role!)}`,
+  ];
+  if (device.room) parts.push(device.room);
+
+  let reading = device.readingLabel?.trim();
+  if (reading && showControl) {
+    reading = reading
+      .replace(/\s*·?\s*Rele OUT:\s*(Päällä|Pois)/gi, "")
+      .replace(/\s*·?\s*Kytkin:\s*(Päällä|Pois)/gi, "")
+      .replace(/^\s*·\s*|\s*·\s*$/g, "")
+      .trim();
+  }
+  if (reading) {
+    if (reading.length > 64) reading = `${reading.slice(0, 61)}…`;
+    parts.push(reading);
+  } else if (!showControl && device.on) {
+    parts.push("päällä");
+  }
+
+  return parts.filter(Boolean).join(" · ");
+}
+
 function EmptyDevices({ onRefresh, pending }: { onRefresh: () => void; pending: boolean }) {
   return (
     <section className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
@@ -453,10 +497,9 @@ function DeviceListSection({
           {devices.map((device) => {
             const on = effectiveOn ? effectiveOn(device) : device.on;
             const busy = busyId === device.id;
-            const showControl =
-              device.controllable && onToggle && !isZwaveNodeAggregate(device);
+            const showControl = showPowerToggle(device, onToggle);
             return (
-            <li key={device.id} className="py-4 first:pt-0">
+            <li key={device.id} className="py-3 first:pt-0">
               {editingId === device.id ? (
                 <form
                   className="grid gap-3 sm:grid-cols-2"
@@ -523,64 +566,53 @@ function DeviceListSection({
                   </div>
                 </form>
               ) : (
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
+                <div className="rounded-xl border border-stone-100 bg-stone-50/80 p-3 sm:p-4">
+                  <div className="min-w-0">
                     <p className="font-medium text-stone-900">{device.name}</p>
-                    <p className="text-xs text-stone-500">
-                      {protocolLabel(device.protocol)} ·{" "}
-                      {device.capabilitiesLabel || kindLabel(device.kind as "light")}
-                      {device.roleOverride
-                        ? ` · ${deviceRoleLabel(device.role)}`
-                        : ` · Automaattinen: ${deviceRoleLabel(device.inferredRole ?? device.role)}`}
-                      {device.room ? ` · ${device.room}` : ""}
-                      {device.readingLabel
-                        ? ` · ${device.readingLabel}`
-                        : !showControl && on
-                          ? " · päällä"
-                          : ""}
+                    <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-stone-500">
+                      {listMetaLine(device, showControl)}
                     </p>
-                    <p className="mt-0.5 font-mono text-[10px] text-stone-400">{device.id}</p>
+                    {isLockDevice(device) && (
+                      <p className="mt-1 text-xs font-medium text-stone-700">
+                        {device.locked != null && (device.locked ? "Lukossa" : "Auki")}
+                        {device.readingLabel?.includes("battery") &&
+                          device.readingLabel.match(/\d+\s*%/)?.[0] &&
+                          ` · Paristo ${device.readingLabel.match(/\d+\s*%/)![0]}`}
+                      </p>
+                    )}
                   </div>
-                  <div className="flex flex-wrap items-center gap-2">
+
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
                     {showControl && (
-                      <div className="flex flex-col items-end gap-1">
-                        <span
-                          className={`text-xs font-semibold ${
-                            on ? "text-amber-700" : "text-stone-500"
+                      <div className="flex gap-1">
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => onToggle!(device, true)}
+                          className={`rounded-lg px-4 py-2.5 text-xs font-semibold disabled:opacity-50 md:py-1.5 md:px-3 ${
+                            on
+                              ? "bg-amber-400 text-amber-950 ring-2 ring-amber-500/40"
+                              : "bg-stone-900 text-white hover:bg-stone-800"
                           }`}
                         >
-                          {busy ? "Lähetetään…" : on ? "Päällä" : "Pois"}
-                        </span>
-                        <div className="flex gap-1">
-                          <button
-                            type="button"
-                            disabled={busy}
-                            onClick={() => onToggle!(device, true)}
-                            className={`rounded-lg px-3 py-1.5 text-xs font-semibold disabled:opacity-50 ${
-                              on
-                                ? "bg-amber-400 text-amber-950 ring-2 ring-amber-500/40"
-                                : "bg-stone-900 text-white hover:bg-stone-800"
-                            }`}
-                          >
-                            Päälle
-                          </button>
-                          <button
-                            type="button"
-                            disabled={busy}
-                            onClick={() => onToggle!(device, false)}
-                            className={`rounded-lg border px-3 py-1.5 text-xs font-semibold disabled:opacity-50 ${
-                              !on
-                                ? "border-stone-400 bg-stone-200 text-stone-900 ring-2 ring-stone-400/50"
-                                : "border-stone-300 text-stone-800 hover:bg-stone-50"
-                            }`}
-                          >
-                            Pois
-                          </button>
-                        </div>
+                          {busy && on ? "…" : "Päälle"}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => onToggle!(device, false)}
+                          className={`rounded-lg border px-4 py-2.5 text-xs font-semibold disabled:opacity-50 md:py-1.5 md:px-3 ${
+                            !on
+                              ? "border-stone-400 bg-stone-200 text-stone-900 ring-2 ring-stone-400/50"
+                              : "border-stone-300 text-stone-800 hover:bg-stone-50"
+                          }`}
+                        >
+                          {busy && !on ? "…" : "Pois"}
+                        </button>
                       </div>
                     )}
-                    {!showControl && device.controllable === false && !device.readingLabel && (
-                      <span className="text-xs text-stone-500">{on ? "Päällä" : "Pois"}</span>
+                    {isZwaveNodeAggregate(device) && (
+                      <span className="text-xs text-stone-500">Avaa kanavat →</span>
                     )}
                     {(device.protocol === "zigbee" || device.protocol === "zwave") && (
                       <Link
@@ -589,7 +621,7 @@ function DeviceListSection({
                             ? LAITTEET.zigbeeDevice(device.id)
                             : LAITTEET.zwaveDevice(device.id)
                         }
-                        className="rounded-lg border border-stone-900 px-3 py-1.5 text-xs font-semibold text-stone-900 hover:bg-stone-900 hover:text-white"
+                        className="rounded-lg border border-stone-900 px-4 py-2.5 text-xs font-semibold text-stone-900 hover:bg-stone-900 hover:text-white md:py-1.5 md:px-3"
                       >
                         Avaa
                       </Link>
@@ -597,14 +629,14 @@ function DeviceListSection({
                     <button
                       type="button"
                       onClick={() => onEditStart(device)}
-                      className="rounded-lg border border-stone-200 px-3 py-1.5 text-xs font-medium"
+                      className="rounded-lg border border-stone-200 bg-white px-4 py-2.5 text-xs font-medium md:py-1.5 md:px-3"
                     >
                       Muokkaa
                     </button>
                     <button
                       type="button"
                       onClick={() => onHide(device.id)}
-                      className="rounded-lg border border-stone-200 px-3 py-1.5 text-xs text-stone-500"
+                      className="rounded-lg border border-stone-200 bg-white px-4 py-2.5 text-xs text-stone-500 md:py-1.5 md:px-3"
                     >
                       Piilota
                     </button>
