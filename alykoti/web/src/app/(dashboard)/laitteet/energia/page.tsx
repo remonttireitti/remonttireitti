@@ -1,5 +1,5 @@
-import { EnergyPanel } from "@/components/energy-panel";
+import { redirect } from "next/navigation";
 
-export default function EnergiaPage() {
-  return <EnergyPanel />;
+export default function LaitteetEnergiaRedirect() {
+  redirect("/energia");
 }

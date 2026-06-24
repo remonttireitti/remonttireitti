@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ElectricityPricePanel } from "@/components/electricity-price-panel";
+import { HomeEnergySection } from "@/components/home-energy-section";
 import { HomeFloorPlan } from "@/components/home-floor-plan";
 import { fetchElectricityPrices } from "@/lib/electricity-prices";
 import { fetchHubs } from "@/lib/hubs";
@@ -32,7 +33,9 @@ export default async function OverviewPage() {
   const primaryHub = hubs[0] ?? null;
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6">
+    <div className="mx-auto w-full max-w-[min(100%,96rem)] space-y-6">
+      <HomeEnergySection />
+
       <ElectricityPricePanel initial={electricityPrices} className="mt-0" />
 
       <HomeFloorPlan hub={primaryHub} />

@@ -43,6 +43,14 @@ export function NavIconSecurity({ className = "h-5 w-5" }: IconProps) {
   );
 }
 
+export function NavIconEnergy({ className = "h-5 w-5" }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
+      <path d="M13 2 4 14h7l-1 8 9-12h-7l1-8Z" strokeLinejoin="round" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 export function NavIconSettings({ className = "h-5 w-5" }: IconProps) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
@@ -69,6 +77,7 @@ export function NavIconChevron({ className = "h-4 w-4", collapsed }: IconProps &
 
 export const NAV_ICONS: Record<string, ComponentType<IconProps>> = {
   overview: NavIconHome,
+  energy: NavIconEnergy,
   ventilation: NavIconVentilation,
   heating: NavIconHeating,
   security: NavIconSecurity,

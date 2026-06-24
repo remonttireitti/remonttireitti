@@ -12,8 +12,17 @@ export const DASHBOARD_SECTIONS: NavSection[] = [
     id: "overview",
     label: "Koti",
     href: "/",
-    description: "Yleiskatsaus ja pohjakuva",
+    description: "Kulutus, pohjakuva ja yleiskatsaus",
     enabled: true,
+  },
+  {
+    id: "energy",
+    label: "Energia",
+    href: "/energia",
+    description: "Sähkönkulutus, trendit ja mittarit",
+    enabled: true,
+    activeMatch: (pathname) =>
+      pathname === "/energia" || pathname.startsWith("/energia/"),
   },
   {
     id: "ventilation",

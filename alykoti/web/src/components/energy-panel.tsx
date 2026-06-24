@@ -618,7 +618,14 @@ function MeterCard({ meter }: { meter: EnergyMeter }) {
   );
 }
 
-export function EnergyPanel() {
+export function EnergyPanel({
+  variant = "page",
+  className = "",
+}: {
+  /** home = yhteenveto kotisivulla; page = täysi energiasivu mittareineen */
+  variant?: "home" | "page";
+  className?: string;
+}) {
   const [data, setData] = useState<EnergyResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -641,18 +648,24 @@ export function EnergyPanel() {
 
   if (error && !data) {
     return (
-      <div className="mt-6 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-900">
+      <div
+        className={`rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-900 ${className}`.trim()}
+      >
         {error}
       </div>
     );
   }
 
   if (!data) {
-    return <p className="mt-6 text-sm text-stone-500">Ladataan energiamittauksia…</p>;
+    return (
+      <p className={`text-sm text-stone-500 ${variant === "page" ? "mt-6" : ""} ${className}`.trim()}>
+        Ladataan energiamittauksia…
+      </p>
+    );
   }
 
   return (
-    <div className="mt-6 space-y-6">
+    <div className={`space-y-6 ${variant === "page" ? "mt-6" : ""} ${className}`.trim()}>
       {data.hubOnline === false && (
         <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950">
           Yellow offline — live-mittaukset päivittyvät kun keskusyksikkö synkkaa.
@@ -660,35 +673,44 @@ export function EnergyPanel() {
       )}
 
       {data.meters.length === 0 ? (
-        <section className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
-          <h2 className="text-lg font-semibold text-stone-900">Ei energiamittaria</h2>
-          <p className="mt-2 text-sm text-stone-600">
-            Lisää Shelly EM / 3EM tai sisäisen mittarin omaava kytkin (esim. 1PM){" "}
-            <a href="/laitteet/shelly" className="font-medium text-stone-900 underline">
-              Shelly-sivulla
-            </a>
-            . Mittari näkyy täällä kun Yellow on synkannut laitteen (odota ~30 s synkin jälkeen).
-            Jos laite on jo listalla mutta vain kytkin näkyy, päivitä Yellow Pi -ohjelmisto.
-          </p>
-        </section>
+        variant === "page" ? (
+          <section className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
+            <h2 className="text-lg font-semibold text-stone-900">Ei energiamittaria</h2>
+            <p className="mt-2 text-sm text-stone-600">
+              Lisää Shelly EM / 3EM tai sisäisen mittarin omaava kytkin (esim. 1PM){" "}
+              <a href="/laitteet/shelly" className="font-medium text-stone-900 underline">
+                Shelly-sivulla
+              </a>
+              . Mittari näkyy täällä kun Yellow on synkannut laitteen (odota ~30 s synkin jälkeen).
+            </p>
+          </section>
+        ) : null
       ) : (
         <>
           <SummaryHeader data={data} />
-          <div className="grid gap-6 lg:grid-cols-2">
+          <div className="grid gap-6 xl:grid-cols-2">
             <TrendPanel data={data} />
             <InsightsPanel insights={data.insights} />
           </div>
           <StatisticsPanel data={data} />
 
-          <div>
-            <h2 className="text-base font-semibold text-stone-800">Mittarit</h2>
-            <p className="text-xs text-stone-500">Yksittäisten Shelly EM -laitteiden tiedot</p>
-            <div className="mt-3 space-y-6">
-              {data.meters.map((meter) => (
-                <MeterCard key={meter.id} meter={meter} />
-              ))}
+          {variant === "page" ? (
+            <div>
+              <h2 className="text-base font-semibold text-stone-800">Mittarit</h2>
+              <p className="text-xs text-stone-500">Yksittäisten Shelly EM -laitteiden tiedot</p>
+              <div className="mt-3 space-y-6">
+                {data.meters.map((meter) => (
+                  <MeterCard key={meter.id} meter={meter} />
+                ))}
+              </div>
             </div>
-          </div>
+          ) : (
+            <p className="text-center text-sm text-stone-500">
+              <a href="/energia" className="font-medium text-stone-800 underline hover:text-stone-950">
+                Avaa energiasivu → mittarit ja vaiheet
+              </a>
+            </p>
+          )}
         </>
       )}
     </div>

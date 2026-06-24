@@ -16,7 +16,7 @@ export const LAITTEET = {
   valot: "/valot",
   keskusyksikko: "/laitteet/keskusyksikko",
   shelly: "/laitteet/shelly",
-  energia: "/laitteet/energia",
+  energia: "/energia",
   tasmota: "/laitteet/tasmota",
   airthings: "/laitteet/airthings",
   automaatio: "/laitteet/automaatio",
