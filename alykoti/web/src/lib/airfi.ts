@@ -330,12 +330,9 @@ export async function setDirectFanPct(
     await client.writeRegister(HOLDING.constant_pressure_mode, 0);
     await client.writeRegister(HOLDING.emergency_stop, 0);
     await client.writeRegister(HOLDING.away_mode, 0);
-    // Taman IV:n TCP-Modbus hylkaa 4x00004 (yhdistetty %) - kayta h2+h10+h11 myos kun tulo==poisto.
+    await client.writeRegister(HOLDING.direct_control_enabled, 0);
     await client.writeRegister(HOLDING.direct_combined_pct, 0);
-    await client.writeRegister(HOLDING.supply_direct_pct, 0);
-    await client.writeRegister(HOLDING.exhaust_direct_pct, 0);
-    // Eroteltu tulo/poisto — sama järjestys kuin ESP-hub firmware.
-    await client.writeRegister(HOLDING.direct_control_enabled, 1);
+    // TCP-Modbus: h2=1 laukaisee hätäseis-tilan — kirjoita vain h10/h11.
     await client.writeRegister(HOLDING.supply_direct_pct, supply);
     await client.writeRegister(HOLDING.exhaust_direct_pct, exhaust);
     return true;

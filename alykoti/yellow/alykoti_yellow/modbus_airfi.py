@@ -78,7 +78,7 @@ _sync_cooldown_from_disk()
 
 _modbus_lock = threading.RLock()
 _last_modbus_at: float = 0.0
-MODBUS_MIN_GAP_SEC = 2.5
+MODBUS_MIN_GAP_SEC = 5.0
 
 
 def _modbus_pause() -> None:
@@ -674,6 +674,7 @@ def _write_with_client(
     away: bool | None = None,
     temp_setpoint_c: float | None = None,
     sauna_mode: bool | None = None,
+    known_state: dict[str, Any] | None = None,
 ) -> bool:
     if is_tcp:
         if not _connect_tcp(
@@ -688,8 +689,35 @@ def _write_with_client(
         if supply is not None and exhaust is not None:
             supply = max(_MIN_FAN_PCT, min(100, int(supply)))
             exhaust = max(_MIN_FAN_PCT, min(100, int(exhaust)))
-            # Valmistele kone: poista vakiopaine, hätäseis-kirjoitus ja poissa.
-            # h2=0 prepin jälkeen estää ohjauksen — älä nollaa suoraohjausta ennen kirjoitusta.
+            if is_tcp:
+                # TCP-Modbus: h2=1 laukaisee hätäseis-tilan (i17=1, puhaltimet 0).
+                # Kirjoita vain tavoite-% (h10/h11) ja pidä suoraohjaus pois päältä.
+                needs_prep = bool(
+                    known_state
+                    and (
+                        known_state.get("emergency_stop")
+                        or known_state.get("direct_control")
+                        or (
+                            isinstance(known_state.get("airfi_error_raw"), int)
+                            and (known_state["airfi_error_raw"] & 2) != 0
+                        )
+                    )
+                )
+                if needs_prep:
+                    for addr, val in (
+                        (HOLDING["constant_pressure_mode"], 0),
+                        (HOLDING["emergency_stop"], 0),
+                        (HOLDING["away_mode"], 0),
+                        (HOLDING["direct_control_enabled"], 0),
+                        (HOLDING["direct_combined_pct"], 0),
+                    ):
+                        w = client.write_register(addr, val, device_id=unit)
+                        if w.isError():
+                            log.warning("Modbus fan prep failed reg %s", addr)
+                w10 = client.write_register(HOLDING["supply_direct_pct"], supply, device_id=unit)
+                w11 = client.write_register(HOLDING["exhaust_direct_pct"], exhaust, device_id=unit)
+                return not (w10.isError() or w11.isError())
+            # RS485 / ESP-hub: suoraohjaus h2=1 + h10/h11
             prep = [
                 (HOLDING["constant_pressure_mode"], 0),
                 (HOLDING["emergency_stop"], 0),
@@ -699,7 +727,6 @@ def _write_with_client(
                 w = client.write_register(addr, val, device_id=unit)
                 if w.isError():
                     log.warning("Modbus fan prep failed reg %s", addr)
-            # Taman IV:n TCP-Modbus hylkaa 4x00004 (yhdistetty %) - ohjaa h2+h10+h11 myos kun tulo==poisto.
             for addr, val in (
                 (HOLDING["direct_combined_pct"], 0),
                 (HOLDING["supply_direct_pct"], 0),
@@ -708,7 +735,6 @@ def _write_with_client(
                 w = client.write_register(addr, val, device_id=unit)
                 if w.isError():
                     log.warning("Modbus fan prep failed reg %s", addr)
-            # Eroteltu tulo/poisto — sama järjestys kuin ESP-hub firmware.
             w2 = client.write_register(HOLDING["direct_control_enabled"], 1, device_id=unit)
             w10 = client.write_register(HOLDING["supply_direct_pct"], supply, device_id=unit)
             w11 = client.write_register(HOLDING["exhaust_direct_pct"], exhaust, device_id=unit)
@@ -799,6 +825,7 @@ def write_fan_pct(
         is_tcp=bool(host),
         supply=supply,
         exhaust=exhaust,
+        known_state=block_state,
     )
 
 
