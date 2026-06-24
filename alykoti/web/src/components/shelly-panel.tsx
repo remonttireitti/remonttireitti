@@ -163,7 +163,16 @@ export function ShellyPanel() {
           className="mt-4 flex flex-wrap gap-3"
           onSubmit={(e) => {
             e.preventDefault();
-            run(() => addShellyDevice(host, name || host));
+            const trimmed = host.trim();
+            const match = discovered.find((d) => d.host === trimmed);
+            run(() =>
+              addShellyDevice(
+                trimmed,
+                name || match?.name || trimmed,
+                match?.gen ?? 2,
+                match?.model,
+              ),
+            );
           }}
         >
           <input

@@ -510,16 +510,20 @@ def _request_poll_value(
         )
 
 
+def _lock_set_topic(base: str, endpoint: int = 0) -> str:
+    return f"{base}/98/{endpoint}/targetValue"
+
+
 def _probe_switch_endpoints(
     client: mqtt.Client,
     prefix: str,
     gateway: str,
     node_ids: list[int],
 ) -> None:
-    """Releet ja himmentimet eivät aina julkaise currentValuea — pollaa CC 37/38."""
+    """Releet, himmentimet ja lukot eivät aina julkaise currentValuea — pollaa CC 37/38/98."""
     for node_id in node_ids:
         for ep in range(0, 10):
-            for cc in (37, 38):
+            for cc in (37, 38, 98):
                 _request_poll_value(client, prefix, gateway, node_id, cc, ep)
         time.sleep(0.05)
 
@@ -715,10 +719,17 @@ def fetch_zwave_devices(
             if topic:
                 dev["mqtt_set_topic"] = topic
             dev["control_cc"] = control_cc
+        if not caps_map:
+            for cap in _infer_caps_from_name(dev["name"]):
+                _merge_cap(caps_map, cap)
         caps_list = sorted(caps_map.values(), key=lambda c: c["id"])
         dev["capabilities"] = caps_list
         dev["kind"] = _classify(dev["name"], caps_list)
         dev["controllable"] = _controllable(caps_list)
+        if "lock" in {c["id"] for c in caps_list} and not dev.get("lock_set_topic"):
+            base = node_bases.get(node_id)
+            if base:
+                dev["lock_set_topic"] = _lock_set_topic(base, endpoint)
 
     def handle_value_topic(
         node_id: int,
@@ -932,6 +943,7 @@ def fetch_zwave_devices(
                     "brightness": out.get("brightness"),
                     "controllable": out.get("controllable", False),
                     "mqtt_set_topic": out.get("mqtt_set_topic"),
+                    "lock_set_topic": out.get("lock_set_topic"),
                     "control_cc": out.get("control_cc"),
                     "capabilities": out.get("capabilities") or [],
                     "properties": out.get("zwave_properties") or [],
@@ -943,6 +955,9 @@ def fetch_zwave_devices(
         if not eps:
             key = f"zwave:{node_id}"
             caps = _infer_caps_from_name(info["name"])
+            lock_topic = None
+            if base and any(c["id"] == "lock" for c in caps):
+                lock_topic = _lock_set_topic(base, 0)
             devices[key] = {
                 "protocol": "zwave",
                 "kind": _classify(info["name"], caps),
@@ -954,6 +969,7 @@ def fetch_zwave_devices(
                 "node_id": node_id,
                 "endpoint": 0,
                 "capabilities": caps,
+                **({"lock_set_topic": lock_topic} if lock_topic else {}),
             }
 
         zwave_nodes[str(node_id)] = {
@@ -965,6 +981,30 @@ def fetch_zwave_devices(
             "config": sorted(node_configs.get(node_id, []), key=lambda c: c["param"]),
             "properties": node_properties.get(node_id, []),
         }
+
+    for dev in devices.values():
+        caps = dev.get("capabilities") or []
+        is_lock = dev.get("kind") == "lock" or any(
+            isinstance(c, dict) and c.get("id") == "lock" for c in caps
+        )
+        if not is_lock or dev.get("lock_set_topic"):
+            continue
+        node_id = dev.get("node_id")
+        if not isinstance(node_id, int):
+            continue
+        info = meta.get(node_id, {"name": f"Node {node_id}", "loc": ""})
+        base = (
+            node_bases.get(node_id)
+            or topic_map.get(node_id)
+            or (
+                f"{prefix}/{_mqtt_device_path(info.get('loc') or '', info['name'])}"
+                if _mqtt_device_path(info.get("loc") or "", info["name"])
+                else None
+            )
+        )
+        if base:
+            ep = dev.get("endpoint")
+            dev["lock_set_topic"] = _lock_set_topic(base, ep if isinstance(ep, int) else 0)
 
     filtered_devices = {
         k: v

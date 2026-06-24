@@ -239,6 +239,7 @@ export type ZwaveNodeEndpoint = {
   brightness?: number | null;
   controllable?: boolean;
   mqtt_set_topic?: string | null;
+  lock_set_topic?: string | null;
   control_cc?: number | null;
   capabilities?: DeviceCapability[];
   properties?: ZwaveProperty[];

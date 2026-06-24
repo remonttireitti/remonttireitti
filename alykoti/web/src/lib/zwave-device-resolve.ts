@@ -41,6 +41,7 @@ export function hubDeviceToZwaveEndpoint(d: HubLightDevice): ZwaveNodeEndpoint {
     brightness: d.brightness,
     controllable: d.controllable,
     mqtt_set_topic: d.mqttSetTopic,
+    lock_set_topic: d.lockSetTopic,
     capabilities: d.capabilities,
   };
 }
@@ -54,9 +55,19 @@ function hubLightFromZwaveEndpoint(
   const override =
     hubState?.device_overrides?.[deviceId] ?? hubState?.device_overrides?.[zwaveNodeId(node.node_id)];
   const capabilities = normalizeCapabilities(ep.capabilities);
-  const kind = capabilities.length ? inferKindFromCapabilities(capabilities) : "other";
+  const hasLockTopic = typeof ep.lock_set_topic === "string" && ep.lock_set_topic.trim().length > 0;
+  const capsWithLock =
+    hasLockTopic && !capabilities.some((c) => c.id === "lock")
+      ? normalizeCapabilities([...capabilities, { id: "lock", read: true, write: true }])
+      : capabilities;
+  const kind = capsWithLock.length
+    ? inferKindFromCapabilities(capsWithLock)
+    : hasLockTopic
+      ? "lock"
+      : "other";
   const controllable =
-    ep.controllable === true || (ep.controllable !== false && inferControllable(capabilities));
+    ep.controllable === true ||
+    (ep.controllable !== false && inferControllable(capsWithLock));
 
   const mapped: HubLightDevice = {
     id: deviceId,
@@ -71,9 +82,9 @@ function hubLightFromZwaveEndpoint(
     room: override?.room ?? node.room ?? null,
     controllable,
     mqttSetTopic: ep.mqtt_set_topic ?? null,
-    lockSetTopic: null,
+    lockSetTopic: ep.lock_set_topic ?? null,
     locked: null,
-    capabilities,
+    capabilities: capsWithLock,
     capabilitiesLabel: formatCapabilitiesSummary(capabilities),
     readingLabel: null,
     readings: [],

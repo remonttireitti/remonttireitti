@@ -4,6 +4,45 @@ import type { DeviceReading } from "@/lib/capabilities";
 import type { HubState, ZwaveNodeDetail, ZwaveNodeEndpoint, ZwaveProperty } from "@/lib/types";
 import { hasCapability, canWrite } from "@/lib/capabilities";
 
+export function zwaveLockSetTopic(baseTopic: string, endpoint = 0): string {
+  return `${baseTopic.replace(/\/$/, "")}/98/${endpoint}/targetValue`;
+}
+
+export function resolveZwaveLockSetTopic(
+  hubState: HubState,
+  deviceId: string,
+  endpoint?: number | null,
+): string | undefined {
+  const raw = hubState.home_devices?.[deviceId];
+  if (typeof raw?.lock_set_topic === "string" && raw.lock_set_topic.trim()) {
+    return raw.lock_set_topic.trim();
+  }
+
+  const parsed = parseZwaveDeviceId(deviceId);
+  if (!parsed) return undefined;
+
+  const node = hubState.zwave_nodes?.[String(parsed.nodeId)];
+  const epNum = endpoint ?? parsed.endpoint ?? 0;
+  const ep =
+    node?.endpoints.find((row) => row.device_id === deviceId) ??
+    node?.endpoints.find((row) => row.endpoint === epNum);
+
+  if (typeof ep?.lock_set_topic === "string" && ep.lock_set_topic.trim()) {
+    return ep.lock_set_topic.trim();
+  }
+
+  const epRaw = ep?.device_id ? hubState.home_devices?.[ep.device_id] : undefined;
+  if (typeof epRaw?.lock_set_topic === "string" && epRaw.lock_set_topic.trim()) {
+    return epRaw.lock_set_topic.trim();
+  }
+
+  if (node?.base_topic) {
+    return zwaveLockSetTopic(node.base_topic, epNum);
+  }
+
+  return undefined;
+}
+
 export function zwaveNodeId(nodeId: number): string {
   return `zwave:${nodeId}`;
 }
@@ -302,13 +341,18 @@ export function endpointShowsBinaryState(ep: ZwaveNodeEndpoint): boolean {
     hasCapability(caps, "switch") ||
     hasCapability(caps, "relay") ||
     hasCapability(caps, "fan") ||
+    hasCapability(caps, "lock") ||
     hasCapability(caps, "contact") ||
-    canWrite(caps, "switch")
+    canWrite(caps, "switch") ||
+    canWrite(caps, "lock")
   );
 }
 
 export function formatEndpointBinaryState(ep: ZwaveNodeEndpoint): string {
   const caps = ep.capabilities ?? [];
+  if (hasCapability(caps, "lock") || ep.lock_set_topic) {
+    return ep.on ? "Lukossa" : "Auki";
+  }
   if (hasCapability(caps, "contact") && !ep.controllable) {
     return ep.on ? "Avoin" : "Kiinni";
   }

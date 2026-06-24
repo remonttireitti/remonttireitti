@@ -61,6 +61,24 @@ async function queueHubCommand(
   return { ok: "Komento lähetetty Yellowille." };
 }
 
+function resolveShellyFromDiscovered(
+  host: string,
+  state: HubState,
+  gen: 1 | 2,
+  nameRaw: string,
+  model?: string,
+): { gen: 1 | 2; name: string; model?: string } {
+  const discovered = (state.shelly_discovered ?? []).find((d) => d.host === host);
+  if (!discovered) {
+    return { gen, name: nameRaw.trim() || host, model };
+  }
+  return {
+    gen: discovered.gen === 1 ? 1 : discovered.gen === 2 ? 2 : gen,
+    name: nameRaw.trim() || discovered.name || host,
+    model: discovered.model ?? model,
+  };
+}
+
 export async function addShellyDevice(
   hostRaw: string,
   nameRaw: string,
@@ -74,6 +92,7 @@ export async function addShellyDevice(
   if (ctx.error || !ctx.supabase || !ctx.hub) return { error: ctx.error ?? "Virhe." };
 
   const state = (ctx.hub.state as HubState) ?? {};
+  const resolved = resolveShellyFromDiscovered(host, state, gen, nameRaw, model);
   const integrations: HubIntegrations = { ...(state.integrations ?? {}) };
   const devices = [...(integrations.shelly?.devices ?? [])];
   const id = wifiHostId("shelly", host);
@@ -82,7 +101,13 @@ export async function addShellyDevice(
     return { error: "Laite on jo listalla." };
   }
 
-  const entry: ShellyDeviceConfig = { id, host, name: nameRaw.trim() || host, gen, model };
+  const entry: ShellyDeviceConfig = {
+    id,
+    host,
+    name: resolved.name,
+    gen: resolved.gen,
+    model: resolved.model,
+  };
   devices.push(entry);
   integrations.shelly = { devices };
 

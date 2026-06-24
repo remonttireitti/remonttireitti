@@ -5,6 +5,7 @@ import { fetchPrimaryHub } from "@/lib/hubs";
 import { createClient } from "@/lib/supabase/server";
 import { isZigbeeConfigured, setLightState } from "@/lib/zigbee2mqtt";
 import { parseZwaveDeviceId } from "@/lib/device-protocol";
+import { resolveZwaveLockSetTopic } from "@/lib/zwave-detail";
 import type { HubState } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -45,6 +46,9 @@ function resolveZwaveTopics(
   if (!lock_set_topic) {
     const epRaw = ep?.device_id ? hubState.home_devices?.[ep.device_id] : undefined;
     lock_set_topic = epRaw?.lock_set_topic ?? raw?.lock_set_topic ?? undefined;
+  }
+  if (!lock_set_topic) {
+    lock_set_topic = resolveZwaveLockSetTopic(hubState, id, endpoint ?? parsed.endpoint);
   }
   return { mqtt_set_topic, lock_set_topic };
 }

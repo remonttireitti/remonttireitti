@@ -144,9 +144,10 @@ def probe_shelly(host: str, timeout: float = 1.5) -> dict[str, Any] | None:
             has_em = isinstance(data.get("emeters"), list) or isinstance(data.get("meters"), list)
             relays = data.get("relays")
             switch_count = len(relays) if isinstance(relays, list) else 0
+            device_name = _fetch_device_name_gen1(host) or host
             return {
                 "host": host,
-                "name": host,
+                "name": device_name,
                 "model": "SHEM" if has_em and switch_count == 0 else str(data.get("type") or "Shelly"),
                 "gen": 1,
                 "online": True,

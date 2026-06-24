@@ -113,6 +113,18 @@ def _mark_executed(cmd_id: str) -> None:
         _executed_cmd_ids[cmd_id] = time.time()
 
 
+def _upsert_shelly_discovered(item: dict) -> None:
+    global cached_shelly_discovered
+    host_key = item.get("host")
+    if not isinstance(host_key, str):
+        return
+    for idx, existing in enumerate(cached_shelly_discovered):
+        if existing.get("host") == host_key:
+            cached_shelly_discovered[idx] = item
+            return
+    cached_shelly_discovered.append(item)
+
+
 def execute_command(cmd: dict) -> bool:
     command = cmd.get("command", "")
     payload = cmd.get("payload") or {}
@@ -181,7 +193,10 @@ def execute_command(cmd: dict) -> bool:
         host = payload.get("host")
         if not isinstance(host, str):
             return False
-        ok = probe_shelly(host) is not None
+        result = probe_shelly(host)
+        if result:
+            _upsert_shelly_discovered(result)
+        ok = result is not None
         if ok and cmd_id:
             _queue_ack(cmd_id)
         return ok

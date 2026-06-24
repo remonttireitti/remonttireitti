@@ -14,8 +14,11 @@ const AIRTHINGS_CAPS = [
 ];
 
 function normalizeDevice(device: HubHomeDevice): HubHomeDevice {
-  const capabilities = normalizeCapabilities(device.capabilities);
-  const kind = device.kind ?? (capabilities.length ? inferKindFromCapabilities(capabilities) : "other");
+  let capabilities = normalizeCapabilities(device.capabilities);
+  let kind = device.kind ?? (capabilities.length ? inferKindFromCapabilities(capabilities) : "other");
+  if (kind === "lock" && !capabilities.some((c) => c.id === "lock")) {
+    capabilities = normalizeCapabilities([...capabilities, { id: "lock", read: true, write: true }]);
+  }
   const controllable =
     device.controllable === true ||
     (device.controllable !== false && inferControllable(capabilities));
