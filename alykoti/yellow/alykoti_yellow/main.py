@@ -397,11 +397,13 @@ def _ventilation_block_reason(state: dict | None) -> str | None:
 
 
 _last_ventilation_write_at: float = 0.0
-VENTILATION_WRITE_MIN_INTERVAL_SEC = 5.0
+_last_ventilation_fail_at: float = 0.0
+VENTILATION_WRITE_MIN_INTERVAL_SEC = 30.0
+VENTILATION_WRITE_FAIL_BACKOFF_SEC = 120.0
 
 
 def apply_ventilation(response: dict, airfi_state: dict | None = None) -> None:
-    global _last_ventilation_write_at
+    global _last_ventilation_write_at, _last_ventilation_fail_at
     if not config.AIRFI_WRITES:
         return
     if response.get("control_mode") == "manual":
@@ -409,11 +411,12 @@ def apply_ventilation(response: dict, airfi_state: dict | None = None) -> None:
     now = time.monotonic()
     if now - _last_ventilation_write_at < VENTILATION_WRITE_MIN_INTERVAL_SEC:
         return
+    if now - _last_ventilation_fail_at < VENTILATION_WRITE_FAIL_BACKOFF_SEC:
+        return
     block_state = airfi_state if airfi_state and airfi_state.get("airfi_online") else None
     if block_state is None:
-        snap = read_airfi(**config.airfi_kwargs(), poll_state=None)
-        if snap.ok:
-            block_state = snap.state
+        log.debug("AirFi tuuletus ohitetaan — ei tuoretta luentaa")
+        return
     reason = _ventilation_block_reason(block_state)
     if reason is not None:
         log.info("AirFi tuuletus ohitetaan — %s", reason)
@@ -433,8 +436,10 @@ def apply_ventilation(response: dict, airfi_state: dict | None = None) -> None:
             )
             if ok:
                 _last_ventilation_write_at = now
+                _last_ventilation_fail_at = 0.0
                 log.info("AirFi tuuletus kirjoitettu: tulo %s%% poisto %s%%", supply, exhaust)
             else:
+                _last_ventilation_fail_at = now
                 log.warning("AirFi tuuletus kirjoitus epäonnistui: %s/%s", supply, exhaust)
         except Exception as exc:
             log.warning("AirFi tuuletus virhe: %s", exc)
@@ -630,7 +635,7 @@ def run_fast_poll_loop() -> None:
     while True:
         try:
             tick += 1
-            if config.AIRFI_ENABLED and tick % 15 == 0:
+            if config.AIRFI_ENABLED and tick % 30 == 0:
                 snap = read_airfi(**config.airfi_kwargs(), poll_state=airfi_poll_state)
                 if snap.ok:
                     with _sync_lock:
@@ -654,7 +659,7 @@ def run_fast_poll_loop() -> None:
                     response,
                     cached_hub_state,
                     update_engine=False,
-                    apply_vent=True,
+                    apply_vent=False,
                 )
         except Exception as exc:
             log.warning("Komentopollaus virhe: %s", exc)

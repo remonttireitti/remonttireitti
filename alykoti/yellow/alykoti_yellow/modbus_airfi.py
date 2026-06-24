@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import os
 import socket
+import threading
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -74,6 +75,22 @@ def airfi_writes_pause_until_iso() -> str | None:
 
 
 _sync_cooldown_from_disk()
+
+_modbus_lock = threading.RLock()
+_last_modbus_at: float = 0.0
+MODBUS_MIN_GAP_SEC = 2.5
+
+
+def _modbus_pause() -> None:
+    """Vähintään MODBUS_MIN_GAP_SEC kahden TCP-yhteyden välillä — modeemi ei jumitu."""
+    global _last_modbus_at
+    with _modbus_lock:
+        now = time.monotonic()
+        wait = MODBUS_MIN_GAP_SEC - (now - _last_modbus_at)
+        if wait > 0:
+            time.sleep(wait)
+        _last_modbus_at = time.monotonic()
+
 
 INPUT = {
     "outdoor_temp": 4,
@@ -514,6 +531,7 @@ def _read_with_retries(
     last = AirfiSnapshot(ok=False, state={"airfi_online": False})
 
     for attempt in range(1, attempts + 1):
+        _modbus_pause()
         client = _open_client(
             host=host,
             port=port,
@@ -772,6 +790,7 @@ def write_fan_pct(
     )
     if client is None:
         return False
+    _modbus_pause()
     return _write_with_client(
         client,
         unit,
@@ -803,6 +822,7 @@ def write_away(
     )
     if client is None:
         return False
+    _modbus_pause()
     return _write_with_client(
         client,
         unit,
@@ -833,6 +853,7 @@ def write_temp_setpoint(
     )
     if client is None:
         return False
+    _modbus_pause()
     return _write_with_client(
         client,
         unit,
@@ -863,6 +884,7 @@ def write_sauna_mode(
     )
     if client is None:
         return False
+    _modbus_pause()
     return _write_with_client(
         client,
         unit,
@@ -951,6 +973,7 @@ def ack_airfi_alarms(
     )
     if client is None:
         return False
+    _modbus_pause()
     ok = _write_registers(
         client,
         unit,
@@ -989,6 +1012,7 @@ def write_fireplace(
     )
     if client is None:
         return False
+    _modbus_pause()
     return _write_registers(
         client,
         unit,
