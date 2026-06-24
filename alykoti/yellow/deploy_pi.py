@@ -91,7 +91,8 @@ def main() -> int:
     sudo = f"echo {PASS} | sudo -S" if PASS else "sudo"
     run(client, f"{sudo} cp /home/ek/alykoti-yellow/install/alykoti-yellow.service /etc/systemd/system/")
     run(client, f"{sudo} systemctl daemon-reload")
-    run(client, f"{sudo} systemctl enable --now alykoti-yellow")
+    run(client, f"{sudo} systemctl enable alykoti-yellow")
+    run(client, f"{sudo} systemctl restart alykoti-yellow")
     run(client, f"{sudo} systemctl is-active alykoti-yellow")
     run(client, f"{sudo} journalctl -u alykoti-yellow -n 20 --no-pager")
 
