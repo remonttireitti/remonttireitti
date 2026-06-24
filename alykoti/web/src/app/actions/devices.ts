@@ -64,6 +64,14 @@ export async function updateDeviceOverride(
   return { ok: "Tallennettu." };
 }
 
+export async function renameDeviceDisplayName(
+  deviceId: string,
+  name: string,
+): Promise<DeviceActionState> {
+  const trimmed = name.trim();
+  return updateDeviceOverride(deviceId, { display_name: trimmed || undefined });
+}
+
 export async function renameDeviceItem(
   deviceId: string,
   itemKey: string,

@@ -8,31 +8,21 @@ import {
   removeTasmotaDevice,
   type DeviceActionState,
 } from "@/app/actions/integrations";
+import { WifiIntegrationHostList } from "@/components/wifi-integration-host-list";
 import type { TasmotaDeviceConfig, TasmotaDiscoveredDevice } from "@/lib/types";
-
-type ChannelLive = {
-  id: string;
-  name: string;
-  on: boolean;
-  controllable: boolean;
-};
-
-type HostLive = {
-  id: string;
-  name: string;
-  host: string;
-  model?: string;
-  channels: ChannelLive[];
-  reachable: boolean;
-};
+import type { WifiIntegrationChannelLive, WifiIntegrationHostLive } from "@/lib/wifi-integration-live";
 
 type TasmotaResponse = {
   configured: boolean;
   hubOnline?: boolean;
   devices: TasmotaDeviceConfig[];
-  live?: HostLive[];
+  live?: WifiIntegrationHostLive[];
   discovered?: Array<TasmotaDiscoveredDevice & { type_label?: string; switch_channels?: number }>;
 };
+
+function channelStatus(ch: WifiIntegrationChannelLive): string {
+  return ch.on ? "Päällä" : "Pois";
+}
 
 export function TasmotaPanel() {
   const [data, setData] = useState<TasmotaResponse | null>(null);
@@ -176,47 +166,16 @@ export function TasmotaPanel() {
         </form>
       </section>
 
-      <section className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
-        <h2 className="text-lg font-semibold text-stone-900">Tasmota-laitteet</h2>
-        {live.length === 0 ? (
-          <p className="mt-3 text-sm text-stone-500">Ei laitteita.</p>
-        ) : (
-          <ul className="mt-4 divide-y divide-stone-100">
-            {live.map((dev) => (
-              <li key={dev.id} className="py-3">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <p className="font-medium text-stone-900">{dev.name}</p>
-                    <p className="text-xs text-stone-500">
-                      {dev.host}
-                      {dev.model && ` · ${dev.model}`}
-                      {!dev.reachable && " · Odottaa synkkiä"}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    disabled={pending}
-                    onClick={() => run(() => removeTasmotaDevice(dev.id))}
-                    className="rounded-lg border border-red-200 px-3 py-1.5 text-sm text-red-800"
-                  >
-                    Poista
-                  </button>
-                </div>
-                {dev.channels.length > 0 && (
-                  <ul className="mt-2 space-y-1">
-                    {dev.channels.map((ch) => (
-                      <li key={ch.id} className="text-sm text-stone-700">
-                        {ch.name} · {ch.on ? "Päällä" : "Pois"}
-                        <span className="text-xs text-stone-400"> · Valot-sivulla</span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+      <WifiIntegrationHostList
+        title="Tasmota-laitteet"
+        empty="Ei laitteita."
+        live={live}
+        hubOnline={data?.hubOnline}
+        pending={pending}
+        onRemove={(id) => run(() => removeTasmotaDevice(id))}
+        onUpdated={() => void load()}
+        channelStatus={channelStatus}
+      />
     </div>
   );
 }

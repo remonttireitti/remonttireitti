@@ -1,11 +1,13 @@
+import { HeatingPanel } from "@/components/heating-panel";
 import { RoleDevicesPanel } from "@/components/role-devices-panel";
 
 export default function HeatingPage() {
   return (
-    <div className="mx-auto max-w-5xl">
+    <div className="mx-auto max-w-5xl space-y-8">
+      <HeatingPanel />
       <RoleDevicesPanel
-        pageTitle="Lämmitys"
-        pageDescription="Lämmitykseen liittyvät ohjaukset. Valitse laitetyyppi Asetuksissa → Laitteet."
+        pageTitle="Manuaalinen ohjaus"
+        pageDescription="Suora päälle/pois-ohjaus lämmityslaitteille ilman termostaattia."
         sections={[
           {
             title: "Lämmityksen ohjaus",

@@ -1,41 +1,12 @@
 import { NextResponse } from "next/server";
 import { isHubOnline } from "@/lib/device-status";
+import { buildWifiHostLive } from "@/lib/wifi-integration-live";
 import { fetchPrimaryHub } from "@/lib/hubs";
-import type { HubHomeDevice, ShellyDeviceConfig } from "@/lib/types";
+import type { HubState, ShellyDeviceConfig } from "@/lib/types";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
-
-type ChannelLive = {
-  id: string;
-  name: string;
-  kind: string;
-  on?: boolean;
-  controllable?: boolean;
-  power_w?: number | null;
-  energy_wh?: number | null;
-  em_a_power_w?: number | null;
-  em_b_power_w?: number | null;
-};
-
-function channelsForHost(host: string, home: Record<string, HubHomeDevice> | undefined): ChannelLive[] {
-  const prefix = `shelly:${host}:`;
-  return Object.entries(home ?? {})
-    .filter(([id]) => id.startsWith(prefix))
-    .map(([id, d]) => ({
-      id,
-      name: d.name ?? id,
-      kind: d.kind ?? "other",
-      on: d.on,
-      controllable: d.controllable,
-      power_w: d.power_w,
-      energy_wh: d.energy_wh,
-      em_a_power_w: d.em_a_power_w,
-      em_b_power_w: d.em_b_power_w,
-    }))
-    .sort((a, b) => a.name.localeCompare(b.name, "fi"));
-}
 
 function formatCapabilityLabel(item: {
   model?: string;
@@ -69,19 +40,14 @@ export async function GET() {
 
   const configured = hub.state.integrations?.shelly?.devices ?? [];
   const home = hub.state.home_devices ?? {};
-  const live = configured.map((dev: ShellyDeviceConfig) => {
-    const channels = channelsForHost(dev.host, home);
-    return {
-      id: dev.id,
-      name: dev.name,
-      host: dev.host,
-      model: dev.model,
-      channels,
-      reachable: channels.length > 0,
+  const overrides = hub.state.device_overrides;
+  const hubOnline = isHubOnline(hub.last_seen_at);
+  const live = configured.map((dev: ShellyDeviceConfig) =>
+    buildWifiHostLive("shelly", dev, home, overrides, {
       configured: true,
-      awaitingSync: channels.length === 0 && isHubOnline(hub.last_seen_at),
-    };
-  });
+      awaitingSync: channelsEmpty(dev, home, overrides) && hubOnline,
+    }),
+  );
 
   const discovered = (hub.state.shelly_discovered ?? []).map((item) => ({
     ...item,
@@ -90,9 +56,17 @@ export async function GET() {
 
   return NextResponse.json({
     configured: true,
-    hubOnline: isHubOnline(hub.last_seen_at),
+    hubOnline,
     devices: configured,
     live,
     discovered,
   });
+}
+
+function channelsEmpty(
+  dev: ShellyDeviceConfig,
+  home: HubState["home_devices"],
+  overrides: HubState["device_overrides"],
+): boolean {
+  return buildWifiHostLive("shelly", dev, home, overrides).channels.length === 0;
 }

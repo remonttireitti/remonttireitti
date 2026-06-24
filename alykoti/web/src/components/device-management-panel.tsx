@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
 import {
   renameHubDevice,
+  renameDeviceItem,
   startZigbeePairing,
   startZwaveInclusion,
   stopZwaveInclusion,
@@ -16,6 +17,7 @@ import {
   protocolLabel,
   type DeviceProtocol,
 } from "@/lib/device-protocol";
+import { wifiEntityRenameTarget } from "@/lib/device-item-overrides";
 import { kindLabel } from "@/lib/hub-lights";
 import { DEVICE_ROLE_OPTIONS, deviceRoleLabel } from "@/lib/device-roles";
 import type { DeviceRole } from "@/lib/device-roles";
@@ -165,6 +167,32 @@ export function DeviceManagementPanel({
   const showZigbeePairing = !protocol || protocol === "zigbee";
   const showZwavePairing = !protocol || protocol === "zwave";
 
+  async function saveDeviceEdits(device: Device): Promise<DeviceActionState> {
+    const trimmedName = editName.trim();
+    const wifiTarget = wifiEntityRenameTarget(device.id);
+
+    if (wifiTarget) {
+      const named = await renameDeviceItem(wifiTarget.deviceId, wifiTarget.itemKey, trimmedName);
+      if (named.error) return named;
+      return updateDeviceOverride(device.id, {
+        room: editRoom.trim() || null,
+        role: editRole || null,
+      });
+    }
+
+    await updateDeviceOverride(device.id, {
+      display_name: trimmedName || undefined,
+      room: editRoom.trim() || null,
+      role: editRole || null,
+    });
+    if (trimmedName && trimmedName !== device.name) {
+      if (device.protocol === "zigbee" || device.protocol === "zwave") {
+        return renameHubDevice(device.id, trimmedName, device.node_id);
+      }
+    }
+    return { ok: "Tallennettu." };
+  }
+
   return (
     <div className="mt-6 space-y-6">
       {(title || description) && (
@@ -266,17 +294,7 @@ export function DeviceManagementPanel({
               onEditRoom={setEditRoom}
               onEditRole={setEditRole}
               onSave={(device) => {
-                run(async () => {
-                  await updateDeviceOverride(device.id, {
-                    display_name: editName.trim() || undefined,
-                    room: editRoom.trim() || null,
-                    role: editRole || null,
-                  });
-                  if (editName.trim() && editName.trim() !== device.name) {
-                    return renameHubDevice(device.id, editName.trim(), device.node_id);
-                  }
-                  return { ok: "Tallennettu." };
-                });
+                run(() => saveDeviceEdits(device));
                 setEditingId(null);
               }}
               onHide={(id) => run(() => updateDeviceOverride(id, { hidden: true }))}
@@ -307,17 +325,7 @@ export function DeviceManagementPanel({
           onEditRoom={setEditRoom}
           onEditRole={setEditRole}
           onSave={(device) => {
-            run(async () => {
-              await updateDeviceOverride(device.id, {
-                display_name: editName.trim() || undefined,
-                room: editRoom.trim() || null,
-                role: editRole || null,
-              });
-              if (editName.trim() && editName.trim() !== device.name) {
-                return renameHubDevice(device.id, editName.trim(), device.node_id);
-              }
-              return { ok: "Tallennettu." };
-            });
+            run(() => saveDeviceEdits(device));
             setEditingId(null);
           }}
           onHide={(id) => run(() => updateDeviceOverride(id, { hidden: true }))}

@@ -9,9 +9,9 @@ import { inferDeviceRole, groupDevicesByRole } from "@/lib/device-roles";
 import type { DeviceRole } from "@/lib/device-roles";
 import { inferProtocolFromId, parseZwaveDeviceId } from "@/lib/device-protocol";
 import {
-  channelItemKey,
   parseWifiChannelDeviceId,
-  wifiHostOverrideKey,
+  parseWifiEmDeviceId,
+  resolveWifiChannelDisplayName,
   zwaveEndpointItemKey,
 } from "@/lib/device-item-overrides";
 import { anchorForLight } from "@/lib/lights-config";
@@ -82,11 +82,8 @@ function resolveDeviceDisplayName(
     if (epName) return epName;
   }
 
-  const wifiCh = parseWifiChannelDeviceId(id);
-  if (wifiCh && allOverrides) {
-    const parent = allOverrides[wifiHostOverrideKey(wifiCh.protocol, wifiCh.host)];
-    const chName = parent?.item_names?.[channelItemKey(wifiCh.channel)]?.trim();
-    if (chName) return chName;
+  if (parseWifiChannelDeviceId(id) || parseWifiEmDeviceId(id)) {
+    return resolveWifiChannelDisplayName(id, d.name?.trim() || id, allOverrides);
   }
 
   return d.name?.trim() || id;
@@ -336,6 +333,8 @@ export function groupDevices(
   return {
     lights: byRole.lights,
     switches: byRole.lightSwitches,
+    dimmers: byRole.dimmers,
+    fans: byRole.fans,
     sensors: byRole.sensors,
     locks: byRole.locks,
     heating: byRole.heating,

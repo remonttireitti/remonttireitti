@@ -8,36 +8,15 @@ import {
   removeShellyDevice,
   type DeviceActionState,
 } from "@/app/actions/integrations";
+import { WifiIntegrationHostList } from "@/components/wifi-integration-host-list";
 import type { ShellyDeviceConfig, ShellyDiscoveredDevice } from "@/lib/types";
-
-type ChannelLive = {
-  id: string;
-  name: string;
-  kind: string;
-  on?: boolean;
-  controllable?: boolean;
-  power_w?: number | null;
-  energy_wh?: number | null;
-  em_a_power_w?: number | null;
-  em_b_power_w?: number | null;
-};
-
-type HostLive = {
-  id: string;
-  name: string;
-  host: string;
-  model?: string;
-  channels: ChannelLive[];
-  reachable: boolean;
-  configured?: boolean;
-  awaitingSync?: boolean;
-};
+import type { WifiIntegrationChannelLive, WifiIntegrationHostLive } from "@/lib/wifi-integration-live";
 
 type ShellyResponse = {
   configured: boolean;
   hubOnline?: boolean;
   devices: ShellyDeviceConfig[];
-  live?: HostLive[];
+  live?: WifiIntegrationHostLive[];
   discovered?: Array<ShellyDiscoveredDevice & { type_label?: string }>;
 };
 
@@ -52,7 +31,7 @@ function formatEnergy(wh?: number | null): string | null {
   return `${Math.round(wh)} Wh`;
 }
 
-function channelStatus(ch: ChannelLive): string {
+function channelStatus(ch: WifiIntegrationChannelLive): string {
   if (ch.kind === "sensor") {
     const parts = [
       formatPower(ch.power_w),
@@ -207,82 +186,16 @@ export function ShellyPanel() {
         </form>
       </section>
 
-      <HostList
+      <WifiIntegrationHostList
         title="Shelly-laitteet"
         empty="Ei laitteita. Lisää energiamittari, Pro 4 -kytkin tai muu Shelly IP:llä."
         live={live}
         hubOnline={data?.hubOnline}
         pending={pending}
         onRemove={(id) => run(() => removeShellyDevice(id))}
+        onUpdated={() => void load()}
         channelStatus={channelStatus}
       />
     </div>
-  );
-}
-
-function HostList({
-  title,
-  empty,
-  live,
-  hubOnline,
-  pending,
-  onRemove,
-  channelStatus,
-}: {
-  title: string;
-  empty: string;
-  live: HostLive[];
-  hubOnline?: boolean;
-  pending: boolean;
-  onRemove: (id: string) => void;
-  channelStatus: (ch: ChannelLive) => string;
-}) {
-  return (
-    <section className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
-      <h2 className="text-lg font-semibold text-stone-900">{title}</h2>
-      {live.length === 0 ? (
-        <p className="mt-3 text-sm text-stone-500">{empty}</p>
-      ) : (
-        <ul className="mt-4 divide-y divide-stone-100">
-          {live.map((dev) => (
-            <li key={dev.id} className="py-3">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <p className="font-medium text-stone-900">{dev.name}</p>
-                  <p className="text-xs text-stone-500">
-                    {dev.host}
-                    {dev.model && ` · ${dev.model}`}
-                    {dev.awaitingSync && " · Odottaa synkkiä (~30 s)"}
-                    {!dev.reachable && !dev.awaitingSync && hubOnline && " · Ei vastausta"}
-                    {!dev.reachable && !hubOnline && " · Yellow offline"}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  disabled={pending}
-                  onClick={() => onRemove(dev.id)}
-                  className="rounded-lg border border-red-200 px-3 py-1.5 text-sm text-red-800"
-                >
-                  Poista
-                </button>
-              </div>
-              {dev.channels.length > 0 && (
-                <ul className="mt-2 space-y-1 pl-1">
-                  {dev.channels.map((ch) => (
-                    <li key={ch.id} className="text-sm text-stone-700">
-                      <span className="font-medium">{ch.name}</span>
-                      <span className="text-stone-500"> · {channelStatus(ch)}</span>
-                      {ch.controllable && (
-                        <span className="text-xs text-stone-400"> · ohjattavissa Valot-sivulla</span>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </li>
-          ))}
-        </ul>
-      )}
-    </section>
   );
 }

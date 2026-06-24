@@ -1,25 +1,12 @@
 import { NextResponse } from "next/server";
 import { isHubOnline } from "@/lib/device-status";
+import { buildWifiHostLive } from "@/lib/wifi-integration-live";
 import { fetchPrimaryHub } from "@/lib/hubs";
-import type { HubHomeDevice, TasmotaDeviceConfig } from "@/lib/types";
+import type { TasmotaDeviceConfig } from "@/lib/types";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
-
-function channelsForHost(host: string, home: Record<string, HubHomeDevice> | undefined) {
-  const prefix = `tasmota:${host}:`;
-  return Object.entries(home ?? {})
-    .filter(([id]) => id.startsWith(prefix))
-    .map(([id, d]) => ({
-      id,
-      name: d.name ?? id,
-      kind: d.kind ?? "switch",
-      on: d.on === true,
-      controllable: d.controllable === true,
-    }))
-    .sort((a, b) => a.name.localeCompare(b.name, "fi"));
-}
 
 export async function GET() {
   const supabase = await createClient();
@@ -38,14 +25,10 @@ export async function GET() {
 
   const configured = hub.state.integrations?.tasmota?.devices ?? [];
   const home = hub.state.home_devices ?? {};
-  const live = configured.map((dev: TasmotaDeviceConfig) => ({
-    id: dev.id,
-    name: dev.name,
-    host: dev.host,
-    model: dev.model,
-    channels: channelsForHost(dev.host, home),
-    reachable: channelsForHost(dev.host, home).length > 0,
-  }));
+  const overrides = hub.state.device_overrides;
+  const live = configured.map((dev: TasmotaDeviceConfig) =>
+    buildWifiHostLive("tasmota", dev, home, overrides),
+  );
 
   const discovered = (hub.state.tasmota_discovered ?? []).map((item) => ({
     ...item,

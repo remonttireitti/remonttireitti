@@ -1064,6 +1064,10 @@ class AutomationEngine:
                 meta["on"] = locked
         return ok
 
+    def control_device(self, device_id: str, on: bool) -> bool:
+        """Julkinen ohjaus termostaateille ja muille synkkiin perustuville toiminnoille."""
+        return self._apply(device_id, on)
+
     def _apply(self, device_id: str, on: bool, brightness: int | None = None) -> bool:
         ok = False
         if device_id.startswith("zigbee:"):

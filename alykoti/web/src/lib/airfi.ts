@@ -329,9 +329,15 @@ export async function setDirectFanPct(
   const result = await withClient(async (client) => {
     await client.writeRegister(HOLDING.constant_pressure_mode, 0);
     await client.writeRegister(HOLDING.emergency_stop, 0);
-    await client.writeRegister(HOLDING.direct_control_enabled, 0);
     await client.writeRegister(HOLDING.away_mode, 0);
-    // h2=1 laukaisee hätäseis/E1 — riittää h10/h11.
+    if (supply === exhaust) {
+      await client.writeRegister(HOLDING.direct_control_enabled, 0);
+      await client.writeRegister(HOLDING.direct_combined_pct, 0);
+      await client.writeRegister(HOLDING.direct_combined_pct, supply);
+      return true;
+    }
+    // Eroteltu tulo/poisto — sama järjestys kuin ESP-hub firmware.
+    await client.writeRegister(HOLDING.direct_control_enabled, 1);
     await client.writeRegister(HOLDING.supply_direct_pct, supply);
     await client.writeRegister(HOLDING.exhaust_direct_pct, exhaust);
     return true;
@@ -522,9 +528,11 @@ export async function applyVentilationControl(
   inputs: AutoFanInputs,
   config: VentilationConfig,
   airfi: AirfiState | null,
+  options?: { write?: boolean },
 ): Promise<VentilationTargets | null> {
   const targets = computeVentilationTargets(controlMode, inputs, config, airfi);
   if (!targets || !targets.needsWrite) return targets;
+  if (options?.write === false) return targets;
 
   if (targets.fireplace) await setFireplaceMode(true);
   else if (airfi?.fireplace_active) await setFireplaceMode(false);

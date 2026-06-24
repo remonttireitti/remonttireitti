@@ -670,28 +670,43 @@ def _write_with_client(
         if supply is not None and exhaust is not None:
             supply = max(_MIN_FAN_PCT, min(100, int(supply)))
             exhaust = max(_MIN_FAN_PCT, min(100, int(exhaust)))
-            # Valmistele kone: nollaa vakiopaine/pakko/suoraohjaus/poissa.
-            # ÄLÄ kirjoita h2=1 — tällä koneella se laukaisee hätäseis/E1:n.
+            # Valmistele kone: poista vakiopaine, hätäseis-kirjoitus ja poissa.
+            # h2=0 prepin jälkeen estää ohjauksen — älä nollaa suoraohjausta ennen kirjoitusta.
             prep = [
                 (HOLDING["constant_pressure_mode"], 0),
                 (HOLDING["emergency_stop"], 0),
-                (HOLDING["direct_control_enabled"], 0),
                 (HOLDING["away_mode"], 0),
             ]
             for addr, val in prep:
                 w = client.write_register(addr, val, device_id=unit)
                 if w.isError():
                     log.warning("Modbus fan prep failed reg %s", addr)
-            w2 = client.write_register(HOLDING["supply_direct_pct"], supply, device_id=unit)
-            w3 = client.write_register(HOLDING["exhaust_direct_pct"], exhaust, device_id=unit)
-            e2, e3 = w2.isError(), w3.isError()
-            if e2 or e3:
+            if supply == exhaust:
+                # Yhdistetty % (4x00004) — toimii ilman h2=1 (paikallinen TCP-testi).
+                for addr, val in (
+                    (HOLDING["direct_control_enabled"], 0),
+                    (HOLDING["direct_combined_pct"], 0),
+                ):
+                    w = client.write_register(addr, val, device_id=unit)
+                    if w.isError():
+                        log.warning("Modbus fan prep failed reg %s", addr)
+                w = client.write_register(HOLDING["direct_combined_pct"], supply, device_id=unit)
+                if w.isError():
+                    log.warning("Modbus fan write failed: combined pct %s", supply)
+                return not w.isError()
+            # Eroteltu tulo/poisto — sama järjestys kuin ESP-hub firmware.
+            w2 = client.write_register(HOLDING["direct_control_enabled"], 1, device_id=unit)
+            w10 = client.write_register(HOLDING["supply_direct_pct"], supply, device_id=unit)
+            w11 = client.write_register(HOLDING["exhaust_direct_pct"], exhaust, device_id=unit)
+            e2, e10, e11 = w2.isError(), w10.isError(), w11.isError()
+            if e2 or e10 or e11:
                 log.warning(
-                    "Modbus fan write partial failure: supply=%s exhaust=%s",
+                    "Modbus fan write partial failure: h2=%s supply=%s exhaust=%s",
                     e2,
-                    e3,
+                    e10,
+                    e11,
                 )
-            return not (e2 or e3)
+            return not (e2 or e10 or e11)
         if away is not None:
             w = client.write_register(HOLDING["away_mode"], 1 if away else 0, device_id=unit)
             return not w.isError()

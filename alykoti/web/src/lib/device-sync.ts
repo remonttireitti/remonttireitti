@@ -491,23 +491,28 @@ export async function syncDevice(
     effectiveMode === "fireplace" ||
     effectiveMode === "hood"
   ) {
-    if (airfiWritesPaused) {
-      // Yellow kuittauksen jälkeinen tauko — älä lähetä tuuletuskirjoituksia.
-    } else if (canPing) {
+    const applyTargets = (
+      targets: NonNullable<Awaited<ReturnType<typeof computeVentilationTargets>>>,
+    ) => {
+      ventilationDisplay = targetsToVentilationState(targets);
+      if (!airfiWritesPaused && targets.needsWrite) {
+        ventilationWrite = ventilationWritePayload(targets);
+      }
+    };
+
+    if (canPing) {
       const applied = await applyVentilationControl(
         effectiveMode,
         fanInputs,
         config,
         airfiState,
+        { write: !airfiWritesPaused },
       );
       if (!airfiState) {
         airfiState = await fetchAirfiState();
       }
       if (applied) {
-        ventilationDisplay = targetsToVentilationState(applied);
-        if (applied.needsWrite) {
-          ventilationWrite = ventilationWritePayload(applied);
-        }
+        applyTargets(applied);
       }
     } else if (hubHasRealAirfi) {
       const targets = computeVentilationTargets(
@@ -517,10 +522,7 @@ export async function syncDevice(
         airfiState,
       );
       if (targets) {
-        ventilationDisplay = targetsToVentilationState(targets);
-        if (targets.needsWrite) {
-          ventilationWrite = ventilationWritePayload(targets);
-        }
+        applyTargets(targets);
       }
     }
   }

@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { normalizeAutomationRules } from "@/lib/automation";
 import { normalizeElectricityPricePeriods } from "@/lib/electricity-price-periods";
+import { normalizeHeatingThermostats } from "@/lib/heating-thermostats";
 import {
   DEFAULT_VENTILATION_CONFIG,
   type Hub,
@@ -47,10 +48,12 @@ export function parseHubConfig(raw: unknown): HubConfig {
   const electricity_price_periods = normalizeElectricityPricePeriods(
     record.electricity_price_periods,
   );
+  const heating_thermostats = normalizeHeatingThermostats(record.heating_thermostats);
   return {
     ...ventilation,
     automations,
     electricity_price_periods,
+    heating_thermostats,
   };
 }
 

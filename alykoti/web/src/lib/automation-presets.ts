@@ -155,7 +155,7 @@ export function uiMirrorPartnerIds(
 }
 const SAUNA_SHOWER_SWITCH_PAIRS = [
   {
-    name: "Sauna — eteisen kytkin → sauna (82 + 86)",
+    name: "Sauna — eteisen sauna/suihku-kytkin (52:1) → valot 82 + 86",
     eteinenNode: 52,
     eteinenEp: 1,
     takkaNode: 82,
@@ -167,7 +167,7 @@ const SAUNA_SHOWER_SWITCH_PAIRS = [
     localHint: "saunavalo eteinen",
   },
   {
-    name: "Suihku — eteisen kytkin → suihku (84 + 87)",
+    name: "Suihku — eteisen sauna/suihku-kytkin (52:2) → valot 84 + 87",
     eteinenNode: 52,
     eteinenEp: 2,
     takkaNode: 84,
@@ -193,7 +193,7 @@ function mirrorTargetsForNodes(
   return targets;
 }
 
-/** Seinäkytkin (52) ohjaa molempia valoja huoneessa — ei peilaa eteisen valoa. */
+/** Eteisen sauna/suihku-seinäkytkin (node 52, Z-Wave-nimi "Eteisen valokytkin") — ei yleinen eteisen kattovalo. */
 function zwaveIdsForSwitchPair(
   pair: SaunaShowerSwitchPair,
   devices: HubLightDevice[],
@@ -244,7 +244,7 @@ export function buildSaunaShowerMirrorPresets(
     const takka = findZwaveByNode(devices, pair.takkaNode, pair.takkaEp, pair.takkaHint);
     const local = findZwaveByNode(devices, pair.localNode, pair.localEp, pair.localHint);
     if (!eteinen) {
-      missing.push(`Eteisen kytkin (zwave:${pair.eteinenNode}:e${pair.eteinenEp})`);
+      missing.push(`Eteisen sauna/suihku-kytkin (zwave:${pair.eteinenNode}:e${pair.eteinenEp})`);
     }
     if (!takka) {
       missing.push(`Takkahuoneen rele (zwave:${pair.takkaNode}:e${pair.takkaEp})`);

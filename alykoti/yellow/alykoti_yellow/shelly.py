@@ -37,15 +37,27 @@ def _switch_status(result: dict[str, Any], channel: int) -> dict[str, Any] | Non
     return None
 
 
-def _em_status(result: dict[str, Any]) -> dict[str, Any] | None:
+_EM_POWER_KEY = re.compile(r"^em\d*:\d+$")
+_EM_ENERGY_KEY = re.compile(r"^em\d*data:\d+$")
+
+
+def _em_status_components(result: dict[str, Any]) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
+    """Shelly.GetStatus: teho em/em1:0:sta, energia emdata/em1data:0:sta."""
+    power: dict[str, Any] | None = None
+    energy: dict[str, Any] | None = None
     for key, val in result.items():
-        if isinstance(val, dict) and (
-            key.startswith("em:")
-            or key.startswith("emdata:")
-            or re.fullmatch(r"em\d+(:0)?", key)
-        ):
-            return val
-    return None
+        if not isinstance(val, dict):
+            continue
+        if _EM_POWER_KEY.fullmatch(key):
+            power = val
+        elif _EM_ENERGY_KEY.fullmatch(key):
+            energy = val
+    return power, energy
+
+
+def _em_status(result: dict[str, Any]) -> dict[str, Any] | None:
+    power, _ = _em_status_components(result)
+    return power
 
 
 def _switch_channels(result: dict[str, Any]) -> list[int]:
@@ -363,27 +375,63 @@ def _gen1_fetch(host: str, name: str, model: str) -> dict[str, dict[str, Any]]:
     return out
 
 
+def _phase_entry(
+    power: Any,
+    current: Any,
+    voltage: Any,
+    pf: Any = None,
+) -> dict[str, Any] | None:
+    if not any(isinstance(v, (int, float)) for v in (power, current, voltage)):
+        return None
+    entry: dict[str, Any] = {}
+    if isinstance(power, (int, float)):
+        entry["power_w"] = power
+        entry["power_kw"] = round(power / 1000.0, 3)
+    if isinstance(current, (int, float)):
+        entry["current_a"] = current
+    if isinstance(voltage, (int, float)):
+        entry["voltage_v"] = voltage
+    if isinstance(pf, (int, float)):
+        entry["pf"] = pf
+    return entry
+
+
 def _extract_phases(em: dict[str, Any]) -> dict[str, dict[str, Any]]:
     phases: dict[str, dict[str, Any]] = {}
     for letter in ("a", "b", "c"):
-        power = em.get(f"{letter}_act_power")
-        current = em.get(f"{letter}_current")
-        voltage = em.get(f"{letter}_voltage")
-        if not any(isinstance(v, (int, float)) for v in (power, current, voltage)):
-            continue
-        entry: dict[str, Any] = {}
-        if isinstance(power, (int, float)):
-            entry["power_w"] = power
-            entry["power_kw"] = round(power / 1000.0, 3)
-        if isinstance(current, (int, float)):
-            entry["current_a"] = current
-        if isinstance(voltage, (int, float)):
-            entry["voltage_v"] = voltage
-        pf = em.get(f"{letter}_pf")
-        if isinstance(pf, (int, float)):
-            entry["pf"] = pf
-        phases[letter] = entry
+        entry = _phase_entry(
+            em.get(f"{letter}_act_power"),
+            em.get(f"{letter}_current"),
+            em.get(f"{letter}_voltage"),
+            em.get(f"{letter}_pf"),
+        )
+        if entry:
+            phases[letter] = entry
+
+    if not phases:
+        entry = _phase_entry(em.get("act_power"), em.get("current"), em.get("voltage"), em.get("pf"))
+        if entry:
+            phases["a"] = entry
     return phases
+
+
+def _extract_energy_wh(energy: dict[str, Any] | None) -> float | None:
+    if not energy:
+        return None
+    for key in ("total_act", "total_act_energy", "total"):
+        value = energy.get(key)
+        if isinstance(value, (int, float)):
+            return float(value)
+    total = 0.0
+    found = False
+    for letter in ("a", "b", "c"):
+        for suffix in ("_total_act_energy", "_total_act"):
+            value = energy.get(f"{letter}{suffix}")
+            if isinstance(value, (int, float)):
+                total += float(value)
+                found = True
+                break
+    return total if found else None
 
 
 def fetch_shelly_devices(configured: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
@@ -437,10 +485,12 @@ def fetch_shelly_devices(configured: list[dict[str, Any]]) -> dict[str, dict[str
                 ],
             }
 
-        em = _em_status(result)
-        if em and (_is_em_only_model(model) or not switches):
-            phases = _extract_phases(em)
-            total_power = em.get("total_act_power")
+        em_power, em_energy = _em_status_components(result)
+        if (em_power or em_energy) and (_is_em_only_model(model) or not switches or em_energy):
+            phases = _extract_phases(em_power) if em_power else {}
+            total_power = em_power.get("total_act_power") if em_power else None
+            if total_power is None and em_power and isinstance(em_power.get("act_power"), (int, float)):
+                total_power = em_power.get("act_power")
             out[f"shelly:{host}:em"] = {
                 "protocol": "shelly",
                 "kind": "sensor",
@@ -452,7 +502,7 @@ def fetch_shelly_devices(configured: list[dict[str, Any]]) -> dict[str, dict[str
                 "model": model or None,
                 "power_w": total_power,
                 "power_kw": (total_power / 1000.0) if isinstance(total_power, (int, float)) else None,
-                "energy_wh": em.get("total_act_energy"),
+                "energy_wh": _extract_energy_wh(em_energy),
                 "em_phases": phases,
                 "capabilities": [
                     {"id": "energy", "read": True, "write": False},

@@ -26,6 +26,69 @@ export function wifiHostOverrideKey(protocol: "shelly" | "tasmota", host: string
   return `${protocol}:${host}`;
 }
 
+export function wifiEmItemKey(): string {
+  return "em";
+}
+
+const WIFI_EM_ID_RE = /^(shelly):([^:]+):em$/;
+
+export function parseWifiEmDeviceId(
+  id: string,
+): { protocol: "shelly"; host: string } | null {
+  const m = WIFI_EM_ID_RE.exec(id.trim());
+  if (!m) return null;
+  return { protocol: "shelly", host: m[2]! };
+}
+
+/** Override-avain kanavan / em-entiteetin nimeämiseen (Z-Wave-ep:-mallin mukaisesti). */
+export function wifiEntityRenameTarget(
+  entityId: string,
+): { deviceId: string; itemKey: string } | null {
+  const ch = parseWifiChannelDeviceId(entityId);
+  if (ch) {
+    return {
+      deviceId: wifiHostOverrideKey(ch.protocol, ch.host),
+      itemKey: channelItemKey(ch.channel),
+    };
+  }
+  const em = parseWifiEmDeviceId(entityId);
+  if (em) {
+    return {
+      deviceId: wifiHostOverrideKey(em.protocol, em.host),
+      itemKey: wifiEmItemKey(),
+    };
+  }
+  return null;
+}
+
+export function resolveWifiChannelDisplayName(
+  channelDeviceId: string,
+  defaultName: string,
+  overrides?: HubState["device_overrides"],
+): string {
+  const direct = overrides?.[channelDeviceId]?.display_name?.trim();
+  if (direct) return direct;
+
+  const target = wifiEntityRenameTarget(channelDeviceId);
+  if (target && overrides) {
+    const parent = overrides[target.deviceId];
+    const named = parent?.item_names?.[target.itemKey]?.trim();
+    if (named) return named;
+  }
+
+  return defaultName;
+}
+
+export function resolveWifiHostDisplayName(
+  protocol: "shelly" | "tasmota",
+  host: string,
+  defaultName: string,
+  overrides?: HubState["device_overrides"],
+): string {
+  const key = wifiHostOverrideKey(protocol, host);
+  return overrides?.[key]?.display_name?.trim() || defaultName;
+}
+
 export function zwavePropertyItemKey(p: Pick<ZwaveProperty, "cc" | "endpoint" | "property">): string {
   return `p:${p.cc}:${p.endpoint}:${p.property ?? ""}`;
 }

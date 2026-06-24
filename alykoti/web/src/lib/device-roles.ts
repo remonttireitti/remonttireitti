@@ -5,6 +5,8 @@ import type { HubLightDevice } from "@/lib/hub-lights";
 export type DeviceRole =
   | "light"
   | "light_switch"
+  | "dimmer"
+  | "fan"
   | "heating"
   | "other_control"
   | "contact"
@@ -20,6 +22,8 @@ export const DEVICE_ROLE_OPTIONS: {
 }[] = [
   { id: "light", label: "Valo", hint: "Näkyy Valot-sivulla ja kartalla" },
   { id: "light_switch", label: "Valokytkin", hint: "Kaukosäädin / kytkin valoille" },
+  { id: "dimmer", label: "Säätö/himmentäjä", hint: "Himmennettävä valo — Valot-sivulla" },
+  { id: "fan", label: "Tuuletin", hint: "Puhaltimet ja tuuletus" },
   { id: "heating", label: "Lämmitys", hint: "Lämmityksen ohjaus" },
   { id: "other_control", label: "Muu ohjaus", hint: "Releet, Shelly, Tasmota jne." },
   { id: "contact", label: "Ikkuna/ovikytkin", hint: "Turvallisuus" },
@@ -38,7 +42,7 @@ export function deviceRoleLabel(role: DeviceRole | undefined): string {
   return DEVICE_ROLE_LABEL[role] ?? role;
 }
 
-export const LIGHT_PAGE_ROLES: DeviceRole[] = ["light", "light_switch"];
+export const LIGHT_PAGE_ROLES: DeviceRole[] = ["light", "light_switch", "dimmer"];
 export const HEATING_PAGE_ROLES: DeviceRole[] = ["heating"];
 export const SECURITY_PAGE_ROLES: DeviceRole[] = [
   "contact",
@@ -71,6 +75,8 @@ export function inferDeviceRoleFromName(name: string): DeviceRole | null {
   if (/\b(ovi|ikkuna|contact)\b/.test(n)) return "contact";
   if (/lammitys|heating|lattia|radiator|floorheat/.test(n)) return "heating";
 
+  if (/tuuletin|puhallin|\bfan\b/.test(n)) return "fan";
+  if (/himmenn|dimmer/.test(n)) return "dimmer";
   if (/valokytkin/.test(n)) return "light_switch";
   const hasLightWord = /\b(valo|light|lamppu)\b/.test(n) || /\bvalo\b/.test(n);
   const hasSwitchWord = /\b(kytkin|switch)\b/.test(n);
@@ -101,6 +107,7 @@ export function inferDeviceRole(device: HubLightDevice): DeviceRole {
   const state = device.sensor_state?.toLowerCase() ?? "";
 
   if (ids.has("lock") || device.kind === "lock") return "other_control";
+  if (ids.has("fan") || device.kind === "fan") return "fan";
 
   if (ids.has("smoke") || state.includes("smoke") || state.includes("fire")) {
     return "fire_alarm";
@@ -123,14 +130,15 @@ export function inferDeviceRole(device: HubLightDevice): DeviceRole {
   if (envOnly || (device.kind === "sensor" && !ids.has("button"))) return "sensor";
 
   if (device.protocol === "shelly" || device.protocol === "tasmota") {
-    if (ids.has("dimmer") || ids.has("color")) return "light";
+    if (ids.has("dimmer") || ids.has("color")) return "dimmer";
     return "other_control";
   }
 
   const model = `${device.model ?? ""} ${device.description ?? ""}`.toLowerCase();
   if (model.includes("implant")) return "other_control";
 
-  if (ids.has("dimmer") || ids.has("color") || device.kind === "light") return "light";
+  if (ids.has("dimmer")) return "dimmer";
+  if (ids.has("color") || device.kind === "light") return "light";
 
   if (ids.has("button") || (device.kind === "switch" && !device.controllable)) {
     return "light_switch";
@@ -163,6 +171,8 @@ export function filterDevicesByRoles(
 export type RoleGroups = {
   lights: HubLightDevice[];
   lightSwitches: HubLightDevice[];
+  dimmers: HubLightDevice[];
+  fans: HubLightDevice[];
   heating: HubLightDevice[];
   otherControl: HubLightDevice[];
   contact: HubLightDevice[];
@@ -180,6 +190,8 @@ export function groupDevicesByRole(
   const groups: RoleGroups = {
     lights: [],
     lightSwitches: [],
+    dimmers: [],
+    fans: [],
     heating: [],
     otherControl: [],
     contact: [],
@@ -204,6 +216,13 @@ export function groupDevicesByRole(
         break;
       case "light_switch":
         groups.lightSwitches.push(device);
+        break;
+      case "dimmer":
+        groups.dimmers.push(device);
+        groups.lights.push(device);
+        break;
+      case "fan":
+        groups.fans.push(device);
         break;
       case "heating":
         groups.heating.push(device);

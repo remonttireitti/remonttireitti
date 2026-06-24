@@ -269,12 +269,27 @@ export type HubDeviceOverride = {
 /** Käyttäjän määrittämät pohjakuvan pinnit (web UI). */
 export type FloorPlanPin = import("@/lib/floor-plan-pins").FloorPlanPin;
 
-/** hubs.config — ilmanvaihto + automaatiot + sähköhintajaksot */
+export type HeatingThermostat = {
+  id: string;
+  name: string;
+  enabled: boolean;
+  sensor_device_id: string;
+  actuator_device_id: string;
+  target_temp_c: number;
+  hysteresis_c: number;
+  min_on_sec?: number;
+  min_off_sec?: number;
+  room?: string | null;
+};
+
+/** hubs.config — ilmanvaihto + automaatiot + sähköhintajaksot + lämmitys */
 export type HubConfig = VentilationConfig & {
   /** Laite- ja sähköhinta-automaatiot (web → Yellow / cron) */
   automations?: AutomationRule[];
   /** Halvimmat jaksot ja hintarajat automaatioille */
   electricity_price_periods?: ElectricityPricePeriod[];
+  /** Lämmitystermostaattialueet (anturi + toimilainen + tavoitelämpö) */
+  heating_thermostats?: HeatingThermostat[];
 };
 
 export type HubState = {
@@ -381,6 +396,8 @@ export type HubState = {
   zwave_nodes?: Record<string, ZwaveNodeDetail>;
   /** Sisäinen: edellinen pikamittauksen tallennus (ISO). */
   _last_quick_metrics_at?: string;
+  /** Yellow: termostaattien viimeisin ohjaus (anti short-cycle). */
+  heating_runtime?: Record<string, { last_change_at: string; on: boolean }>;
 };
 
 export type Hub = {

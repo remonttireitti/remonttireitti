@@ -31,6 +31,7 @@ from alykoti_yellow.device_commands import (
     zwave_start_inclusion,
     zwave_stop_inclusion,
 )
+from alykoti_yellow.heating import apply_heating_thermostats
 from alykoti_yellow.automations import get_engine
 from alykoti_yellow.mqtt_lights import fetch_zigbee_home, set_light
 from alykoti_yellow.shelly import (
@@ -505,6 +506,10 @@ def build_state(
     state["automation_events"] = get_engine().get_events()
     state["device_live_events"] = get_engine().get_device_events()
 
+    heating_runtime = cached_hub_state.get("heating_runtime")
+    if isinstance(heating_runtime, dict) and heating_runtime:
+        state["heating_runtime"] = heating_runtime
+
     return state
 
 
@@ -589,6 +594,7 @@ def _process_sync_response(
         log.info("Komennot suoritettu: %s", cmd_count)
     if apply_vent:
         apply_ventilation(response, hub_state if hub_state.get("airfi_online") else None)
+    apply_heating_thermostats(response, hub_state)
     return cmd_count
 
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { renameDeviceItem } from "@/app/actions/devices";
+import { renameDeviceDisplayName, renameDeviceItem } from "@/app/actions/devices";
 
 type Props = {
   deviceId: string;
@@ -10,6 +10,8 @@ type Props = {
   placeholder?: string;
   className?: string;
   onRenamed?: (name: string) => void;
+  /** item = item_names (kanava/endpoint), display = device_overrides.display_name */
+  mode?: "item" | "display";
 };
 
 export function ItemRenameField({
@@ -19,6 +21,7 @@ export function ItemRenameField({
   placeholder = "Nimi",
   className = "",
   onRenamed,
+  mode = "item",
 }: Props) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(currentName);
@@ -52,7 +55,10 @@ export function ItemRenameField({
         e.preventDefault();
         setBusy(true);
         setError(null);
-        void renameDeviceItem(deviceId, itemKey, draft).then((res) => {
+        void (mode === "display"
+          ? renameDeviceDisplayName(deviceId, draft)
+          : renameDeviceItem(deviceId, itemKey, draft)
+        ).then((res) => {
           setBusy(false);
           if (res.error) {
             setError(res.error);
