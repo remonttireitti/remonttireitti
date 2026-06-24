@@ -1,7 +1,11 @@
 import { canPingAirfiFromRuntime } from "@/lib/airfi-runtime";
 import { createAdminClient } from "@/lib/supabase/admin";
+import {
+  clearStaleAirfiReadings,
+  hasAirfiTelemetry,
+  isAirfiTelemetryFresh,
+} from "@/lib/airfi-telemetry";
 import { fetchAirthingsState, mergeAirthingsHubState } from "@/lib/airthings";
-import { hasAirfiTelemetry } from "@/lib/airfi-telemetry";
 import { normalizeAutomationRules } from "@/lib/automation";
 import { repairSaunaShowerMirrorRules } from "@/lib/automation-presets";
 import {
@@ -17,7 +21,7 @@ import { recordEnergySamples } from "@/lib/energy-samples";
 import { normalizeHomeDevices } from "@/lib/device-normalize";
 import { recordHubMetrics, recordQuickMetricSamples } from "@/lib/metric-samples";
 import { activeTimedMode, effectiveControlMode, expireTimedModes, formatRemaining, remainingMs } from "@/lib/mode-schedule";
-import { getCo2Band, getCo2BandLabel, collectVentilationHumidityPct, type AutoFanInputs } from "@/lib/ventilation-logic";
+import { getCo2Band, getCo2BandLabel, collectVentilationHumidityPct, FAN_RAMP_STEP_PCT, type AutoFanInputs } from "@/lib/ventilation-logic";
 import { enrichLtoFromHubState } from "@/lib/lto-efficiency";
 import { normalizeAutomationEvents } from "@/lib/automation-events";
 import { parseHubConfig } from "@/lib/hubs";
@@ -283,6 +287,7 @@ export async function syncDevice(
         const v = incoming[key];
         if (typeof v === "number" && Number.isFinite(v)) {
           (mergedState as Record<string, unknown>)[key] = v;
+          mergedState.airfi_updated_at = new Date().toISOString();
         }
       }
     }
@@ -332,7 +337,7 @@ export async function syncDevice(
   }
 
   const hubReportedAirfi = body.state?.airfi_online;
-  if (hasAirfiTelemetry(mergedState) || hubReportedAirfi === true) {
+  if (hubReportedAirfi === true) {
     mergedState.airfi_online = true;
     mergedState.airfi_updated_at = new Date().toISOString();
   } else if (hubReportedAirfi === false) {
@@ -342,10 +347,19 @@ export async function syncDevice(
       prev.airfi_online === true &&
       prevAt != null &&
       Date.now() - new Date(prevAt).getTime() < 10 * 60_000;
-    mergedState.airfi_online = grace || hasAirfiTelemetry(prev);
-    if (mergedState.airfi_online) {
-      mergedState.airfi_updated_at = new Date().toISOString();
+    if (grace) {
+      mergedState.airfi_online = true;
+      mergedState.airfi_updated_at = prevAt;
+    } else {
+      mergedState.airfi_online = false;
+      clearStaleAirfiReadings(mergedState);
     }
+  } else if (hasAirfiTelemetry(mergedState) && isAirfiTelemetryFresh(mergedState)) {
+    mergedState.airfi_online = true;
+    mergedState.airfi_updated_at = new Date().toISOString();
+  } else if (hubReportedAirfi == null && hasAirfiTelemetry(mergedState)) {
+    // Vanhentunut tila DB:stä — älä näytä onlinea ilman tuoretta synkkiä.
+    mergedState.airfi_online = false;
   }
   const effectiveMode = effectiveControlMode(storedMode, mergedState);
   let dbControlMode = storedMode;
@@ -542,6 +556,17 @@ export async function syncDevice(
     if (ventilationDisplay.direct_control != null) {
       mergedState.direct_control = ventilationDisplay.direct_control;
     }
+  } else if (
+    effectiveMode === "auto" &&
+    mergedState.fan_supply_pct != null &&
+    mergedState.fan_supply_target != null &&
+    Math.abs(mergedState.fan_supply_target - mergedState.fan_supply_pct) > FAN_RAMP_STEP_PCT
+  ) {
+    // Automaattitavoitetta ei voitu laskea — älä näytä vanhentunutta pyyntöä.
+    mergedState.fan_supply_target = mergedState.fan_supply_pct;
+    mergedState.fan_exhaust_target =
+      mergedState.fan_exhaust_pct ?? mergedState.fan_supply_pct;
+    mergedState.fan_speed_target = mergedState.fan_supply_pct;
   } else if (effectiveMode === "manual") {
     const pendingFan = commands.find((c) => c.command === "set_fan_pct");
     if (pendingFan?.payload) {
@@ -574,7 +599,8 @@ export async function syncDevice(
   if (!quick) {
     void recordHubMetrics(hub.id, mergedState, effectiveMode, {
       hub_online: true,
-      airfi_online: mergedState.airfi_online === true,
+      airfi_online:
+        mergedState.airfi_online === true && isAirfiTelemetryFresh(mergedState),
     });
     void recordEnergySamples(hub.id, mergedState.home_devices);
   } else {
@@ -585,7 +611,10 @@ export async function syncDevice(
     const nowMs = Date.now();
     if (nowMs - prevTick >= 15_000) {
       mergedState._last_quick_metrics_at = new Date(nowMs).toISOString();
-      void recordQuickMetricSamples(hub.id, mergedState);
+      void recordQuickMetricSamples(hub.id, mergedState, {
+        hub_online: true,
+        airfi_online: mergedState.airfi_online === true && isAirfiTelemetryFresh(mergedState),
+      });
     }
   }
 

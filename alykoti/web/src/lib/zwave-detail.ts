@@ -1,5 +1,6 @@
 import { parseZwaveDeviceId } from "@/lib/device-protocol";
 import { resolveZwavePropertyLabel } from "@/lib/device-item-overrides";
+import type { DeviceReading } from "@/lib/capabilities";
 import type { HubState, ZwaveNodeDetail, ZwaveNodeEndpoint, ZwaveProperty } from "@/lib/types";
 import { hasCapability, canWrite } from "@/lib/capabilities";
 
@@ -60,6 +61,21 @@ function propertyKey(p: ZwaveProperty): string {
   return `${p.cc}:${p.endpoint}:${p.property ?? ""}`;
 }
 
+function mergeReadings(readingsLists: Array<DeviceReading[] | undefined>): DeviceReading[] {
+  const out: DeviceReading[] = [];
+  const seen = new Set<string>();
+  for (const list of readingsLists) {
+    if (!list?.length) continue;
+    for (const r of list) {
+      const key = `${r.label}:${r.value}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(r);
+    }
+  }
+  return out;
+}
+
 /** One list row per Z-Wave node when multiple endpoints exist. */
 export function groupZwaveDevicesForList<
   T extends {
@@ -69,6 +85,7 @@ export function groupZwaveDevicesForList<
     controllable: boolean;
     capabilitiesLabel?: string;
     readingLabel?: string | null;
+    readings?: DeviceReading[];
     node_id?: number | null;
     endpoint?: number | null;
   },
@@ -104,6 +121,7 @@ export function groupZwaveDevicesForList<
     const baseName =
       base.name.replace(/\s*\([^)]+\)\s*$/i, "").trim() || base.name;
     const controllable = sorted.some((e) => e.controllable);
+    const readings = mergeReadings(sorted.map((e) => e.readings));
     grouped.push({
       ...base,
       id: zwaveNodeId(nodeId),
@@ -111,6 +129,7 @@ export function groupZwaveDevicesForList<
       controllable,
       capabilitiesLabel: controllable ? `${sorted.length} kanavaa` : base.capabilitiesLabel,
       readingLabel: mergeReadingLabels(sorted.map((e) => e.readingLabel)),
+      readings,
     });
   }
 
@@ -187,36 +206,67 @@ export function formatZwavePropertyValue(
   return formatZwaveValue(value);
 }
 
+function zwavePropertyShouldSkip(prop: ZwaveProperty): boolean {
+  const pName = (prop.property ?? "").toLowerCase();
+  return /insidehandles|supporteddoorhandles|supportedmodes|doorstatuscomponent|bolt|latch|timeout/i.test(
+    pName,
+  );
+}
+
+function zwavePropertyFiLabel(prop: ZwaveProperty, resolvedLabel: string): string {
+  const generic = /^(lämpöanturi|jännite in|tulo in|arvo|cc \d+|value|sensor)/i.test(resolvedLabel);
+  if (!generic) return resolvedLabel;
+
+  const p = (prop.property ?? "").toLowerCase();
+  if (p.includes("smoke") || p.includes("fire")) return "Savu";
+  if (p.includes("tamper") || p.includes("cover")) return "Peukalointi";
+  if (p.includes("temperature") || (prop.cc === 49 && !p.includes("humidity") && !p.includes("voltage"))) {
+    return "Lämpötila";
+  }
+  if (p.includes("humidity")) return "Kosteus";
+  if (p.includes("luminance") || p.includes("illuminance")) return "Valoisuus";
+  if (p.includes("motion") || p.includes("intrusion") || p.includes("occupancy")) return "Liike";
+  if (p.includes("water") || p.includes("leak") || p.includes("flood") || p.includes("moisture")) {
+    return "Vesivuoto";
+  }
+  if (p.includes("co") || p.includes("carbon")) return "CO";
+  if (p.includes("door") || p.includes("window") || p.includes("contact")) return "Ovi/ikkuna";
+  if (prop.cc === 128 || p.includes("battery")) return "Akku";
+  if (p.includes("voltage")) return "Jännite";
+  return resolvedLabel;
+}
+
+export function formatZwavePropertyReadings(
+  properties: ZwaveProperty[] | undefined,
+  nodeId: number,
+  overrides?: HubState["device_overrides"],
+): DeviceReading[] {
+  if (!properties?.length) return [];
+  const readings: DeviceReading[] = [];
+  const seen = new Set<string>();
+  for (const prop of properties) {
+    if (zwavePropertyShouldSkip(prop)) continue;
+    const val = formatZwavePropertyValue(prop.value, prop);
+    if (!val || val === "—") continue;
+    const key = propertyKey(prop);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const resolved = resolveZwavePropertyLabel(nodeId, prop, overrides);
+    readings.push({ label: zwavePropertyFiLabel(prop, resolved), value: val });
+  }
+  return readings;
+}
+
 export function formatZwavePropertiesReading(
   properties: ZwaveProperty[] | undefined,
   nodeId: number,
   overrides?: HubState["device_overrides"],
 ): string | null {
-  if (!properties?.length) return null;
-  const parts: string[] = [];
-  const seen = new Set<string>();
-  for (const prop of properties) {
-    const pName = (prop.property ?? "").toLowerCase();
-    if (
-      /insidehandles|supporteddoorhandles|supportedmodes|doorstatuscomponent|bolt|latch|timeout/i.test(
-        pName,
-      )
-    ) {
-      continue;
-    }
-    const val = formatZwavePropertyValue(prop.value, prop);
-    if (!val || val === "—") continue;
-    const label = resolveZwavePropertyLabel(nodeId, prop, overrides);
-    const compact =
-      label && !/^(lämpöanturi|jännite in|tulo in|arvo|cc \d+)/i.test(label)
-        ? `${label}: ${val}`
-        : val;
-    const key = propertyKey(prop);
-    if (seen.has(key)) continue;
-    seen.add(key);
-    parts.push(compact);
-  }
-  return parts.length > 0 ? parts.join(" · ") : null;
+  const readings = formatZwavePropertyReadings(properties, nodeId, overrides);
+  if (readings.length === 0) return null;
+  return readings
+    .map((r) => (/^(lämpöanturi|jännite in|tulo in|arvo|cc \d+)/i.test(r.label) ? r.value : `${r.label}: ${r.value}`))
+    .join(" · ");
 }
 
 /** Flip a Z-Wave property value for binary toggles (bool or 0/1/99/255). */

@@ -331,8 +331,11 @@ export async function setDirectFanPct(
     await client.writeRegister(HOLDING.emergency_stop, 0);
     await client.writeRegister(HOLDING.away_mode, 0);
     if (supply === exhaust) {
+      // Yhdistetty % (h3) — nollaa eroteltu ohjaus (h10/h11), muuten kone voi jäädä vanhaan nopeuteen.
       await client.writeRegister(HOLDING.direct_control_enabled, 0);
       await client.writeRegister(HOLDING.direct_combined_pct, 0);
+      await client.writeRegister(HOLDING.supply_direct_pct, 0);
+      await client.writeRegister(HOLDING.exhaust_direct_pct, 0);
       await client.writeRegister(HOLDING.direct_combined_pct, supply);
       return true;
     }
@@ -404,8 +407,8 @@ function targetsMatch(
   const actualExhaust = airfi.exhaust_fan_pct;
   if (actualSupply == null || actualExhaust == null) return false;
   return (
-    Math.abs(actualSupply - supply) <= FAN_RAMP_STEP_PCT &&
-    Math.abs(actualExhaust - exhaust) <= FAN_RAMP_STEP_PCT
+    Math.abs(actualSupply - supply) < FAN_RAMP_STEP_PCT &&
+    Math.abs(actualExhaust - exhaust) < FAN_RAMP_STEP_PCT
   );
 }
 

@@ -682,10 +682,12 @@ def _write_with_client(
                 if w.isError():
                     log.warning("Modbus fan prep failed reg %s", addr)
             if supply == exhaust:
-                # Yhdistetty % (4x00004) — toimii ilman h2=1 (paikallinen TCP-testi).
+                # Yhdistetty % (4x00004) — nollaa h10/h11, muuten eroteltu tavoite voi lukita nopeuden.
                 for addr, val in (
                     (HOLDING["direct_control_enabled"], 0),
                     (HOLDING["direct_combined_pct"], 0),
+                    (HOLDING["supply_direct_pct"], 0),
+                    (HOLDING["exhaust_direct_pct"], 0),
                 ):
                     w = client.write_register(addr, val, device_id=unit)
                     if w.isError():

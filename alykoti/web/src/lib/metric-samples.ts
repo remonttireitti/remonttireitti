@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { isAirfiTelemetryFresh } from "@/lib/airfi-telemetry";
 import type { HubControlMode, HubState } from "@/lib/types";
 
 export type MetricKind = "numeric" | "categorical";
@@ -85,6 +86,8 @@ export type MetricHistory = {
   rangeLabel: string;
   points: MetricPoint[];
   series?: MetricSeries[];
+  /** Selitys kun mittausdata katkeaa (offline-jakso). */
+  dataGapNote?: string;
   /** Selitys kun tavoite- ja toteutusdata eivät osu päällekkäin */
   seriesGapNote?: string;
   /** Nykyarvo (tuore mittaus, sama lähde kuin IV-näkymä). */
@@ -179,6 +182,35 @@ function downsamplePoints(
     result.push({ t: pick.t, v, text: null });
   }
   return result;
+}
+
+function formatGapTime(iso: string): string {
+  return new Date(iso).toLocaleString("fi-FI", {
+    day: "numeric",
+    month: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+/** Havaitse pitkä aukko mittauksissa — tyypillisesti hub/AirFi offline. */
+function dataGapNote(points: MetricPoint[]): string | undefined {
+  if (points.length < 2) return undefined;
+  let maxGap = 0;
+  let gapAfter = points[0]!.t;
+  for (let i = 1; i < points.length; i++) {
+    const gap =
+      new Date(points[i]!.t).getTime() - new Date(points[i - 1]!.t).getTime();
+    if (gap > maxGap) {
+      maxGap = gap;
+      gapAfter = points[i - 1]!.t;
+    }
+  }
+  if (maxGap < 30 * 60_000) return undefined;
+  const hours = maxGap / 3_600_000;
+  const hLabel =
+    hours >= 1 ? `~${hours.toFixed(1).replace(".0", "")} h` : `~${Math.round(maxGap / 60_000)} min`;
+  return `Mittaus katkesi ${formatGapTime(gapAfter)} jälkeen (aukko ${hLabel}). Hub tai AirFi oli todennäköisesti offline — yhteys palautui vasta myöhemmin.`;
 }
 
 function seriesOverlapNote(
@@ -309,6 +341,7 @@ export function buildMetricSamples(
 export async function recordQuickMetricSamples(
   hubId: string,
   state: HubState,
+  extras?: { hub_online?: boolean; airfi_online?: boolean },
 ): Promise<void> {
   const keys = [
     "fan_supply_pct",
@@ -326,14 +359,31 @@ export async function recordQuickMetricSamples(
     "pm25_ugm3",
     "temperature_c",
   ] as const;
-  const payload = keys
+  const payload: SampleRow[] = keys
     .map((metric) => ({
       hub_id: hubId,
       metric,
       value: num(state[metric]),
       value_text: null,
     }))
-    .filter((row) => row.value != null);
+    .filter((row) => row.value != null) as SampleRow[];
+
+  if (extras?.hub_online != null) {
+    payload.push({
+      hub_id: hubId,
+      metric: "hub_online",
+      value: extras.hub_online ? 1 : 0,
+      value_text: extras.hub_online ? "Online" : "Offline",
+    });
+  }
+  if (extras?.airfi_online != null) {
+    payload.push({
+      hub_id: hubId,
+      metric: "airfi_online",
+      value: extras.airfi_online ? 1 : 0,
+      value_text: extras.airfi_online ? "Online" : "Offline",
+    });
+  }
 
   if (payload.length === 0) return;
 
@@ -420,13 +470,17 @@ export async function fetchMetricHistory(
   const isFan = metric.includes("fan") && !metric.includes("target");
   const useStepSample = isFan || INSTANT_SAMPLE_METRICS.has(metric);
   const livePrimary = liveValueForMetric(metric, liveState);
+  const telemetryFresh = isAirfiTelemetryFresh(liveState);
   const nowIso = new Date().toISOString();
   let primaryPoints = downsamplePoints(
     primaryRaw.filter((p) => p.v != null),
     maxPoints,
     useStepSample,
   );
-  primaryPoints = extendPointsToNow(primaryPoints, livePrimary);
+  const gapNote = dataGapNote(primaryRaw.filter((p) => p.v != null));
+  if (telemetryFresh || !metric.includes("fan")) {
+    primaryPoints = extendPointsToNow(primaryPoints, livePrimary);
+  }
 
   const companionKey = METRIC_COMPANIONS[metric];
   let series: MetricSeries[] | undefined;
@@ -440,7 +494,9 @@ export async function fetchMetricHistory(
       maxPoints,
       true,
     );
-    companionPoints = extendPointsToNow(companionPoints, liveCompanion);
+    if (telemetryFresh || !companionKey.includes("fan")) {
+      companionPoints = extendPointsToNow(companionPoints, liveCompanion);
+    }
     seriesGapNote = seriesOverlapNote(
       primaryPoints.slice(0, -1),
       companionPoints.slice(0, -1),
@@ -465,8 +521,9 @@ export async function fetchMetricHistory(
     rangeLabel: label,
     points: primaryPoints,
     series,
+    dataGapNote: gapNote,
     seriesGapNote,
-    currentValue: livePrimary,
-    currentAt: livePrimary != null ? nowIso : null,
+    currentValue: telemetryFresh || !metric.includes("fan") ? livePrimary : null,
+    currentAt: telemetryFresh || !metric.includes("fan") ? (livePrimary != null ? nowIso : null) : null,
   };
 }

@@ -301,11 +301,12 @@ export function EnergyPanel() {
         <section className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
           <h2 className="text-lg font-semibold text-stone-900">Ei energiamittaria</h2>
           <p className="mt-2 text-sm text-stone-600">
-            Lisää Shelly EM / 3EM -laite{" "}
+            Lisää Shelly EM / 3EM tai sisäisen mittarin omaava kytkin (esim. 1PM){" "}
             <a href="/laitteet/shelly" className="font-medium text-stone-900 underline">
               Shelly-sivulla
             </a>
-            . Mittari näkyy täällä kun Yellow on synkannut laitteen (odota ~30 s).
+            . Mittari näkyy täällä kun Yellow on synkannut laitteen (odota ~30 s synkin jälkeen).
+            Jos laite on jo listalla mutta vain kytkin näkyy, päivitä Yellow Pi -ohjelmisto.
           </p>
         </section>
       ) : (

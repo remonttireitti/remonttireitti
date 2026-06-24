@@ -45,6 +45,7 @@ export async function GET() {
     capabilities: d.capabilities,
     capabilitiesLabel: d.capabilitiesLabel,
     readingLabel: d.readingLabel,
+    readings: d.readings,
     locked: d.locked,
     role: d.role,
     inferredRole: d.inferredRole,

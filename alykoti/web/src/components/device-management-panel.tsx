@@ -19,7 +19,12 @@ import {
 } from "@/lib/device-protocol";
 import { wifiEntityRenameTarget } from "@/lib/device-item-overrides";
 import { kindLabel } from "@/lib/hub-lights";
-import { DEVICE_ROLE_OPTIONS, deviceRoleLabel } from "@/lib/device-roles";
+import {
+  DEVICE_ROLE_OPTIONS,
+  deviceRoleLabel,
+  groupDevicesForListByRole,
+  isLockDevice,
+} from "@/lib/device-roles";
 import type { DeviceRole } from "@/lib/device-roles";
 import { groupZwaveDevicesForList } from "@/lib/zwave-detail";
 import { HOUSE_ROOMS } from "@/lib/rooms";
@@ -55,6 +60,7 @@ type Props = {
   title?: string;
   description?: string;
   groupByProtocol?: boolean;
+  groupByRole?: boolean;
 };
 
 export function DeviceManagementPanel({
@@ -62,6 +68,7 @@ export function DeviceManagementPanel({
   title,
   description,
   groupByProtocol = false,
+  groupByRole = false,
 }: Props) {
   const [data, setData] = useState<DevicesResponse | null>(null);
   const [flash, setFlash] = useState<DeviceActionState | null>(null);
@@ -161,6 +168,11 @@ export function DeviceManagementPanel({
     if (!groupByProtocol) return null;
     return groupIdsByProtocol(allDevices);
   }, [allDevices, groupByProtocol]);
+
+  const roleGrouped = useMemo(() => {
+    if (!groupByRole) return null;
+    return groupDevicesForListByRole(visibleDevices);
+  }, [visibleDevices, groupByRole]);
 
   const anchors = HOUSE_ROOMS;
 
@@ -269,7 +281,43 @@ export function DeviceManagementPanel({
         </section>
       )}
 
-      {grouped ? (
+      {roleGrouped ? (
+        roleGrouped.length === 0 ? (
+          <EmptyDevices onRefresh={() => void load()} pending={pending} />
+        ) : (
+          roleGrouped.map((group) => (
+            <DeviceListSection
+              key={group.key}
+              title={group.title}
+              devices={group.devices}
+              pending={pending}
+              editingId={editingId}
+              editName={editName}
+              editRoom={editRoom}
+              editRole={editRole}
+              onEditStart={(d) => {
+                setEditingId(d.id);
+                setEditName(d.name);
+                setEditRoom(d.room ?? "");
+                setEditRole(d.roleOverride ?? "");
+              }}
+              onEditCancel={() => setEditingId(null)}
+              onEditName={setEditName}
+              onEditRoom={setEditRoom}
+              onEditRole={setEditRole}
+              onSave={(device) => {
+                run(() => saveDeviceEdits(device));
+                setEditingId(null);
+              }}
+              onHide={(id) => run(() => updateDeviceOverride(id, { hidden: true }))}
+              onRefresh={() => void load()}
+              onToggle={toggleDevice}
+              busyId={busyId}
+              effectiveOn={effectiveOn}
+            />
+          ))
+        )
+      ) : grouped ? (
         grouped.length === 0 ? (
           <EmptyDevices onRefresh={() => void load()} pending={pending} />
         ) : (
@@ -373,10 +421,6 @@ function isZwaveNodeAggregate(device: Device): boolean {
     parsed.endpoint === undefined &&
     /\d+\s*kanavaa/.test(device.capabilitiesLabel ?? "")
   );
-}
-
-function isLockDevice(device: Device): boolean {
-  return device.locked != null || device.kind === "lock";
 }
 
 function showPowerToggle(
@@ -498,6 +542,7 @@ function DeviceListSection({
             const on = effectiveOn ? effectiveOn(device) : device.on;
             const busy = busyId === device.id;
             const showControl = showPowerToggle(device, onToggle);
+            const showLockControl = isLockDevice(device) && device.controllable && !!onToggle;
             return (
             <li key={device.id} className="py-3 first:pt-0">
               {editingId === device.id ? (
@@ -608,6 +653,34 @@ function DeviceListSection({
                           }`}
                         >
                           {busy && !on ? "…" : "Pois"}
+                        </button>
+                      </div>
+                    )}
+                    {showLockControl && (
+                      <div className="flex gap-1">
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => onToggle!(device, false)}
+                          className={`rounded-lg border px-4 py-2.5 text-xs font-semibold disabled:opacity-50 md:py-1.5 md:px-3 ${
+                            device.locked === false
+                              ? "border-stone-400 bg-stone-200 text-stone-900 ring-2 ring-stone-400/50"
+                              : "border-stone-300 text-stone-800 hover:bg-stone-50"
+                          }`}
+                        >
+                          {busy && device.locked === false ? "…" : "Avaa"}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => onToggle!(device, true)}
+                          className={`rounded-lg px-4 py-2.5 text-xs font-semibold disabled:opacity-50 md:py-1.5 md:px-3 ${
+                            device.locked === true
+                              ? "bg-stone-800 text-white ring-2 ring-stone-600/40"
+                              : "bg-stone-900 text-white hover:bg-stone-800"
+                          }`}
+                        >
+                          {busy && device.locked === true ? "…" : "Lukitse"}
                         </button>
                       </div>
                     )}

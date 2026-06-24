@@ -114,21 +114,8 @@ export function inferDeviceRole(device: HubLightDevice): DeviceRole {
   }
   if (ids.has("water_leak") || state === "water_leak") return "leak_detector";
   if (ids.has("motion") || ids.has("occupancy") || state === "motion") return "motion";
-  if (ids.has("contact") || state === "contact") return "contact";
 
-  const envOnly =
-    (ids.has("temperature") ||
-      ids.has("humidity") ||
-      ids.has("co2") ||
-      ids.has("tvoc") ||
-      ids.has("pm") ||
-      ids.has("illuminance")) &&
-    !ids.has("switch") &&
-    !ids.has("relay") &&
-    !ids.has("dimmer");
-
-  if (envOnly || (device.kind === "sensor" && !ids.has("button"))) return "sensor";
-
+  // Valot ja ohjattavat kytkimet ennen contactia — Zigbee-himmentimet voivat raportoida contact-ominaisuuden.
   if (device.protocol === "shelly" || device.protocol === "tasmota") {
     if (ids.has("dimmer") || ids.has("color")) return "dimmer";
     return "other_control";
@@ -148,6 +135,21 @@ export function inferDeviceRole(device: HubLightDevice): DeviceRole {
 
   if (ids.has("switch") || ids.has("relay")) return "light_switch";
 
+  if (ids.has("contact") || state === "contact") return "contact";
+
+  const envOnly =
+    (ids.has("temperature") ||
+      ids.has("humidity") ||
+      ids.has("co2") ||
+      ids.has("tvoc") ||
+      ids.has("pm") ||
+      ids.has("illuminance")) &&
+    !ids.has("switch") &&
+    !ids.has("relay") &&
+    !ids.has("dimmer");
+
+  if (envOnly || (device.kind === "sensor" && !ids.has("button"))) return "sensor";
+
   return "other_control";
 }
 
@@ -166,6 +168,91 @@ export function filterDevicesByRoles(
 ): HubLightDevice[] {
   const set = new Set(roles);
   return devices.filter((d) => set.has(resolveDeviceRole(d, overrides?.[d.id])));
+}
+
+export function isLockDevice(device: {
+  kind?: string;
+  locked?: boolean | null;
+  capabilities?: { id: string }[];
+}): boolean {
+  if (device.locked != null || device.kind === "lock") return true;
+  return device.capabilities?.some((c) => c.id === "lock") ?? false;
+}
+
+export type DeviceListSection<T> = {
+  key: string;
+  title: string;
+  devices: T[];
+};
+
+const DEVICE_LIST_SECTION_SPECS: { key: string; title: string; roles: DeviceRole[] }[] = [
+  { key: "lights", title: "Valot", roles: ["light", "dimmer"] },
+  { key: "lightSwitches", title: "Valokytkimet", roles: ["light_switch"] },
+  { key: "fans", title: "Tuulettimet", roles: ["fan"] },
+  { key: "heating", title: "Lämmitys", roles: ["heating"] },
+  { key: "locks", title: "Lukot", roles: [] },
+  { key: "otherControl", title: "Muu ohjaus", roles: ["other_control"] },
+  {
+    key: "security",
+    title: "Turvallisuus",
+    roles: ["contact", "fire_alarm", "leak_detector", "motion"],
+  },
+  { key: "sensors", title: "Anturit", roles: ["sensor"] },
+];
+
+/** Ryhmittele laitehallinnan listalle roolin mukaan (lukot erikseen valoista). */
+export function groupDevicesForListByRole<
+  T extends {
+    id: string;
+    name: string;
+    kind: string;
+    role?: DeviceRole;
+    locked?: boolean | null;
+    capabilities?: { id: string }[];
+  },
+>(devices: T[]): DeviceListSection<T>[] {
+  const buckets = new Map<string, T[]>();
+  for (const spec of DEVICE_LIST_SECTION_SPECS) {
+    buckets.set(spec.key, []);
+  }
+  const unassigned: T[] = [];
+
+  for (const device of devices) {
+    if (isLockDevice(device)) {
+      buckets.get("locks")!.push(device);
+      continue;
+    }
+    const role = device.role ?? "other_control";
+    const spec = DEVICE_LIST_SECTION_SPECS.find(
+      (s) => s.key !== "locks" && s.roles.includes(role),
+    );
+    if (spec) {
+      buckets.get(spec.key)!.push(device);
+    } else {
+      unassigned.push(device);
+    }
+  }
+
+  const sections: DeviceListSection<T>[] = [];
+  for (const spec of DEVICE_LIST_SECTION_SPECS) {
+    const items = buckets.get(spec.key)!;
+    if (items.length === 0) continue;
+    items.sort((a, b) => a.name.localeCompare(b.name, "fi"));
+    sections.push({
+      key: spec.key,
+      title: `${spec.title} (${items.length})`,
+      devices: items,
+    });
+  }
+  if (unassigned.length > 0) {
+    unassigned.sort((a, b) => a.name.localeCompare(b.name, "fi"));
+    sections.push({
+      key: "other",
+      title: `Muut (${unassigned.length})`,
+      devices: unassigned,
+    });
+  }
+  return sections;
 }
 
 export type RoleGroups = {

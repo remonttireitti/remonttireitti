@@ -250,8 +250,11 @@ export function computeAutoFanPct(
 export function smoothRampFanPct(current: number | null | undefined, target: number): number {
   if (current == null || !Number.isFinite(current)) return clampFanPct(target);
   const delta = target - current;
-  if (Math.abs(delta) <= FAN_RAMP_STEP_PCT) return clampFanPct(target);
-  return clampFanPct(current + Math.sign(delta) * FAN_RAMP_STEP_PCT);
+  const gap = Math.abs(delta);
+  if (gap <= FAN_RAMP_STEP_PCT) return clampFanPct(target);
+  // Suuri ero → isompi askel, jotta toteutus ei jää jumiin (synkki ~30 s välein).
+  const step = gap > 20 ? 15 : gap > 10 ? 10 : FAN_RAMP_STEP_PCT;
+  return clampFanPct(current + Math.sign(delta) * step);
 }
 
 export function formatNightWindow(config: VentilationConfig): string {

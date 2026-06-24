@@ -1,4 +1,4 @@
-import { formatCapabilitiesSummary, inferControllable, inferKindFromCapabilities, normalizeCapabilities } from "@/lib/capabilities";
+import { formatCapabilitiesSummary, inferControllable, inferKindFromCapabilities, normalizeCapabilities, type DeviceReading } from "@/lib/capabilities";
 import { mergeZwaveNodeOverrides } from "@/lib/device-item-overrides";
 import { parseZwaveDeviceId } from "@/lib/device-protocol";
 import { hubLightDevicesForZwaveNode, type HubLightDevice } from "@/lib/hub-lights";
@@ -76,6 +76,7 @@ function hubLightFromZwaveEndpoint(
     capabilities,
     capabilitiesLabel: formatCapabilitiesSummary(capabilities),
     readingLabel: null,
+    readings: [],
     temperature_c: null,
     humidity_pct: null,
     co2_ppm: null,
@@ -116,6 +117,15 @@ export function groupHubDevicesToNodeDevice(
     .filter((x): x is string => typeof x === "string" && x.length > 0);
   const readingLabel =
     readingParts.length > 0 ? [...new Set(readingParts)].join(" · ") : base.readingLabel;
+  const readings = sorted.flatMap((e) => e.readings ?? []);
+  const dedupedReadings: DeviceReading[] = [];
+  const seen = new Set<string>();
+  for (const r of readings) {
+    const key = `${r.label}:${r.value}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    dedupedReadings.push(r);
+  }
 
   return {
     ...base,
@@ -125,6 +135,7 @@ export function groupHubDevicesToNodeDevice(
     capabilitiesLabel:
       sorted.length > 1 ? `${sorted.length} kanavaa` : base.capabilitiesLabel,
     readingLabel,
+    readings: dedupedReadings,
     node_id: nodeId,
   };
 }
@@ -184,6 +195,7 @@ function buildStubZwaveDevice(
     capabilities: [],
     capabilitiesLabel: "Z-Wave",
     readingLabel: null,
+    readings: [],
     temperature_c: null,
     humidity_pct: null,
     co2_ppm: null,

@@ -33,6 +33,8 @@ export function VentilationDiagram({ hub, settingsHref }: Props) {
     fan_exhaust_pct: live?.fan_exhaust_pct ?? hub.state.fan_exhaust_pct,
     fan_supply_target: live?.fan_supply_target ?? hub.state.fan_supply_target,
     fan_exhaust_target: live?.fan_exhaust_target ?? hub.state.fan_exhaust_target,
+    airfi_modbus_pause_until:
+      live?.airfi_modbus_pause_until ?? hub.state.airfi_modbus_pause_until,
     lto_temp_efficiency_pct: live?.lto_temp_efficiency_pct ?? hub.state.lto_temp_efficiency_pct,
     lto_energy_efficiency_pct: live?.lto_energy_efficiency_pct ?? hub.state.lto_energy_efficiency_pct,
     lto_bypass_on: live?.lto_bypass_on ?? hub.state.lto_bypass_on,
@@ -78,6 +80,17 @@ export function VentilationDiagram({ hub, settingsHref }: Props) {
     status?.hub.last_seen_label ??
     hubLastSeenLabel(hub.last_seen_at, isHubOnline(hub.last_seen_at));
 
+  const fanTargetGap =
+    s.fan_supply_target != null &&
+    s.fan_supply_pct != null &&
+    Math.abs(s.fan_supply_target - s.fan_supply_pct) > 8
+      ? Math.round(s.fan_supply_target - s.fan_supply_pct)
+      : null;
+  const modbusPauseActive =
+    typeof s.airfi_modbus_pause_until === "string" &&
+    Number.isFinite(Date.parse(s.airfi_modbus_pause_until)) &&
+    Date.now() < Date.parse(s.airfi_modbus_pause_until);
+
   return (
     <>
       {modal}
@@ -113,6 +126,23 @@ export function VentilationDiagram({ hub, settingsHref }: Props) {
                 <span className="mx-2 text-red-300">·</span>
                 {status.message}
               </>
+            )}
+          </div>
+        )}
+        {(fanTargetGap != null || modbusPauseActive) && (
+          <div
+            role="status"
+            className="border-b border-sky-200 bg-sky-50 px-4 py-2.5 text-sm text-sky-950"
+          >
+            {modbusPauseActive ? (
+              <span>
+                Hälytyksen kuittauksen jälkeinen Modbus-tauko — tuuletuskirjoitukset odottavat.
+              </span>
+            ) : (
+              <span>
+                Tuuletin nousee portaittain kohti pyyntöä ({fanTargetGap! > 0 ? "+" : ""}
+                {fanTargetGap} %).
+              </span>
             )}
           </div>
         )}

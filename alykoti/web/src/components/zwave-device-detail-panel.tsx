@@ -11,6 +11,15 @@ import {
   zwaveEndpointItemKey,
   zwavePropertyItemKey,
 } from "@/lib/device-item-overrides";
+import { isLockDevice } from "@/lib/device-roles";
+import {
+  detectIdLockModel,
+  idLockConfigDescription,
+  idLockConfigLabel,
+  idLockConfigOptions,
+  idLockHelpSections,
+  isIdLockDevice,
+} from "@/lib/idlock-150";
 import { kindLabel, type HubLightDevice } from "@/lib/hub-lights";
 import { LAITTEET } from "@/lib/laitteet-paths";
 import type { ZwaveConfigParam, ZwaveNodeDetail, ZwaveNodeEndpoint, ZwaveProperty } from "@/lib/types";
@@ -228,6 +237,10 @@ export function ZwaveDeviceDetailPanel({ deviceIdParam, initial }: Props) {
   const nodeRoom = zwaveNode?.room ?? device.room;
   const nodeId = zwaveNode?.node_id ?? device.node_id;
   const overrideDeviceId = nodeId != null ? zwaveNodeId(nodeId) : device.id;
+  const idLock = isIdLockDevice(device, zwaveNode);
+  const idLockModel = detectIdLockModel(zwaveNode);
+  const lockMode = isLockDevice(device);
+  const helpSections = idLock ? idLockHelpSections(idLockModel) : [];
 
   return (
     <div className="mt-6 space-y-6">
@@ -272,10 +285,40 @@ export function ZwaveDeviceDetailPanel({ deviceIdParam, initial }: Props) {
         <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-900">{flash}</div>
       )}
 
+      {idLock && helpSections.length > 0 && (
+        <section className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
+          <h3 className="text-lg font-semibold text-stone-900">
+            ID Lock {idLockModel} — ohje
+          </h3>
+          <p className="mt-1 text-xs text-stone-500">
+            ID Lock Z-Wave -moduuli (FW 1.6). Kaikki tekstit suomeksi käyttöohjeen mukaan.
+          </p>
+          <div className="mt-4 space-y-3">
+            {helpSections.map((section) => (
+              <details
+                key={section.title}
+                className="rounded-xl border border-stone-100 bg-stone-50 px-4 py-3"
+              >
+                <summary className="cursor-pointer text-sm font-semibold text-stone-900">
+                  {section.title}
+                </summary>
+                <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-stone-700">
+                  {section.body}
+                </p>
+              </details>
+            ))}
+          </div>
+        </section>
+      )}
+
       {controllableEndpoints.length > 0 && (
         <section className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
           <h3 className="text-lg font-semibold text-stone-900">Ohjaus</h3>
-          <p className="mt-1 text-xs text-stone-500">Nimeä jokainen kanava erikseen — nimet näkyvät listassa ja automaatioissa.</p>
+          <p className="mt-1 text-xs text-stone-500">
+            {lockMode
+              ? "Etälukitus ja -avaus Z-Wave-verkon kautta (RF lock / RF unlock)."
+              : "Nimeä jokainen kanava erikseen — nimet näkyvät listassa ja automaatioissa."}
+          </p>
           <div className="mt-4 space-y-4">
             {controllableEndpoints.map((ep) => (
                 <EndpointControl
@@ -283,6 +326,8 @@ export function ZwaveDeviceDetailPanel({ deviceIdParam, initial }: Props) {
                   endpoint={ep}
                   overrideDeviceId={overrideDeviceId}
                   pending={pending}
+                  lockMode={lockMode}
+                  locked={device.locked}
                   onToggle={(on) => controlEndpoint(ep, on)}
                   onRenamed={() => void loadDevice()}
                 />
@@ -342,40 +387,61 @@ export function ZwaveDeviceDetailPanel({ deviceIdParam, initial }: Props) {
 
       {zwaveNode && (zwaveNode.config ?? []).length > 0 && (
         <section className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
-          <h3 className="text-lg font-semibold text-stone-900">Asetukset (Configuration)</h3>
-          <p className="mt-1 text-xs text-stone-500">CC 112 — Z-Wave JS UI -parametrit</p>
+          <h3 className="text-lg font-semibold text-stone-900">
+            {idLock ? "Lukon asetukset" : "Asetukset (Configuration)"}
+          </h3>
+          <p className="mt-1 text-xs text-stone-500">
+            {idLock
+              ? "Z-Wave Configuration (CC 112) — ID Lock 150 käyttöohjeen parametrit 1–9."
+              : "CC 112 — Z-Wave JS UI -parametrit"}
+          </p>
           <ul className="mt-4 space-y-4">
             {(zwaveNode.config ?? []).map((param) => {
+              const fiLabel = idLock ? idLockConfigLabel(param.param) : null;
+              const description = idLock ? idLockConfigDescription(param.param, idLockModel) : null;
               const options =
+                (idLock ? idLockConfigOptions(param.param, idLockModel) : null) ??
                 param.states?.map((s) => ({ label: s.text, value: s.value })) ??
                 configParamOptions(param.param);
               const draft = configDrafts[param.param] ?? String(param.value ?? "");
+              const readOnly = idLock && param.param === 7;
               return (
                 <li key={param.param} className="rounded-xl border border-stone-100 bg-stone-50 p-3">
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <div>
                       <p className="font-medium text-stone-900">
-                        [{nodeId}-112-0-{param.param}]{" "}
-                        <ItemRenameField
-                          deviceId={overrideDeviceId}
-                          itemKey={zwaveConfigItemKey(param.param)}
-                          currentName={param.label}
-                          className="inline-flex"
-                          onRenamed={() => void loadDevice()}
-                        />
+                        Parametri {param.param}
+                        {fiLabel ? ` · ${fiLabel}` : ""}
+                        {!fiLabel && (
+                          <>
+                            {" "}
+                            <ItemRenameField
+                              deviceId={overrideDeviceId}
+                              itemKey={zwaveConfigItemKey(param.param)}
+                              currentName={param.label}
+                              className="inline-flex"
+                              onRenamed={() => void loadDevice()}
+                            />
+                          </>
+                        )}
                       </p>
+                      {description && (
+                        <p className="mt-1 text-xs leading-relaxed text-stone-600">{description}</p>
+                      )}
                       <p className="mt-0.5 font-mono text-[10px] text-stone-400">{param.mqtt_topic}</p>
                     </div>
                     <span className="text-xs text-stone-500">Nykyinen: {formatZwaveValue(param.value)}</span>
                   </div>
                   <div className="mt-3 flex flex-wrap items-end gap-2">
-                    {options ? (
+                    {readOnly ? (
+                      <p className="text-sm text-stone-600">Vain luku — malli tunnistetaan automaattisesti.</p>
+                    ) : options ? (
                       <select
                         value={draft}
                         onChange={(e) =>
                           setConfigDrafts((prev) => ({ ...prev, [param.param]: e.target.value }))
                         }
-                        className="rounded-lg border border-stone-200 px-3 py-2 text-sm"
+                        className="max-w-full rounded-lg border border-stone-200 px-3 py-2 text-sm"
                         disabled={pending}
                       >
                         {options.map((o) => (
@@ -395,14 +461,16 @@ export function ZwaveDeviceDetailPanel({ deviceIdParam, initial }: Props) {
                         disabled={pending}
                       />
                     )}
-                    <button
-                      type="button"
-                      disabled={pending}
-                      onClick={() => saveConfig(param)}
-                      className="rounded-lg bg-stone-900 px-4 py-2 text-sm font-semibold text-white hover:bg-stone-800 disabled:opacity-50"
-                    >
-                      Tallenna
-                    </button>
+                    {!readOnly && (
+                      <button
+                        type="button"
+                        disabled={pending}
+                        onClick={() => saveConfig(param)}
+                        className="rounded-lg bg-stone-900 px-4 py-2 text-sm font-semibold text-white hover:bg-stone-800 disabled:opacity-50"
+                      >
+                        Tallenna
+                      </button>
+                    )}
                   </div>
                 </li>
               );
@@ -466,16 +534,31 @@ function EndpointControl({
   endpoint,
   overrideDeviceId,
   pending,
+  lockMode,
+  locked,
   onToggle,
   onRenamed,
 }: {
   endpoint: ZwaveNodeEndpoint;
   overrideDeviceId: string;
   pending: boolean;
+  lockMode?: boolean;
+  locked?: boolean | null;
   onToggle: (on: boolean) => void;
   onRenamed: () => void;
 }) {
   const canDim = canWrite(endpoint.capabilities ?? [], "dimmer");
+  const stateLabel = lockMode
+    ? locked != null
+      ? locked
+        ? "Lukossa"
+        : "Auki"
+      : endpoint.on
+        ? "Lukossa"
+        : "Auki"
+    : endpoint.on
+      ? "Päällä"
+      : "Pois";
 
   return (
     <div className="rounded-xl border border-stone-100 bg-stone-50 p-4">
@@ -489,16 +572,29 @@ function EndpointControl({
           />
           <p className="text-xs text-stone-500">
             Endpoint {endpoint.endpoint}
-            {endpoint.control_cc ? ` · CC ${endpoint.control_cc}` : ""} · {endpoint.on ? "Päällä" : "Pois"}
+            {endpoint.control_cc ? ` · CC ${endpoint.control_cc}` : ""} · {stateLabel}
           </p>
         </div>
         <div className="flex gap-2">
-          <ControlButton disabled={pending} onClick={() => onToggle(true)}>
-            Päälle
-          </ControlButton>
-          <ControlButton disabled={pending} onClick={() => onToggle(false)}>
-            Pois
-          </ControlButton>
+          {lockMode ? (
+            <>
+              <ControlButton disabled={pending} onClick={() => onToggle(false)}>
+                Avaa
+              </ControlButton>
+              <ControlButton disabled={pending} onClick={() => onToggle(true)}>
+                Lukitse
+              </ControlButton>
+            </>
+          ) : (
+            <>
+              <ControlButton disabled={pending} onClick={() => onToggle(true)}>
+                Päälle
+              </ControlButton>
+              <ControlButton disabled={pending} onClick={() => onToggle(false)}>
+                Pois
+              </ControlButton>
+            </>
+          )}
         </div>
       </div>
       {canDim && endpoint.brightness != null && (

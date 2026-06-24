@@ -381,10 +381,18 @@ def _ventilation_block_reason(state: dict | None) -> str | None:
     return None
 
 
+_last_ventilation_write_at: float = 0.0
+VENTILATION_WRITE_MIN_INTERVAL_SEC = 5.0
+
+
 def apply_ventilation(response: dict, airfi_state: dict | None = None) -> None:
+    global _last_ventilation_write_at
     if not config.AIRFI_WRITES:
         return
     if response.get("control_mode") == "manual":
+        return
+    now = time.monotonic()
+    if now - _last_ventilation_write_at < VENTILATION_WRITE_MIN_INTERVAL_SEC:
         return
     block_state = airfi_state if airfi_state and airfi_state.get("airfi_online") else None
     if block_state is None:
@@ -409,6 +417,7 @@ def apply_ventilation(response: dict, airfi_state: dict | None = None) -> None:
                 known_state=block_state,
             )
             if ok:
+                _last_ventilation_write_at = now
                 log.info("AirFi tuuletus kirjoitettu: tulo %s%% poisto %s%%", supply, exhaust)
             else:
                 log.warning("AirFi tuuletus kirjoitus epäonnistui: %s/%s", supply, exhaust)
@@ -630,7 +639,7 @@ def run_fast_poll_loop() -> None:
                     response,
                     cached_hub_state,
                     update_engine=False,
-                    apply_vent=False,
+                    apply_vent=True,
                 )
         except Exception as exc:
             log.warning("Komentopollaus virhe: %s", exc)

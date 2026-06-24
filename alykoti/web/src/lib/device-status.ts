@@ -57,6 +57,7 @@ export type DeviceStatus = {
     filter_change_per_year: number | null;
     sauna_mode: boolean;
     fireplace_active: boolean;
+    airfi_modbus_pause_until: string | null;
     outdoor_temp_c: number | null;
     exhaust_temp_c: number | null;
     supply_room_temp_c: number | null;

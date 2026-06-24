@@ -3,7 +3,8 @@ import {
   inferControllable,
   inferKindFromCapabilities,
   normalizeCapabilities,
-  sensorReadingLabel,
+  collectDeviceReadings,
+  type DeviceReading,
 } from "@/lib/capabilities";
 import { inferDeviceRole, groupDevicesByRole } from "@/lib/device-roles";
 import type { DeviceRole } from "@/lib/device-roles";
@@ -36,6 +37,7 @@ export type HubLightDevice = {
   capabilities: DeviceCapability[];
   capabilitiesLabel: string;
   readingLabel: string | null;
+  readings: DeviceReading[];
   temperature_c: number | null;
   humidity_pct: number | null;
   co2_ppm: number | null;
@@ -113,6 +115,9 @@ function mapDevice(
   const explicitRoom = o?.room ?? d.room ?? null;
   const inferredRoomLabel = roomLabelForId(inferredRoomAnchorId);
 
+  const itemNames =
+    o?.item_names ?? (zwaveParsed ? allOverrides?.[zwaveNodeId(zwaveParsed.nodeId)]?.item_names : undefined);
+  const readings = collectDeviceReadings(d, itemNames, zwaveParsed?.nodeId, allOverrides);
   const mapped: HubLightDevice = {
     id,
     name: displayName,
@@ -130,12 +135,8 @@ function mapDevice(
     locked: d.locked ?? null,
     capabilities,
     capabilitiesLabel: formatCapabilitiesSummary(capabilities),
-    readingLabel: sensorReadingLabel(
-      d,
-      o?.item_names ?? (zwaveParsed ? allOverrides?.[zwaveNodeId(zwaveParsed.nodeId)]?.item_names : undefined),
-      zwaveParsed?.nodeId,
-      allOverrides,
-    ),
+    readingLabel: readings.length > 0 ? readings.map((r) => `${r.label}: ${r.value}`).join(" · ") : null,
+    readings,
     temperature_c:
       typeof d.temperature_c === "number" && Number.isFinite(d.temperature_c) ? d.temperature_c : null,
     humidity_pct:
@@ -199,7 +200,7 @@ function enrichZwaveReading(
   if (!properties.length) return device;
 
   const nodeOverride = overrides?.[zwaveNodeId(device.node_id)];
-  const readingLabel = sensorReadingLabel(
+  const readings = collectDeviceReadings(
     {
       ...(rawDevice ?? { protocol: "zwave", kind: device.kind, name: device.name }),
       capabilities: device.capabilities,
@@ -209,7 +210,9 @@ function enrichZwaveReading(
     device.node_id,
     overrides,
   );
-  return readingLabel ? { ...device, readingLabel } : device;
+  if (readings.length === 0) return device;
+  const readingLabel = readings.map((r) => `${r.label}: ${r.value}`).join(" · ");
+  return { ...device, readings, readingLabel };
 }
 
 /** Group multi-endpoint Z-Wave nodes and enrich readings from hub MQTT state. */
@@ -249,6 +252,7 @@ export function parseHubHomeDevices(
     capabilities: [{ id: "switch", read: true, write: true }],
     capabilitiesLabel: "Kytkin",
     readingLabel: null,
+    readings: [],
     temperature_c: null,
     humidity_pct: null,
     co2_ppm: null,
@@ -294,6 +298,7 @@ export function parseHubLights(
   | "capabilities"
   | "capabilitiesLabel"
   | "readingLabel"
+  | "readings"
   | "temperature_c"
   | "humidity_pct"
   | "co2_ppm"

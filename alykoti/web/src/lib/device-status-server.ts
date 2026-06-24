@@ -106,6 +106,7 @@ export async function getDeviceStatus(
       filter_change_per_year: state.filter_change_per_year ?? null,
       sauna_mode: state.sauna_mode ?? false,
       fireplace_active: state.fireplace_active ?? false,
+      airfi_modbus_pause_until: state.airfi_modbus_pause_until ?? null,
       outdoor_temp_c: state.outdoor_temp_c ?? null,
       exhaust_temp_c: state.exhaust_temp_c ?? null,
       supply_room_temp_c: state.supply_room_temp_c ?? null,

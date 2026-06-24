@@ -1,4 +1,4 @@
-import { formatZwavePropertiesReading } from "@/lib/zwave-detail";
+import { formatZwavePropertyReadings } from "@/lib/zwave-detail";
 import type { DeviceCapability, DeviceCapabilityId, HubHomeDevice, HubState, ZwaveProperty } from "@/lib/types";
 
 export const CAPABILITY_LABELS: Record<DeviceCapabilityId, string> = {
@@ -184,12 +184,14 @@ export function groupByCapabilities(
 
 const SENSOR_STATE_LABELS: Record<string, string> = {
   water_leak: "Vesivuoto",
-  smoke: "Savu/palo",
+  smoke: "Savu",
   co: "CO-hälytys",
   motion: "Liike",
   contact: "Ovi/ikkuna",
   tamper: "Peukalointi",
 };
+
+export type DeviceReading = { label: string; value: string };
 
 export function sensorStateLabel(state: string | null | undefined): string | null {
   if (!state) return null;
@@ -232,33 +234,37 @@ function hasZwaveScalarCoverage(properties: ZwaveProperty[] | undefined, field: 
   });
 }
 
-export function sensorReadingLabel(
+function pushReading(
+  readings: DeviceReading[],
+  seen: Set<string>,
+  label: string,
+  value: string,
+) {
+  const key = `${label}:${value}`;
+  if (seen.has(key)) return;
+  seen.add(key);
+  readings.push({ label, value });
+}
+
+export function collectDeviceReadings(
   device: HubHomeDevice,
   itemNames?: Record<string, string>,
   zwaveNodeIdNum?: number,
   allOverrides?: HubState["device_overrides"],
   extraProperties?: ZwaveProperty[],
-): string | null {
+): DeviceReading[] {
   const caps = normalizeCapabilities(device.capabilities);
-  const parts: string[] = [];
+  const readings: DeviceReading[] = [];
   const seen = new Set<string>();
-  const add = (value: string) => {
-    const trimmed = value.trim();
-    if (trimmed && !seen.has(trimmed)) {
-      seen.add(trimmed);
-      parts.push(trimmed);
-    }
-  };
-  const named = (key: string, value: string) => {
+  const named = (key: string, defaultLabel: string, value: string) => {
     const custom = itemNames?.[key]?.trim();
-    add(custom ? `${custom}: ${value}` : value);
+    pushReading(readings, seen, custom || defaultLabel, value);
   };
 
   const properties = [...(extraProperties ?? []), ...(device.zwave_properties ?? [])];
   if (properties.length > 0 && zwaveNodeIdNum != null) {
-    const fromProps = formatZwavePropertiesReading(properties, zwaveNodeIdNum, allOverrides);
-    if (fromProps) {
-      for (const part of fromProps.split(" · ")) add(part);
+    for (const r of formatZwavePropertyReadings(properties, zwaveNodeIdNum, allOverrides)) {
+      pushReading(readings, seen, r.label, r.value);
     }
   }
 
@@ -268,7 +274,7 @@ export function sensorReadingLabel(
     hasCapability(caps, "temperature") &&
     !hasZwaveScalarCoverage(properties, "temperature")
   ) {
-    named("reading:temperature", `${device.temperature_c.toFixed(1)} °C`);
+    named("reading:temperature", "Lämpötila", `${device.temperature_c.toFixed(1)} °C`);
   }
   if (
     device.humidity_pct != null &&
@@ -276,7 +282,7 @@ export function sensorReadingLabel(
     hasCapability(caps, "humidity") &&
     !hasZwaveScalarCoverage(properties, "humidity")
   ) {
-    named("reading:humidity", `${Math.round(device.humidity_pct)} %`);
+    named("reading:humidity", "Kosteus", `${Math.round(device.humidity_pct)} %`);
   }
   if (
     device.battery_pct != null &&
@@ -284,7 +290,7 @@ export function sensorReadingLabel(
     hasCapability(caps, "battery") &&
     !hasZwaveScalarCoverage(properties, "battery")
   ) {
-    named("reading:battery", `${Math.round(device.battery_pct)} %`);
+    named("reading:battery", "Akku", `${Math.round(device.battery_pct)} %`);
   }
   if (
     device.voltage_v != null &&
@@ -292,10 +298,10 @@ export function sensorReadingLabel(
     hasCapability(caps, "meter") &&
     !hasZwaveScalarCoverage(properties, "voltage")
   ) {
-    add(`${device.voltage_v.toFixed(1)} V`);
+    pushReading(readings, seen, "Jännite", `${device.voltage_v.toFixed(1)} V`);
   }
   if (device.co2_ppm != null && Number.isFinite(device.co2_ppm) && hasCapability(caps, "co2")) {
-    named("reading:co2", `${Math.round(device.co2_ppm)} ppm CO₂`);
+    named("reading:co2", "CO₂", `${Math.round(device.co2_ppm)} ppm`);
   }
   if (
     device.illuminance_lux != null &&
@@ -303,43 +309,64 @@ export function sensorReadingLabel(
     hasCapability(caps, "illuminance") &&
     !hasZwaveScalarCoverage(properties, "illuminance")
   ) {
-    named("reading:illuminance", `${Math.round(device.illuminance_lux)} lx`);
+    named("reading:illuminance", "Valoisuus", `${Math.round(device.illuminance_lux)} lx`);
   }
   if (device.power_w != null && Number.isFinite(device.power_w) && hasCapability(caps, "energy")) {
-    named("reading:power", `${Math.round(device.power_w)} W`);
+    named("reading:power", "Teho", `${Math.round(device.power_w)} W`);
   }
 
   const alarmInProps = properties.some((p) => p.cc === 48 || p.cc === 113);
   if (device.sensor_state && !alarmInProps) {
-    if (device.sensor_state === "smoke" && hasCapability(caps, "smoke")) {
-      add(formatAlarmReading(device.sensor_state, device.on));
-    } else if (device.sensor_state === "water_leak" && hasCapability(caps, "water_leak")) {
-      add(formatAlarmReading(device.sensor_state, device.on));
-    } else if (device.sensor_state === "co" && hasCapability(caps, "co2")) {
-      add(formatAlarmReading(device.sensor_state, device.on));
-    } else if (device.sensor_state === "motion" && hasCapability(caps, "motion")) {
-      add(formatAlarmReading(device.sensor_state, device.on));
-    } else if (device.sensor_state === "contact" && hasCapability(caps, "contact")) {
-      add(formatAlarmReading(device.sensor_state, device.on));
+    const state = device.sensor_state;
+    if (state === "smoke" && hasCapability(caps, "smoke")) {
+      pushReading(readings, seen, "Savu", formatAlarmReading(state, device.on));
+    } else if (state === "water_leak" && hasCapability(caps, "water_leak")) {
+      pushReading(readings, seen, "Vesivuoto", formatAlarmReading(state, device.on));
+    } else if (state === "co" && hasCapability(caps, "co2")) {
+      pushReading(readings, seen, "CO", formatAlarmReading(state, device.on));
+    } else if (state === "motion" && hasCapability(caps, "motion")) {
+      pushReading(readings, seen, "Liike", formatAlarmReading(state, device.on));
+    } else if (state === "contact" && hasCapability(caps, "contact")) {
+      pushReading(readings, seen, "Ovi/ikkuna", formatAlarmReading(state, device.on));
+    } else if (state === "tamper") {
+      pushReading(readings, seen, "Peukalointi", formatAlarmReading(state, device.on));
     }
   } else if (!device.sensor_state) {
     if (device.on != null && hasCapability(caps, "contact")) {
-      add(device.on ? "Avoin" : "Kiinni");
+      pushReading(readings, seen, "Ovi/ikkuna", device.on ? "Avoin" : "Kiinni");
     } else if (device.on != null && hasCapability(caps, "occupancy")) {
-      add(device.on ? "Paikalla" : "Tyhjä");
+      pushReading(readings, seen, "Paikallaolo", device.on ? "Paikalla" : "Tyhjä");
     } else if (device.on != null && hasCapability(caps, "motion")) {
-      add(device.on ? "Liike" : "Ei liikettä");
+      pushReading(readings, seen, "Liike", device.on ? "Liike" : "Ei liikettä");
     } else if (device.on != null && hasCapability(caps, "input")) {
-      add(device.on ? "Päällä" : "Pois");
+      pushReading(readings, seen, "Tulo", device.on ? "Päällä" : "Pois");
     }
   }
 
   if (device.locked != null && hasCapability(caps, "lock")) {
-    named("reading:locked", device.locked ? "Lukossa" : "Auki");
+    named("reading:locked", "Lukko", device.locked ? "Lukossa" : "Auki");
   }
   if (device.on != null && hasCapability(caps, "switch") && canWrite(caps, "switch")) {
-    named("reading:switch", device.on ? "Päällä" : "Pois");
+    named("reading:switch", "Kytkin", device.on ? "Päällä" : "Pois");
   }
 
-  return parts.length > 0 ? parts.join(" · ") : null;
+  return readings;
+}
+
+export function sensorReadingLabel(
+  device: HubHomeDevice,
+  itemNames?: Record<string, string>,
+  zwaveNodeIdNum?: number,
+  allOverrides?: HubState["device_overrides"],
+  extraProperties?: ZwaveProperty[],
+): string | null {
+  const readings = collectDeviceReadings(
+    device,
+    itemNames,
+    zwaveNodeIdNum,
+    allOverrides,
+    extraProperties,
+  );
+  if (readings.length === 0) return null;
+  return readings.map((r) => `${r.label}: ${r.value}`).join(" · ");
 }

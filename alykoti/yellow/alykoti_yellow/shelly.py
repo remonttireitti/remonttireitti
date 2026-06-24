@@ -141,14 +141,17 @@ def probe_shelly(host: str, timeout: float = 1.5) -> dict[str, Any] | None:
         resp.raise_for_status()
         data = resp.json()
         if isinstance(data, dict) and ("emeters" in data or "meters" in data):
+            has_em = isinstance(data.get("emeters"), list) or isinstance(data.get("meters"), list)
+            relays = data.get("relays")
+            switch_count = len(relays) if isinstance(relays, list) else 0
             return {
                 "host": host,
                 "name": host,
-                "model": "SHEM",
+                "model": "SHEM" if has_em and switch_count == 0 else str(data.get("type") or "Shelly"),
                 "gen": 1,
                 "online": True,
-                "switch_channels": 0,
-                "capabilities": ["em"],
+                "switch_channels": switch_count,
+                "capabilities": ["em"] + (["switch"] if switch_count else []),
             }
     except Exception:
         pass
@@ -302,6 +305,60 @@ def _channel_name(base: str, channel: int, total: int, switch_name: str | None =
     return f"{base} kanava {channel + 1}"
 
 
+def _gen1_add_em_device(
+    out: dict[str, dict[str, Any]],
+    *,
+    host: str,
+    name: str,
+    model: str,
+    meter_rows: list[dict[str, Any]],
+) -> None:
+    if not meter_rows:
+        return
+    total_power = sum(float(e.get("power") or 0) for e in meter_rows if isinstance(e, dict))
+    total_energy = sum(float(e.get("total") or 0) for e in meter_rows if isinstance(e, dict))
+    phases: dict[str, dict[str, Any]] = {}
+    phase_letters = ("a", "b", "c")
+    for idx, em in enumerate(meter_rows):
+        if not isinstance(em, dict) or idx >= len(phase_letters):
+            continue
+        letter = phase_letters[idx]
+        entry: dict[str, Any] = {}
+        power = em.get("power")
+        if isinstance(power, (int, float)):
+            entry["power_w"] = power
+            entry["power_kw"] = round(power / 1000.0, 3)
+        voltage = em.get("voltage")
+        if isinstance(voltage, (int, float)):
+            entry["voltage_v"] = voltage
+        current = em.get("current")
+        if isinstance(current, (int, float)):
+            entry["current_a"] = current
+        pf = em.get("pf")
+        if isinstance(pf, (int, float)):
+            entry["pf"] = pf
+        if entry:
+            phases[letter] = entry
+    out[f"shelly:{host}:em"] = {
+        "protocol": "shelly",
+        "kind": "sensor",
+        "name": name,
+        "controllable": False,
+        "host": host,
+        "channel": 0,
+        "gen": 1,
+        "model": model or None,
+        "power_w": total_power,
+        "power_kw": round(total_power / 1000.0, 3) if total_power else None,
+        "energy_wh": total_energy,
+        "em_phases": phases,
+        "capabilities": [
+            {"id": "energy", "read": True, "write": False},
+            {"id": "meter", "read": True, "write": False},
+        ],
+    }
+
+
 def _gen1_fetch(host: str, name: str, model: str) -> dict[str, dict[str, Any]]:
     out: dict[str, dict[str, Any]] = {}
     try:
@@ -334,52 +391,17 @@ def _gen1_fetch(host: str, name: str, model: str) -> dict[str, dict[str, Any]]:
                     {"id": "switch", "read": True, "write": True},
                 ],
             }
-        return out
 
     emeters = data.get("emeters")
     if isinstance(emeters, list) and emeters:
-        total_power = sum(float(e.get("power") or 0) for e in emeters if isinstance(e, dict))
-        total_energy = sum(float(e.get("total") or 0) for e in emeters if isinstance(e, dict))
-        phases: dict[str, dict[str, Any]] = {}
-        phase_letters = ("a", "b", "c")
-        for idx, em in enumerate(emeters):
-            if not isinstance(em, dict) or idx >= len(phase_letters):
-                continue
-            letter = phase_letters[idx]
-            entry: dict[str, Any] = {}
-            power = em.get("power")
-            if isinstance(power, (int, float)):
-                entry["power_w"] = power
-                entry["power_kw"] = round(power / 1000.0, 3)
-            voltage = em.get("voltage")
-            if isinstance(voltage, (int, float)):
-                entry["voltage_v"] = voltage
-            current = em.get("current")
-            if isinstance(current, (int, float)):
-                entry["current_a"] = current
-            pf = em.get("pf")
-            if isinstance(pf, (int, float)):
-                entry["pf"] = pf
-            if entry:
-                phases[letter] = entry
-        out[f"shelly:{host}:em"] = {
-            "protocol": "shelly",
-            "kind": "sensor",
-            "name": name,
-            "controllable": False,
-            "host": host,
-            "channel": 0,
-            "gen": 1,
-            "model": model or None,
-            "power_w": total_power,
-            "power_kw": round(total_power / 1000.0, 3) if total_power else None,
-            "energy_wh": total_energy,
-            "em_phases": phases,
-            "capabilities": [
-                {"id": "energy", "read": True, "write": False},
-                {"id": "meter", "read": True, "write": False},
-            ],
-        }
+        em_rows = [e for e in emeters if isinstance(e, dict)]
+        _gen1_add_em_device(out, host=host, name=name, model=model, meter_rows=em_rows)
+    else:
+        meters = data.get("meters")
+        if isinstance(meters, list) and meters:
+            meter_rows = [e for e in meters if isinstance(e, dict)]
+            _gen1_add_em_device(out, host=host, name=name, model=model, meter_rows=meter_rows)
+
     return out
 
 
