@@ -699,21 +699,15 @@ def _write_with_client(
                 w = client.write_register(addr, val, device_id=unit)
                 if w.isError():
                     log.warning("Modbus fan prep failed reg %s", addr)
-            if supply == exhaust:
-                # Yhdistetty % (4x00004) — nollaa h10/h11, muuten eroteltu tavoite voi lukita nopeuden.
-                for addr, val in (
-                    (HOLDING["direct_control_enabled"], 0),
-                    (HOLDING["direct_combined_pct"], 0),
-                    (HOLDING["supply_direct_pct"], 0),
-                    (HOLDING["exhaust_direct_pct"], 0),
-                ):
-                    w = client.write_register(addr, val, device_id=unit)
-                    if w.isError():
-                        log.warning("Modbus fan prep failed reg %s", addr)
-                w = client.write_register(HOLDING["direct_combined_pct"], supply, device_id=unit)
+            # Taman IV:n TCP-Modbus hylkaa 4x00004 (yhdistetty %) - ohjaa h2+h10+h11 myos kun tulo==poisto.
+            for addr, val in (
+                (HOLDING["direct_combined_pct"], 0),
+                (HOLDING["supply_direct_pct"], 0),
+                (HOLDING["exhaust_direct_pct"], 0),
+            ):
+                w = client.write_register(addr, val, device_id=unit)
                 if w.isError():
-                    log.warning("Modbus fan write failed: combined pct %s", supply)
-                return not w.isError()
+                    log.warning("Modbus fan prep failed reg %s", addr)
             # Eroteltu tulo/poisto — sama järjestys kuin ESP-hub firmware.
             w2 = client.write_register(HOLDING["direct_control_enabled"], 1, device_id=unit)
             w10 = client.write_register(HOLDING["supply_direct_pct"], supply, device_id=unit)
