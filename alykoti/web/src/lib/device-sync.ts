@@ -19,6 +19,7 @@ import {
 } from "@/lib/airfi";
 import { recordEnergySamples } from "@/lib/energy-samples";
 import { normalizeHomeDevices } from "@/lib/device-normalize";
+import { recordDeviceMetricSamples } from "@/lib/device-metrics";
 import { recordHubMetrics, recordQuickMetricSamples } from "@/lib/metric-samples";
 import { activeTimedMode, effectiveControlMode, expireTimedModes, formatRemaining, remainingMs } from "@/lib/mode-schedule";
 import { getCo2Band, getCo2BandLabel, collectVentilationHumidityPct, FAN_RAMP_STEP_PCT, type AutoFanInputs } from "@/lib/ventilation-logic";
@@ -602,6 +603,11 @@ export async function syncDevice(
       airfi_online:
         mergedState.airfi_online === true && isAirfiTelemetryFresh(mergedState),
     });
+    void recordDeviceMetricSamples(
+      hub.id,
+      mergedState.home_devices,
+      mergedState.device_overrides,
+    );
     void recordEnergySamples(hub.id, mergedState.home_devices);
   } else {
     const prevTick =

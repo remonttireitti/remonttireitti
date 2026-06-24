@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { TrendChart } from "@/components/trend-chart";
+import { StateTimelineChart } from "@/components/state-timeline-chart";
 import type { MetricHistory, MetricPoint, MetricRange } from "@/lib/metric-samples";
 
 const RANGES: { id: MetricRange; label: string }[] = [
@@ -207,19 +208,30 @@ export function TrendModal({ metric, onClose }: Props) {
         )}
 
         {!loading && history && history.points.length > 0 && history.kind === "categorical" && (
-          <ul className="mt-4 max-h-72 space-y-2 overflow-y-auto text-sm">
-            {[...history.points].reverse().map((p, i) => (
-              <li
-                key={`${p.t}-${i}`}
-                className="flex items-center justify-between rounded-lg bg-stone-50 px-3 py-2"
-              >
-                <span className="font-medium text-stone-800">
-                  {p.text ?? (p.v != null ? String(p.v) : "—")}
-                </span>
-                <span className="text-xs text-stone-500">{formatTime(p.t)}</span>
-              </li>
-            ))}
-          </ul>
+          <>
+            {history.points.some((p) => p.v != null) ? (
+              <div className="mt-4">
+                <StateTimelineChart
+                  points={history.points}
+                  rangeStart={history.rangeStart}
+                  rangeEnd={history.rangeEnd}
+                />
+              </div>
+            ) : null}
+            <ul className="mt-4 max-h-72 space-y-2 overflow-y-auto text-sm">
+              {[...history.points].reverse().map((p, i) => (
+                <li
+                  key={`${p.t}-${i}`}
+                  className="flex items-center justify-between rounded-lg bg-stone-50 px-3 py-2"
+                >
+                  <span className="font-medium text-stone-800">
+                    {p.text ?? (p.v != null ? String(p.v) : "—")}
+                  </span>
+                  <span className="text-xs text-stone-500">{formatTime(p.t)}</span>
+                </li>
+              ))}
+            </ul>
+          </>
         )}
       </div>
     </div>

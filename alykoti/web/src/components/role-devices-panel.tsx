@@ -10,6 +10,9 @@ import {
 import type { DeviceReading } from "@/lib/capabilities";
 import { inferProtocolFromId, protocolLabel, type DeviceProtocol } from "@/lib/device-protocol";
 import { kindLabel } from "@/lib/hub-lights";
+import { useMetricTrend } from "@/hooks/use-metric-trend";
+import { TrendTrigger } from "@/components/trend-trigger";
+import { deviceMetricKeyForReading } from "@/lib/device-metrics";
 
 type Device = {
   id: string;
@@ -55,6 +58,7 @@ export function RoleDevicesPanel({ sections, pageTitle, pageDescription }: Props
   const [busyId, setBusyId] = useState<string | null>(null);
   const [optimisticOn, setOptimisticOn] = useState<Record<string, boolean>>({});
   const [flash, setFlash] = useState<string | null>(null);
+  const { showTrend, modal } = useMetricTrend();
 
   const load = useCallback(async () => {
     try {
@@ -135,6 +139,7 @@ export function RoleDevicesPanel({ sections, pageTitle, pageDescription }: Props
 
   return (
     <div className="space-y-6">
+      {modal}
       {(pageTitle || pageDescription) && (
         <div>
           {pageTitle && <h1 className="text-2xl font-bold tracking-tight text-stone-900">{pageTitle}</h1>}
@@ -182,6 +187,7 @@ export function RoleDevicesPanel({ sections, pageTitle, pageDescription }: Props
             effectiveOn={effectiveOn}
             readOnlyHint={section.readOnlyHint}
             sensorMode={section.sensorMode}
+            onShowTrend={showTrend}
           />
         );
       })}
@@ -259,7 +265,13 @@ function secondaryUseHint(device: Device): string | null {
   return secondaryUsesLabel(device.secondaryUses ?? []);
 }
 
-function SensorDeviceCard({ device }: { device: Device }) {
+function SensorDeviceCard({
+  device,
+  onShowTrend,
+}: {
+  device: Device;
+  onShowTrend: (metric: string) => void;
+}) {
   const protocol = inferProtocolFromId(device.id, device.protocol as DeviceProtocol);
   const readings = device.readings ?? [];
   const badge = primarySensorBadge(device);
@@ -293,8 +305,13 @@ function SensorDeviceCard({ device }: { device: Device }) {
               key={`${reading.label}-${idx}`}
               className="rounded-lg border border-stone-200 bg-white px-2.5 py-2"
             >
-              <dt className="text-[10px] font-medium uppercase tracking-wide text-stone-500">
-                {reading.label}
+              <dt className="flex items-center justify-between text-[10px] font-medium uppercase tracking-wide text-stone-500">
+                <span>{reading.label}</span>
+                <TrendTrigger
+                  onClick={() =>
+                    onShowTrend(deviceMetricKeyForReading(device.id, reading.label))
+                  }
+                />
               </dt>
               <dd className="mt-0.5 text-sm font-semibold text-stone-900">{reading.value}</dd>
             </div>
@@ -318,6 +335,7 @@ function DeviceSection({
   effectiveOn,
   readOnlyHint,
   sensorMode,
+  onShowTrend,
 }: {
   title: string;
   empty: string;
@@ -327,6 +345,7 @@ function DeviceSection({
   effectiveOn: (device: Device) => boolean;
   readOnlyHint?: string;
   sensorMode?: boolean;
+  onShowTrend?: (metric: string) => void;
 }) {
   return (
     <section className="rounded-2xl border border-stone-200 bg-white p-4 shadow-sm">
@@ -337,7 +356,7 @@ function DeviceSection({
       ) : sensorMode ? (
         <ul className="mt-4 grid gap-3 sm:grid-cols-2">
           {devices.map((device) => (
-            <SensorDeviceCard key={device.id} device={device} />
+            <SensorDeviceCard key={device.id} device={device} onShowTrend={onShowTrend!} />
           ))}
         </ul>
       ) : (

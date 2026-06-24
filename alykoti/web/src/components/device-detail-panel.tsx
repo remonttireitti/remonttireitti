@@ -18,6 +18,9 @@ import type { ZwaveConfigParam, ZwaveNodeDetail, ZwaveNodeEndpoint, ZwavePropert
 import { configParamOptions, formatZwaveValue, toggleZwaveValue } from "@/lib/zwave-detail";
 import { ItemRenameField } from "@/components/item-rename-field";
 import { useHubCommandStatus } from "@/components/command-status-provider";
+import { useMetricTrend } from "@/hooks/use-metric-trend";
+import { TrendTrigger } from "@/components/trend-trigger";
+import { deviceMetricKey } from "@/lib/device-metrics";
 
 type Props = {
   protocol: "zigbee" | "zwave";
@@ -53,6 +56,7 @@ export function DeviceDetailPanel({ protocol, deviceIdParam }: Props) {
   const [pending, startTransition] = useTransition();
   const [brightness, setBrightness] = useState(50);
   const { trackCommandIds } = useHubCommandStatus();
+  const { showTrend, modal } = useMetricTrend();
 
   const listHref = protocol === "zigbee" ? LAITTEET.zigbee : LAITTEET.zwave;
   const encodedParam = encodeURIComponent(deviceIdParam);
@@ -248,6 +252,7 @@ export function DeviceDetailPanel({ protocol, deviceIdParam }: Props) {
 
   return (
     <div className="mt-6 space-y-6">
+      {modal}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <Link href={listHref} className="text-xs font-medium text-stone-500 hover:text-stone-800">
@@ -518,6 +523,7 @@ export function DeviceDetailPanel({ protocol, deviceIdParam }: Props) {
                 label={itemNames[READING_ITEM_KEYS.temperature] || "Lämpötila"}
                 value={`${device.temperature_c.toFixed(1)} °C`}
                 onRenamed={() => void loadDevice()}
+                onShowTrend={() => showTrend(deviceMetricKey(device.id, "temperature_c"))}
               />
             )}
             {device.humidity_pct != null && (
@@ -527,6 +533,7 @@ export function DeviceDetailPanel({ protocol, deviceIdParam }: Props) {
                 label={itemNames[READING_ITEM_KEYS.humidity] || "Kosteus"}
                 value={`${Math.round(device.humidity_pct)} %`}
                 onRenamed={() => void loadDevice()}
+                onShowTrend={() => showTrend(deviceMetricKey(device.id, "humidity_pct"))}
               />
             )}
             {typeof (device as { battery_pct?: number }).battery_pct === "number" && (
@@ -536,6 +543,7 @@ export function DeviceDetailPanel({ protocol, deviceIdParam }: Props) {
                 label={itemNames[READING_ITEM_KEYS.battery] || "Akku"}
                 value={`${Math.round((device as { battery_pct?: number }).battery_pct!)} %`}
                 onRenamed={() => void loadDevice()}
+                onShowTrend={() => showTrend(deviceMetricKey(device.id, "battery_pct"))}
               />
             )}
             {device.co2_ppm != null && (
@@ -545,6 +553,7 @@ export function DeviceDetailPanel({ protocol, deviceIdParam }: Props) {
                 label={itemNames[READING_ITEM_KEYS.co2] || "CO₂"}
                 value={`${Math.round(device.co2_ppm)} ppm`}
                 onRenamed={() => void loadDevice()}
+                onShowTrend={() => showTrend(deviceMetricKey(device.id, "co2_ppm"))}
               />
             )}
             {device.illuminance_lux != null && (
@@ -554,6 +563,7 @@ export function DeviceDetailPanel({ protocol, deviceIdParam }: Props) {
                 label={itemNames[READING_ITEM_KEYS.illuminance] || "Valoisuus"}
                 value={`${Math.round(device.illuminance_lux)} lx`}
                 onRenamed={() => void loadDevice()}
+                onShowTrend={() => showTrend(deviceMetricKey(device.id, "illuminance_lux"))}
               />
             )}
             {device.power_w != null && (
@@ -563,6 +573,7 @@ export function DeviceDetailPanel({ protocol, deviceIdParam }: Props) {
                 label={itemNames[READING_ITEM_KEYS.power] || "Teho"}
                 value={`${Math.round(device.power_w)} W`}
                 onRenamed={() => void loadDevice()}
+                onShowTrend={() => showTrend(deviceMetricKey(device.id, "power_w"))}
               />
             )}
             {device.readingLabel &&
@@ -702,12 +713,14 @@ function ReadingRow({
   label,
   value,
   onRenamed,
+  onShowTrend,
 }: {
   deviceId: string;
   itemKey: string;
   label: string;
   value: string;
   onRenamed: () => void;
+  onShowTrend?: () => void;
 }) {
   return (
     <li className="flex justify-between gap-4">
@@ -717,7 +730,10 @@ function ReadingRow({
         currentName={label}
         onRenamed={onRenamed}
       />
-      <span className="shrink-0 font-medium">{value}</span>
+      <span className="flex shrink-0 items-center gap-1 font-medium">
+        {value}
+        {onShowTrend && <TrendTrigger onClick={onShowTrend} />}
+      </span>
     </li>
   );
 }

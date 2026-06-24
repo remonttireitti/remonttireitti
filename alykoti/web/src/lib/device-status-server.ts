@@ -11,6 +11,7 @@ import {
   type DeviceStatus,
 } from "@/lib/device-status";
 import { effectiveControlMode, expireTimedModes } from "@/lib/mode-schedule";
+import { recordDeviceMetricSamples } from "@/lib/device-metrics";
 import { recordHubMetrics } from "@/lib/metric-samples";
 import { enrichLtoFromHubState } from "@/lib/lto-efficiency";
 import { fetchPrimaryHub } from "@/lib/hubs";
@@ -70,6 +71,11 @@ export async function getDeviceStatus(
     hub_online: hubOnline,
     airfi_online: airfiConn.online,
   });
+  void recordDeviceMetricSamples(
+    hub.id,
+    hub.state.home_devices,
+    hub.state.device_overrides,
+  );
 
   return {
     hub: hubConn,

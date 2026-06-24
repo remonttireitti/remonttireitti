@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { resolveIndoorAirState } from "@/lib/airthings";
+import { fetchDeviceMetricHistory, isDeviceMetric } from "@/lib/device-metrics";
 import { fetchMetricHistory, type MetricRange } from "@/lib/metric-samples";
 import { fetchPrimaryHub } from "@/lib/hubs";
 import { createClient } from "@/lib/supabase/server";
@@ -35,14 +36,18 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "no_hub" }, { status: 404 });
   }
 
-  const liveState = await resolveIndoorAirState(hub.state as HubState);
+  const hubState = hub.state as HubState;
+  const liveState = await resolveIndoorAirState(hubState);
 
-  const history = await fetchMetricHistory(
-    hub.id,
-    metric,
-    range,
-    liveState,
-  );
+  const history = isDeviceMetric(metric)
+    ? await fetchDeviceMetricHistory(
+        hub.id,
+        metric,
+        range,
+        hubState.home_devices,
+        hubState.device_overrides,
+      )
+    : await fetchMetricHistory(hub.id, metric, range, liveState);
   if (!history) {
     return NextResponse.json({ error: "unknown_metric" }, { status: 400 });
   }

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ElectricityPricePanel } from "@/components/electricity-price-panel";
 import { HomeEnergySection } from "@/components/home-energy-section";
 import { HomeFloorPlan } from "@/components/home-floor-plan";
+import { HomeOverviewStats } from "@/components/home-overview-stats";
 import { fetchElectricityPrices } from "@/lib/electricity-prices";
 import { fetchHubs } from "@/lib/hubs";
 import { isHubOnline } from "@/lib/device-status";
@@ -40,11 +41,7 @@ export default async function OverviewPage() {
 
       <HomeFloorPlan hub={primaryHub} />
 
-      <div className="grid gap-4 sm:grid-cols-3">
-        <StatCard label="Keskusyksiköt" value={String(hubs.length)} />
-        <StatCard label="Online" value={String(online)} />
-        <StatCard label="CO₂ keskiarvo" value={avgCo2 != null ? `${avgCo2} ppm` : "—"} />
-      </div>
+      <HomeOverviewStats hubCount={hubs.length} onlineCount={online} avgCo2={avgCo2} />
 
       {hubs.length === 0 && (
         <div className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
@@ -57,15 +54,6 @@ export default async function OverviewPage() {
           </Link>
         </div>
       )}
-    </div>
-  );
-}
-
-function StatCard({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-2xl border border-stone-200 bg-white p-4 shadow-sm">
-      <p className="text-xs font-medium uppercase tracking-wide text-stone-500">{label}</p>
-      <p className="mt-1 text-2xl font-bold">{value}</p>
     </div>
   );
 }

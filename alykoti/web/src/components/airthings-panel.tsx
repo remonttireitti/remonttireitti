@@ -7,6 +7,8 @@ import {
   type DeviceActionState,
 } from "@/app/actions/integrations";
 import type { AirthingsDeviceConfig } from "@/lib/types";
+import { useMetricTrend } from "@/hooks/use-metric-trend";
+import { TrendTrigger } from "@/components/trend-trigger";
 
 type AvailableDevice = {
   serial: string;
@@ -34,13 +36,13 @@ type AirthingsResponse = {
   hubCo2?: number | null;
 };
 
-function formatReading(reading: LiveDevice["reading"]): string {
-  if (!reading) return "Ei dataa";
-  const parts: string[] = [];
-  if (reading.temperature_c != null) parts.push(`${reading.temperature_c.toFixed(1)} °C`);
-  if (reading.humidity_pct != null) parts.push(`${Math.round(reading.humidity_pct)} %`);
-  if (reading.co2_ppm != null) parts.push(`${Math.round(reading.co2_ppm)} ppm`);
-  return parts.join(" · ") || "Ei dataa";
+function ReadingChip({ label, onTrend }: { label: string; onTrend: () => void }) {
+  return (
+    <span className="inline-flex items-center gap-0.5 rounded-full bg-stone-100 px-2 py-0.5">
+      {label}
+      <TrendTrigger onClick={onTrend} className="!p-0.5" />
+    </span>
+  );
 }
 
 export function AirthingsPanel() {
@@ -48,6 +50,7 @@ export function AirthingsPanel() {
   const [flash, setFlash] = useState<DeviceActionState | null>(null);
   const [selectedSerial, setSelectedSerial] = useState("");
   const [pending, startTransition] = useTransition();
+  const { showTrend, modal } = useMetricTrend();
 
   const load = useCallback(async () => {
     const res = await fetch("/api/integrations/airthings", { cache: "no-store" });
@@ -74,6 +77,7 @@ export function AirthingsPanel() {
 
   return (
     <div className="mt-6 space-y-6">
+      {modal}
       {flash?.ok && (
         <div className="rounded-xl border border-green-200 bg-green-50 p-3 text-sm text-green-900">
           {flash.ok}
@@ -155,8 +159,29 @@ export function AirthingsPanel() {
                 <div>
                   <p className="font-medium text-stone-900">{device.name}</p>
                   <p className="text-xs text-stone-500">
-                    {device.serial} · {formatReading(device.reading)}
+                    {device.serial}
                   </p>
+                  <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-stone-600">
+                    {device.reading?.temperature_c != null && (
+                      <ReadingChip
+                        label={`${device.reading.temperature_c.toFixed(1)} °C`}
+                        onTrend={() => showTrend("temperature_c")}
+                      />
+                    )}
+                    {device.reading?.humidity_pct != null && (
+                      <ReadingChip
+                        label={`${Math.round(device.reading.humidity_pct)} %`}
+                        onTrend={() => showTrend("humidity_pct")}
+                      />
+                    )}
+                    {device.reading?.co2_ppm != null && (
+                      <ReadingChip
+                        label={`${Math.round(device.reading.co2_ppm)} ppm CO₂`}
+                        onTrend={() => showTrend("co2_ppm")}
+                      />
+                    )}
+                    {!device.reading && <span>Ei dataa</span>}
+                  </div>
                   <p className="mt-0.5 text-xs text-stone-400">
                     Ominaisuudet: lämpötila, kosteus, CO₂, TVOC, hiukkaset
                   </p>
@@ -174,8 +199,9 @@ export function AirthingsPanel() {
           </ul>
         )}
         {data?.hubCo2 != null && (
-          <p className="mt-4 text-xs text-stone-500">
+          <p className="mt-4 flex items-center gap-2 text-xs text-stone-500">
             Hubin CO₂ (ilmanvaihto): {Math.round(data.hubCo2)} ppm
+            <TrendTrigger onClick={() => showTrend("co2_ppm")} />
           </p>
         )}
       </section>

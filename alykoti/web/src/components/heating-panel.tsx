@@ -18,6 +18,8 @@ import {
 } from "@/lib/heating-thermostats";
 import type { HubLightDevice } from "@/lib/hub-lights";
 import { HeatingThermostatCard } from "@/components/heating-thermostat-card";
+import { useMetricTrend } from "@/hooks/use-metric-trend";
+import { deviceMetricKey, deviceMetricKeyForReading } from "@/lib/device-metrics";
 import { protocolLabel } from "@/lib/device-protocol";
 
 type HeatingResponse = {
@@ -58,6 +60,7 @@ export function HeatingPanel() {
     actuator_device_id: "",
   });
   const [pending, startTransition] = useTransition();
+  const { showTrend, modal } = useMetricTrend();
 
   const load = useCallback(async () => {
     try {
@@ -123,8 +126,17 @@ export function HeatingPanel() {
     );
   }
 
+  function sensorTempMetric(sensor?: HubLightDevice): string | null {
+    if (!sensor) return null;
+    if (sensor.temperature_c != null) return deviceMetricKey(sensor.id, "temperature_c");
+    const tempReading = sensor.readings?.find((r) => r.value.includes("°C"));
+    if (tempReading) return deviceMetricKeyForReading(sensor.id, tempReading.label);
+    return null;
+  }
+
   return (
     <div className="space-y-6">
+      {modal}
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-stone-900">Lämmitys</h1>
         <p className="mt-2 text-sm text-stone-600">
@@ -173,6 +185,10 @@ export function HeatingPanel() {
                 sensor={deviceById(zone.sensor_device_id)}
                 actuator={deviceById(zone.actuator_device_id)}
                 pending={pending}
+                onShowTrend={() => {
+                  const metric = sensorTempMetric(deviceById(zone.sensor_device_id));
+                  if (metric) showTrend(metric);
+                }}
                 onToggleEnabled={() => run(() => toggleThermostat(zone.id, !zone.enabled))}
                 onSetTarget={(target) => saveZoneTarget(zone, target)}
                 onEdit={() =>
@@ -217,6 +233,13 @@ export function HeatingPanel() {
             {pumpRuntime?.first_demand_at && !pumpActuator.on
               ? " · käynnistysviive käynnissä"
               : ""}
+            <button
+              type="button"
+              onClick={() => showTrend(deviceMetricKey(pumpActuator.id, "state:on"))}
+              className="ml-2 text-xs font-medium text-stone-500 underline-offset-2 hover:text-stone-800 hover:underline"
+            >
+              Trendi
+            </button>
           </p>
         )}
 

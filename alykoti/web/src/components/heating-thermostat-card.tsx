@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import type { HeatingThermostat } from "@/lib/heating-thermostats";
 import type { HubLightDevice } from "@/lib/hub-lights";
+import { TrendTrigger } from "@/components/trend-trigger";
 
 const ARC_MIN_C = 15;
 const ARC_MAX_C = 30;
@@ -52,6 +53,7 @@ type Props = {
   sensor?: HubLightDevice;
   actuator?: HubLightDevice;
   pending?: boolean;
+  onShowTrend?: () => void;
   onToggleEnabled: () => void;
   onSetTarget: (target: number) => void;
   onEdit: () => void;
@@ -63,6 +65,7 @@ export function HeatingThermostatCard({
   sensor,
   actuator,
   pending,
+  onShowTrend,
   onToggleEnabled,
   onSetTarget,
   onEdit,
@@ -184,10 +187,17 @@ export function HeatingThermostatCard({
           />
         </svg>
         <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center pt-2">
-          <p className="text-4xl font-semibold tabular-nums tracking-tight text-stone-900">
-            {current != null ? `${current.toFixed(1)}` : "—"}
-            <span className="ml-0.5 text-2xl font-normal text-stone-600">°C</span>
-          </p>
+          <div className="flex items-center gap-1">
+            <p className="text-4xl font-semibold tabular-nums tracking-tight text-stone-900">
+              {current != null ? `${current.toFixed(1)}` : "—"}
+              <span className="ml-0.5 text-2xl font-normal text-stone-600">°C</span>
+            </p>
+            {onShowTrend && current != null && (
+              <span className="pointer-events-auto">
+                <TrendTrigger onClick={onShowTrend} />
+              </span>
+            )}
+          </div>
           <p className="mt-1 text-sm tabular-nums text-stone-600">
             Tavoite <span className="font-semibold text-stone-800">{target.toFixed(1)}</span> °C
           </p>
