@@ -6,8 +6,9 @@ import {
   findEmMeters,
 } from "@/lib/energy-samples";
 import { isHubOnline } from "@/lib/device-status";
+import { resolveWifiChannelDisplayName } from "@/lib/device-item-overrides";
 import { fetchPrimaryHub } from "@/lib/hubs";
-import type { EnergyPhases } from "@/lib/types";
+import type { EnergyPhases, HubState } from "@/lib/types";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -38,6 +39,8 @@ export async function GET() {
   const meters = findEmMeters(hub.state.home_devices);
   const since = new Date(Date.now() - 8 * 86_400_000);
 
+  const overrides = (hub.state as HubState)?.device_overrides;
+
   const result = await Promise.all(
     meters.map(async ({ id, device }) => {
       const samples = await fetchEnergySamples(hub.id, id, since);
@@ -46,17 +49,20 @@ export async function GET() {
       const powerKw =
         device.power_kw ??
         (powerW != null && Number.isFinite(powerW) ? powerW / 1000 : null);
+      const phases = device.em_phases ?? {};
 
       const live: MeterLive = {
         power_w: powerW,
         power_kw: powerKw,
         energy_wh: liveWh,
-        phases: device.em_phases ?? {},
+        phases,
       };
+
+      const displayName = resolveWifiChannelDisplayName(id, device.name, overrides);
 
       return {
         id,
-        name: device.name,
+        name: displayName,
         host: device.host,
         model: device.model,
         live,

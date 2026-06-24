@@ -6,7 +6,7 @@ import { updateDeviceOverride } from "@/app/actions/devices";
 import { ItemRenameField } from "@/components/item-rename-field";
 import { DEVICE_ROLE_OPTIONS, deviceRoleLabel } from "@/lib/device-roles";
 import type { DeviceRole } from "@/lib/device-roles";
-import { channelItemKey } from "@/lib/device-item-overrides";
+import { channelItemKey, wifiEmItemKey } from "@/lib/device-item-overrides";
 import { kindLabel } from "@/lib/hub-lights";
 import { LAITTEET } from "@/lib/laitteet-paths";
 import { HOUSE_ROOMS } from "@/lib/rooms";
@@ -134,7 +134,7 @@ function WifiChannelRow({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <ItemRenameField
           deviceId={hostOverrideKey}
-          itemKey={channelItemKey(channel.channel)}
+          itemKey={channel.isEm ? wifiEmItemKey() : channelItemKey(channel.channel)}
           currentName={channel.name}
           onRenamed={onRenamed}
         />

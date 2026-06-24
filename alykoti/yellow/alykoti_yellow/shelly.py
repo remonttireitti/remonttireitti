@@ -43,15 +43,23 @@ _EM_ENERGY_KEY = re.compile(r"^em\d*data:\d+$")
 
 def _em_status_components(result: dict[str, Any]) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
     """Shelly.GetStatus: teho em/em1:0:sta, energia emdata/em1data:0:sta."""
-    power: dict[str, Any] | None = None
-    energy: dict[str, Any] | None = None
+    power_candidates: list[tuple[int, str, dict[str, Any]]] = []
+    energy_candidates: list[tuple[int, str, dict[str, Any]]] = []
     for key, val in result.items():
         if not isinstance(val, dict):
             continue
         if _EM_POWER_KEY.fullmatch(key):
-            power = val
+            pri = 0 if key.startswith("em:") else 1
+            power_candidates.append((pri, key, val))
         elif _EM_ENERGY_KEY.fullmatch(key):
-            energy = val
+            pri = 0 if key.startswith("emdata:") else 1
+            energy_candidates.append((pri, key, val))
+    power = (
+        sorted(power_candidates, key=lambda x: (x[0], x[1]))[0][2] if power_candidates else None
+    )
+    energy = (
+        sorted(energy_candidates, key=lambda x: (x[0], x[1]))[0][2] if energy_candidates else None
+    )
     return power, energy
 
 
@@ -73,7 +81,7 @@ def _is_em_only_model(model: str) -> bool:
     m = model.upper()
     if any(x in m for x in ("SPSW", "SNSW", "SHSW", "SHPLG", "SPDM", "DIMMER", "PRO 4", "4PM", "4 PRO")):
         return False
-    return "SPEM" in m or "SHEM" in m or " PRO EM" in f" {m} "
+    return "SPEM" in m or "SHEM" in m or "3EM" in m or " PRO EM" in f" {m} "
 
 
 def _local_subnet_prefix() -> str:
@@ -486,15 +494,21 @@ def fetch_shelly_devices(configured: list[dict[str, Any]]) -> dict[str, dict[str
             }
 
         em_power, em_energy = _em_status_components(result)
-        if (em_power or em_energy) and (_is_em_only_model(model) or not switches or em_energy):
+        if em_power or em_energy:
             phases = _extract_phases(em_power) if em_power else {}
             total_power = em_power.get("total_act_power") if em_power else None
             if total_power is None and em_power and isinstance(em_power.get("act_power"), (int, float)):
                 total_power = em_power.get("act_power")
+            if total_power is None and phases:
+                total_power = sum(
+                    float(p["power_w"])
+                    for p in phases.values()
+                    if isinstance(p.get("power_w"), (int, float))
+                )
             out[f"shelly:{host}:em"] = {
                 "protocol": "shelly",
                 "kind": "sensor",
-                "name": name if not switches else f"{name} EM",
+                "name": name,
                 "controllable": False,
                 "host": host,
                 "channel": 0,

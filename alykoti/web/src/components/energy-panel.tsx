@@ -77,6 +77,12 @@ function totalPowerKw(live: MeterLive): number | null {
   return any ? sum : null;
 }
 
+function fmtW(v: number | null | undefined): string {
+  if (v == null || !Number.isFinite(v)) return "—";
+  if (Math.abs(v) >= 1000) return `${fmtNum(v / 1000, 2)} kW`;
+  return `${fmtNum(v, 0)} W`;
+}
+
 function PhaseTable({ phases }: { phases: EnergyPhases }) {
   const hasAny = PHASES.some((k) => phases[k] != null);
   if (!hasAny) {
@@ -88,14 +94,56 @@ function PhaseTable({ phases }: { phases: EnergyPhases }) {
   }
 
   return (
-    <div className="mt-4 overflow-x-auto">
-      <table className="w-full min-w-[20rem] text-sm">
+    <div className="mt-4">
+      {/* Mobiili: vaihekortit */}
+      <div className="grid gap-3 sm:hidden">
+        {PHASES.map((key) => {
+          const p = phases[key];
+          if (!p) return null;
+          return (
+            <div key={key} className="rounded-xl border border-stone-100 bg-stone-50 p-3">
+              <p className="text-sm font-semibold text-stone-900">{PHASE_LABELS[key]} vaihe</p>
+              <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-sm">
+                <div>
+                  <dt className="text-xs text-stone-500">Teho</dt>
+                  <dd className="tabular-nums font-medium text-stone-800">
+                    {p.power_w != null ? fmtW(p.power_w) : fmtKw(phasePowerKw(p))}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-stone-500">Jännite</dt>
+                  <dd className="tabular-nums font-medium text-stone-800">
+                    {p.voltage_v != null ? `${fmtNum(p.voltage_v, 0)} V` : "—"}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-stone-500">Virta</dt>
+                  <dd className="tabular-nums font-medium text-stone-800">
+                    {p.current_a != null ? `${fmtNum(p.current_a, 2)} A` : "—"}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-stone-500">Tehokerroin</dt>
+                  <dd className="tabular-nums font-medium text-stone-800">
+                    {p.pf != null ? fmtNum(p.pf, 2) : "—"}
+                  </dd>
+                </div>
+              </dl>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Desktop: taulukko */}
+      <div className="mt-0 hidden overflow-x-auto sm:block">
+      <table className="w-full min-w-[24rem] text-sm">
         <thead>
           <tr className="border-b border-stone-100 text-left text-xs text-stone-500">
             <th className="pb-2 pr-4 font-medium">Vaihe</th>
+            <th className="pb-2 pr-4 font-medium">Teho</th>
             <th className="pb-2 pr-4 font-medium">Jännite</th>
             <th className="pb-2 pr-4 font-medium">Virta</th>
-            <th className="pb-2 font-medium">Teho</th>
+            <th className="pb-2 font-medium">PF</th>
           </tr>
         </thead>
         <tbody>
@@ -105,17 +153,23 @@ function PhaseTable({ phases }: { phases: EnergyPhases }) {
               <tr key={key} className="border-b border-stone-50">
                 <td className="py-2 pr-4 font-medium text-stone-800">{PHASE_LABELS[key]}</td>
                 <td className="py-2 pr-4 tabular-nums text-stone-700">
+                  {p?.power_w != null ? fmtW(p.power_w) : fmtKw(phasePowerKw(p))}
+                </td>
+                <td className="py-2 pr-4 tabular-nums text-stone-700">
                   {p?.voltage_v != null ? `${fmtNum(p.voltage_v, 0)} V` : "—"}
                 </td>
                 <td className="py-2 pr-4 tabular-nums text-stone-700">
                   {p?.current_a != null ? `${fmtNum(p.current_a, 2)} A` : "—"}
                 </td>
-                <td className="py-2 tabular-nums text-stone-700">{fmtKw(phasePowerKw(p))}</td>
+                <td className="py-2 tabular-nums text-stone-700">
+                  {p?.pf != null ? fmtNum(p.pf, 2) : "—"}
+                </td>
               </tr>
             );
           })}
         </tbody>
       </table>
+      </div>
     </div>
   );
 }
@@ -247,11 +301,11 @@ export function EnergyPanel() {
         <section className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
           <h2 className="text-lg font-semibold text-stone-900">Ei energiamittaria</h2>
           <p className="mt-2 text-sm text-stone-600">
-            Lisää Shelly EM -laite{" "}
+            Lisää Shelly EM / 3EM -laite{" "}
             <a href="/laitteet/shelly" className="font-medium text-stone-900 underline">
               Shelly-sivulla
             </a>
-            . Mittari näkyy täällä kun Yellow on synkannut laitteen.
+            . Mittari näkyy täällä kun Yellow on synkannut laitteen (odota ~30 s).
           </p>
         </section>
       ) : (

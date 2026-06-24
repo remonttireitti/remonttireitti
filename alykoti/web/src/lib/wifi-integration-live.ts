@@ -1,11 +1,12 @@
 import type { DeviceRole } from "@/lib/device-roles";
 import {
   parseWifiChannelDeviceId,
+  parseWifiEmDeviceId,
   resolveWifiHostDisplayName,
   wifiHostOverrideKey,
 } from "@/lib/device-item-overrides";
 import { parseHubHomeDevices } from "@/lib/hub-lights";
-import type { HubHomeDevice, HubState } from "@/lib/types";
+import type { EnergyPhases, HubHomeDevice, HubState } from "@/lib/types";
 
 function phasePowerW(
   device: HubHomeDevice | undefined,
@@ -28,6 +29,7 @@ export type WifiIntegrationChannelLive = {
   name: string;
   kind: string;
   channel: number;
+  isEm?: boolean;
   role: DeviceRole;
   inferredRole: DeviceRole;
   roleOverride: DeviceRole | null;
@@ -35,7 +37,9 @@ export type WifiIntegrationChannelLive = {
   on: boolean;
   controllable: boolean;
   power_w?: number | null;
+  power_kw?: number | null;
   energy_wh?: number | null;
+  em_phases?: EnergyPhases;
   em_a_power_w?: number | null;
   em_b_power_w?: number | null;
 };
@@ -65,13 +69,15 @@ export function channelsForWifiHost(
   );
   return parseHubHomeDevices(subset, undefined, overrides)
     .map((d) => {
+      const em = parseWifiEmDeviceId(d.id);
       const parsed = parseWifiChannelDeviceId(d.id);
       const raw = home?.[d.id] as HubHomeDevice | undefined;
       return {
         id: d.id,
         name: d.name,
         kind: d.kind,
-        channel: parsed?.channel ?? 0,
+        channel: em ? 99 : (parsed?.channel ?? 0),
+        isEm: !!em,
         role: d.role,
         inferredRole: d.inferredRole,
         roleOverride: d.roleOverride,
@@ -79,12 +85,18 @@ export function channelsForWifiHost(
         on: d.on,
         controllable: d.controllable,
         power_w: raw?.power_w,
+        power_kw: raw?.power_kw ?? null,
         energy_wh: raw?.energy_wh,
+        em_phases: raw?.em_phases,
         em_a_power_w: phasePowerW(raw, "a"),
         em_b_power_w: phasePowerW(raw, "b"),
       };
     })
-    .sort((a, b) => a.channel - b.channel);
+    .sort((a, b) => {
+      if (a.isEm && !b.isEm) return 1;
+      if (!a.isEm && b.isEm) return -1;
+      return a.channel - b.channel;
+    });
 }
 
 export function buildWifiHostLive(

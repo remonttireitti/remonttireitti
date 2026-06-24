@@ -32,14 +32,27 @@ function formatEnergy(wh?: number | null): string | null {
 }
 
 function channelStatus(ch: WifiIntegrationChannelLive): string {
-  if (ch.kind === "sensor") {
-    const parts = [
-      formatPower(ch.power_w),
+  if (ch.isEm || (ch.kind === "sensor" && (ch.em_phases || ch.power_w != null))) {
+    const parts: Array<string | null> = [
+      ch.power_kw != null && Number.isFinite(ch.power_kw)
+        ? `${ch.power_kw.toFixed(2)} kW`
+        : formatPower(ch.power_w),
       formatEnergy(ch.energy_wh),
-      ch.em_a_power_w != null ? `A ${Math.round(ch.em_a_power_w)} W` : null,
-      ch.em_b_power_w != null ? `B ${Math.round(ch.em_b_power_w)} W` : null,
-    ].filter(Boolean);
-    return parts.join(" · ") || "Online";
+    ];
+    const phases = ch.em_phases;
+    if (phases) {
+      const labels = { a: "L1", b: "L2", c: "L3" } as const;
+      for (const key of ["a", "b", "c"] as const) {
+        const p = phases[key];
+        if (p?.power_w != null && Number.isFinite(p.power_w)) {
+          parts.push(`${labels[key]} ${Math.round(p.power_w)} W`);
+        }
+      }
+    }
+    return parts.filter(Boolean).join(" · ") || "Online";
+  }
+  if (ch.kind === "sensor") {
+    return formatPower(ch.power_w) ?? "Online";
   }
   return ch.on ? "Päällä" : "Pois";
 }
