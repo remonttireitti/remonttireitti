@@ -8,6 +8,9 @@ import type {
   EnergyModeration,
   EnergyStatistics,
 } from "@/lib/energy-samples";
+import type { EnergyCostSummary } from "@/lib/energy-cost";
+import { formatEur } from "@/lib/energy-cost";
+import { formatPriceCents } from "@/lib/electricity-prices";
 import type { EnergyPhaseReading, EnergyPhases } from "@/lib/types";
 
 type MeterLive = {
@@ -45,6 +48,7 @@ type EnergyResponse = {
     week: EnergyStatistics;
     month: EnergyStatistics;
   };
+  cost: EnergyCostSummary;
   insights: EnergyInsight[];
   meters: EnergyMeter[];
 };
@@ -243,13 +247,101 @@ function StatTile({ label, value }: { label: string; value: string }) {
   );
 }
 
-function InsightsPanel({ insights }: { insights: EnergyInsight[] }) {
+function InsightsPanel({
+  insights,
+  cost,
+}: {
+  insights: EnergyInsight[];
+  cost: EnergyCostSummary;
+}) {
+  const maxCost = useMemo(() => {
+    const vals = cost.daily.map((d) => d.cost_eur);
+    return vals.length ? Math.max(...vals) : 1;
+  }, [cost.daily]);
+
   return (
     <section className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
       <h2 className="text-lg font-semibold text-stone-900">Älykäs arvio</h2>
       <p className="mt-1 text-xs text-stone-500">
-        Yksinkertainen sääntöpohjainen tulkinta lämpötilan ja kulutuksen yhteydestä.
+        Kulutus, spot-hinta ja arvioitu kustannus (kWh × päivän keskihinta).
       </p>
+
+      {(cost.today_cost_eur != null || cost.week_cost_eur != null) && (
+        <div className="mt-4 grid gap-3 sm:grid-cols-3">
+          <div className="rounded-xl bg-stone-50 px-4 py-3">
+            <p className="text-xs font-medium uppercase tracking-wide text-stone-500">Tänään</p>
+            <p className="mt-1 text-xl font-semibold tabular-nums text-stone-900">
+              {formatEur(cost.today_cost_eur)}
+            </p>
+            {cost.today_kwh != null && (
+              <p className="text-xs text-stone-500">{cost.today_kwh.toFixed(1)} kWh</p>
+            )}
+            {cost.today_vs_yesterday_pct != null && (
+              <p
+                className={`mt-0.5 text-xs font-medium ${
+                  cost.today_vs_yesterday_pct > 0 ? "text-amber-800" : "text-emerald-800"
+                }`}
+              >
+                {cost.today_vs_yesterday_pct > 0 ? "+" : ""}
+                {cost.today_vs_yesterday_pct} % vs eilen
+              </p>
+            )}
+          </div>
+          <div className="rounded-xl bg-stone-50 px-4 py-3">
+            <p className="text-xs font-medium uppercase tracking-wide text-stone-500">7 päivää</p>
+            <p className="mt-1 text-xl font-semibold tabular-nums text-stone-900">
+              {formatEur(cost.week_cost_eur)}
+            </p>
+            {cost.week_vs_prev_pct != null && (
+              <p
+                className={`mt-0.5 text-xs font-medium ${
+                  cost.week_vs_prev_pct > 0 ? "text-amber-800" : "text-emerald-800"
+                }`}
+              >
+                {cost.week_vs_prev_pct > 0 ? "+" : ""}
+                {cost.week_vs_prev_pct} % vs edellinen
+              </p>
+            )}
+          </div>
+          <div className="rounded-xl bg-stone-50 px-4 py-3">
+            <p className="text-xs font-medium uppercase tracking-wide text-stone-500">Spot nyt</p>
+            <p className="mt-1 text-xl font-semibold tabular-nums text-stone-900">
+              {formatPriceCents(cost.current_price_cents)}
+            </p>
+            {cost.today_avg_price_cents != null && (
+              <p className="text-xs text-stone-500">
+                Päivän keski {formatPriceCents(cost.today_avg_price_cents)}
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {cost.daily.length > 1 && (
+        <div className="mt-4">
+          <p className="text-xs font-medium text-stone-600">Päivittäinen kustannus (€)</p>
+          <div className="mt-2 flex h-20 items-end gap-1.5">
+            {cost.daily.map((day) => {
+              const pct = Math.max(8, (day.cost_eur / maxCost) * 100);
+              const isToday = day.label === "Tänään";
+              return (
+                <div key={day.date} className="flex min-w-0 flex-1 flex-col items-center gap-1">
+                  <span className="text-[10px] tabular-nums text-stone-500">
+                    {day.cost_eur.toFixed(2)}
+                  </span>
+                  <div
+                    className={`w-full rounded-t-md ${isToday ? "bg-amber-500" : "bg-stone-300"}`}
+                    style={{ height: `${pct}%` }}
+                    title={`${day.label}: ${day.kwh.toFixed(1)} kWh × ${day.avg_cents_per_kwh.toFixed(1)} c`}
+                  />
+                  <span className="max-w-full truncate text-[10px] text-stone-500">{day.label}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       <ul className="mt-4 space-y-2">
         {insights.map((item, i) => (
           <li
@@ -690,9 +782,9 @@ export function EnergyPanel({
           <SummaryHeader data={data} />
           <div className="grid gap-6 xl:grid-cols-2">
             <TrendPanel data={data} />
-            <InsightsPanel insights={data.insights} />
+            <InsightsPanel insights={data.insights} cost={data.cost} />
           </div>
-          <StatisticsPanel data={data} />
+          {variant === "page" && <StatisticsPanel data={data} />}
 
           {variant === "page" ? (
             <div>

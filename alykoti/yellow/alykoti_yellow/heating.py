@@ -23,10 +23,7 @@ def _parse_iso_ts(value: str) -> float | None:
         return None
 
 
-def _read_temperature(home_devices: dict[str, Any], sensor_id: str) -> float | None:
-    meta = home_devices.get(sensor_id)
-    if not isinstance(meta, dict):
-        return None
+def _temperature_from_device_meta(meta: dict[str, Any]) -> float | None:
     temp = meta.get("temperature_c")
     if isinstance(temp, (int, float)) and float(temp) == float(temp):
         return float(temp)
@@ -44,6 +41,43 @@ def _read_temperature(home_devices: dict[str, Any], sensor_id: str) -> float | N
         if "humidity" in name or "luminance" in name or "co2" in name:
             continue
         return float(value)
+    return None
+
+
+def _zwave_node_id(sensor_id: str) -> int | None:
+    if not sensor_id.startswith("zwave:"):
+        return None
+    parts = sensor_id.split(":")
+    if len(parts) < 2:
+        return None
+    try:
+        return int(parts[1])
+    except (TypeError, ValueError):
+        return None
+
+
+def _read_temperature(home_devices: dict[str, Any], sensor_id: str) -> float | None:
+    meta = home_devices.get(sensor_id)
+    if isinstance(meta, dict):
+        temp = _temperature_from_device_meta(meta)
+        if temp is not None:
+            return temp
+
+    node_id = _zwave_node_id(sensor_id)
+    if node_id is None:
+        return None
+
+    prefix = f"zwave:{node_id}"
+    for device_id, candidate in home_devices.items():
+        if not isinstance(candidate, dict):
+            continue
+        if device_id == sensor_id:
+            continue
+        if device_id != prefix and not device_id.startswith(f"{prefix}:e"):
+            continue
+        temp = _temperature_from_device_meta(candidate)
+        if temp is not None:
+            return temp
     return None
 
 

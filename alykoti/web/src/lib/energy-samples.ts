@@ -420,6 +420,53 @@ export function computeEnergyInsights(
   return insights.slice(0, 3);
 }
 
+export function appendCostInsights(
+  insights: EnergyInsight[],
+  cost: {
+    today_cost_eur: number | null;
+    today_vs_yesterday_pct: number | null;
+    week_cost_eur: number | null;
+    week_vs_prev_pct: number | null;
+    current_price_cents: number | null;
+    today_kwh: number | null;
+  },
+): EnergyInsight[] {
+  const out = [...insights];
+
+  if (cost.today_cost_eur != null && cost.today_kwh != null) {
+    const priceBit =
+      cost.current_price_cents != null
+        ? ` (spot nyt ${cost.current_price_cents.toFixed(1)} c/kWh)`
+        : "";
+    out.unshift({
+      tone: "neutral",
+      text: `Tämän päivän arvioitu sähkölasku ${cost.today_kwh.toFixed(1)} kWh:sta on noin ${cost.today_cost_eur.toFixed(2)} €${priceBit}.`,
+    });
+  }
+
+  if (cost.today_vs_yesterday_pct != null && Math.abs(cost.today_vs_yesterday_pct) >= 8) {
+    out.push({
+      tone: cost.today_vs_yesterday_pct > 0 ? "warning" : "positive",
+      text:
+        cost.today_vs_yesterday_pct > 0
+          ? `Päivän kustannus on ${cost.today_vs_yesterday_pct} % korkeampi kuin eilen (kulutus × spot-hinta).`
+          : `Päivän kustannus on ${Math.abs(cost.today_vs_yesterday_pct)} % alempi kuin eilen.`,
+    });
+  }
+
+  if (cost.week_cost_eur != null && cost.week_vs_prev_pct != null && Math.abs(cost.week_vs_prev_pct) >= 10) {
+    out.push({
+      tone: cost.week_vs_prev_pct > 0 ? "warning" : "positive",
+      text:
+        cost.week_vs_prev_pct > 0
+          ? `Viikon arvioitu kustannus ${cost.week_cost_eur.toFixed(2)} € on ${cost.week_vs_prev_pct} % edellistä viikkoa korkeampi.`
+          : `Viikon arvioitu kustannus ${cost.week_cost_eur.toFixed(2)} € on ${Math.abs(cost.week_vs_prev_pct)} % edellistä viikkoa alempi.`,
+    });
+  }
+
+  return out.slice(0, 4);
+}
+
 export async function fetchDailyTempAverages(
   hubId: string,
   metric: string,

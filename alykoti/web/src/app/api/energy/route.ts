@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import {
   aggregateDailyKwh,
+  appendCostInsights,
   computeDailyKwh,
   computeEnergyInsights,
   computeEnergyStatistics,
@@ -11,6 +12,8 @@ import {
   findEmMeters,
   sumKwhFromDaily,
 } from "@/lib/energy-samples";
+import { computeEnergyCostSummary } from "@/lib/energy-cost";
+import { fetchElectricityPrices } from "@/lib/electricity-prices";
 import { isHubOnline } from "@/lib/device-status";
 import { resolveWifiChannelDisplayName } from "@/lib/device-item-overrides";
 import { fetchPrimaryHub } from "@/lib/hubs";
@@ -116,6 +119,18 @@ export async function GET() {
   const stats7 = computeEnergyStatistics(aggregatedDaily, 7);
   const stats30 = computeEnergyStatistics(aggregatedDaily, 30);
 
+  let prices = null;
+  try {
+    prices = await fetchElectricityPrices();
+  } catch {
+    prices = null;
+  }
+  const cost = computeEnergyCostSummary(aggregatedDaily, prices);
+  const insights = appendCostInsights(
+    computeEnergyInsights(todayKwh, aggregatedDaily, outdoorTemp, indoorTemp),
+    cost,
+  );
+
   const metersForClient = meterResults.map(({ daily30: _d, ...rest }) => rest);
 
   return NextResponse.json({
@@ -136,7 +151,8 @@ export async function GET() {
       week: stats7,
       month: stats30,
     },
-    insights: computeEnergyInsights(todayKwh, aggregatedDaily, outdoorTemp, indoorTemp),
+    cost,
+    insights,
     meters: metersForClient,
   });
 }

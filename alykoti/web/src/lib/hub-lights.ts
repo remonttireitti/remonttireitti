@@ -6,7 +6,13 @@ import {
   collectDeviceReadings,
   type DeviceReading,
 } from "@/lib/capabilities";
-import { inferDeviceRole, groupDevicesByRole, withDeviceRoleContext } from "@/lib/device-roles";
+import {
+  deviceHasTemperatureReading,
+  inferDeviceRole,
+  groupDevicesByRole,
+  SECURITY_PAGE_ROLES,
+  withDeviceRoleContext,
+} from "@/lib/device-roles";
 import type { DeviceRole, DeviceSecondaryUse } from "@/lib/device-roles";
 import { inferProtocolFromId, parseZwaveDeviceId } from "@/lib/device-protocol";
 import {
@@ -227,6 +233,66 @@ function enrichZwaveReading(
   return { ...device, readings, readingLabel, temperature_c };
 }
 
+function temperatureReadingFromDevice(device: HubLightDevice): DeviceReading | null {
+  if (device.temperature_c != null && Number.isFinite(device.temperature_c)) {
+    return { label: "Lämpötila", value: `${device.temperature_c.toFixed(1)} °C` };
+  }
+  return device.readings?.find((r) => r.value.includes("°C")) ?? null;
+}
+
+/** Monikanavaisilla Z-Wave-solmuilla lämpötila voi olla eri endpointilla kuin ikkuna/liike. */
+function inheritZwaveNodeTemperature(devices: HubLightDevice[]): HubLightDevice[] {
+  const byNode = new Map<number, HubLightDevice[]>();
+  for (const device of devices) {
+    if (device.protocol !== "zwave" || device.node_id == null) continue;
+    const list = byNode.get(device.node_id) ?? [];
+    list.push(device);
+    byNode.set(device.node_id, list);
+  }
+  if (byNode.size === 0) return devices;
+
+  const patchById = new Map<string, HubLightDevice>();
+
+  for (const nodeDevices of byNode.values()) {
+    const nodeTemp = nodeDevices.map(temperatureReadingFromDevice).find((r) => r != null);
+    if (!nodeTemp) continue;
+
+    let nodeTemperatureC: number | null = null;
+    for (const sibling of nodeDevices) {
+      if (sibling.temperature_c != null && Number.isFinite(sibling.temperature_c)) {
+        nodeTemperatureC = sibling.temperature_c;
+        break;
+      }
+    }
+    if (nodeTemperatureC == null) {
+      const parsed = Number.parseFloat(nodeTemp.value.replace(/[^\d.-]/g, ""));
+      if (Number.isFinite(parsed)) nodeTemperatureC = parsed;
+    }
+
+    for (const device of nodeDevices) {
+      if (!SECURITY_PAGE_ROLES.includes(device.role)) continue;
+      if (deviceHasTemperatureReading(device)) continue;
+
+      const readings = [...(device.readings ?? [])];
+      if (!readings.some((r) => r.value.includes("°C"))) {
+        readings.push(nodeTemp);
+      }
+      const readingLabel =
+        readings.length > 0 ? readings.map((r) => `${r.label}: ${r.value}`).join(" · ") : device.readingLabel;
+
+      patchById.set(device.id, {
+        ...device,
+        readings,
+        readingLabel,
+        temperature_c: nodeTemperatureC,
+      });
+    }
+  }
+
+  if (patchById.size === 0) return devices;
+  return devices.map((device) => patchById.get(device.id) ?? device);
+}
+
 export type PrepareDevicesOptions = {
   /** Yhdistä monikanavaiset Z-Wave-solmut yhdeksi riviksi (oletus listanäkymissä). */
   groupZwaveEndpoints?: boolean;
@@ -241,8 +307,11 @@ export function prepareDevicesForList(
   options?: PrepareDevicesOptions,
 ): HubLightDevice[] {
   const enriched = devices.map((device) => enrichZwaveReading(device, raw, zwaveNodes, overrides));
+  const withNodeTemperature = inheritZwaveNodeTemperature(enriched);
   const listed =
-    options?.groupZwaveEndpoints === false ? enriched : groupZwaveDevicesForList(enriched);
+    options?.groupZwaveEndpoints === false
+      ? withNodeTemperature
+      : groupZwaveDevicesForList(withNodeTemperature);
   return listed.map((device) => withDeviceRoleContext(device, overrides?.[device.id]));
 }
 

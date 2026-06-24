@@ -1,3 +1,4 @@
+import { deviceHasTemperatureReading } from "@/lib/device-roles";
 import type { HeatingThermostat } from "@/lib/types";
 import type { HubLightDevice } from "@/lib/hub-lights";
 
@@ -56,19 +57,9 @@ export function normalizeHeatingThermostats(raw: unknown): HeatingThermostat[] {
   return out;
 }
 
-function hasCelsiusReading(device: {
-  readingLabel?: string | null;
-  readings?: { value: string }[];
-}): boolean {
-  if (device.readingLabel?.includes("°C")) return true;
-  return device.readings?.some((r) => r.value.includes("°C")) ?? false;
-}
-
 /** Lämpötila-anturi termostaattiin — sis. Smart Implant -kanavat ja turvallisuuslaitteet. */
 export function isTemperatureSensorDevice(device: HubLightDevice): boolean {
-  if (device.temperature_c != null && Number.isFinite(device.temperature_c)) return true;
-  if (device.capabilities?.some((c) => c.id === "temperature")) return true;
-  if (hasCelsiusReading(device)) return true;
+  if (deviceHasTemperatureReading(device)) return true;
   if (device.secondaryUses?.includes("heating_temperature")) return true;
   if (/lämpöanturi|lämpötila|\btemp\b/i.test(device.name)) return true;
   return false;
