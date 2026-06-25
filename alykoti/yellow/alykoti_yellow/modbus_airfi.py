@@ -78,8 +78,8 @@ _sync_cooldown_from_disk()
 
 _modbus_lock = threading.RLock()
 _last_modbus_at: float = 0.0
-MODBUS_REQUEST_GAP_SEC = 0.4
-MODBUS_CONNECT_GAP_SEC = 8.0
+MODBUS_REQUEST_GAP_SEC = float(os.environ.get("AIRFI_MODBUS_DELAY_SEC", "15"))
+MODBUS_CONNECT_GAP_SEC = float(os.environ.get("AIRFI_MODBUS_CONNECT_GAP_SEC", "15"))
 
 
 @dataclass

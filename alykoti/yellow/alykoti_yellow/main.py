@@ -657,15 +657,6 @@ def run_fast_poll_loop() -> None:
     while True:
         try:
             tick += 1
-            if config.AIRFI_ENABLED and tick % 30 == 0:
-                snap = read_airfi(**config.airfi_kwargs(), poll_state=airfi_poll_state)
-                if snap.ok:
-                    with _sync_lock:
-                        cached_hub_state.update(snap.state)
-                        cached_hub_state["airfi_online"] = True
-                        cached_hub_state["airfi_updated_at"] = time.strftime(
-                            "%Y-%m-%dT%H:%M:%SZ", time.gmtime()
-                        )
 
             acks, fails = _drain_pending_feedback()
             snapshot = _airfi_snapshot(cached_hub_state)
