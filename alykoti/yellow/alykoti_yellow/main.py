@@ -71,6 +71,22 @@ airfi_poll_state = AirfiPollState(
 )
 cached_hub_state: dict = {}
 cached_airfi_state: dict = {}
+_cached_airfi_at: float = 0.0
+
+
+def _update_cached_airfi(state: dict) -> None:
+    global _cached_airfi_at
+    cached_airfi_state.clear()
+    cached_airfi_state.update(state)
+    _cached_airfi_at = time.monotonic()
+
+
+def _cached_airfi_for_control() -> dict | None:
+    if not cached_airfi_state:
+        return None
+    if time.monotonic() - _cached_airfi_at > config.AIRFI_CACHE_MAX_AGE_SEC:
+        return None
+    return cached_airfi_state
 
 
 def _queue_ack(cmd_id: str) -> None:
@@ -301,10 +317,12 @@ def execute_command(cmd: dict) -> bool:
         supply = payload.get("supply_pct")
         exhaust = payload.get("exhaust_pct")
         if isinstance(supply, (int, float)) and isinstance(exhaust, (int, float)):
+            airfi_poll_state.reset()
             ok = write_fan_pct(
                 **config.airfi_write_kwargs(),
                 supply=int(supply),
                 exhaust=int(exhaust),
+                known_state=_cached_airfi_for_control(),
             )
             if ok and cmd_id:
                 _queue_ack(cmd_id)
@@ -375,7 +393,7 @@ def execute_command(cmd: dict) -> bool:
 
 
 def _ventilation_block_reason(state: dict | None) -> str | None:
-    if state is None or not state.get("airfi_online"):
+    if state is None:
         return "ei luentaa"
     if airfi_ack_cooldown_active():
         return "kuittauksen jälkeinen tauko"
@@ -430,9 +448,9 @@ def apply_ventilation(response: dict, airfi_state: dict | None = None) -> None:
         return
     if now - _last_ventilation_fail_at < VENTILATION_WRITE_FAIL_BACKOFF_SEC:
         return
-    block_state = airfi_state if airfi_state and airfi_state.get("airfi_online") else None
+    block_state = airfi_state or _cached_airfi_for_control()
     if block_state is None:
-        log.debug("AirFi tuuletus ohitetaan — ei tuoretta luentaa")
+        log.debug("AirFi tuuletus ohitetaan — ei tuoretta eikä välimuistiluentaa")
         return
     reason = _ventilation_block_reason(block_state)
     if reason is not None:
@@ -476,15 +494,10 @@ def build_state(
         airfi_kw = {
             **config.airfi_kwargs(),
             "poll_state": airfi_poll_state,
-            "connect_timeout": 4,
-            "read_timeout": 4,
-            "retry_count": 0,
-            "retry_delay_sec": 0,
         }
         airfi = read_airfi(**airfi_kw)
         if airfi.ok:
-            cached_airfi_state.clear()
-            cached_airfi_state.update(airfi.state)
+            _update_cached_airfi(airfi.state)
             state.update(airfi.state)
         elif cached_airfi_state:
             state.update(cached_airfi_state)
@@ -662,7 +675,8 @@ def _process_sync_response(
     if commands:
         log.info("Komennot suoritettu: %s", cmd_count)
     if apply_vent:
-        apply_ventilation(response, hub_state if hub_state.get("airfi_online") else None)
+        vent_state = hub_state if hub_state.get("airfi_online") else _cached_airfi_for_control()
+        apply_ventilation(response, vent_state)
     apply_heating_thermostats(response, hub_state)
     return cmd_count
 

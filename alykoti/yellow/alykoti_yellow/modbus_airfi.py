@@ -78,7 +78,7 @@ _sync_cooldown_from_disk()
 
 _modbus_lock = threading.RLock()
 _last_modbus_at: float = 0.0
-MODBUS_REQUEST_GAP_SEC = float(os.environ.get("AIRFI_MODBUS_DELAY_SEC", "15"))
+MODBUS_REQUEST_GAP_SEC = float(os.environ.get("AIRFI_MODBUS_DELAY_SEC", "3"))
 MODBUS_CONNECT_GAP_SEC = float(os.environ.get("AIRFI_MODBUS_CONNECT_GAP_SEC", "2"))
 
 
@@ -160,7 +160,7 @@ def _acquire_tcp_client(
         client,
         connect_timeout=max(connect_timeout, 8.0),
         read_timeout=read_timeout,
-        connect_attempts=1,
+        connect_attempts=3,
     ):
         _safe_close(client)
         _last_tcp_drop_at = time.monotonic()
@@ -752,6 +752,20 @@ def read_airfi_serial(
     )
 
 
+def _airfi_transport_paths(
+    host: str | None,
+    serial: str | None,
+) -> list[tuple[str | None, str | None]]:
+    """Järjestys: TCP ensin jos molemmat, muuten mikä on konfiguroitu."""
+    if host and serial:
+        return [(host, None), (None, serial)]
+    if host:
+        return [(host, None)]
+    if serial:
+        return [(None, serial)]
+    return []
+
+
 def read_airfi(
     *,
     host: str | None = None,
@@ -764,36 +778,54 @@ def read_airfi(
     retry_count: int = 0,
     retry_delay_sec: float = 0.5,
     poll_state: AirfiPollState | None = None,
+    force_poll: bool = False,
 ) -> AirfiSnapshot:
-    if poll_state is not None and not poll_state.should_poll() and not host:
+    if poll_state is not None and not force_poll and not poll_state.should_poll():
         return AirfiSnapshot(ok=False, state={"airfi_online": False})
 
     retries = retry_count
     if poll_state is not None and poll_state.retry_aggressive():
         retries = max(retries, 2)
 
-    if host:
-        snap = read_airfi_tcp(
-            host,
-            tcp_port,
-            unit,
-            connect_timeout=connect_timeout,
-            read_timeout=read_timeout,
-            retry_count=retries,
-            retry_delay_sec=retry_delay_sec,
-        )
-    elif serial:
-        snap = read_airfi_serial(
-            serial,
-            baud,
-            unit,
-            read_timeout=read_timeout,
-            retry_count=retries,
-            retry_delay_sec=retry_delay_sec,
-        )
-    else:
-        log.warning("AirFi: ei host eikä serial — aseta AIRFI_MODBUS_HOST")
+    paths = _airfi_transport_paths(host, serial)
+    if not paths:
+        log.warning("AirFi: ei host eikä serial — aseta AIRFI_MODBUS_HOST tai AIRFI_MODBUS_SERIAL")
         snap = AirfiSnapshot(ok=False, state={"airfi_online": False})
+        if poll_state is not None:
+            poll_state.record_result(False)
+        return snap
+
+    snap = AirfiSnapshot(ok=False, state={"airfi_online": False})
+    for path_host, path_serial in paths:
+        label = (
+            f"TCP {path_host}:{tcp_port}"
+            if path_host
+            else f"RTU {path_serial}@{baud}"
+        )
+        log.info("AirFi read: %s", label)
+        if path_host:
+            snap = read_airfi_tcp(
+                path_host,
+                tcp_port,
+                unit,
+                connect_timeout=connect_timeout,
+                read_timeout=read_timeout,
+                retry_count=retries,
+                retry_delay_sec=retry_delay_sec,
+            )
+        else:
+            snap = read_airfi_serial(
+                path_serial,
+                baud,
+                unit,
+                read_timeout=read_timeout,
+                retry_count=retries,
+                retry_delay_sec=retry_delay_sec,
+            )
+        if snap.ok:
+            log.info("AirFi read OK (%s)", label)
+            break
+        log.warning("AirFi read epäonnistui (%s)", label)
 
     if poll_state is not None:
         poll_state.record_result(snap.ok)
@@ -1035,153 +1067,181 @@ def write_fan_pct(
     retry_count: int = 5,
     retry_delay_sec: float = 10.0,
 ) -> bool:
-    """Lue + kirjoita yhdellä Modbus-istunnolla (TCP-silta sallii vain yhden yhteyden)."""
-    is_tcp = bool(host)
+    """Lue + kirjoita yhdellä Modbus-istunnolla. Kokeilee TCP:n jälkeen sarjaa jos molemmat."""
+    paths = _airfi_transport_paths(host, serial)
+    if not paths:
+        log.warning("write_fan_pct: ei host eikä serial")
+        return False
+
     attempts = max(1, retry_count + 1)
-    if is_tcp:
-        read_timeout = max(read_timeout, 12.0)
-        connect_timeout = max(connect_timeout, 6.0)
     with _modbus_lock:
-        for attempt in range(1, attempts + 1):
-            _modbus_pause_locked()
-            serial_client: _ModbusClient | None = None
-            try:
-                if is_tcp:
-                    client = _acquire_tcp_client(
-                        host,
-                        tcp_port,
-                        connect_timeout=connect_timeout,
-                        read_timeout=read_timeout,
-                    )
-                    if client is None:
-                        if attempt < attempts:
-                            log.info(
-                                "write_fan_pct yhteys epäonnistui (%s/%s) — uudelleen %.0fs kuluttua",
-                                attempt,
-                                attempts,
-                                retry_delay_sec,
-                            )
-                            time.sleep(retry_delay_sec)
-                            continue
-                        log.warning("write_fan_pct estetty — yhteys epäonnistui")
-                        return False
-                    guard_ok, block_state = _read_write_guard(client, unit)
-                    if not guard_ok:
-                        _drop_tcp_client()
-                        if attempt < attempts:
-                            log.info(
-                                "write_fan_pct luku epäonnistui (%s/%s) — uudelleen %.0fs kuluttua",
-                                attempt,
-                                attempts,
-                                retry_delay_sec,
-                            )
-                            time.sleep(retry_delay_sec)
-                            continue
-                        log.warning("write_fan_pct estetty — AirFi ei vastaa")
-                        return False
-                else:
-                    serial_client = _open_client(
-                        host=None,
-                        port=tcp_port,
-                        serial=serial,
-                        baud=baud,
-                        read_timeout=read_timeout,
-                    )
-                    client = serial_client
-                    if client is None:
-                        return False
-                    if not (known_state and known_state.get("airfi_online")):
-                        snap = _read_snapshot(
-                            client,
-                            unit,
-                            connect_timeout=connect_timeout,
-                            read_timeout=read_timeout,
-                            is_tcp=False,
+        for path_host, path_serial in paths:
+            is_tcp = bool(path_host)
+            path_read_timeout = max(read_timeout, 12.0) if is_tcp else read_timeout
+            path_connect_timeout = max(connect_timeout, 6.0) if is_tcp else connect_timeout
+            path_label = (
+                f"{path_host}:{tcp_port}" if is_tcp else f"{path_serial}@{baud}"
+            )
+            for attempt in range(1, attempts + 1):
+                _modbus_pause_locked()
+                serial_client: _ModbusClient | None = None
+                try:
+                    if is_tcp:
+                        client = _acquire_tcp_client(
+                            path_host,
+                            tcp_port,
+                            connect_timeout=path_connect_timeout,
+                            read_timeout=path_read_timeout,
                         )
-                        if not snap.ok:
+                        if client is None:
                             if attempt < attempts:
+                                log.info(
+                                    "write_fan_pct yhteys epäonnistui %s (%s/%s)",
+                                    path_label,
+                                    attempt,
+                                    attempts,
+                                )
                                 time.sleep(retry_delay_sec)
                                 continue
-                            log.warning("write_fan_pct estetty — AirFi ei vastaa")
-                            return False
-                        block_state = snap.state
+                            break
+                        guard_ok, block_state = _read_write_guard(client, unit)
+                        if not guard_ok:
+                            _drop_tcp_client()
+                            if known_state and not airfi_machine_blocks_ventilation(known_state):
+                                block_state = known_state
+                                client = _acquire_tcp_client(
+                                    path_host,
+                                    tcp_port,
+                                    connect_timeout=path_connect_timeout,
+                                    read_timeout=path_read_timeout,
+                                )
+                                if client is None:
+                                    if attempt < attempts:
+                                        time.sleep(retry_delay_sec)
+                                        continue
+                                    break
+                            else:
+                                if attempt < attempts:
+                                    log.info(
+                                        "write_fan_pct luku epäonnistui %s (%s/%s)",
+                                        path_label,
+                                        attempt,
+                                        attempts,
+                                    )
+                                    time.sleep(retry_delay_sec)
+                                    continue
+                                break
                     else:
-                        if not client.connect():
-                            if attempt < attempts:
-                                time.sleep(retry_delay_sec)
-                                continue
-                            log.warning("write_fan_pct estetty — yhteys epäonnistui")
-                            return False
-                        block_state = known_state
-
-                if airfi_machine_blocks_ventilation(block_state):
-                    log.warning(
-                        "write_fan_pct estetty — hätäseis/vika (errors=%s emergency=%s)",
-                        block_state.get("airfi_errors"),
-                        block_state.get("emergency_stop"),
-                    )
-                    return False
-
-                ok = _write_fan_registers(
-                    client,
-                    unit,
-                    supply,
-                    exhaust,
-                    known_state=block_state,
-                    is_tcp=is_tcp,
-                )
-                if not ok:
-                    if attempt < attempts:
-                        log.info(
-                            "write_fan_pct kirjoitus epäonnistui (%s/%s) — uudelleen %.0fs kuluttua",
-                            attempt,
-                            attempts,
-                            retry_delay_sec,
+                        serial_client = _open_client(
+                            host=None,
+                            port=tcp_port,
+                            serial=path_serial,
+                            baud=baud,
+                            read_timeout=path_read_timeout,
                         )
-                        time.sleep(retry_delay_sec)
-                        continue
-                    return False
+                        client = serial_client
+                        if client is None:
+                            break
+                        has_cache = bool(
+                            known_state
+                            and (
+                                known_state.get("airfi_online")
+                                or known_state.get("fan_supply_pct") is not None
+                            )
+                        )
+                        if not has_cache:
+                            snap = _read_snapshot(
+                                client,
+                                unit,
+                                connect_timeout=path_connect_timeout,
+                                read_timeout=path_read_timeout,
+                                is_tcp=False,
+                            )
+                            if not snap.ok:
+                                if attempt < attempts:
+                                    time.sleep(retry_delay_sec)
+                                    continue
+                                break
+                            block_state = snap.state
+                        else:
+                            if not client.connect():
+                                if attempt < attempts:
+                                    time.sleep(retry_delay_sec)
+                                    continue
+                                break
+                            block_state = known_state
 
-                verify_ok, verify_state = _verify_fan_write(client, unit, supply, exhaust)
-                if verify_ok:
-                    return True
+                    if airfi_machine_blocks_ventilation(block_state):
+                        log.warning(
+                            "write_fan_pct estetty — hätäseis/vika (errors=%s emergency=%s)",
+                            block_state.get("airfi_errors"),
+                            block_state.get("emergency_stop"),
+                        )
+                        return False
 
-                if verify_state.get("airfi_online") and (
-                    airfi_machine_blocks_ventilation(verify_state)
-                    or airfi_stuck_direct_emergency(verify_state)
-                ):
+                    ok = _write_fan_registers(
+                        client,
+                        unit,
+                        supply,
+                        exhaust,
+                        known_state=block_state,
+                        is_tcp=is_tcp,
+                    )
+                    if not ok:
+                        if attempt < attempts:
+                            log.info(
+                                "write_fan_pct kirjoitus epäonnistui %s (%s/%s)",
+                                path_label,
+                                attempt,
+                                attempts,
+                            )
+                            time.sleep(retry_delay_sec)
+                            continue
+                        break
+
+                    verify_ok, verify_state = _verify_fan_write(client, unit, supply, exhaust)
+                    if verify_ok:
+                        return True
+
+                    if verify_state.get("airfi_online") and (
+                        airfi_machine_blocks_ventilation(verify_state)
+                        or airfi_stuck_direct_emergency(verify_state)
+                    ):
+                        log.warning(
+                            "write_fan_pct hylätty — kone hätäseis/vika tai nopeus 0 (fans=%s/%s emergency=%s)",
+                            verify_state.get("fan_supply_pct"),
+                            verify_state.get("fan_exhaust_pct"),
+                            verify_state.get("emergency_stop"),
+                        )
+                        if is_tcp:
+                            _rollback_tcp_direct(client, unit)
+                        return False
+
                     log.warning(
-                        "write_fan_pct hylätty — kone hätäseis/vika tai nopeus 0 (fans=%s/%s emergency=%s)",
+                        "write_fan_pct ei saavuttanut tavoitetta %s (fans=%s/%s, tavoite=%s/%s)",
+                        path_label,
                         verify_state.get("fan_supply_pct"),
                         verify_state.get("fan_exhaust_pct"),
-                        verify_state.get("emergency_stop"),
+                        supply,
+                        exhaust,
                     )
+                    if attempt < attempts:
+                        time.sleep(retry_delay_sec)
+                        continue
+                    break
+                except Exception as exc:
+                    log.warning("write_fan_pct failed (%s): %s", path_label, exc)
                     if is_tcp:
-                        _rollback_tcp_direct(client, unit)
-                    return False
-
-                log.warning(
-                    "write_fan_pct ei saavuttanut tavoitetta (fans=%s/%s, tavoite=%s/%s)",
-                    verify_state.get("fan_supply_pct"),
-                    verify_state.get("fan_exhaust_pct"),
-                    supply,
-                    exhaust,
-                )
-                if attempt < attempts:
-                    time.sleep(retry_delay_sec)
-                    continue
-                return False
-            except Exception as exc:
-                log.warning("write_fan_pct failed: %s", exc)
-                if is_tcp:
-                    _drop_tcp_client()
-                if attempt < attempts:
-                    time.sleep(retry_delay_sec)
-                    continue
-                return False
-            finally:
-                if serial_client is not None:
-                    _safe_close(serial_client)
+                        _drop_tcp_client()
+                    if attempt < attempts:
+                        time.sleep(retry_delay_sec)
+                        continue
+                    break
+                finally:
+                    if serial_client is not None:
+                        _safe_close(serial_client)
+            log.info("write_fan_pct polku %s epäonnistui — kokeillaan seuraavaa", path_label)
+        log.warning("write_fan_pct estetty — kaikki polut epäonnistuivat")
         return False
 
 
