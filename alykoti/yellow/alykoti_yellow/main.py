@@ -473,14 +473,15 @@ def build_state(
     state: dict = {}
 
     if config.AIRFI_ENABLED:
-        airfi = read_airfi(
+        airfi_kw = {
             **config.airfi_kwargs(),
-            poll_state=airfi_poll_state,
-            connect_timeout=4,
-            read_timeout=4,
-            retry_count=0,
-            retry_delay_sec=0,
-        )
+            "poll_state": airfi_poll_state,
+            "connect_timeout": 4,
+            "read_timeout": 4,
+            "retry_count": 0,
+            "retry_delay_sec": 0,
+        }
+        airfi = read_airfi(**airfi_kw)
         if airfi.ok:
             cached_airfi_state.clear()
             cached_airfi_state.update(airfi.state)
