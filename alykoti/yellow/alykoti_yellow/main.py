@@ -70,6 +70,7 @@ airfi_poll_state = AirfiPollState(
     offline_skip_after=config.AIRFI_OFFLINE_SKIP_AFTER,
 )
 cached_hub_state: dict = {}
+cached_airfi_state: dict = {}
 
 
 def _queue_ack(cmd_id: str) -> None:
@@ -468,11 +469,27 @@ def build_state(
     shelly_discovered: list[dict] | None = None,
     tasmota_discovered: list[dict] | None = None,
 ) -> dict:
+    global cached_airfi_state
     state: dict = {}
 
     if config.AIRFI_ENABLED:
-        airfi = read_airfi(**config.airfi_kwargs(), poll_state=airfi_poll_state)
-        state.update(airfi.state)
+        airfi = read_airfi(
+            **config.airfi_kwargs(),
+            poll_state=airfi_poll_state,
+            connect_timeout=4,
+            read_timeout=4,
+            retry_count=0,
+            retry_delay_sec=0,
+        )
+        if airfi.ok:
+            cached_airfi_state.clear()
+            cached_airfi_state.update(airfi.state)
+            state.update(airfi.state)
+        elif cached_airfi_state:
+            state.update(cached_airfi_state)
+            state["airfi_online"] = False
+        else:
+            state.update(airfi.state)
         pause_until = airfi_writes_pause_until_iso()
         if pause_until:
             state["airfi_modbus_pause_until"] = pause_until

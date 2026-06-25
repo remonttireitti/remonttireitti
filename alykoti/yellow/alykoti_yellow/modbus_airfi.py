@@ -79,7 +79,7 @@ _sync_cooldown_from_disk()
 _modbus_lock = threading.RLock()
 _last_modbus_at: float = 0.0
 MODBUS_REQUEST_GAP_SEC = float(os.environ.get("AIRFI_MODBUS_DELAY_SEC", "15"))
-MODBUS_CONNECT_GAP_SEC = float(os.environ.get("AIRFI_MODBUS_CONNECT_GAP_SEC", "15"))
+MODBUS_CONNECT_GAP_SEC = float(os.environ.get("AIRFI_MODBUS_CONNECT_GAP_SEC", "2"))
 
 
 @dataclass
@@ -160,7 +160,7 @@ def _acquire_tcp_client(
         client,
         connect_timeout=max(connect_timeout, 8.0),
         read_timeout=read_timeout,
-        connect_attempts=3,
+        connect_attempts=1,
     ):
         _safe_close(client)
         _last_tcp_drop_at = time.monotonic()

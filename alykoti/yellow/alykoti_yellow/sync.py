@@ -62,4 +62,4 @@ def quick_pull(
     }
     if failed_commands:
         body["failed_commands"] = failed_commands
-    return _sync_request(url, token, body, timeout=12)
+    return _sync_request(url, token, body, timeout=25)
