@@ -5,6 +5,8 @@ import type { HubHomeDevice } from "@/lib/types";
 export const ENERGY_RETENTION_DAYS = 90;
 const HELSINKI = "Europe/Helsinki";
 const ENERGY_METRIC_PREFIX = "energy_wh:";
+const ENERGY_PRUNE_INTERVAL_MS = 24 * 60 * 60_000;
+const lastEnergyPruneAt = new Map<string, number>();
 
 export type EnergySamplePoint = {
   t: string;
@@ -218,7 +220,12 @@ export async function recordEnergySamples(
     return;
   }
 
-  const cutoff = new Date(Date.now() - ENERGY_RETENTION_DAYS * 86_400_000).toISOString();
+  const lastPrune = lastEnergyPruneAt.get(hubId) ?? 0;
+  const nowMs = Date.now();
+  if (nowMs - lastPrune < ENERGY_PRUNE_INTERVAL_MS) return;
+
+  lastEnergyPruneAt.set(hubId, nowMs);
+  const cutoff = new Date(nowMs - ENERGY_RETENTION_DAYS * 86_400_000).toISOString();
   await supabase
     .from("hub_metric_samples")
     .delete()

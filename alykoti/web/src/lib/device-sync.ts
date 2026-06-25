@@ -20,7 +20,8 @@ import {
 import { recordEnergySamples } from "@/lib/energy-samples";
 import { normalizeHomeDevices } from "@/lib/device-normalize";
 import { recordDeviceMetricSamples } from "@/lib/device-metrics";
-import { recordHubMetrics, recordQuickMetricSamples } from "@/lib/metric-samples";
+import { hubMetricsEnabled } from "@/lib/hub-metrics-config";
+import { recordHubMetrics } from "@/lib/metric-samples";
 import { activeTimedMode, effectiveControlMode, expireTimedModes, formatRemaining, remainingMs } from "@/lib/mode-schedule";
 import { getCo2Band, getCo2BandLabel, collectVentilationHumidityPct, FAN_RAMP_STEP_PCT, type AutoFanInputs } from "@/lib/ventilation-logic";
 import { enrichLtoFromHubState } from "@/lib/lto-efficiency";
@@ -118,13 +119,349 @@ function buildSyncDisplay(
   };
 }
 
-export async function syncDevice(
+const AIRFI_TEMP_KEYS = [
+  "outdoor_temp_c",
+  "exhaust_temp_c",
+  "supply_room_temp_c",
+  "exhaust_hru_temp_c",
+] as const;
+
+const AIRFI_FAN_KEYS = ["fan_supply_pct", "fan_exhaust_pct", "lto_temp_efficiency_pct"] as const;
+
+const AIRFI_STATUS_KEYS = [
+  "airfi_errors",
+  "airfi_error_raw",
+  "freezing_alarm",
+  "machine_fault",
+  "fan_speed_level",
+  "temp_setpoint_c",
+  "filter_change_per_year",
+  "sauna_mode",
+  "lto_bypass_on",
+  "forced_control",
+  "emergency_stop",
+  "airfi_modbus_pause_until",
+  "humidity_pct",
+  "fault",
+] as const;
+
+function airfiFingerprint(state: HubState): string {
+  const pick: Record<string, unknown> = {};
+  for (const key of [...AIRFI_TEMP_KEYS, ...AIRFI_FAN_KEYS, ...AIRFI_STATUS_KEYS]) {
+    if (key in state) pick[key] = (state as Record<string, unknown>)[key];
+  }
+  if ("airfi_online" in state) pick.airfi_online = state.airfi_online;
+  if ("airfi_updated_at" in state) pick.airfi_updated_at = state.airfi_updated_at;
+  return JSON.stringify(pick);
+}
+
+function patchAirfiState(prev: HubState, incoming: HubState | undefined): { state: HubState; changed: boolean } {
+  const mergedState = { ...prev };
+
+  if (incoming && typeof incoming === "object" && "airfi_online" in incoming) {
+    const src = incoming as Record<string, unknown>;
+    for (const key of AIRFI_TEMP_KEYS) {
+      if (key in src) {
+        const v = src[key];
+        (mergedState as Record<string, unknown>)[key] =
+          typeof v === "number" && Number.isFinite(v) ? v : null;
+      }
+    }
+    for (const key of AIRFI_FAN_KEYS) {
+      if (key in src) {
+        const v = src[key];
+        if (typeof v === "number" && Number.isFinite(v)) {
+          (mergedState as Record<string, unknown>)[key] = v;
+          mergedState.airfi_updated_at = new Date().toISOString();
+        }
+      }
+    }
+    for (const key of AIRFI_STATUS_KEYS) {
+      if (!(key in src)) continue;
+      const v = src[key];
+      if (key === "airfi_errors" && Array.isArray(v)) {
+        mergedState.airfi_errors = v.filter((c) => typeof c === "string");
+        continue;
+      }
+      if (key === "airfi_error_raw") {
+        mergedState.airfi_error_raw =
+          typeof v === "number" && Number.isFinite(v) ? v : null;
+        continue;
+      }
+      if (key === "fan_speed_level" || key === "forced_control" || key === "filter_change_per_year") {
+        (mergedState as Record<string, unknown>)[key] =
+          typeof v === "number" && Number.isFinite(v) ? v : null;
+        continue;
+      }
+      if (key === "temp_setpoint_c") {
+        mergedState.temp_setpoint_c =
+          typeof v === "number" && Number.isFinite(v) ? v : null;
+        continue;
+      }
+      if (key === "airfi_modbus_pause_until") {
+        mergedState.airfi_modbus_pause_until =
+          typeof v === "string" && v.trim() ? v.trim() : undefined;
+        continue;
+      }
+      if (
+        key === "freezing_alarm" ||
+        key === "machine_fault" ||
+        key === "sauna_mode" ||
+        key === "lto_bypass_on" ||
+        key === "emergency_stop" ||
+        key === "fault"
+      ) {
+        (mergedState as Record<string, unknown>)[key] = v === true;
+        continue;
+      }
+      if (key === "humidity_pct") {
+        mergedState.humidity_pct =
+          typeof v === "number" && Number.isFinite(v) ? v : null;
+      }
+    }
+  }
+
+  const hubReportedAirfi = incoming?.airfi_online;
+  if (hubReportedAirfi === true) {
+    mergedState.airfi_online = true;
+    mergedState.airfi_updated_at = new Date().toISOString();
+  } else if (hubReportedAirfi === false) {
+    const prevAt = prev.airfi_updated_at;
+    const grace =
+      prev.airfi_online === true &&
+      prevAt != null &&
+      Date.now() - new Date(prevAt).getTime() < 3 * 60_000;
+    if (grace) {
+      mergedState.airfi_online = true;
+      mergedState.airfi_updated_at = prevAt;
+    } else {
+      mergedState.airfi_online = false;
+      clearStaleAirfiReadings(mergedState);
+    }
+  } else if (hasAirfiTelemetry(mergedState) && isAirfiTelemetryFresh(mergedState)) {
+    mergedState.airfi_online = true;
+    mergedState.airfi_updated_at = new Date().toISOString();
+  } else if (hubReportedAirfi == null && hasAirfiTelemetry(mergedState)) {
+    mergedState.airfi_online = false;
+  }
+
+  return {
+    state: mergedState,
+    changed: airfiFingerprint(prev) !== airfiFingerprint(mergedState),
+  };
+}
+
+async function syncDeviceQuick(
+  deviceToken: string,
+  _body: DeviceSyncRequest,
+): Promise<DeviceSyncResponse | null> {
+  const supabase = createAdminClient();
+
+  const { data: hub, error: lookupError } = await supabase
+    .from("hubs")
+    .select("id, control_mode, config")
+    .eq("device_token", deviceToken)
+    .maybeSingle();
+
+  if (lookupError || !hub) return null;
+
+  const now = new Date().toISOString();
+
+  const [{ data: pendingCommands }, { error: seenError }] = await Promise.all([
+    supabase
+      .from("commands")
+      .select("id, command, payload")
+      .eq("hub_id", hub.id)
+      .eq("status", "pending")
+      .order("created_at", { ascending: true })
+      .limit(10),
+    supabase.from("hubs").update({ last_seen_at: now }).eq("id", hub.id),
+  ]);
+
+  if (seenError) {
+    console.warn("[sync] quick last_seen epäonnistui:", seenError.message);
+  }
+
+  const hubCommands: DeviceSyncResponse["commands"] = (pendingCommands ?? []).map(
+    (cmd) => ({
+      id: cmd.id,
+      command: cmd.command,
+      payload: (cmd.payload ?? {}) as Record<string, unknown>,
+    }),
+  );
+
+  if (hubCommands.length > 0) {
+    const deliveredIds = hubCommands.map((c) => c.id);
+    await supabase
+      .from("commands")
+      .update({ status: "delivered", delivered_at: now })
+      .eq("hub_id", hub.id)
+      .in("id", deliveredIds)
+      .eq("status", "pending");
+  }
+
+  return {
+    control_mode: hub.control_mode as HubControlMode,
+    config: parseHubConfig(hub.config),
+    commands: hubCommands,
+  };
+}
+
+/** Vercel: ei lueta hubs.state — Yellow on totuus, yksi kirjoitus. */
+async function syncDeviceVercelSlim(
   deviceToken: string,
   body: DeviceSyncRequest,
 ): Promise<DeviceSyncResponse | null> {
   const supabase = createAdminClient();
-  const canPing = body.quick ? false : canPingAirfiFromRuntime();
-  const quick = body.quick === true;
+
+  const { data: hub, error: lookupError } = await supabase
+    .from("hubs")
+    .select("id, control_mode, config")
+    .eq("device_token", deviceToken)
+    .maybeSingle();
+
+  if (lookupError || !hub) return null;
+
+  const ackedIds = (body.acked_command_ids ?? []).filter(
+    (id) => typeof id === "string" && id.length > 0,
+  );
+  if (ackedIds.length > 0) {
+    await supabase
+      .from("commands")
+      .update({ status: "acked", acked_at: new Date().toISOString() })
+      .eq("hub_id", hub.id)
+      .in("id", ackedIds)
+      .in("status", ["pending", "delivered"]);
+  }
+
+  let config = parseHubConfig(hub.config);
+  const storedMode = hub.control_mode as HubControlMode;
+  const mergedState = expireTimedModes({
+    ...parseState(body.state),
+  });
+
+  const effectiveMode = effectiveControlMode(storedMode, mergedState);
+  const now = new Date().toISOString();
+  // Kirjoita Yellowin tila pilveen (UI). Poista vain jos SYNC_STATE_WRITE=0 (Supabase IO-hätä).
+  const writeState = process.env.SYNC_STATE_WRITE !== "0";
+
+  const [{ data: pendingCommands }, { error: seenError }] = await Promise.all([
+    supabase
+      .from("commands")
+      .select("id, command, payload")
+      .eq("hub_id", hub.id)
+      .eq("status", "pending")
+      .order("created_at", { ascending: true })
+      .limit(10),
+    supabase
+      .from("hubs")
+      .update(
+        writeState
+          ? {
+              state: mergedState,
+              last_seen_at: now,
+              ...(body.firmware_version
+                ? { firmware_version: body.firmware_version }
+                : {}),
+            }
+          : { last_seen_at: now },
+      )
+      .eq("id", hub.id),
+  ]);
+
+  if (seenError) {
+    console.warn("[sync] slim hub update failed:", seenError.message);
+  }
+
+  const hubCommands: DeviceSyncResponse["commands"] = (pendingCommands ?? []).map(
+    (cmd) => ({
+      id: cmd.id,
+      command: cmd.command,
+      payload: (cmd.payload ?? {}) as Record<string, unknown>,
+    }),
+  );
+
+  if (hubCommands.length > 0) {
+    await supabase
+      .from("commands")
+      .update({ status: "delivered", delivered_at: now })
+      .eq("hub_id", hub.id)
+      .in(
+        "id",
+        hubCommands.map((c) => c.id),
+      )
+      .eq("status", "pending");
+  }
+
+  let ventilationWrite: HubState | undefined;
+  const airfiState = hubStateToAirfiState(mergedState);
+  const hubHasRealAirfi =
+    mergedState.airfi_online === true && hasAirfiTelemetry(mergedState);
+  const airfiWritesPaused =
+    typeof mergedState.airfi_modbus_pause_until === "string" &&
+    Number.isFinite(Date.parse(mergedState.airfi_modbus_pause_until)) &&
+    Date.now() < Date.parse(mergedState.airfi_modbus_pause_until);
+
+  if (
+    hubHasRealAirfi &&
+    !airfiWritesPaused &&
+    (effectiveMode === "auto" ||
+      effectiveMode === "fireplace" ||
+      effectiveMode === "hood")
+  ) {
+    const ventilationHumidity = collectVentilationHumidityPct({
+      homeDevices: mergedState.home_devices,
+      airfiHumidity: mergedState.humidity_pct,
+    });
+    const targets = computeVentilationTargets(
+      effectiveMode,
+      {
+        co2: mergedState.co2_ppm,
+        pm25: mergedState.pm25_ugm3,
+        humidity: ventilationHumidity,
+        indoorTempC: mergedState.temperature_c,
+        outdoorTempC: mergedState.outdoor_temp_c,
+      },
+      config,
+      airfiState,
+    );
+    if (targets?.needsWrite) {
+      ventilationWrite = ventilationWritePayload(targets);
+    }
+  }
+
+  const automations = config.automations?.length
+    ? config.automations
+    : normalizeAutomationRules(mergedState.automations);
+
+  return {
+    control_mode: effectiveMode,
+    config,
+    commands: hubCommands,
+    ventilation: ventilationWrite,
+    display: buildSyncDisplay(effectiveMode, mergedState, config),
+    automations: repairSaunaShowerMirrorRules(automations),
+    integrations:
+      mergedState.integrations && typeof mergedState.integrations === "object"
+        ? mergedState.integrations
+        : undefined,
+  };
+}
+
+export async function syncDevice(
+  deviceToken: string,
+  body: DeviceSyncRequest,
+): Promise<DeviceSyncResponse | null> {
+  if (body.quick === true) {
+    return syncDeviceQuick(deviceToken, body);
+  }
+
+  if (process.env.VERCEL === "1") {
+    return syncDeviceVercelSlim(deviceToken, body);
+  }
+
+  const supabase = createAdminClient();
+  const canPing = canPingAirfiFromRuntime();
 
   const { data: hub, error: lookupError } = await supabase
     .from("hubs")
@@ -180,36 +517,10 @@ export async function syncDevice(
 
   let config = parseHubConfig(hub.config);
   const storedMode = hub.control_mode as HubControlMode;
-  let mergedState = expireTimedModes({
+  const mergedState = expireTimedModes({
     ...parseState(hub.state),
     ...parseState(body.state),
   });
-
-  const AIRFI_TEMP_KEYS = [
-    "outdoor_temp_c",
-    "exhaust_temp_c",
-    "supply_room_temp_c",
-    "exhaust_hru_temp_c",
-  ] as const;
-
-  const AIRFI_FAN_KEYS = ["fan_supply_pct", "fan_exhaust_pct", "lto_temp_efficiency_pct"] as const;
-
-  const AIRFI_STATUS_KEYS = [
-    "airfi_errors",
-    "airfi_error_raw",
-    "freezing_alarm",
-    "machine_fault",
-    "fan_speed_level",
-    "temp_setpoint_c",
-    "filter_change_per_year",
-    "sauna_mode",
-    "lto_bypass_on",
-    "forced_control",
-    "emergency_stop",
-    "airfi_modbus_pause_until",
-    "humidity_pct",
-    "fault",
-  ] as const;
 
   if (body.state?.lights && typeof body.state.lights === "object") {
     mergedState.lights = body.state.lights;
@@ -227,23 +538,22 @@ export async function syncDevice(
     mergedState.device_live_events = body.state.device_live_events as HubState["device_live_events"];
   }
 
-  const airthingsState = quick ? null : await fetchAirthingsState();
+  const airthingsState =
+    process.env.VERCEL === "1" ? null : await fetchAirthingsState();
   if (airthingsState) {
     Object.assign(mergedState, mergeAirthingsHubState(mergedState, airthingsState));
   }
 
-  if (!quick) {
-    if (Array.isArray(body.state?.tasmota_discovered)) {
-      mergedState.tasmota_discovered = body.state.tasmota_discovered as HubState["tasmota_discovered"];
-    }
+  if (Array.isArray(body.state?.tasmota_discovered)) {
+    mergedState.tasmota_discovered = body.state.tasmota_discovered as HubState["tasmota_discovered"];
+  }
 
-    if (Array.isArray(body.state?.shelly_discovered)) {
-      mergedState.shelly_discovered = body.state.shelly_discovered as HubState["shelly_discovered"];
-    }
+  if (Array.isArray(body.state?.shelly_discovered)) {
+    mergedState.shelly_discovered = body.state.shelly_discovered as HubState["shelly_discovered"];
+  }
 
-    if (body.state?.zwave_nodes && typeof body.state.zwave_nodes === "object") {
-      mergedState.zwave_nodes = body.state.zwave_nodes as HubState["zwave_nodes"];
-    }
+  if (body.state?.zwave_nodes && typeof body.state.zwave_nodes === "object") {
+    mergedState.zwave_nodes = body.state.zwave_nodes as HubState["zwave_nodes"];
   }
 
   const prevStored = parseState(hub.state);
@@ -262,12 +572,10 @@ export async function syncDevice(
     mergedState.integrations = prevIntegrations;
   }
 
-  if (!quick) {
-    mergedState.home_devices = normalizeHomeDevices(mergedState.home_devices, {
-      integrations: mergedState.integrations,
-      airthingsState,
-    });
-  }
+  mergedState.home_devices = normalizeHomeDevices(mergedState.home_devices, {
+    integrations: mergedState.integrations,
+    airthingsState,
+  });
 
   const prevAutomations = prevStored.automations;
   if (Array.isArray(prevAutomations) && !config.automations?.length) {
@@ -597,7 +905,7 @@ export async function syncDevice(
 
   await supabase.from("hubs").update(hubUpdate).eq("id", hub.id);
 
-  if (!quick) {
+  if (hubMetricsEnabled()) {
     void recordHubMetrics(hub.id, mergedState, effectiveMode, {
       hub_online: true,
       airfi_online:
@@ -609,19 +917,6 @@ export async function syncDevice(
       mergedState.device_overrides,
     );
     void recordEnergySamples(hub.id, mergedState.home_devices);
-  } else {
-    const prevTick =
-      typeof prevStored._last_quick_metrics_at === "string"
-        ? Date.parse(prevStored._last_quick_metrics_at)
-        : 0;
-    const nowMs = Date.now();
-    if (nowMs - prevTick >= 15_000) {
-      mergedState._last_quick_metrics_at = new Date(nowMs).toISOString();
-      void recordQuickMetricSamples(hub.id, mergedState, {
-        hub_online: true,
-        airfi_online: mergedState.airfi_online === true && isAirfiTelemetryFresh(mergedState),
-      });
-    }
   }
 
   const integrations: HubIntegrations | undefined =
@@ -635,7 +930,7 @@ export async function syncDevice(
       : normalizeAutomationRules(mergedState.automations);
   const repaired = repairSaunaShowerMirrorRules(automations);
   const automationsChanged = JSON.stringify(repaired) !== JSON.stringify(automations);
-  if (!quick && automationsChanged && config.automations?.length) {
+  if (automationsChanged && config.automations?.length) {
     config = { ...config, automations: repaired };
     await supabase.from("hubs").update({ config }).eq("id", hub.id);
   }

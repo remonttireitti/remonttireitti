@@ -12,6 +12,7 @@ import {
 } from "@/lib/device-status";
 import { effectiveControlMode, expireTimedModes } from "@/lib/mode-schedule";
 import { recordDeviceMetricSamples } from "@/lib/device-metrics";
+import { hubMetricsEnabled } from "@/lib/hub-metrics-config";
 import { recordHubMetrics } from "@/lib/metric-samples";
 import { enrichLtoFromHubState } from "@/lib/lto-efficiency";
 import { fetchPrimaryHub } from "@/lib/hubs";
@@ -67,15 +68,17 @@ export async function getDeviceStatus(
   state.lto_energy_efficiency_pct = lto.lto_energy_efficiency_pct;
   const effectiveMode = effectiveControlMode(hub.control_mode, state);
 
-  void recordHubMetrics(hub.id, hub.state, hub.control_mode, {
-    hub_online: hubOnline,
-    airfi_online: airfiConn.online,
-  });
-  void recordDeviceMetricSamples(
-    hub.id,
-    hub.state.home_devices,
-    hub.state.device_overrides,
-  );
+  if (hubMetricsEnabled()) {
+    void recordHubMetrics(hub.id, hub.state, hub.control_mode, {
+      hub_online: hubOnline,
+      airfi_online: airfiConn.online,
+    });
+    void recordDeviceMetricSamples(
+      hub.id,
+      hub.state.home_devices,
+      hub.state.device_overrides,
+    );
+  }
 
   return {
     hub: hubConn,

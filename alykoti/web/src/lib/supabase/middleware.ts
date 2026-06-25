@@ -1,54 +1,32 @@
-import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-const PUBLIC_PREFIXES = ["/login", "/api/device/sync"];
+const PUBLIC_PATHS = new Set(["/login"]);
+
+function hasAuthSession(request: NextRequest): boolean {
+  return request.cookies.getAll().some(
+    (cookie) => cookie.name.includes("auth-token") && cookie.value.length > 0,
+  );
+}
 
 export async function updateSession(request: NextRequest) {
-  let supabaseResponse = NextResponse.next({ request });
-
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll();
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) =>
-            request.cookies.set(name, value),
-          );
-          supabaseResponse = NextResponse.next({ request });
-          cookiesToSet.forEach(({ name, value, options }) =>
-            supabaseResponse.cookies.set(name, value, options),
-          );
-        },
-      },
-    },
-  );
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
   const pathname = request.nextUrl.pathname;
-  const isPublic = PUBLIC_PREFIXES.some(
-    (p) => pathname === p || pathname.startsWith(`${p}/`),
-  );
 
-  if (!user && !isPublic) {
+  if (PUBLIC_PATHS.has(pathname)) {
+    if (hasAuthSession(request)) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/";
+      url.searchParams.delete("redirect");
+      return NextResponse.redirect(url);
+    }
+    return NextResponse.next();
+  }
+
+  if (!hasAuthSession(request)) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     url.searchParams.set("redirect", pathname);
     return NextResponse.redirect(url);
   }
 
-  if (user && pathname === "/login") {
-    const url = request.nextUrl.clone();
-    url.pathname = "/";
-    url.searchParams.delete("redirect");
-    return NextResponse.redirect(url);
-  }
-
-  return supabaseResponse;
+  return NextResponse.next();
 }

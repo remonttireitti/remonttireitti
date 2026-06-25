@@ -13,17 +13,33 @@
 2. Vercel-projekti, jossa **Root Directory = `alykoti/web`**, buildaa ja julkaisee Älykodin.
 3. Yellow synkkaa osoitteeseen `https://alykoti.vercel.app/api/device/sync`.
 
+### CLI-deploy (älä koske Remonttireittiin)
+
+Aja **repojuuresta**, aina `--project alykoti`:
+
+```powershell
+cd remonttivalitys
+npx vercel deploy --prod --yes --project alykoti --archive=tgz
+```
+
+**Älä** aja `npx vercel deploy` ilman `--project alykoti` repojuuresta — se kohdistuu Remonttireitti-projektiin.
+
 ## Jos Remonttireitti buildaa turhaan
+
+Repossa on myös `ignoreCommand` (Git-deploy):
+
+- **Remonttireitti**: juuren `vercel.json` — ohita build, jos commitissa ei muutoksia `alykoti/`-ulkopuolella.
+- **Älykoti**: `alykoti/web/vercel.json` — ohita build, jos commitissa ei muutoksia `alykoti/web/`-kansiossa (esim. vain Yellow).
 
 Sama push voi käynnistää myös Remonttireitti-projektin, jos se on kytketty samaan repoon. Se **ei** sisällä Älykodin muutoksia buildissa (eri juurikansio), mutta build voi silti pyöriä.
 
-Vercel → Remonttireitti-projekti → Settings → Git → **Ignored Build Step** (valinnainen):
+Vercel → Remonttireitti-projekti → Settings → Git → **Ignored Build Step**:
 
 ```bash
-git diff HEAD^ HEAD --quiet -- alykoti/
+git diff HEAD^ HEAD --quiet -- . ':(exclude)alykoti'
 ```
 
-tai käytä erillistä branchia vain Remonttireitti-deploylle.
+Exit 0 = ei muutoksia `alykoti/`-ulkopuolella → build ohitetaan. Muutokset vain `alykoti/`-kansiossa eivät enää käynnistä Remonttireittiä.
 
 ## Paikallinen testi
 

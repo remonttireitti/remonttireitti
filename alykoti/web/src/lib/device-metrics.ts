@@ -167,6 +167,9 @@ type SampleRow = {
   value_text: string | null;
 };
 
+const DEVICE_METRIC_SAMPLE_INTERVAL_MS = 5 * 60_000;
+const lastDeviceMetricSampleAt = new Map<string, number>();
+
 function pushSample(
   rows: SampleRow[],
   hubId: string,
@@ -258,6 +261,11 @@ export async function recordDeviceMetricSamples(
   homeDevices: Record<string, HubHomeDevice> | undefined,
   overrides?: HubState["device_overrides"],
 ): Promise<void> {
+  const nowMs = Date.now();
+  const last = lastDeviceMetricSampleAt.get(hubId) ?? 0;
+  if (nowMs - last < DEVICE_METRIC_SAMPLE_INTERVAL_MS) return;
+  lastDeviceMetricSampleAt.set(hubId, nowMs);
+
   const samples = buildDeviceMetricSamples(hubId, homeDevices, overrides);
   if (samples.length === 0) return;
 

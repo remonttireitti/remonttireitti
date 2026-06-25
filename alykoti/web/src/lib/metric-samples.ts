@@ -103,6 +103,8 @@ type SampleRow = {
 };
 
 const RETENTION_DAYS = 31;
+const HUB_METRIC_PRUNE_INTERVAL_MS = 24 * 60 * 60_000;
+const lastHubMetricPruneAt = new Map<string, number>();
 
 /** Pyydetty nopeus näytetään toteutuneen rinnalla. */
 const METRIC_COMPANIONS: Record<string, string> = {
@@ -425,7 +427,12 @@ export async function recordHubMetrics(
     return;
   }
 
-  const cutoff = new Date(Date.now() - RETENTION_DAYS * 86_400_000).toISOString();
+  const lastPrune = lastHubMetricPruneAt.get(hubId) ?? 0;
+  const nowMs = Date.now();
+  if (nowMs - lastPrune < HUB_METRIC_PRUNE_INTERVAL_MS) return;
+
+  lastHubMetricPruneAt.set(hubId, nowMs);
+  const cutoff = new Date(nowMs - RETENTION_DAYS * 86_400_000).toISOString();
   await supabase
     .from("hub_metric_samples")
     .delete()

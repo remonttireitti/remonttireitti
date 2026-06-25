@@ -22,10 +22,10 @@ DEVICE_TOKEN = os.environ.get("ALYKOTI_DEVICE_TOKEN", "").strip()
 SYNC_URL = os.environ.get(
     "ALYKOTI_SYNC_URL", "https://alykoti.vercel.app/api/device/sync"
 ).strip()
-SYNC_INTERVAL_SEC = max(10, int(os.environ.get("SYNC_INTERVAL_SEC", "30")))
+SYNC_INTERVAL_SEC = max(10, int(os.environ.get("SYNC_INTERVAL_SEC", "60")))
 COMMAND_POLL_INTERVAL_SEC = max(
     1,
-    int(os.environ.get("COMMAND_POLL_INTERVAL_SEC", os.environ.get("COMMAND_POLL_SEC", "1"))),
+    int(os.environ.get("COMMAND_POLL_INTERVAL_SEC", os.environ.get("COMMAND_POLL_SEC", "5"))),
 )
 COMMAND_POLL_ENABLED = os.environ.get("COMMAND_POLL_ENABLED", "1").strip() in (
     "1",
