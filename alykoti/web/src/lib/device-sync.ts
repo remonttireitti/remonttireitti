@@ -253,7 +253,7 @@ function patchAirfiState(prev: HubState, incoming: HubState | undefined): { stat
 
 async function syncDeviceQuick(
   deviceToken: string,
-  _body: DeviceSyncRequest,
+  body: DeviceSyncRequest,
 ): Promise<DeviceSyncResponse | null> {
   const supabase = createAdminClient();
 
@@ -264,6 +264,37 @@ async function syncDeviceQuick(
     .maybeSingle();
 
   if (lookupError || !hub) return null;
+
+  const ackedIds = (body.acked_command_ids ?? []).filter(
+    (id) => typeof id === "string" && id.length > 0,
+  );
+  if (ackedIds.length > 0) {
+    await supabase
+      .from("commands")
+      .update({ status: "acked", acked_at: new Date().toISOString() })
+      .eq("hub_id", hub.id)
+      .in("id", ackedIds)
+      .in("status", ["pending", "delivered"]);
+  }
+
+  const failedCommands = (body.failed_commands ?? []).filter(
+    (row): row is { id: string; message?: string } =>
+      typeof row === "object" &&
+      row != null &&
+      typeof (row as { id?: unknown }).id === "string" &&
+      (row as { id: string }).id.length > 0,
+  );
+  for (const row of failedCommands) {
+    await supabase
+      .from("commands")
+      .update({
+        status: "failed",
+        error_message: row.message?.trim() || "Ohjaus epäonnistui",
+      })
+      .eq("hub_id", hub.id)
+      .eq("id", row.id)
+      .in("status", ["pending", "delivered"]);
+  }
 
   const now = new Date().toISOString();
 
@@ -307,157 +338,12 @@ async function syncDeviceQuick(
   };
 }
 
-/** Vercel: ei lueta hubs.state — Yellow on totuus, yksi kirjoitus. */
-async function syncDeviceVercelSlim(
-  deviceToken: string,
-  body: DeviceSyncRequest,
-): Promise<DeviceSyncResponse | null> {
-  const supabase = createAdminClient();
-
-  const { data: hub, error: lookupError } = await supabase
-    .from("hubs")
-    .select("id, control_mode, config")
-    .eq("device_token", deviceToken)
-    .maybeSingle();
-
-  if (lookupError || !hub) return null;
-
-  const ackedIds = (body.acked_command_ids ?? []).filter(
-    (id) => typeof id === "string" && id.length > 0,
-  );
-  if (ackedIds.length > 0) {
-    await supabase
-      .from("commands")
-      .update({ status: "acked", acked_at: new Date().toISOString() })
-      .eq("hub_id", hub.id)
-      .in("id", ackedIds)
-      .in("status", ["pending", "delivered"]);
-  }
-
-  let config = parseHubConfig(hub.config);
-  const storedMode = hub.control_mode as HubControlMode;
-  const mergedState = expireTimedModes({
-    ...parseState(body.state),
-  });
-
-  const effectiveMode = effectiveControlMode(storedMode, mergedState);
-  const now = new Date().toISOString();
-  // Kirjoita Yellowin tila pilveen (UI). Poista vain jos SYNC_STATE_WRITE=0 (Supabase IO-hätä).
-  const writeState = process.env.SYNC_STATE_WRITE !== "0";
-
-  const [{ data: pendingCommands }, { error: seenError }] = await Promise.all([
-    supabase
-      .from("commands")
-      .select("id, command, payload")
-      .eq("hub_id", hub.id)
-      .eq("status", "pending")
-      .order("created_at", { ascending: true })
-      .limit(10),
-    supabase
-      .from("hubs")
-      .update(
-        writeState
-          ? {
-              state: mergedState,
-              last_seen_at: now,
-              ...(body.firmware_version
-                ? { firmware_version: body.firmware_version }
-                : {}),
-            }
-          : { last_seen_at: now },
-      )
-      .eq("id", hub.id),
-  ]);
-
-  if (seenError) {
-    console.warn("[sync] slim hub update failed:", seenError.message);
-  }
-
-  const hubCommands: DeviceSyncResponse["commands"] = (pendingCommands ?? []).map(
-    (cmd) => ({
-      id: cmd.id,
-      command: cmd.command,
-      payload: (cmd.payload ?? {}) as Record<string, unknown>,
-    }),
-  );
-
-  if (hubCommands.length > 0) {
-    await supabase
-      .from("commands")
-      .update({ status: "delivered", delivered_at: now })
-      .eq("hub_id", hub.id)
-      .in(
-        "id",
-        hubCommands.map((c) => c.id),
-      )
-      .eq("status", "pending");
-  }
-
-  let ventilationWrite: HubState | undefined;
-  const airfiState = hubStateToAirfiState(mergedState);
-  const hubHasRealAirfi =
-    mergedState.airfi_online === true && hasAirfiTelemetry(mergedState);
-  const airfiWritesPaused =
-    typeof mergedState.airfi_modbus_pause_until === "string" &&
-    Number.isFinite(Date.parse(mergedState.airfi_modbus_pause_until)) &&
-    Date.now() < Date.parse(mergedState.airfi_modbus_pause_until);
-
-  if (
-    hubHasRealAirfi &&
-    !airfiWritesPaused &&
-    (effectiveMode === "auto" ||
-      effectiveMode === "fireplace" ||
-      effectiveMode === "hood")
-  ) {
-    const ventilationHumidity = collectVentilationHumidityPct({
-      homeDevices: mergedState.home_devices,
-      airfiHumidity: mergedState.humidity_pct,
-    });
-    const targets = computeVentilationTargets(
-      effectiveMode,
-      {
-        co2: mergedState.co2_ppm,
-        pm25: mergedState.pm25_ugm3,
-        humidity: ventilationHumidity,
-        indoorTempC: mergedState.temperature_c,
-        outdoorTempC: mergedState.outdoor_temp_c,
-      },
-      config,
-      airfiState,
-    );
-    if (targets?.needsWrite) {
-      ventilationWrite = ventilationWritePayload(targets);
-    }
-  }
-
-  const automations = config.automations?.length
-    ? config.automations
-    : normalizeAutomationRules(mergedState.automations);
-
-  return {
-    control_mode: effectiveMode,
-    config,
-    commands: hubCommands,
-    ventilation: ventilationWrite,
-    display: buildSyncDisplay(effectiveMode, mergedState, config),
-    automations: repairSaunaShowerMirrorRules(automations),
-    integrations:
-      mergedState.integrations && typeof mergedState.integrations === "object"
-        ? mergedState.integrations
-        : undefined,
-  };
-}
-
 export async function syncDevice(
   deviceToken: string,
   body: DeviceSyncRequest,
 ): Promise<DeviceSyncResponse | null> {
   if (body.quick === true) {
     return syncDeviceQuick(deviceToken, body);
-  }
-
-  if (process.env.VERCEL === "1") {
-    return syncDeviceVercelSlim(deviceToken, body);
   }
 
   const supabase = createAdminClient();
@@ -538,8 +424,7 @@ export async function syncDevice(
     mergedState.device_live_events = body.state.device_live_events as HubState["device_live_events"];
   }
 
-  const airthingsState =
-    process.env.VERCEL === "1" ? null : await fetchAirthingsState();
+  const airthingsState = await fetchAirthingsState();
   if (airthingsState) {
     Object.assign(mergedState, mergeAirthingsHubState(mergedState, airthingsState));
   }
