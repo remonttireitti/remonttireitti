@@ -78,21 +78,102 @@ _sync_cooldown_from_disk()
 
 _modbus_lock = threading.RLock()
 _last_modbus_at: float = 0.0
-MODBUS_MIN_GAP_SEC = 5.0
+MODBUS_REQUEST_GAP_SEC = 0.4
+MODBUS_CONNECT_GAP_SEC = 8.0
+
+
+@dataclass
+class _TcpPersistent:
+    client: ModbusTcpClient | None = None
+    host: str | None = None
+    port: int | None = None
+
+
+_tcp_persistent = _TcpPersistent()
+_last_tcp_drop_at: float = 0.0
 
 
 def _modbus_pause_locked() -> None:
     """Kutsu vain kun _modbus_lock on jo pidossa."""
     global _last_modbus_at
     now = time.monotonic()
-    wait = MODBUS_MIN_GAP_SEC - (now - _last_modbus_at)
+    wait = MODBUS_REQUEST_GAP_SEC - (now - _last_modbus_at)
     if wait > 0:
         time.sleep(wait)
     _last_modbus_at = time.monotonic()
 
 
+def _socket_alive(sock: socket.socket) -> bool:
+    try:
+        sock.setblocking(False)
+        try:
+            if sock.recv(1, socket.MSG_PEEK | socket.MSG_DONTWAIT) == b"":
+                return False
+        except BlockingIOError:
+            pass
+        except OSError:
+            return False
+        finally:
+            sock.setblocking(True)
+        return True
+    except OSError:
+        return False
+
+
+def _drop_tcp_client() -> None:
+    """Sulje ja pakota uusi TCP-kättely seuraavalla yrityksellä."""
+    global _last_tcp_drop_at
+    if _tcp_persistent.client is not None:
+        _safe_close(_tcp_persistent.client)
+    _tcp_persistent.client = None
+    _tcp_persistent.host = None
+    _tcp_persistent.port = None
+    _last_tcp_drop_at = time.monotonic()
+
+
+def _acquire_tcp_client(
+    host: str,
+    port: int,
+    *,
+    connect_timeout: float,
+    read_timeout: float,
+) -> ModbusTcpClient | None:
+    """Pidä Modbus TCP auki — sama malli kuin Guition ESP modbus_tcp_manager."""
+    global _last_tcp_drop_at
+    p = _tcp_persistent
+    if (
+        p.client is not None
+        and p.host == host
+        and p.port == port
+        and p.client.socket is not None
+        and _socket_alive(p.client.socket)
+    ):
+        return p.client
+
+    _drop_tcp_client()
+    gap = MODBUS_CONNECT_GAP_SEC - (time.monotonic() - _last_tcp_drop_at)
+    if gap > 0:
+        time.sleep(gap)
+
+    client = _open_tcp_client(host, port, read_timeout=read_timeout)
+    if not _connect_tcp(
+        client,
+        connect_timeout=max(connect_timeout, 8.0),
+        read_timeout=read_timeout,
+        connect_attempts=3,
+    ):
+        _safe_close(client)
+        _last_tcp_drop_at = time.monotonic()
+        return None
+
+    p.client = client
+    p.host = host
+    p.port = port
+    return client
+
+
 def _modbus_pause() -> None:
-    """Vähintään MODBUS_MIN_GAP_SEC kahden TCP-yhteyden välillä — modeemi ei jumitu."""
+    """Vähintään MODBUS_REQUEST_GAP_SEC kahden pyynnön välillä samalla yhteydellä."""
     with _modbus_lock:
         _modbus_pause_locked()
 
@@ -209,6 +290,10 @@ class AirfiPollState:
 
     def retry_aggressive(self) -> bool:
         return self.was_online and self.fail_streak <= 3
+
+    def reset(self) -> None:
+        self.fail_streak = 0
+        self.skip_until = 0.0
 
     def record_result(self, ok: bool, *, now: float | None = None) -> None:
         now = now or time.monotonic()
@@ -369,22 +454,28 @@ def probe_tcp(
     read_timeout: float = 3.0,
 ) -> bool:
     """Nopea TCP + yksi rekisteriluku ennen täyttä snapshotia."""
-    client = _open_tcp_client(host, port, read_timeout=read_timeout)
-    try:
-        if not _connect_tcp(client, connect_timeout=connect_timeout, read_timeout=read_timeout):
-            return False
-        regs = _read_registers(
-            client,
-            unit,
-            read_fn=client.read_input_registers,
-            address=INPUT["outdoor_temp"],
-            count=1,
+    with _modbus_lock:
+        _modbus_pause_locked()
+        client = _acquire_tcp_client(
+            host,
+            port,
+            connect_timeout=connect_timeout,
+            read_timeout=read_timeout,
         )
-        return regs is not None
-    except Exception:
-        return False
-    finally:
-        _safe_close(client)
+        if client is None:
+            return False
+        try:
+            regs = _read_registers(
+                client,
+                unit,
+                read_fn=client.read_input_registers,
+                address=INPUT["outdoor_temp"],
+                count=1,
+            )
+            return regs is not None
+        except Exception:
+            _drop_tcp_client()
+            return False
 
 
 def _read_snapshot(
@@ -394,9 +485,10 @@ def _read_snapshot(
     connect_timeout: float,
     read_timeout: float,
     is_tcp: bool,
+    already_connected: bool = False,
 ) -> AirfiSnapshot:
     if is_tcp:
-        if not _connect_tcp(
+        if not already_connected and not _connect_tcp(
             client,
             connect_timeout=connect_timeout,
             read_timeout=read_timeout,
@@ -443,7 +535,10 @@ def _read_snapshot(
         )
     except Exception as exc:
         log.warning("Modbus read failed: %s", exc)
-        _safe_close(client)
+        if is_tcp:
+            _drop_tcp_client()
+        else:
+            _safe_close(client)
         return AirfiSnapshot(ok=False, state={"airfi_online": False})
 
     outdoor = _parse_temp(_reg(inputs_core, _INPUT_CORE_START, INPUT["outdoor_temp"]))
@@ -541,36 +636,70 @@ def _read_with_retries(
     with _modbus_lock:
         for attempt in range(1, attempts + 1):
             _modbus_pause_locked()
-            client = _open_client(
-                host=host,
-                port=port,
-                serial=serial,
-                baud=baud,
-                read_timeout=read_timeout,
-            )
-            if client is None:
-                return last
-            try:
-                snap = _read_snapshot(
-                    client,
-                    unit,
+            if is_tcp:
+                client = _acquire_tcp_client(
+                    host,
+                    port,
                     connect_timeout=connect_timeout,
                     read_timeout=read_timeout,
-                    is_tcp=is_tcp,
                 )
-                if snap.ok:
-                    return snap
-                last = snap
-            except Exception as exc:
-                log.warning(
-                    "Modbus read error (yritys %s/%s): %s",
-                    attempt,
-                    attempts,
-                    exc,
+                if client is None:
+                    if attempt < attempts:
+                        time.sleep(retry_delay_sec)
+                    continue
+                try:
+                    snap = _read_snapshot(
+                        client,
+                        unit,
+                        connect_timeout=connect_timeout,
+                        read_timeout=read_timeout,
+                        is_tcp=True,
+                        already_connected=True,
+                    )
+                    if snap.ok:
+                        return snap
+                    last = snap
+                    _drop_tcp_client()
+                except Exception as exc:
+                    log.warning(
+                        "Modbus read error (yritys %s/%s): %s",
+                        attempt,
+                        attempts,
+                        exc,
+                    )
+                    last = AirfiSnapshot(ok=False, state={"airfi_online": False})
+                    _drop_tcp_client()
+            else:
+                client = _open_client(
+                    host=None,
+                    port=port,
+                    serial=serial,
+                    baud=baud,
+                    read_timeout=read_timeout,
                 )
-                last = AirfiSnapshot(ok=False, state={"airfi_online": False})
-            finally:
-                _safe_close(client)
+                if client is None:
+                    return last
+                try:
+                    snap = _read_snapshot(
+                        client,
+                        unit,
+                        connect_timeout=connect_timeout,
+                        read_timeout=read_timeout,
+                        is_tcp=False,
+                    )
+                    if snap.ok:
+                        return snap
+                    last = snap
+                except Exception as exc:
+                    log.warning(
+                        "Modbus read error (yritys %s/%s): %s",
+                        attempt,
+                        attempts,
+                        exc,
+                    )
+                    last = AirfiSnapshot(ok=False, state={"airfi_online": False})
+                finally:
+                    _safe_close(client)
 
             if attempt < attempts:
                 time.sleep(retry_delay_sec)
@@ -636,7 +765,7 @@ def read_airfi(
     retry_delay_sec: float = 0.5,
     poll_state: AirfiPollState | None = None,
 ) -> AirfiSnapshot:
-    if poll_state is not None and not poll_state.should_poll():
+    if poll_state is not None and not poll_state.should_poll() and not host:
         return AirfiSnapshot(ok=False, state={"airfi_online": False})
 
     retries = retry_count
@@ -915,22 +1044,16 @@ def write_fan_pct(
     with _modbus_lock:
         for attempt in range(1, attempts + 1):
             _modbus_pause_locked()
-            client = _open_client(
-                host=host,
-                port=tcp_port,
-                serial=serial,
-                baud=baud,
-                read_timeout=read_timeout,
-            )
-            if client is None:
-                return False
+            serial_client: _ModbusClient | None = None
             try:
                 if is_tcp:
-                    if not _connect_tcp(
-                        client,
+                    client = _acquire_tcp_client(
+                        host,
+                        tcp_port,
                         connect_timeout=connect_timeout,
                         read_timeout=read_timeout,
-                    ):
+                    )
+                    if client is None:
                         if attempt < attempts:
                             log.info(
                                 "write_fan_pct yhteys epäonnistui (%s/%s) — uudelleen %.0fs kuluttua",
@@ -944,6 +1067,7 @@ def write_fan_pct(
                         return False
                     guard_ok, block_state = _read_write_guard(client, unit)
                     if not guard_ok:
+                        _drop_tcp_client()
                         if attempt < attempts:
                             log.info(
                                 "write_fan_pct luku epäonnistui (%s/%s) — uudelleen %.0fs kuluttua",
@@ -955,41 +1079,40 @@ def write_fan_pct(
                             continue
                         log.warning("write_fan_pct estetty — AirFi ei vastaa")
                         return False
-                elif not (known_state and known_state.get("airfi_online")):
-                    snap = _read_snapshot(
-                        client,
-                        unit,
-                        connect_timeout=connect_timeout,
-                        read_timeout=read_timeout,
-                        is_tcp=is_tcp,
-                    )
-                    if not snap.ok:
-                        if attempt < attempts:
-                            log.info(
-                                "write_fan_pct yhteys epäonnistui (%s/%s) — uudelleen %.0fs kuluttua",
-                                attempt,
-                                attempts,
-                                retry_delay_sec,
-                            )
-                            time.sleep(retry_delay_sec)
-                            continue
-                        log.warning("write_fan_pct estetty — AirFi ei vastaa")
-                        return False
-                    block_state = snap.state
                 else:
-                    if not client.connect():
-                        if attempt < attempts:
-                            log.info(
-                                "write_fan_pct yhteys epäonnistui (%s/%s) — uudelleen %.0fs kuluttua",
-                                attempt,
-                                attempts,
-                                retry_delay_sec,
-                            )
-                            time.sleep(retry_delay_sec)
-                            continue
-                        log.warning("write_fan_pct estetty — yhteys epäonnistui")
+                    serial_client = _open_client(
+                        host=None,
+                        port=tcp_port,
+                        serial=serial,
+                        baud=baud,
+                        read_timeout=read_timeout,
+                    )
+                    client = serial_client
+                    if client is None:
                         return False
-                    block_state = known_state
+                    if not (known_state and known_state.get("airfi_online")):
+                        snap = _read_snapshot(
+                            client,
+                            unit,
+                            connect_timeout=connect_timeout,
+                            read_timeout=read_timeout,
+                            is_tcp=False,
+                        )
+                        if not snap.ok:
+                            if attempt < attempts:
+                                time.sleep(retry_delay_sec)
+                                continue
+                            log.warning("write_fan_pct estetty — AirFi ei vastaa")
+                            return False
+                        block_state = snap.state
+                    else:
+                        if not client.connect():
+                            if attempt < attempts:
+                                time.sleep(retry_delay_sec)
+                                continue
+                            log.warning("write_fan_pct estetty — yhteys epäonnistui")
+                            return False
+                        block_state = known_state
 
                 if airfi_machine_blocks_ventilation(block_state):
                     log.warning(
@@ -1050,12 +1173,15 @@ def write_fan_pct(
                 return False
             except Exception as exc:
                 log.warning("write_fan_pct failed: %s", exc)
+                if is_tcp:
+                    _drop_tcp_client()
                 if attempt < attempts:
                     time.sleep(retry_delay_sec)
                     continue
                 return False
             finally:
-                _safe_close(client)
+                if serial_client is not None:
+                    _safe_close(serial_client)
         return False
 
 
@@ -1252,31 +1378,58 @@ def ack_airfi_alarms(
     with _modbus_lock:
         for attempt in range(1, attempts + 1):
             _modbus_pause_locked()
-            client = _open_client(
-                host=host,
-                port=tcp_port,
-                serial=serial,
-                baud=baud,
-                read_timeout=read_timeout,
-            )
-            if client is None:
-                return False
+            is_tcp = bool(host)
+            serial_client: _ModbusClient | None = None
             try:
-                ok = _write_registers(
-                    client,
-                    unit,
-                    connect_timeout=connect_timeout,
-                    read_timeout=read_timeout,
-                    is_tcp=bool(host),
-                    writes=writes,
-                )
+                if is_tcp:
+                    client = _acquire_tcp_client(
+                        host,
+                        tcp_port,
+                        connect_timeout=connect_timeout,
+                        read_timeout=read_timeout,
+                    )
+                else:
+                    serial_client = _open_client(
+                        host=None,
+                        port=tcp_port,
+                        serial=serial,
+                        baud=baud,
+                        read_timeout=read_timeout,
+                    )
+                    client = serial_client
+                if client is None:
+                    if attempt < attempts:
+                        time.sleep(retry_delay_sec)
+                        continue
+                    return False
+                if not is_tcp and not client.connect():
+                    if attempt < attempts:
+                        time.sleep(retry_delay_sec)
+                        continue
+                    return False
+                ok = True
+                for address, value in writes:
+                    w = client.write_register(address, value, device_id=unit)
+                    if w.isError():
+                        log.warning("Modbus ack write failed reg %s", address)
+                        ok = False
+                        break
                 if ok:
                     mark_airfi_ack_cooldown()
                     return True
+                if is_tcp:
+                    _drop_tcp_client()
+                if attempt < attempts:
+                    time.sleep(retry_delay_sec)
+            except Exception as exc:
+                log.warning("Modbus ack failed: %s", exc)
+                if is_tcp:
+                    _drop_tcp_client()
                 if attempt < attempts:
                     time.sleep(retry_delay_sec)
             finally:
-                _safe_close(client)
+                if serial_client is not None:
+                    _safe_close(serial_client)
     return False
 
 

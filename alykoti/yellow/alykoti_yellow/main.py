@@ -746,6 +746,7 @@ def run_loop() -> None:
 
 
 def main() -> None:
+    airfi_poll_state.reset()
     if config.COMMAND_POLL_ENABLED:
         threading.Thread(
             target=run_fast_poll_loop,
