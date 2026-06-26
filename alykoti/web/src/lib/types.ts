@@ -275,7 +275,9 @@ export type HeatingThermostat = {
   name: string;
   enabled: boolean;
   sensor_device_id: string;
-  actuator_device_id: string;
+  /** Valittu lämpötilalukema kun laitteella on useita (esim. kanava). */
+  sensor_reading_label?: string | null;
+  actuator_device_ids: string[];
   target_temp_c: number;
   hysteresis_c: number;
   min_on_sec?: number;

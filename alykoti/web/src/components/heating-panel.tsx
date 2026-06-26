@@ -13,6 +13,7 @@ import {
   DEFAULT_MIN_OFF_SEC,
   DEFAULT_MIN_ON_SEC,
   DEFAULT_PUMP_START_DELAY_SEC,
+  temperatureReadingsForSensor,
   type HeatingPumpConfig,
   type HeatingThermostat,
 } from "@/lib/heating-thermostats";
@@ -44,7 +45,8 @@ const EMPTY_FORM = {
   name: "",
   enabled: true,
   sensor_device_id: "",
-  actuator_device_id: "",
+  sensor_reading_label: "" as string | null,
+  actuator_device_ids: [] as string[],
   target_temp_c: 21,
   hysteresis_c: DEFAULT_HYSTERESIS_C,
   min_on_sec: DEFAULT_MIN_ON_SEC,
@@ -116,7 +118,8 @@ export function HeatingPanel() {
         name: zone.name,
         enabled: zone.enabled,
         sensor_device_id: zone.sensor_device_id,
-        actuator_device_id: zone.actuator_device_id,
+        sensor_reading_label: zone.sensor_reading_label,
+        actuator_device_ids: zone.actuator_device_ids,
         target_temp_c,
         hysteresis_c: zone.hysteresis_c,
         min_on_sec: zone.min_on_sec,
@@ -126,8 +129,30 @@ export function HeatingPanel() {
     );
   }
 
-  function sensorTempMetric(sensor?: HubLightDevice): string | null {
+  function actuatorsForZone(zone: HeatingThermostat): HubLightDevice[] {
+    return zone.actuator_device_ids
+      .map((id) => deviceById(id))
+      .filter((d): d is HubLightDevice => d != null);
+  }
+
+  function toggleActuatorInForm(deviceId: string) {
+    setForm((f) => {
+      const has = f.actuator_device_ids.includes(deviceId);
+      return {
+        ...f,
+        actuator_device_ids: has
+          ? f.actuator_device_ids.filter((id) => id !== deviceId)
+          : [...f.actuator_device_ids, deviceId],
+      };
+    });
+  }
+
+  const selectedSensor = form.sensor_device_id ? deviceById(form.sensor_device_id) : undefined;
+  const sensorReadingOptions = selectedSensor ? temperatureReadingsForSensor(selectedSensor) : [];
+
+  function sensorTempMetric(sensor?: HubLightDevice, readingLabel?: string | null): string | null {
     if (!sensor) return null;
+    if (readingLabel) return deviceMetricKeyForReading(sensor.id, readingLabel);
     if (sensor.temperature_c != null) return deviceMetricKey(sensor.id, "temperature_c");
     const tempReading = sensor.readings?.find((r) => r.value.includes("°C"));
     if (tempReading) return deviceMetricKeyForReading(sensor.id, tempReading.label);
@@ -140,7 +165,7 @@ export function HeatingPanel() {
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-stone-900">Lämmitys</h1>
         <p className="mt-2 text-sm text-stone-600">
-          Luo termostaattialueita valitsemalla lämpötila-anturi, lämmitystoimilainen ja tavoitelämpötila.
+          Luo termostaattialueita valitsemalla lämpötilalähde, yksi tai useampi lämmitystoimilainen ja tavoitelämpötila.
         </p>
       </div>
 
@@ -183,10 +208,10 @@ export function HeatingPanel() {
                 key={zone.id}
                 zone={zone}
                 sensor={deviceById(zone.sensor_device_id)}
-                actuator={deviceById(zone.actuator_device_id)}
+                actuators={actuatorsForZone(zone)}
                 pending={pending}
                 onShowTrend={() => {
-                  const metric = sensorTempMetric(deviceById(zone.sensor_device_id));
+                  const metric = sensorTempMetric(deviceById(zone.sensor_device_id), zone.sensor_reading_label);
                   if (metric) showTrend(metric);
                 }}
                 onToggleEnabled={() => run(() => toggleThermostat(zone.id, !zone.enabled))}
@@ -197,7 +222,8 @@ export function HeatingPanel() {
                     name: zone.name,
                     enabled: zone.enabled,
                     sensor_device_id: zone.sensor_device_id,
-                    actuator_device_id: zone.actuator_device_id,
+                    sensor_reading_label: zone.sensor_reading_label ?? "",
+                    actuator_device_ids: [...zone.actuator_device_ids],
                     target_temp_c: zone.target_temp_c,
                     hysteresis_c: zone.hysteresis_c,
                     min_on_sec: zone.min_on_sec ?? DEFAULT_MIN_ON_SEC,
@@ -298,7 +324,7 @@ export function HeatingPanel() {
           {form.id ? "Muokkaa termostaattia" : "Uusi termostaatti"}
         </h2>
         <p className="mt-1 text-sm text-stone-600">
-          Valitse lämpötila-anturi, lämmitystoimilainen ja tavoitelämpötila.
+          Valitse lämpötilalähde, yksi tai useampi lämmitystoimilainen ja tavoitelämpötila.
         </p>
 
         <div className="mt-5 grid gap-3 sm:grid-cols-2">
@@ -313,13 +339,22 @@ export function HeatingPanel() {
           </label>
 
           <label className="block">
-            <span className="text-sm font-medium text-stone-700">Lämpötila-anturi</span>
+            <span className="text-sm font-medium text-stone-700">Lämpötilalähde</span>
             <select
               value={form.sensor_device_id}
-              onChange={(e) => setForm((f) => ({ ...f, sensor_device_id: e.target.value }))}
+              onChange={(e) => {
+                const deviceId = e.target.value;
+                const device = deviceById(deviceId);
+                const readings = device ? temperatureReadingsForSensor(device) : [];
+                setForm((f) => ({
+                  ...f,
+                  sensor_device_id: deviceId,
+                  sensor_reading_label: readings.length === 1 ? readings[0].label : "",
+                }));
+              }}
               className="mt-1 w-full rounded-xl border border-stone-200 px-3 py-2 text-sm"
             >
-              <option value="">Valitse anturi…</option>
+              <option value="">Valitse laite…</option>
               {sensors.map((d) => (
                 <option key={d.id} value={d.id}>
                   {d.name}
@@ -330,33 +365,63 @@ export function HeatingPanel() {
             </select>
             {sensors.length === 0 && (
               <p className="mt-1 text-xs text-stone-500">
-                Ei lämpötila-antureita — Smart Implant -kanavat, turvallisuuslaitteet ja anturit näkyvät synkin jälkeen.
+                Ei lämpötilalähteitä — kaikki laitteet joilla on lämpötilalukema näkyvät synkin jälkeen.
               </p>
             )}
           </label>
 
-          <label className="block">
-            <span className="text-sm font-medium text-stone-700">Lämmitystoimilainen</span>
-            <select
-              value={form.actuator_device_id}
-              onChange={(e) => setForm((f) => ({ ...f, actuator_device_id: e.target.value }))}
-              className="mt-1 w-full rounded-xl border border-stone-200 px-3 py-2 text-sm"
-            >
-              <option value="">Valitse rele/kytkin…</option>
-              {actuators.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.name}
-                  {d.on ? " (päällä)" : " (pois)"}
-                  {d.room ? ` · ${d.room}` : ""}
-                </option>
-              ))}
-            </select>
-            {actuators.length === 0 && (
+          {sensorReadingOptions.length > 1 && (
+            <label className="block">
+              <span className="text-sm font-medium text-stone-700">Lämpötilalukema</span>
+              <select
+                value={form.sensor_reading_label ?? ""}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, sensor_reading_label: e.target.value || null }))
+                }
+                className="mt-1 w-full rounded-xl border border-stone-200 px-3 py-2 text-sm"
+              >
+                <option value="">Oletus</option>
+                {sensorReadingOptions.map((r) => (
+                  <option key={r.label} value={r.label}>
+                    {r.label}: {r.value}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+
+          <fieldset className="block sm:col-span-2">
+            <legend className="text-sm font-medium text-stone-700">Lämmitystoimilaiset</legend>
+            <p className="mt-0.5 text-xs text-stone-500">
+              Valitse yksi tai useampi kytkin/rele. Kaikki valitut laitteet ohjataan yhdessä.
+            </p>
+            {actuators.length > 0 ? (
+              <div className="mt-2 max-h-48 space-y-1 overflow-y-auto rounded-xl border border-stone-200 p-2">
+                {actuators.map((d) => (
+                  <label
+                    key={d.id}
+                    className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-stone-50"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={form.actuator_device_ids.includes(d.id)}
+                      onChange={() => toggleActuatorInForm(d.id)}
+                      className="rounded border-stone-300"
+                    />
+                    <span className="text-sm text-stone-800">
+                      {d.name}
+                      {d.on ? " (päällä)" : " (pois)"}
+                      {d.room ? ` · ${d.room}` : ""}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            ) : (
               <p className="mt-1 text-xs text-stone-500">
-                Ei ohjattavia laitteita — valitse Shelly/Tasmota/Implant-rele tai Z-Wave-kytkin (Muu ohjaus / Lämmitys).
+                Ei ohjattavia kytkimiä — valitse laite jolla on kytkin- tai releohjaus.
               </p>
             )}
-          </label>
+          </fieldset>
 
           <label className="block">
             <span className="text-sm font-medium text-stone-700">Tavoitelämpötila (°C)</span>
@@ -441,7 +506,8 @@ export function HeatingPanel() {
                     name: form.name,
                     enabled: form.enabled,
                     sensor_device_id: form.sensor_device_id,
-                    actuator_device_id: form.actuator_device_id,
+                    sensor_reading_label: form.sensor_reading_label || null,
+                    actuator_device_ids: form.actuator_device_ids,
                     target_temp_c: form.target_temp_c,
                     hysteresis_c: form.hysteresis_c,
                     min_on_sec: form.min_on_sec,

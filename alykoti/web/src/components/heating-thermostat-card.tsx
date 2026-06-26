@@ -1,7 +1,10 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import type { HeatingThermostat } from "@/lib/heating-thermostats";
+import {
+  parseSensorTemperature,
+  type HeatingThermostat,
+} from "@/lib/heating-thermostats";
 import type { HubLightDevice } from "@/lib/hub-lights";
 import { TrendTrigger } from "@/components/trend-trigger";
 
@@ -36,22 +39,10 @@ function describeArc(startAngle: number, endAngle: number, radius = R): string {
   return `M ${start.x} ${start.y} A ${radius} ${radius} 0 ${large} 1 ${end.x} ${end.y}`;
 }
 
-function parseCurrentTemp(sensor?: HubLightDevice): number | null {
-  if (sensor?.temperature_c != null && Number.isFinite(sensor.temperature_c)) {
-    return sensor.temperature_c;
-  }
-  const reading = sensor?.readings?.find((r) => r.value.includes("°C"));
-  if (reading) {
-    const n = Number.parseFloat(reading.value.replace(/[^\d.-]/g, ""));
-    if (Number.isFinite(n)) return n;
-  }
-  return null;
-}
-
 type Props = {
   zone: HeatingThermostat;
   sensor?: HubLightDevice;
-  actuator?: HubLightDevice;
+  actuators?: HubLightDevice[];
   pending?: boolean;
   onShowTrend?: () => void;
   onToggleEnabled: () => void;
@@ -63,7 +54,7 @@ type Props = {
 export function HeatingThermostatCard({
   zone,
   sensor,
-  actuator,
+  actuators = [],
   pending,
   onShowTrend,
   onToggleEnabled,
@@ -73,9 +64,9 @@ export function HeatingThermostatCard({
 }: Props) {
   const [menuOpen, setMenuOpen] = useState(false);
 
-  const current = parseCurrentTemp(sensor);
+  const current = parseSensorTemperature(sensor, zone.sensor_reading_label);
   const target = zone.target_temp_c;
-  const heatingOn = Boolean(zone.enabled && actuator?.on);
+  const heatingOn = Boolean(zone.enabled && actuators.some((a) => a.on));
   const half = zone.hysteresis_c / 2;
   const needsHeat =
     current != null && zone.enabled && current < target - half;
@@ -103,6 +94,19 @@ export function HeatingThermostatCard({
   const trackPath = describeArc(ARC_START, ARC_START + ARC_SWEEP);
   const valuePath =
     arcEnd > ARC_START + 1 ? describeArc(ARC_START, arcEnd) : "";
+
+  const actuatorSummary =
+    actuators.length === 0
+      ? ""
+      : actuators.length === 1
+        ? actuators[0].on
+          ? "lämmitys päällä"
+          : "lämmitys pois"
+        : actuators.every((a) => a.on)
+          ? "kaikki päällä"
+          : actuators.some((a) => a.on)
+            ? "osittain päällä"
+            : "kaikki pois";
 
   return (
     <article className="relative flex flex-col rounded-2xl border border-stone-200 bg-[#f3f4f6] shadow-sm">
@@ -246,7 +250,7 @@ export function HeatingThermostatCard({
         </button>
         <p className="max-w-[60%] truncate text-center text-xs text-stone-500">
           {sensor?.name ?? "—"}
-          {actuator ? ` · ${actuator.on ? "lämmitys päällä" : "lämmitys pois"}` : ""}
+          {actuatorSummary ? ` · ${actuatorSummary}` : ""}
         </p>
         <span className="w-10" aria-hidden />
       </div>

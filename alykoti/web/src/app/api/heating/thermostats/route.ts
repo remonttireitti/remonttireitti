@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import {
-  isHeatingActuatorDevice,
-  isTemperatureSensorDevice,
+  isThermostatActuatorDevice,
+  isThermostatSensorDevice,
   normalizeHeatingPump,
   normalizeHeatingThermostats,
 } from "@/lib/heating-thermostats";
@@ -51,8 +51,8 @@ export async function GET() {
     hubOnline: isHubOnline(hub.last_seen_at),
     thermostats,
     heatingPump,
-    sensors: devices.filter(isTemperatureSensorDevice),
-    actuators: devices.filter(isHeatingActuatorDevice),
+    sensors: devices.filter(isThermostatSensorDevice),
+    actuators: devices.filter(isThermostatActuatorDevice),
     devices,
     heatingRuntime: hub.state.heating_runtime ?? {},
     heatingPumpRuntime: hub.state.heating_pump_runtime ?? null,

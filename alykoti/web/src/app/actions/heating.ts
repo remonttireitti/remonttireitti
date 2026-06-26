@@ -53,7 +53,8 @@ export async function saveThermostat(input: {
   name: string;
   enabled: boolean;
   sensor_device_id: string;
-  actuator_device_id: string;
+  sensor_reading_label?: string | null;
+  actuator_device_ids: string[];
   target_temp_c: number;
   hysteresis_c?: number;
   min_on_sec?: number;
@@ -67,10 +68,15 @@ export async function saveThermostat(input: {
   if (!name) return { error: "Anna termostaatille nimi." };
 
   const sensor = input.sensor_device_id?.trim();
-  const actuator = input.actuator_device_id?.trim();
+  const actuatorIds = [...new Set(input.actuator_device_ids.map((id) => id.trim()).filter(Boolean))];
   if (!sensor?.includes(":")) return { error: "Valitse lämpötila-anturi." };
-  if (!actuator?.includes(":")) return { error: "Valitse lämmitystoimilainen." };
-  if (sensor === actuator) return { error: "Anturi ja toimilainen eivät voi olla sama laite." };
+  if (actuatorIds.length === 0) return { error: "Valitse vähintään yksi lämmitystoimilainen." };
+  if (actuatorIds.some((id) => !id.includes(":"))) {
+    return { error: "Virheellinen toimilainen." };
+  }
+  if (actuatorIds.includes(sensor)) {
+    return { error: "Anturi ei voi olla samalla laitteella kuin toimilainen." };
+  }
 
   const target = input.target_temp_c;
   if (!Number.isFinite(target) || target < 5 || target > 35) {
@@ -85,12 +91,15 @@ export async function saveThermostat(input: {
   const thermostats = normalizeHeatingThermostats(parseHubConfig(ctx.hub.config).heating_thermostats);
   const id = input.id?.trim() || newThermostatId();
 
+  const sensorReadingLabel = input.sensor_reading_label?.trim() || null;
+
   const thermostat: HeatingThermostat = {
     id,
     name,
     enabled: input.enabled,
     sensor_device_id: sensor,
-    actuator_device_id: actuator,
+    sensor_reading_label: sensorReadingLabel,
+    actuator_device_ids: actuatorIds,
     target_temp_c: Math.round(target * 10) / 10,
     hysteresis_c: Math.round(hysteresis * 10) / 10,
     min_on_sec: Math.max(0, Math.round(input.min_on_sec ?? DEFAULT_MIN_ON_SEC)),
