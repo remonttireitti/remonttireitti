@@ -18,7 +18,7 @@ import {
   type AirfiState,
 } from "@/lib/airfi";
 import { recordEnergySamples } from "@/lib/energy-samples";
-import { normalizeHomeDevices } from "@/lib/device-normalize";
+import { mergeHomeDevices, normalizeHomeDevices } from "@/lib/device-normalize";
 import { recordDeviceMetricSamples } from "@/lib/device-metrics";
 import { hubMetricsEnabled } from "@/lib/hub-metrics-config";
 import { recordHubMetrics } from "@/lib/metric-samples";
@@ -442,17 +442,24 @@ export async function syncDevice(
 
   let config = parseHubConfig(hub.config);
   const storedMode = hub.control_mode as HubControlMode;
+  const prevStored = parseState(hub.state);
+  const incomingState = parseState(body.state);
+  const incomingHomeDevices = incomingState.home_devices;
+  if (incomingHomeDevices && typeof incomingHomeDevices === "object") {
+    delete incomingState.home_devices;
+  }
+
   const mergedState = expireTimedModes({
-    ...parseState(hub.state),
-    ...parseState(body.state),
+    ...prevStored,
+    ...incomingState,
   });
 
   if (body.state?.lights && typeof body.state.lights === "object") {
     mergedState.lights = body.state.lights;
   }
 
-  if (body.state?.home_devices && typeof body.state.home_devices === "object") {
-    mergedState.home_devices = body.state.home_devices;
+  if (incomingHomeDevices && typeof incomingHomeDevices === "object") {
+    mergedState.home_devices = mergeHomeDevices(prevStored.home_devices, incomingHomeDevices);
   }
 
   if (Array.isArray(body.state?.automation_events)) {
@@ -480,7 +487,6 @@ export async function syncDevice(
     mergedState.zwave_nodes = body.state.zwave_nodes as HubState["zwave_nodes"];
   }
 
-  const prevStored = parseState(hub.state);
   const prevOverrides = prevStored.device_overrides;
   if (prevOverrides && typeof prevOverrides === "object") {
     mergedState.device_overrides = prevOverrides;

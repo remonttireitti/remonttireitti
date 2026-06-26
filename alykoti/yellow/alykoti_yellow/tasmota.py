@@ -105,6 +105,7 @@ def discover_tasmota_devices(
     subnet_prefix: str | None = None,
     workers: int = 48,
     timeout: float = 0.8,
+    extra_hosts: list[str] | None = None,
 ) -> list[dict[str, Any]]:
     prefix = subnet_prefix or _local_subnet_prefix()
     found: list[dict[str, Any]] = []
@@ -120,6 +121,17 @@ def discover_tasmota_devices(
             if not item or item["host"] in seen:
                 continue
             seen.add(item["host"])
+            found.append(item)
+
+    if extra_hosts:
+        for raw_host in extra_hosts:
+            host = raw_host.strip()
+            if not host or host in seen:
+                continue
+            item = probe_tasmota(host, timeout=max(timeout, 2.0))
+            if not item:
+                continue
+            seen.add(host)
             found.append(item)
 
     found.sort(key=lambda d: d["host"])
@@ -192,10 +204,52 @@ def _read_power(host: str, channel: int) -> bool | None:
     return None
 
 
-def fetch_tasmota_devices(configured: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+def _offline_tasmota_channel(
+    host: str,
+    meta: dict[str, Any],
+    channel: int,
+    total: int,
+) -> dict[str, Any]:
+    name = meta.get("name") if isinstance(meta.get("name"), str) else host
+    return {
+        "protocol": "tasmota",
+        "kind": "switch",
+        "name": _channel_name(str(name), channel, total),
+        "on": False,
+        "brightness": None,
+        "controllable": True,
+        "online": False,
+        "host": host,
+        "channel": channel,
+        "model": meta.get("model") or None,
+        "capabilities": [
+            {"id": "relay", "read": True, "write": True},
+            {"id": "switch", "read": True, "write": True},
+        ],
+    }
+
+
+def fetch_tasmota_devices(
+    configured: list[dict[str, Any]],
+    previous: dict[str, dict[str, Any]] | None = None,
+) -> dict[str, dict[str, Any]]:
+    prev = previous or {}
     out: dict[str, dict[str, Any]] = {}
     for host, meta in _normalize_hosts(configured).items():
+        host_prefix = f"tasmota:{host}:"
+        host_prev = {k: v for k, v in prev.items() if k.startswith(host_prefix)}
+
         status0 = _cmnd(host, "Status 0")
+        if not status0:
+            if host_prev:
+                for device_id, entry in host_prev.items():
+                    if isinstance(entry, dict):
+                        out[device_id] = {**entry, "online": False}
+            else:
+                out[f"tasmota:{host}:0"] = _offline_tasmota_channel(host, meta, 0, 1)
+            log.debug("Tasmota offline — säilytetään %s (%d kanavaa)", host, len(host_prev) or 1)
+            continue
+
         status = status0.get("Status") if isinstance(status0, dict) else None
         friendly_name = None
         if isinstance(status, dict):
@@ -205,17 +259,22 @@ def fetch_tasmota_devices(configured: list[dict[str, Any]]) -> dict[str, dict[st
 
         channels = _detect_channels(host)
         for ch in channels:
+            device_id = f"tasmota:{host}:{ch}"
             on = _read_power(host, ch)
             if on is None:
+                prev_entry = host_prev.get(device_id)
+                if isinstance(prev_entry, dict):
+                    out[device_id] = {**prev_entry, "online": False}
                 continue
             switch_name = switch_texts.get(ch)
-            out[f"tasmota:{host}:{ch}"] = {
+            out[device_id] = {
                 "protocol": "tasmota",
                 "kind": "switch",
                 "name": _channel_name(name, ch, len(channels), switch_name),
                 "on": on,
                 "brightness": None,
                 "controllable": True,
+                "online": True,
                 "host": host,
                 "channel": ch,
                 "model": meta["model"] or None,

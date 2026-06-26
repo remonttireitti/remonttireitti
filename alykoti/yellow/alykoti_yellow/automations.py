@@ -24,8 +24,8 @@ from alykoti_yellow.mqtt_lights import (
     set_light_brightness,
     set_light_color_hue,
 )
-from alykoti_yellow.shelly import set_shelly_switch
-from alykoti_yellow.tasmota import set_tasmota_power
+from alykoti_yellow.shelly import fetch_shelly_devices, set_shelly_switch
+from alykoti_yellow.tasmota import fetch_tasmota_devices, set_tasmota_power
 from alykoti_yellow.zwave_mqtt import (
     _load_node_names,
     _slug,
@@ -36,6 +36,22 @@ from alykoti_yellow.zwave_mqtt import (
 )
 
 DEVICE_REFRESH_SEC = 45.0
+
+
+def _merge_home_devices(base: dict[str, Any], patch: dict[str, Any]) -> dict[str, Any]:
+    if not patch:
+        return base
+    merged = dict(base)
+    for device_id, meta in patch.items():
+        if not isinstance(meta, dict):
+            continue
+        prev = merged.get(device_id)
+        if isinstance(prev, dict):
+            merged[device_id] = {**prev, **meta}
+        else:
+            merged[device_id] = meta
+    return merged
+
 
 log = logging.getLogger(__name__)
 
@@ -402,9 +418,9 @@ class AutomationEngine:
 
     def refresh_home_devices(self) -> int:
         """Päivitä laiterekisteri paikallisesti — ei odota pilvisynkkiä."""
-        home_devices: dict[str, Any] = {}
+        live: dict[str, Any] = {}
         try:
-            home_devices.update(
+            live.update(
                 fetch_zigbee_home(config.MQTT_URL, config.MQTT_PREFIX, timeout_sec=3.0)
             )
         except Exception as exc:
@@ -418,16 +434,34 @@ class AutomationEngine:
                 gateway=config.ZWAVE_GATEWAY,
             )
             if isinstance(zwave_result, dict) and "devices" in zwave_result:
-                home_devices.update(zwave_result["devices"])
+                live.update(zwave_result["devices"])
             elif isinstance(zwave_result, dict):
-                home_devices.update(zwave_result)
+                live.update(zwave_result)
         except Exception as exc:
             log.debug("Automaatio zwave refresh: %s", exc)
-        if not home_devices:
-            return 0
+
         with self._lock:
             rules = list(self._rules)
             integrations = dict(self._integrations)
+            prev = dict(self._home_devices)
+
+        shelly_cfg = integrations.get("shelly", {}).get("devices") or []
+        if shelly_cfg:
+            try:
+                live.update(fetch_shelly_devices(shelly_cfg))
+            except Exception as exc:
+                log.debug("Automaatio shelly refresh: %s", exc)
+
+        tasmota_cfg = integrations.get("tasmota", {}).get("devices") or []
+        if tasmota_cfg:
+            try:
+                live.update(fetch_tasmota_devices(tasmota_cfg, previous=prev))
+            except Exception as exc:
+                log.debug("Automaatio tasmota refresh: %s", exc)
+
+        home_devices = _merge_home_devices(prev, live) if prev else live
+        if not home_devices:
+            return 0
         self.update_config(rules, integrations, home_devices)
         save_hub_cache(home_devices=home_devices)
         log.info("Automaatio laiterekisteri päivitetty paikallisesti (%s laitetta)", len(home_devices))

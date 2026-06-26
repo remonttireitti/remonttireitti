@@ -58,6 +58,27 @@ function mergeAirthingsDevices(
   return out;
 }
 
+/** Yhdistä tallennettu rekisteri ja Yellowin skannaus — älä poista offline-laitteita. */
+export function mergeHomeDevices(
+  stored: HubState["home_devices"] | undefined,
+  incoming: HubState["home_devices"] | undefined,
+): HubState["home_devices"] {
+  const base =
+    stored && typeof stored === "object" ? { ...stored } : ({} as Record<string, HubHomeDevice>);
+  if (!incoming || typeof incoming !== "object") {
+    return base;
+  }
+
+  const merged: Record<string, HubHomeDevice> = { ...base };
+  for (const [id, device] of Object.entries(incoming)) {
+    if (!device || typeof device !== "object") continue;
+    const prev = merged[id];
+    merged[id] =
+      prev && typeof prev === "object" ? { ...prev, ...device } : (device as HubHomeDevice);
+  }
+  return merged;
+}
+
 export function normalizeHomeDevices(
   home: HubState["home_devices"],
   options?: {

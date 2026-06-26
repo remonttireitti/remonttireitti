@@ -233,7 +233,15 @@ def execute_command(cmd: dict) -> bool:
         global cached_tasmota_discovered
         subnet = payload.get("subnet")
         prefix = subnet if isinstance(subnet, str) and subnet.strip() else None
-        cached_tasmota_discovered = discover_tasmota_devices(prefix)
+        configured_hosts = [
+            d.get("host")
+            for d in (cached_integrations.get("tasmota", {}).get("devices") or [])
+            if isinstance(d.get("host"), str) and d.get("host", "").strip()
+        ]
+        cached_tasmota_discovered = discover_tasmota_devices(
+            prefix,
+            extra_hosts=configured_hosts,
+        )
         if cmd_id:
             _queue_ack(cmd_id)
         return True
@@ -448,7 +456,7 @@ def _try_recover_stuck_airfi_emergency(state: dict) -> bool:
 
 
 def _bootstrap_from_cache() -> None:
-    global cached_automations, cached_integrations, cached_hub_config, cached_control_mode
+    global cached_automations, cached_integrations, cached_hub_config, cached_control_mode, cached_hub_state
     snap = load_hub_cache()
     if not snap:
         return
@@ -460,6 +468,8 @@ def _bootstrap_from_cache() -> None:
         cached_hub_config = snap["hub_config"]
     if isinstance(snap.get("control_mode"), str):
         cached_control_mode = snap["control_mode"]
+    if isinstance(snap.get("home_devices"), dict):
+        cached_hub_state = {"home_devices": snap["home_devices"]}
     get_engine().update_config(
         cached_automations,
         cached_integrations,
@@ -662,9 +672,15 @@ def build_state(
     tasmota_cfg = (integrations or {}).get("tasmota", {}).get("devices") or []
     if tasmota_cfg:
         try:
-            home_devices.update(fetch_tasmota_devices(tasmota_cfg))
+            prev_home = cached_hub_state.get("home_devices")
+            previous = prev_home if isinstance(prev_home, dict) else None
+            home_devices.update(fetch_tasmota_devices(tasmota_cfg, previous=previous))
         except Exception as exc:
             log.warning("Tasmota read failed: %s", exc)
+
+    cached_devices = cached_hub_state.get("home_devices")
+    if isinstance(cached_devices, dict) and cached_devices:
+        home_devices = _merge_home_devices(cached_devices, home_devices)
 
     if home_devices:
         state["home_devices"] = home_devices
