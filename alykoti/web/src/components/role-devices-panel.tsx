@@ -10,10 +10,12 @@ import {
 import type { DeviceReading } from "@/lib/capabilities";
 import { inferProtocolFromId, protocolLabel, type DeviceProtocol } from "@/lib/device-protocol";
 import { kindLabel } from "@/lib/hub-lights";
-import { useMetricTrend } from "@/hooks/use-metric-trend";
+import { lightControlCommandIds, sendLightControl } from "@/lib/light-control-send";
+import { useHubCommandStatus } from "@/components/command-status-provider";
 import { TrendTrigger } from "@/components/trend-trigger";
 import { DeviceReadingsInline } from "@/components/device-readings-inline";
 import { resolveHubDeviceReadings } from "@/lib/device-reading-metrics";
+import { useMetricTrend } from "@/hooks/use-metric-trend";
 
 type Device = {
   id: string;
@@ -64,10 +66,10 @@ export function RoleDevicesPanel({ sections, pageTitle, pageDescription }: Props
   const [hubOnline, setHubOnline] = useState<boolean | undefined>();
   const [error, setError] = useState<string | null>(null);
   const [, startTransition] = useTransition();
-  const [busyId, setBusyId] = useState<string | null>(null);
   const [optimisticOn, setOptimisticOn] = useState<Record<string, boolean>>({});
   const [flash, setFlash] = useState<string | null>(null);
   const { showTrend, modal } = useMetricTrend();
+  const { trackCommandIds } = useHubCommandStatus();
 
   const load = useCallback(async () => {
     try {
@@ -109,17 +111,11 @@ export function RoleDevicesPanel({ sections, pageTitle, pageDescription }: Props
   }
 
   function toggle(device: Device, on: boolean) {
-    if (!device.controllable || busyId === device.id) return;
+    if (!device.controllable) return;
     setOptimisticOn((prev) => ({ ...prev, [device.id]: on }));
-    setBusyId(device.id);
-    startTransition(async () => {
+    void (async () => {
       try {
-        const res = await fetch("/api/lights/control", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id: device.id, on }),
-        });
-        const json = (await res.json()) as { ok?: boolean; error?: string };
+        const json = await sendLightControl({ id: device.id, on });
         if (!json.ok) {
           setFlash(json.error ?? "Ohjaus epäonnistui");
           setOptimisticOn((prev) => {
@@ -129,7 +125,8 @@ export function RoleDevicesPanel({ sections, pageTitle, pageDescription }: Props
           });
         } else {
           setFlash(null);
-          void load();
+          const ids = lightControlCommandIds(json);
+          if (ids.length > 0) trackCommandIds(ids);
         }
       } catch {
         setFlash("Ohjaus epäonnistui");
@@ -138,10 +135,8 @@ export function RoleDevicesPanel({ sections, pageTitle, pageDescription }: Props
           delete next[device.id];
           return next;
         });
-      } finally {
-        setBusyId(null);
       }
-    });
+    })();
   }
 
   const roleSet = (roles: DeviceRole[]) => new Set(roles);
@@ -191,7 +186,6 @@ export function RoleDevicesPanel({ sections, pageTitle, pageDescription }: Props
             title={section.title}
             empty={section.empty ?? "Ei laitteita — valitse laitetyyppi Asetuksissa."}
             devices={filtered}
-            busyId={busyId}
             onToggle={toggle}
             effectiveOn={effectiveOn}
             readOnlyHint={section.readOnlyHint}
@@ -342,7 +336,6 @@ function DeviceSection({
   title,
   empty,
   devices,
-  busyId,
   onToggle,
   effectiveOn,
   readOnlyHint,
@@ -352,7 +345,6 @@ function DeviceSection({
   title: string;
   empty: string;
   devices: Device[];
-  busyId: string | null;
   onToggle: (device: Device, on: boolean) => void;
   effectiveOn: (device: Device) => boolean;
   readOnlyHint?: string;
@@ -375,7 +367,6 @@ function DeviceSection({
         <ul className="mt-4 grid gap-3 sm:grid-cols-2">
           {devices.map((device) => {
             const on = effectiveOn(device);
-            const busy = busyId === device.id;
             const protocol = inferProtocolFromId(device.id, device.protocol as DeviceProtocol);
             const alsoUsed = secondaryUseHint(device);
             const resolved = resolveHubDeviceReadings(device);
@@ -405,14 +396,13 @@ function DeviceSection({
                 ) : (
                   <div className="flex shrink-0 flex-col items-end gap-1">
                     <span className={`text-xs font-semibold ${on ? "text-amber-700" : "text-stone-500"}`}>
-                      {busy ? "Lähetetään…" : on ? "Päällä" : "Pois"}
+                      {on ? "Päällä" : "Pois"}
                     </span>
                     <div className="flex gap-1">
                       <button
                         type="button"
-                        disabled={busy}
                         onClick={() => onToggle(device, true)}
-                        className={`rounded-lg px-4 py-2.5 text-xs font-semibold disabled:opacity-50 md:px-3 md:py-1.5 ${
+                        className={`rounded-lg px-4 py-2.5 text-xs font-semibold md:px-3 md:py-1.5 ${
                           on ? "bg-amber-400 text-amber-950 ring-2 ring-amber-500/40" : "bg-stone-900 text-white"
                         }`}
                       >
@@ -420,9 +410,8 @@ function DeviceSection({
                       </button>
                       <button
                         type="button"
-                        disabled={busy}
                         onClick={() => onToggle(device, false)}
-                        className={`rounded-lg border px-4 py-2.5 text-xs font-semibold disabled:opacity-50 md:px-3 md:py-1.5 ${
+                        className={`rounded-lg border px-4 py-2.5 text-xs font-semibold md:px-3 md:py-1.5 ${
                           !on
                             ? "border-stone-400 bg-stone-200 text-stone-900 ring-2 ring-stone-400/50"
                             : "border-stone-300 text-stone-800"

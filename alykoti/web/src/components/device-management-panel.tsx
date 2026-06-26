@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
 import {
   renameHubDevice,
@@ -30,7 +31,8 @@ import type { DeviceRole, DeviceSecondaryUse } from "@/lib/device-roles";
 import { groupZwaveDevicesForList } from "@/lib/zwave-detail";
 import { HOUSE_ROOMS } from "@/lib/rooms";
 import { LAITTEET } from "@/lib/laitteet-paths";
-import Link from "next/link";
+import { useHubCommandStatus } from "@/components/command-status-provider";
+import { lightControlCommandIds, sendLightControl } from "@/lib/light-control-send";
 import type { DeviceReading } from "@/lib/capabilities";
 import { DeviceReadingsInline } from "@/components/device-readings-inline";
 import { resolveHubDeviceReadings } from "@/lib/device-reading-metrics";
@@ -89,7 +91,7 @@ export function DeviceManagementPanel({
   const [data, setData] = useState<DevicesResponse | null>(null);
   const [flash, setFlash] = useState<DeviceActionState | null>(null);
   const [pending, startTransition] = useTransition();
-  const [busyId, setBusyId] = useState<string | null>(null);
+  const { trackCommandIds } = useHubCommandStatus();
   const [controlFlash, setControlFlash] = useState<string | null>(null);
   const { showTrend, modal } = useMetricTrend();
   const [optimisticOn, setOptimisticOn] = useState<Record<string, boolean>>({});
@@ -136,17 +138,11 @@ export function DeviceManagementPanel({
   }
 
   function toggleDevice(device: Device, on: boolean) {
-    if (!device.controllable || busyId === device.id) return;
+    if (!device.controllable) return;
     setOptimisticOn((prev) => ({ ...prev, [device.id]: on }));
-    setBusyId(device.id);
-    startTransition(async () => {
+    void (async () => {
       try {
-        const res = await fetch("/api/lights/control", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id: device.id, on }),
-        });
-        const json = (await res.json()) as { ok?: boolean; error?: string };
+        const json = await sendLightControl({ id: device.id, on });
         if (!json.ok) {
           setControlFlash(json.error ?? "Ohjaus epäonnistui");
           setOptimisticOn((prev) => {
@@ -156,7 +152,8 @@ export function DeviceManagementPanel({
           });
         } else {
           setControlFlash(null);
-          void load();
+          const ids = lightControlCommandIds(json);
+          if (ids.length > 0) trackCommandIds(ids);
         }
       } catch {
         setControlFlash("Ohjaus epäonnistui");
@@ -165,10 +162,8 @@ export function DeviceManagementPanel({
           delete next[device.id];
           return next;
         });
-      } finally {
-        setBusyId(null);
       }
-    });
+    })();
   }
 
   const allDevices = data?.devices ?? [];
@@ -329,7 +324,6 @@ export function DeviceManagementPanel({
               onHide={(id) => run(() => updateDeviceOverride(id, { hidden: true }))}
               onRefresh={() => void load()}
               onToggle={toggleDevice}
-              busyId={busyId}
               effectiveOn={effectiveOn}
               onShowTrend={showTrend}
             />
@@ -366,7 +360,6 @@ export function DeviceManagementPanel({
               onHide={(id) => run(() => updateDeviceOverride(id, { hidden: true }))}
               onRefresh={() => void load()}
               onToggle={toggleDevice}
-              busyId={busyId}
               effectiveOn={effectiveOn}
               onShowTrend={showTrend}
             />
@@ -398,7 +391,6 @@ export function DeviceManagementPanel({
           onHide={(id) => run(() => updateDeviceOverride(id, { hidden: true }))}
           onRefresh={() => void load()}
           onToggle={toggleDevice}
-          busyId={busyId}
           effectiveOn={effectiveOn}
           onShowTrend={showTrend}
           emptyText={
@@ -512,7 +504,6 @@ function DeviceListSection({
   onHide,
   onRefresh,
   onToggle,
-  busyId,
   effectiveOn,
   emptyText,
   onShowTrend,
@@ -533,7 +524,6 @@ function DeviceListSection({
   onHide: (id: string) => void;
   onRefresh: () => void;
   onToggle?: (device: Device, on: boolean) => void;
-  busyId?: string | null;
   effectiveOn?: (device: Device) => boolean;
   emptyText?: string;
   onShowTrend?: (metric: string) => void;
@@ -558,7 +548,6 @@ function DeviceListSection({
         <ul className="mt-4 divide-y divide-stone-100">
           {devices.map((device) => {
             const on = effectiveOn ? effectiveOn(device) : device.on;
-            const busy = busyId === device.id;
             const showControl = showPowerToggle(device, onToggle);
             const showLockControl = isLockDevice(device) && device.controllable && !!onToggle;
             const resolved = resolveHubDeviceReadings(device);
@@ -651,27 +640,25 @@ function DeviceListSection({
                       <div className="flex gap-1">
                         <button
                           type="button"
-                          disabled={busy}
                           onClick={() => onToggle!(device, true)}
-                          className={`rounded-lg px-4 py-2.5 text-xs font-semibold disabled:opacity-50 md:py-1.5 md:px-3 ${
+                          className={`rounded-lg px-4 py-2.5 text-xs font-semibold md:py-1.5 md:px-3 ${
                             on
                               ? "bg-amber-400 text-amber-950 ring-2 ring-amber-500/40"
                               : "bg-stone-900 text-white hover:bg-stone-800"
                           }`}
                         >
-                          {busy && on ? "…" : "Päälle"}
+                          Päälle
                         </button>
                         <button
                           type="button"
-                          disabled={busy}
                           onClick={() => onToggle!(device, false)}
-                          className={`rounded-lg border px-4 py-2.5 text-xs font-semibold disabled:opacity-50 md:py-1.5 md:px-3 ${
+                          className={`rounded-lg border px-4 py-2.5 text-xs font-semibold md:py-1.5 md:px-3 ${
                             !on
                               ? "border-stone-400 bg-stone-200 text-stone-900 ring-2 ring-stone-400/50"
                               : "border-stone-300 text-stone-800 hover:bg-stone-50"
                           }`}
                         >
-                          {busy && !on ? "…" : "Pois"}
+                          Pois
                         </button>
                       </div>
                     )}
@@ -679,27 +666,25 @@ function DeviceListSection({
                       <div className="flex gap-1">
                         <button
                           type="button"
-                          disabled={busy}
                           onClick={() => onToggle!(device, false)}
-                          className={`rounded-lg border px-4 py-2.5 text-xs font-semibold disabled:opacity-50 md:py-1.5 md:px-3 ${
+                          className={`rounded-lg border px-4 py-2.5 text-xs font-semibold md:py-1.5 md:px-3 ${
                             device.locked === false
                               ? "border-stone-400 bg-stone-200 text-stone-900 ring-2 ring-stone-400/50"
                               : "border-stone-300 text-stone-800 hover:bg-stone-50"
                           }`}
                         >
-                          {busy && device.locked === false ? "…" : "Avaa"}
+                          Avaa
                         </button>
                         <button
                           type="button"
-                          disabled={busy}
                           onClick={() => onToggle!(device, true)}
-                          className={`rounded-lg px-4 py-2.5 text-xs font-semibold disabled:opacity-50 md:py-1.5 md:px-3 ${
+                          className={`rounded-lg px-4 py-2.5 text-xs font-semibold md:py-1.5 md:px-3 ${
                             device.locked === true
                               ? "bg-stone-800 text-white ring-2 ring-stone-600/40"
                               : "bg-stone-900 text-white hover:bg-stone-800"
                           }`}
                         >
-                          {busy && device.locked === true ? "…" : "Lukitse"}
+                          Lukitse
                         </button>
                       </div>
                     )}

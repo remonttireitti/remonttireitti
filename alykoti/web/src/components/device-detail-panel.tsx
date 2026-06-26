@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { canWrite, hasCapability } from "@/lib/capabilities";
 import { pressTypesForTrigger } from "@/lib/automation-actions";
 import { PRESS_LABELS } from "@/lib/automation";
@@ -20,6 +20,7 @@ import { DeviceReadingsList } from "@/components/device-readings-list";
 import { useHubCommandStatus } from "@/components/command-status-provider";
 import { useMetricTrend } from "@/hooks/use-metric-trend";
 import { resolveHubDeviceReadings } from "@/lib/device-reading-metrics";
+import { lightControlCommandIds, sendLightControl } from "@/lib/light-control-send";
 
 type Props = {
   protocol: "zigbee" | "zwave";
@@ -54,6 +55,7 @@ export function DeviceDetailPanel({ protocol, deviceIdParam }: Props) {
   const [flash, setFlash] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const [brightness, setBrightness] = useState(50);
+  const brightnessSendRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { trackCommandIds } = useHubCommandStatus();
   const { showTrend, modal } = useMetricTrend();
 
@@ -177,33 +179,47 @@ export function DeviceDetailPanel({ protocol, deviceIdParam }: Props) {
     if (typeof body.on === "boolean") {
       setDevice((prev) => (prev ? { ...prev, on: body.on as boolean } : prev));
     }
-    startTransition(async () => {
+    if (typeof body.brightness === "number") {
+      setDevice((prev) =>
+        prev ? { ...prev, on: true, brightness: body.brightness as number } : prev,
+      );
+    }
+    void (async () => {
       try {
-        const payload: Record<string, unknown> = { id: targetId, ...body };
-        if (mqttSetTopic) payload.mqtt_set_topic = mqttSetTopic;
-        if (lockSetTopic) payload.lock_set_topic = lockSetTopic;
-        const res = await fetch("/api/lights/control", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-        const json = (await res.json()) as {
-          ok?: boolean;
-          error?: string;
-          commandId?: string;
+        const payload = {
+          id: targetId,
+          on: typeof body.on === "boolean" ? (body.on as boolean) : undefined,
+          brightness: typeof body.brightness === "number" ? (body.brightness as number) : undefined,
+          color: body.color as { hue?: number; saturation?: number; color_temp?: number } | undefined,
+          mqtt_set_topic: mqttSetTopic,
+          lock_set_topic: lockSetTopic,
         };
+        const json = await sendLightControl(payload);
         if (!json.ok) {
           setFlash(json.error ?? "Ohjaus epäonnistui");
           void loadDevice();
         } else {
           setFlash(null);
-          if (json.commandId) trackCommandIds([json.commandId]);
+          const ids = lightControlCommandIds(json);
+          if (ids.length > 0) trackCommandIds(ids);
         }
       } catch {
         setFlash("Ohjaus epäonnistui");
         void loadDevice();
       }
+    })();
+  }
+
+  function sendBrightness(pct: number) {
+    control({
+      on: true,
+      brightness: Math.round((pct / 100) * 254),
     });
+  }
+
+  function scheduleBrightness(pct: number) {
+    if (brightnessSendRef.current) clearTimeout(brightnessSendRef.current);
+    brightnessSendRef.current = setTimeout(() => sendBrightness(pct), 150);
   }
 
   function control(body: Record<string, unknown>) {
@@ -319,20 +335,20 @@ export function DeviceDetailPanel({ protocol, deviceIdParam }: Props) {
           <div className="mt-4 flex flex-wrap gap-2">
             {canSwitch && (
               <>
-                <ControlButton disabled={pending} onClick={() => control({ on: true })}>
+                <ControlButton onClick={() => control({ on: true })}>
                   Päälle
                 </ControlButton>
-                <ControlButton disabled={pending} onClick={() => control({ on: false })}>
+                <ControlButton onClick={() => control({ on: false })}>
                   Pois
                 </ControlButton>
               </>
             )}
             {canLock && (
               <>
-                <ControlButton disabled={pending} onClick={() => control({ on: true })}>
+                <ControlButton onClick={() => control({ on: true })}>
                   Lukitse
                 </ControlButton>
-                <ControlButton disabled={pending} onClick={() => control({ on: false })}>
+                <ControlButton onClick={() => control({ on: false })}>
                   Avaa
                 </ControlButton>
               </>
@@ -349,19 +365,25 @@ export function DeviceDetailPanel({ protocol, deviceIdParam }: Props) {
                 min={1}
                 max={100}
                 value={brightness}
-                onChange={(e) => setBrightness(Number.parseInt(e.target.value, 10))}
-                onMouseUp={() =>
-                  control({
-                    on: true,
-                    brightness: Math.round((brightness / 100) * 254),
-                  })
-                }
-                onTouchEnd={() =>
-                  control({
-                    on: true,
-                    brightness: Math.round((brightness / 100) * 254),
-                  })
-                }
+                onChange={(e) => {
+                  const pct = Number.parseInt(e.target.value, 10);
+                  setBrightness(pct);
+                  scheduleBrightness(pct);
+                }}
+                onMouseUp={() => {
+                  if (brightnessSendRef.current) {
+                    clearTimeout(brightnessSendRef.current);
+                    brightnessSendRef.current = null;
+                  }
+                  sendBrightness(brightness);
+                }}
+                onTouchEnd={() => {
+                  if (brightnessSendRef.current) {
+                    clearTimeout(brightnessSendRef.current);
+                    brightnessSendRef.current = null;
+                  }
+                  sendBrightness(brightness);
+                }}
                 className="mt-2 w-full"
               />
             </div>
@@ -375,7 +397,6 @@ export function DeviceDetailPanel({ protocol, deviceIdParam }: Props) {
                   <button
                     key={preset.hue}
                     type="button"
-                    disabled={pending}
                     onClick={() =>
                       control({
                         on: true,
@@ -577,13 +598,11 @@ function ZwaveEndpointControl({
           {canSwitch && (
             <>
               <ControlButton
-                disabled={pending}
                 onClick={() => onControl(deviceId, { on: true }, mqttTopic)}
               >
                 Päälle
               </ControlButton>
               <ControlButton
-                disabled={pending}
                 onClick={() => onControl(deviceId, { on: false }, mqttTopic)}
               >
                 Pois
@@ -593,13 +612,11 @@ function ZwaveEndpointControl({
           {canLock && (
             <>
               <ControlButton
-                disabled={pending}
                 onClick={() => onControl(deviceId, { on: true }, mqttTopic)}
               >
                 Lukitse
               </ControlButton>
               <ControlButton
-                disabled={pending}
                 onClick={() => onControl(deviceId, { on: false }, mqttTopic)}
               >
                 Avaa

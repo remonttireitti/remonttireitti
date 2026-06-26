@@ -344,7 +344,7 @@ async function syncDeviceQuick(
       .eq("hub_id", hub.id)
       .eq("status", "pending")
       .order("created_at", { ascending: true })
-      .limit(10),
+      .limit(25),
     supabase.from("hubs").update(hubUpdate).eq("id", hub.id),
   ]);
 

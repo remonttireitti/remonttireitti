@@ -36,6 +36,7 @@ import {
   type ResolvedDeviceReading,
 } from "@/lib/device-reading-metrics";
 import type { ZwaveDeviceDetailPayload } from "@/lib/zwave-device-detail-load";
+import { lightControlCommandIds, sendLightControl } from "@/lib/light-control-send";
 
 type Props = {
   deviceIdParam: string;
@@ -161,30 +162,22 @@ export function ZwaveDeviceDetailPanel({ deviceIdParam, initial }: Props) {
     setDevice((prev) =>
       prev?.id === ep.device_id ? { ...prev, on } : prev,
     );
-    startTransition(async () => {
+    void (async () => {
       try {
-        const res = await fetch("/api/lights/control", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id: ep.device_id, on }),
-        });
-        const json = (await res.json()) as {
-          ok?: boolean;
-          error?: string;
-          commandId?: string;
-        };
+        const json = await sendLightControl({ id: ep.device_id, on });
         if (!json.ok) {
           setFlash(json.error ?? "Ohjaus epäonnistui");
           await loadDevice();
         } else {
           setFlash(null);
-          if (json.commandId) trackCommandIds([json.commandId]);
+          const ids = lightControlCommandIds(json);
+          if (ids.length > 0) trackCommandIds(ids);
         }
       } catch {
         setFlash("Ohjaus epäonnistui");
         await loadDevice();
       }
-    });
+    })();
   }
 
   function setZwaveProperty(mqttTopic: string, value: unknown) {
@@ -595,19 +588,19 @@ function EndpointControl({
         <div className="flex gap-2">
           {lockMode ? (
             <>
-              <ControlButton disabled={pending} onClick={() => onToggle(false)}>
+              <ControlButton onClick={() => onToggle(false)}>
                 Avaa
               </ControlButton>
-              <ControlButton disabled={pending} onClick={() => onToggle(true)}>
+              <ControlButton onClick={() => onToggle(true)}>
                 Lukitse
               </ControlButton>
             </>
           ) : (
             <>
-              <ControlButton disabled={pending} onClick={() => onToggle(true)}>
+              <ControlButton onClick={() => onToggle(true)}>
                 Päälle
               </ControlButton>
-              <ControlButton disabled={pending} onClick={() => onToggle(false)}>
+              <ControlButton onClick={() => onToggle(false)}>
                 Pois
               </ControlButton>
             </>

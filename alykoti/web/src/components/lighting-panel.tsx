@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState, useTransition } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { useHubCommandStatus } from "@/components/command-status-provider";
 import { FloorPlanView } from "@/components/floor-plan-view";
 import { LightMapDevicePopup } from "@/components/light-map-device-popup";
 import { DeviceReadingsInline } from "@/components/device-readings-inline";
@@ -10,6 +11,7 @@ import { inferProtocolFromId, protocolLabel } from "@/lib/device-protocol";
 import { resolveHubDeviceReadings } from "@/lib/device-reading-metrics";
 import { kindLabel } from "@/lib/hub-lights";
 import { useMetricTrend } from "@/hooks/use-metric-trend";
+import { lightControlCommandIds, sendLightControl } from "@/lib/light-control-send";
 
 type Device = {
   id: string;
@@ -54,12 +56,11 @@ type LightsResponse = {
 
 export function LightingPanel() {
   const [data, setData] = useState<LightsResponse | null>(null);
-  const [, startTransition] = useTransition();
-  const [busyId, setBusyId] = useState<string | null>(null);
   const [optimisticOn, setOptimisticOn] = useState<Record<string, boolean>>({});
   const [flash, setFlash] = useState<string | null>(null);
   const [popupDevice, setPopupDevice] = useState<Device | null>(null);
   const { showTrend, modal } = useMetricTrend();
+  const { trackCommandIds } = useHubCommandStatus();
 
   const load = useCallback(async () => {
     try {
@@ -97,17 +98,11 @@ export function LightingPanel() {
   }, [data]);
 
   function toggle(device: Device, on: boolean) {
-    if (!device.controllable || busyId === device.id) return;
+    if (!device.controllable) return;
     setOptimisticOn((prev) => ({ ...prev, [device.id]: on }));
-    setBusyId(device.id);
-    startTransition(async () => {
+    void (async () => {
       try {
-        const res = await fetch("/api/lights/control", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id: device.id, on }),
-        });
-        const json = (await res.json()) as { ok?: boolean; error?: string };
+        const json = await sendLightControl({ id: device.id, on });
         if (!json.ok) {
           setFlash(json.error ?? "Ohjaus epäonnistui");
           setOptimisticOn((prev) => {
@@ -117,7 +112,8 @@ export function LightingPanel() {
           });
         } else {
           setFlash(null);
-          void load();
+          const ids = lightControlCommandIds(json);
+          if (ids.length > 0) trackCommandIds(ids);
         }
       } catch {
         setFlash("Ohjaus epäonnistui");
@@ -126,10 +122,8 @@ export function LightingPanel() {
           delete next[device.id];
           return next;
         });
-      } finally {
-        setBusyId(null);
       }
-    });
+    })();
   }
 
   const lights = data?.lights ?? [];
@@ -233,7 +227,6 @@ export function LightingPanel() {
         title="Valot"
         empty="Ei valoja — valitse laitteelle tyyppi Valo Asetuksissa."
         devices={lights}
-        busyId={busyId}
         onToggle={toggle}
         effectiveOn={effectiveOn}
         onRefresh={() => void load()}
@@ -244,7 +237,6 @@ export function LightingPanel() {
         title="Valokytkimet"
         empty="Ei valokytkimiä."
         devices={switches}
-        busyId={busyId}
         onToggle={toggle}
         effectiveOn={effectiveOn}
         readOnlyHint="Kaukosäädin — ei ohjattavissa webistä."
@@ -264,7 +256,6 @@ function DeviceSection({
   title,
   empty,
   devices,
-  busyId,
   onToggle,
   effectiveOn,
   onRefresh,
@@ -276,7 +267,6 @@ function DeviceSection({
   title: string;
   empty: string;
   devices: Device[];
-  busyId: string | null;
   onToggle: (device: Device, on: boolean) => void;
   effectiveOn: (device: Device) => boolean;
   onRefresh?: () => void;
@@ -306,7 +296,6 @@ function DeviceSection({
         <ul className="mt-4 grid gap-3 sm:grid-cols-2">
           {devices.map((device) => {
             const on = effectiveOn(device);
-            const busy = busyId === device.id;
             const resolved = resolveHubDeviceReadings(device);
             return (
             <li
@@ -337,11 +326,10 @@ function DeviceSection({
                 </span>
               ) : lockMode && device.controllable ? (
                 <div className="flex shrink-0 flex-col items-end gap-1">
-                  <StateBadge on={on} busy={busy} locked={device.locked} lockMode />
+                  <StateBadge on={on} locked={device.locked} lockMode />
                   <div className="flex gap-1">
                     <button
                       type="button"
-                      disabled={busy}
                       onClick={() => onToggle(device, false)}
                       className="rounded-lg border border-stone-300 px-3 py-1.5 text-xs font-semibold disabled:opacity-50"
                     >
@@ -349,9 +337,8 @@ function DeviceSection({
                     </button>
                     <button
                       type="button"
-                      disabled={busy}
                       onClick={() => onToggle(device, true)}
-                      className="rounded-lg bg-stone-800 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
+                      className="rounded-lg bg-stone-800 px-3 py-1.5 text-xs font-semibold text-white"
                     >
                       Lukitse
                     </button>
@@ -359,13 +346,12 @@ function DeviceSection({
                 </div>
               ) : device.controllable ? (
                 <div className="flex shrink-0 flex-col items-end gap-1">
-                  <StateBadge on={on} busy={busy} />
+                  <StateBadge on={on} />
                   <div className="flex gap-1">
                     <button
                       type="button"
-                      disabled={busy}
                       onClick={() => onToggle(device, true)}
-                      className={`rounded-lg px-3 py-1.5 text-xs font-semibold disabled:opacity-50 ${
+                      className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${
                         on
                           ? "bg-amber-400 text-amber-950 ring-2 ring-amber-500/40"
                           : "bg-stone-900 text-white hover:bg-stone-800"
@@ -375,9 +361,8 @@ function DeviceSection({
                     </button>
                     <button
                       type="button"
-                      disabled={busy}
                       onClick={() => onToggle(device, false)}
-                      className={`rounded-lg border px-3 py-1.5 text-xs font-semibold disabled:opacity-50 ${
+                      className={`rounded-lg border px-3 py-1.5 text-xs font-semibold ${
                         !on
                           ? "border-stone-400 bg-stone-200 text-stone-900 ring-2 ring-stone-400/50"
                           : "border-stone-300 text-stone-800 hover:bg-white"
@@ -410,12 +395,10 @@ function DeviceSection({
 
 function StateBadge({
   on,
-  busy,
   lockMode,
   locked,
 }: {
   on: boolean;
-  busy: boolean;
   lockMode?: boolean;
   locked?: boolean | null;
 }) {
@@ -426,7 +409,7 @@ function StateBadge({
         on || locked ? "text-amber-700" : "text-stone-500"
       }`}
     >
-      {busy ? "Lähetetään…" : label}
+      {label}
     </span>
   );
 }

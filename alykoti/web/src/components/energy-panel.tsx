@@ -94,6 +94,18 @@ function fmtKwh(v: number | null | undefined): string {
   return `${fmtNum(v, 1)} kWh`;
 }
 
+function fmtKwhEur(
+  kwh: number | null | undefined,
+  eur: number | null | undefined,
+): string {
+  const kwhStr = fmtKwh(kwh);
+  const eurStr = formatEur(eur);
+  if (kwhStr === "—" && eurStr === "—") return "—";
+  if (kwhStr === "—") return eurStr;
+  if (eurStr === "—") return kwhStr;
+  return `${kwhStr} / ${eurStr}`;
+}
+
 function fmtPct(v: number | null | undefined): string {
   if (v == null || !Number.isFinite(v)) return "—";
   const sign = v > 0 ? "+" : "";
@@ -172,9 +184,14 @@ function insightStyles(tone: EnergyInsight["tone"]) {
 }
 
 function SummaryHeader({ data }: { data: EnergyResponse }) {
-  const { summary, moderation } = data;
+  const { summary, moderation, cost } = data;
   const styles = moderationStyles(moderation.level);
   const gaugePct = moderationGaugePct(moderation.level, moderation.today_vs_avg_pct);
+  const hasCost =
+    cost.today_cost_eur != null ||
+    cost.week_cost_eur != null ||
+    cost.month_cost_eur != null ||
+    cost.current_price_cents != null;
 
   return (
     <section className={`rounded-2xl border border-stone-200 bg-white p-5 shadow-sm ring-1 ${styles.ring}`}>
@@ -194,11 +211,63 @@ function SummaryHeader({ data }: { data: EnergyResponse }) {
         </div>
       </div>
 
-      <div className="mt-4 grid gap-3 sm:grid-cols-3">
-        <StatTile label="Tänään" value={fmtKwh(summary.today_kwh)} />
-        <StatTile label="Viikko" value={fmtKwh(summary.week_kwh)} />
-        <StatTile label="30 päivää" value={fmtKwh(summary.month_kwh)} />
-      </div>
+      {hasCost && (
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <PeriodStatCard
+            label="Tänään"
+            value={fmtKwhEur(cost.today_kwh ?? summary.today_kwh, cost.today_cost_eur)}
+            sub={
+              cost.today_vs_yesterday_pct != null
+                ? `${cost.today_vs_yesterday_pct > 0 ? "+" : ""}${cost.today_vs_yesterday_pct} % vs eilen`
+                : undefined
+            }
+            subTone={
+              cost.today_vs_yesterday_pct != null
+                ? cost.today_vs_yesterday_pct > 0
+                  ? "warning"
+                  : "positive"
+                : undefined
+            }
+          />
+          <PeriodStatCard
+            label="Viikko"
+            value={fmtKwhEur(summary.week_kwh, cost.week_cost_eur)}
+            sub={
+              cost.week_vs_prev_pct != null
+                ? `${cost.week_vs_prev_pct > 0 ? "+" : ""}${cost.week_vs_prev_pct} % vs edellinen`
+                : undefined
+            }
+            subTone={
+              cost.week_vs_prev_pct != null
+                ? cost.week_vs_prev_pct > 0
+                  ? "warning"
+                  : "positive"
+                : undefined
+            }
+          />
+          <PeriodStatCard
+            label="30 päivää"
+            value={fmtKwhEur(summary.month_kwh, cost.month_cost_eur)}
+          />
+          <PeriodStatCard
+            label="Spot nyt"
+            value={formatPriceCents(cost.current_price_cents)}
+            sub={
+              cost.today_avg_price_cents != null
+                ? `Päivän keski ${formatPriceCents(cost.today_avg_price_cents)}`
+                : undefined
+            }
+          />
+        </div>
+      )}
+
+      {!hasCost && (
+        <div className="mt-4 grid gap-3 sm:grid-cols-3">
+          <PeriodStatCard label="Tänään" value={fmtKwh(summary.today_kwh)} />
+          <PeriodStatCard label="Viikko" value={fmtKwh(summary.week_kwh)} />
+          <PeriodStatCard label="30 päivää" value={fmtKwh(summary.month_kwh)} />
+        </div>
+      )}
 
       <div className={`mt-4 rounded-xl p-4 ${styles.bg}`}>
         <div className="flex items-center justify-between gap-3 text-sm">
@@ -229,11 +298,29 @@ function SummaryHeader({ data }: { data: EnergyResponse }) {
   );
 }
 
-function StatTile({ label, value }: { label: string; value: string }) {
+function PeriodStatCard({
+  label,
+  value,
+  sub,
+  subTone,
+}: {
+  label: string;
+  value: string;
+  sub?: string;
+  subTone?: "positive" | "warning";
+}) {
+  const subClass =
+    subTone === "warning"
+      ? "text-amber-800"
+      : subTone === "positive"
+        ? "text-emerald-800"
+        : "text-stone-500";
+
   return (
     <div className="rounded-xl bg-stone-50 px-4 py-3">
       <p className="text-xs font-medium uppercase tracking-wide text-stone-500">{label}</p>
-      <p className="mt-1 text-xl font-semibold tabular-nums text-stone-900">{value}</p>
+      <p className="mt-1 text-lg font-semibold tabular-nums text-stone-900 sm:text-xl">{value}</p>
+      {sub && <p className={`mt-0.5 text-xs font-medium ${subClass}`}>{sub}</p>}
     </div>
   );
 }
@@ -254,59 +341,8 @@ function InsightsPanel({
     <section className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
       <h2 className="text-lg font-semibold text-stone-900">Älykäs arvio</h2>
       <p className="mt-1 text-xs text-stone-500">
-        Kulutus, spot-hinta ja arvioitu kustannus (kWh × päivän keskihinta).
+        Kulutusarviot, päivittäinen kustannus ja havainnot spot-hinnan perusteella.
       </p>
-
-      {(cost.today_cost_eur != null || cost.week_cost_eur != null) && (
-        <div className="mt-4 grid gap-3 sm:grid-cols-3">
-          <div className="rounded-xl bg-stone-50 px-4 py-3">
-            <p className="text-xs font-medium uppercase tracking-wide text-stone-500">Tänään</p>
-            <p className="mt-1 text-xl font-semibold tabular-nums text-stone-900">
-              {formatEur(cost.today_cost_eur)}
-            </p>
-            {cost.today_kwh != null && (
-              <p className="text-xs text-stone-500">{cost.today_kwh.toFixed(1)} kWh</p>
-            )}
-            {cost.today_vs_yesterday_pct != null && (
-              <p
-                className={`mt-0.5 text-xs font-medium ${
-                  cost.today_vs_yesterday_pct > 0 ? "text-amber-800" : "text-emerald-800"
-                }`}
-              >
-                {cost.today_vs_yesterday_pct > 0 ? "+" : ""}
-                {cost.today_vs_yesterday_pct} % vs eilen
-              </p>
-            )}
-          </div>
-          <div className="rounded-xl bg-stone-50 px-4 py-3">
-            <p className="text-xs font-medium uppercase tracking-wide text-stone-500">7 päivää</p>
-            <p className="mt-1 text-xl font-semibold tabular-nums text-stone-900">
-              {formatEur(cost.week_cost_eur)}
-            </p>
-            {cost.week_vs_prev_pct != null && (
-              <p
-                className={`mt-0.5 text-xs font-medium ${
-                  cost.week_vs_prev_pct > 0 ? "text-amber-800" : "text-emerald-800"
-                }`}
-              >
-                {cost.week_vs_prev_pct > 0 ? "+" : ""}
-                {cost.week_vs_prev_pct} % vs edellinen
-              </p>
-            )}
-          </div>
-          <div className="rounded-xl bg-stone-50 px-4 py-3">
-            <p className="text-xs font-medium uppercase tracking-wide text-stone-500">Spot nyt</p>
-            <p className="mt-1 text-xl font-semibold tabular-nums text-stone-900">
-              {formatPriceCents(cost.current_price_cents)}
-            </p>
-            {cost.today_avg_price_cents != null && (
-              <p className="text-xs text-stone-500">
-                Päivän keski {formatPriceCents(cost.today_avg_price_cents)}
-              </p>
-            )}
-          </div>
-        </div>
-      )}
 
       {cost.daily.length > 1 && (
         <div className="mt-4">

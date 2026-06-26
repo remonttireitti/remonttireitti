@@ -20,6 +20,7 @@ export type EnergyCostSummary = {
   week_cost_eur: number | null;
   prev_week_cost_eur: number | null;
   week_vs_prev_pct: number | null;
+  month_cost_eur: number | null;
   daily: DailyEnergyCost[];
 };
 
@@ -58,6 +59,7 @@ export function computeEnergyCostSummary(
     week_cost_eur: null,
     prev_week_cost_eur: null,
     week_vs_prev_pct: null,
+    month_cost_eur: null,
     daily: [],
   };
 
@@ -83,6 +85,7 @@ export function computeEnergyCostSummary(
 
   const last7 = costRows.slice(-7);
   const prev7 = costRows.slice(-14, -7);
+  const last30 = costRows.slice(-30);
 
   const todayRow = costRows.find((r) => r.date === todayKey);
   const yesterdayKey = helsinkiDateKey(new Date(Date.now() - 86_400_000).toISOString());
@@ -98,6 +101,7 @@ export function computeEnergyCostSummary(
     week_cost_eur: sumCosts(last7),
     prev_week_cost_eur: sumCosts(prev7),
     week_vs_prev_pct: pctChange(sumCosts(last7), sumCosts(prev7)),
+    month_cost_eur: sumCosts(last30),
     daily: last7,
   };
 }

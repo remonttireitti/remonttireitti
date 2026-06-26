@@ -1,8 +1,9 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState, useTransition } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { expandMirrorCommandIds } from "@/lib/automation-presets";
+import { useHubCommandStatus } from "@/components/command-status-provider";
 import { FloorPlanView } from "@/components/floor-plan-view";
 import { LightMapDevicePopup } from "@/components/light-map-device-popup";
 import { type FloorPlanMarker } from "@/lib/floor-plan";
@@ -14,6 +15,7 @@ import {
 } from "@/lib/floor-plan-pins";
 import { LIGHT_PAGE_ROLES } from "@/lib/device-roles";
 import type { DeviceRole } from "@/lib/device-roles";
+import { lightControlCommandIds, sendLightControl } from "@/lib/light-control-send";
 import type { Hub } from "@/lib/types";
 import Link from "next/link";
 
@@ -28,29 +30,6 @@ type Props = {
   hub: Hub | null;
 };
 
-async function pollCommandUntilDone(commandId: string): Promise<"acked" | "failed" | "timeout"> {
-  const deadline = Date.now() + 120_000;
-  while (Date.now() < deadline) {
-    await new Promise((r) => setTimeout(r, 1_500));
-    try {
-      const res = await fetch(`/api/device/commands?track=${encodeURIComponent(commandId)}`, {
-        cache: "no-store",
-      });
-      if (!res.ok) continue;
-      const json = (await res.json()) as {
-        commands?: Array<{ status: string; error_message?: string | null }>;
-      };
-      const cmd = json.commands?.[0];
-      if (!cmd) continue;
-      if (cmd.status === "acked") return "acked";
-      if (cmd.status === "failed") return "failed";
-    } catch {
-      /* retry */
-    }
-  }
-  return "timeout";
-}
-
 export function HomeFloorPlan({ hub }: Props) {
   void hub;
   const router = useRouter();
@@ -58,9 +37,8 @@ export function HomeFloorPlan({ hub }: Props) {
   const [pins, setPins] = useState<FloorPlanPin[]>([]);
   const [optimisticOn, setOptimisticOn] = useState<Record<string, boolean>>({});
   const [popupDevice, setPopupDevice] = useState<Device | null>(null);
-  const [busyId, setBusyId] = useState<string | null>(null);
   const [statusHint, setStatusHint] = useState<string | null>(null);
-  const [, startTransition] = useTransition();
+  const { trackCommandIds } = useHubCommandStatus();
 
   const load = useCallback(async () => {
     try {
@@ -98,7 +76,7 @@ export function HomeFloorPlan({ hub }: Props) {
   }
 
   function toggleDevice(device: Device) {
-    if (!device.controllable || busyId === device.id) return;
+    if (!device.controllable) return;
     const next = !effectiveOnId(device.id);
     const affectedIds = expandMirrorCommandIds(device.id);
     setOptimisticOn((prev) => {
@@ -106,20 +84,11 @@ export function HomeFloorPlan({ hub }: Props) {
       for (const affectedId of affectedIds) n[affectedId] = next;
       return n;
     });
-    setBusyId(device.id);
-    setStatusHint("Lähetetään hubille…");
-    startTransition(async () => {
+    setPopupDevice((prev) => (prev?.id === device.id ? { ...prev, on: next } : prev));
+
+    void (async () => {
       try {
-        const res = await fetch("/api/lights/control", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id: device.id, on: next }),
-        });
-        const json = (await res.json()) as {
-          ok?: boolean;
-          commandId?: string;
-          error?: string;
-        };
+        const json = await sendLightControl({ id: device.id, on: next });
         if (!json.ok) {
           setOptimisticOn((prev) => {
             const n = { ...prev };
@@ -129,34 +98,18 @@ export function HomeFloorPlan({ hub }: Props) {
           setStatusHint(json.error ?? "Ohjaus epäonnistui");
           return;
         }
-
-        setPopupDevice((prev) => (prev?.id === device.id ? { ...prev, on: next } : prev));
-
-        if (json.commandId) {
-          setStatusHint("Odottaa Yellowia (~30 s)…");
-          const result = await pollCommandUntilDone(json.commandId);
-          if (result === "acked") {
-            setStatusHint(null);
-            void load();
-          } else if (result === "failed") {
-            setStatusHint("Hub ei suorittanut komentoa — tarkista laitteen yhteys.");
-            setOptimisticOn((prev) => {
-              const n = { ...prev };
-              for (const affectedId of affectedIds) delete n[affectedId];
-              return n;
-            });
-            void load();
-          } else {
-            setStatusHint("Ei vahvistusta vielä — synkki jatkuu taustalla.");
-          }
-        } else {
-          setStatusHint(null);
-          void load();
-        }
-      } finally {
-        setBusyId(null);
+        setStatusHint(null);
+        const ids = lightControlCommandIds(json);
+        if (ids.length > 0) trackCommandIds(ids);
+      } catch {
+        setOptimisticOn((prev) => {
+          const n = { ...prev };
+          for (const affectedId of affectedIds) delete n[affectedId];
+          return n;
+        });
+        setStatusHint("Ohjaus epäonnistui");
       }
-    });
+    })();
   }
 
   function runPinAction(pin: FloorPlanPin) {
