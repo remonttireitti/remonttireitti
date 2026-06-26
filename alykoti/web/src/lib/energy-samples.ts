@@ -121,9 +121,7 @@ export function findPrimaryAirthingsDevice(
   const candidates = Object.entries(home).filter(
     ([id, d]) =>
       (id.startsWith("airthings:") || d.protocol === "airthings") &&
-      (d.temperature_c != null ||
-        hasCapability(d.capabilities, "temperature") ||
-        hasCapability(d.capabilities, "climate")),
+      (d.temperature_c != null || hasCapability(d.capabilities, "temperature")),
   );
   if (candidates.length === 0) return null;
   candidates.sort((a, b) => a[1].name.localeCompare(b[1].name, "fi"));

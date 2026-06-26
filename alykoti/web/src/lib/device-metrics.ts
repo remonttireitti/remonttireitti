@@ -37,6 +37,8 @@ const READING_FIELD_BY_LABEL: Record<string, string> = {
   "ovi/ikkuna": "reading:contact",
   paikallaolo: "reading:occupancy",
   savu: "reading:smoke",
+  peukalointi: "reading:tamper",
+  hälytys: "reading:alarm",
   vesivuoto: "reading:water_leak",
   tulo: "reading:input",
 };
@@ -63,6 +65,8 @@ const READING_LABELS: Record<string, string> = {
   "reading:contact": "Ovi/ikkuna",
   "reading:occupancy": "Paikallaolo",
   "reading:smoke": "Savu",
+  "reading:tamper": "Peukalointi",
+  "reading:alarm": "Hälytys",
   "reading:water_leak": "Vesivuoto",
   "reading:input": "Tulo",
 };
@@ -86,15 +90,31 @@ export function metricFieldForZwaveProperty(
   return fieldKeyFromReadingLabel(readings[0]!.label);
 }
 
+/** Vakaa metriikkakenttä — aina trendi saatavilla myös uudelleennimetyille ominaisuuksille. */
+export function zwavePropertyMetricField(
+  prop: ZwaveProperty,
+  nodeId: number,
+  overrides?: HubState["device_overrides"],
+): string {
+  const fromReading = metricFieldForZwaveProperty(prop, nodeId, overrides);
+  if (fromReading) return fromReading;
+  const slug = (prop.property ?? "value")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_|_$/g, "")
+    .slice(0, 48);
+  return `reading:zcc${prop.cc}_ep${prop.endpoint}_${slug || "value"}`;
+}
+
 export function zwavePropertyDeviceMetricKey(
   nodeDeviceId: string,
   prop: ZwaveProperty,
   nodeId: number,
   overrides?: HubState["device_overrides"],
-): string | null {
-  const field = metricFieldForZwaveProperty(prop, nodeId, overrides);
-  if (!field) return null;
-  return deviceMetricKey(nodeDeviceId, field);
+): string {
+  return deviceMetricKey(nodeDeviceId, zwavePropertyMetricField(prop, nodeId, overrides));
 }
 
 export function parseDeviceMetricKey(metric: string): ParsedDeviceMetric | null {

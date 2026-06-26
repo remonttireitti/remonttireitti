@@ -12,7 +12,8 @@ import { inferProtocolFromId, protocolLabel, type DeviceProtocol } from "@/lib/d
 import { kindLabel } from "@/lib/hub-lights";
 import { useMetricTrend } from "@/hooks/use-metric-trend";
 import { TrendTrigger } from "@/components/trend-trigger";
-import { deviceMetricKeyForReading } from "@/lib/device-metrics";
+import { DeviceReadingsInline } from "@/components/device-readings-inline";
+import { resolveHubDeviceReadings } from "@/lib/device-reading-metrics";
 
 type Device = {
   id: string;
@@ -28,6 +29,14 @@ type Device = {
   capabilitiesLabel?: string;
   readingLabel?: string | null;
   readings?: DeviceReading[];
+  temperature_c?: number | null;
+  humidity_pct?: number | null;
+  battery_pct?: number | null;
+  co2_ppm?: number | null;
+  illuminance_lux?: number | null;
+  power_w?: number | null;
+  voltage_v?: number | null;
+  sensor_state?: string | null;
   locked?: boolean | null;
   role?: DeviceRole;
   roles?: DeviceRole[];
@@ -273,7 +282,7 @@ function SensorDeviceCard({
   onShowTrend: (metric: string) => void;
 }) {
   const protocol = inferProtocolFromId(device.id, device.protocol as DeviceProtocol);
-  const readings = device.readings ?? [];
+  const resolved = resolveHubDeviceReadings(device);
   const badge = primarySensorBadge(device);
   const alsoUsed = secondaryUseHint(device);
 
@@ -298,27 +307,30 @@ function SensorDeviceCard({
         )}
       </div>
 
-      {readings.length > 0 ? (
+      {resolved.length > 0 ? (
         <dl className="mt-3 grid grid-cols-2 gap-2">
-          {readings.map((reading, idx) => (
+          {resolved.map((reading) => (
             <div
-              key={`${reading.label}-${idx}`}
+              key={reading.metric}
               className="rounded-lg border border-stone-200 bg-white px-2.5 py-2"
             >
               <dt className="flex items-center justify-between text-[10px] font-medium uppercase tracking-wide text-stone-500">
                 <span>{reading.label}</span>
-                <TrendTrigger
-                  onClick={() =>
-                    onShowTrend(deviceMetricKeyForReading(device.id, reading.label))
-                  }
-                />
+                <TrendTrigger onClick={() => onShowTrend(reading.metric)} />
               </dt>
-              <dd className="mt-0.5 text-sm font-semibold text-stone-900">{reading.value}</dd>
+              <dd className="mt-0.5">
+                <button
+                  type="button"
+                  onClick={() => onShowTrend(reading.metric)}
+                  className="text-sm font-semibold text-stone-900 underline decoration-stone-300 underline-offset-2 hover:decoration-stone-600"
+                  title="Näytä trendi"
+                >
+                  {reading.value}
+                </button>
+              </dd>
             </div>
           ))}
         </dl>
-      ) : device.readingLabel ? (
-        <p className="mt-3 text-sm text-stone-700">{device.readingLabel}</p>
       ) : (
         <p className="mt-3 text-sm text-stone-500">Ei lukemia</p>
       )}
@@ -366,12 +378,13 @@ function DeviceSection({
             const busy = busyId === device.id;
             const protocol = inferProtocolFromId(device.id, device.protocol as DeviceProtocol);
             const alsoUsed = secondaryUseHint(device);
+            const resolved = resolveHubDeviceReadings(device);
             return (
               <li
                 key={device.id}
                 className="flex items-center justify-between gap-3 rounded-xl border border-stone-200 bg-stone-50 px-4 py-3"
               >
-                <div className="min-w-0">
+                <div className="min-w-0 flex-1">
                   <p className="truncate font-medium text-stone-900">{device.name}</p>
                   <p className="truncate text-xs text-stone-500">
                     {protocolLabel(protocol)}
@@ -379,12 +392,14 @@ function DeviceSection({
                     {device.role ? ` · ${deviceRoleLabel(device.role)}` : ""}
                     {alsoUsed ? ` · ${alsoUsed}` : ""}
                     {device.capabilitiesLabel ? ` · ${device.capabilitiesLabel}` : ` · ${kindLabel(device.kind as "light")}`}
-                    {device.readingLabel ? ` · ${device.readingLabel}` : ""}
                   </p>
+                  {resolved.length > 0 && onShowTrend && (
+                    <DeviceReadingsInline readings={resolved} onShowTrend={onShowTrend} />
+                  )}
                 </div>
                 {!device.controllable ? (
                   <span className="shrink-0 text-xs text-stone-500">
-                    {device.readingLabel || (on ? "Päällä" : "Pois")}
+                    {resolved.length === 0 ? (on ? "Päällä" : "Pois") : null}
                     {readOnlyHint ? " · ei ohjaus" : ""}
                   </span>
                 ) : (

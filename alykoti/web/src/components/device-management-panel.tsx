@@ -31,6 +31,10 @@ import { groupZwaveDevicesForList } from "@/lib/zwave-detail";
 import { HOUSE_ROOMS } from "@/lib/rooms";
 import { LAITTEET } from "@/lib/laitteet-paths";
 import Link from "next/link";
+import type { DeviceReading } from "@/lib/capabilities";
+import { DeviceReadingsInline } from "@/components/device-readings-inline";
+import { resolveHubDeviceReadings } from "@/lib/device-reading-metrics";
+import { useMetricTrend } from "@/hooks/use-metric-trend";
 
 type Device = {
   id: string;
@@ -42,6 +46,15 @@ type Device = {
   controllable: boolean;
   capabilitiesLabel?: string;
   readingLabel?: string | null;
+  readings?: DeviceReading[];
+  temperature_c?: number | null;
+  humidity_pct?: number | null;
+  battery_pct?: number | null;
+  co2_ppm?: number | null;
+  illuminance_lux?: number | null;
+  power_w?: number | null;
+  voltage_v?: number | null;
+  sensor_state?: string | null;
   locked?: boolean | null;
   node_id?: number;
   role?: DeviceRole;
@@ -78,6 +91,7 @@ export function DeviceManagementPanel({
   const [pending, startTransition] = useTransition();
   const [busyId, setBusyId] = useState<string | null>(null);
   const [controlFlash, setControlFlash] = useState<string | null>(null);
+  const { showTrend, modal } = useMetricTrend();
   const [optimisticOn, setOptimisticOn] = useState<Record<string, boolean>>({});
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
@@ -317,6 +331,7 @@ export function DeviceManagementPanel({
               onToggle={toggleDevice}
               busyId={busyId}
               effectiveOn={effectiveOn}
+              onShowTrend={showTrend}
             />
           ))
         )
@@ -353,6 +368,7 @@ export function DeviceManagementPanel({
               onToggle={toggleDevice}
               busyId={busyId}
               effectiveOn={effectiveOn}
+              onShowTrend={showTrend}
             />
           ))
         )
@@ -384,6 +400,7 @@ export function DeviceManagementPanel({
           onToggle={toggleDevice}
           busyId={busyId}
           effectiveOn={effectiveOn}
+          onShowTrend={showTrend}
           emptyText={
             protocol
               ? `Ei ${protocolLabel(protocol)}-laitteita — odota synkkiä tai käynnistä paritus.`
@@ -415,6 +432,7 @@ export function DeviceManagementPanel({
           Kartta-ankkurit: {anchors.map((a) => a.label).join(", ")}.
         </p>
       </section>
+      {modal}
     </div>
   );
 }
@@ -454,18 +472,7 @@ function listMetaLine(device: Device, showControl: boolean): string {
   const alsoUsed = secondaryUsesLabel(device.secondaryUses ?? []);
   if (alsoUsed) parts.push(alsoUsed);
 
-  let reading = device.readingLabel?.trim();
-  if (reading && showControl) {
-    reading = reading
-      .replace(/\s*·?\s*Rele OUT:\s*(Päällä|Pois)/gi, "")
-      .replace(/\s*·?\s*Kytkin:\s*(Päällä|Pois)/gi, "")
-      .replace(/^\s*·\s*|\s*·\s*$/g, "")
-      .trim();
-  }
-  if (reading) {
-    if (reading.length > 64) reading = `${reading.slice(0, 61)}…`;
-    parts.push(reading);
-  } else if (!showControl && device.on) {
+  if (!showControl && device.on) {
     parts.push("päällä");
   }
 
@@ -508,6 +515,7 @@ function DeviceListSection({
   busyId,
   effectiveOn,
   emptyText,
+  onShowTrend,
 }: {
   title: string;
   devices: Device[];
@@ -528,6 +536,7 @@ function DeviceListSection({
   busyId?: string | null;
   effectiveOn?: (device: Device) => boolean;
   emptyText?: string;
+  onShowTrend?: (metric: string) => void;
 }) {
   return (
     <section className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
@@ -552,6 +561,7 @@ function DeviceListSection({
             const busy = busyId === device.id;
             const showControl = showPowerToggle(device, onToggle);
             const showLockControl = isLockDevice(device) && device.controllable && !!onToggle;
+            const resolved = resolveHubDeviceReadings(device);
             return (
             <li key={device.id} className="py-3 first:pt-0">
               {editingId === device.id ? (
@@ -626,12 +636,12 @@ function DeviceListSection({
                     <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-stone-500">
                       {listMetaLine(device, showControl)}
                     </p>
-                    {isLockDevice(device) && (
+                    {resolved.length > 0 && onShowTrend && (
+                      <DeviceReadingsInline readings={resolved} onShowTrend={onShowTrend} className="mt-2" />
+                    )}
+                    {isLockDevice(device) && device.locked != null && (
                       <p className="mt-1 text-xs font-medium text-stone-700">
-                        {device.locked != null && (device.locked ? "Lukossa" : "Auki")}
-                        {device.readingLabel?.includes("battery") &&
-                          device.readingLabel.match(/\d+\s*%/)?.[0] &&
-                          ` · Paristo ${device.readingLabel.match(/\d+\s*%/)![0]}`}
+                        {device.locked ? "Lukossa" : "Auki"}
                       </p>
                     )}
                   </div>

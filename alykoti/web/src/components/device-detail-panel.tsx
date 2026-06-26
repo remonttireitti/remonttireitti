@@ -10,17 +10,16 @@ import {
   labelTriggerAction,
 } from "@/lib/automation-trigger-catalog";
 import { triggerHintToAutomationFields, type DeviceLiveEvent } from "@/lib/device-events";
-import { READING_ITEM_KEYS } from "@/lib/device-item-overrides";
 import { protocolLabel } from "@/lib/device-protocol";
 import { kindLabel, type HubLightDevice } from "@/lib/hub-lights";
 import { LAITTEET } from "@/lib/laitteet-paths";
 import type { ZwaveConfigParam, ZwaveNodeDetail, ZwaveNodeEndpoint, ZwaveProperty } from "@/lib/types";
 import { configParamOptions, formatZwaveValue, toggleZwaveValue } from "@/lib/zwave-detail";
 import { ItemRenameField } from "@/components/item-rename-field";
-import { DeviceReadingRow } from "@/components/device-reading-row";
+import { DeviceReadingsList } from "@/components/device-readings-list";
 import { useHubCommandStatus } from "@/components/command-status-provider";
 import { useMetricTrend } from "@/hooks/use-metric-trend";
-import { deviceMetricKey } from "@/lib/device-metrics";
+import { resolveHubDeviceReadings } from "@/lib/device-reading-metrics";
 
 type Props = {
   protocol: "zigbee" | "zwave";
@@ -163,6 +162,11 @@ export function DeviceDetailPanel({ protocol, deviceIdParam }: Props) {
       .filter((a): a is string => typeof a === "string" && a.length > 0);
     return listTriggerActionsForDevice(device, observed).slice(0, 24);
   }, [device, events]);
+
+  const statusReadings = useMemo(
+    () => (device ? resolveHubDeviceReadings(device, itemNames) : []),
+    [device, itemNames],
+  );
 
   function controlDevice(
     targetId: string,
@@ -507,82 +511,19 @@ export function DeviceDetailPanel({ protocol, deviceIdParam }: Props) {
         )}
       </section>
 
-      {(device.readingLabel ||
-        device.temperature_c != null ||
-        device.humidity_pct != null ||
-        device.power_w != null ||
-        (device as { battery_pct?: number }).battery_pct != null) && (
+      {statusReadings.length > 0 && (
         <section className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
           <h3 className="text-lg font-semibold text-stone-900">Tila ja mittaukset</h3>
-          <p className="mt-1 text-xs text-stone-500">Nimeä jokainen lukema — nimet näkyvät listanäkymässä.</p>
-          <ul className="mt-3 space-y-2 text-sm text-stone-700">
-            {device.temperature_c != null && (
-              <DeviceReadingRow
-                deviceId={device.id}
-                itemKey={READING_ITEM_KEYS.temperature}
-                label={itemNames[READING_ITEM_KEYS.temperature] || "Lämpötila"}
-                value={`${device.temperature_c.toFixed(1)} °C`}
-                onRenamed={() => void loadDevice()}
-                onShowTrend={() => showTrend(deviceMetricKey(device.id, "temperature_c"))}
-              />
-            )}
-            {device.humidity_pct != null && (
-              <DeviceReadingRow
-                deviceId={device.id}
-                itemKey={READING_ITEM_KEYS.humidity}
-                label={itemNames[READING_ITEM_KEYS.humidity] || "Kosteus"}
-                value={`${Math.round(device.humidity_pct)} %`}
-                onRenamed={() => void loadDevice()}
-                onShowTrend={() => showTrend(deviceMetricKey(device.id, "humidity_pct"))}
-              />
-            )}
-            {typeof (device as { battery_pct?: number }).battery_pct === "number" && (
-              <DeviceReadingRow
-                deviceId={device.id}
-                itemKey={READING_ITEM_KEYS.battery}
-                label={itemNames[READING_ITEM_KEYS.battery] || "Akku"}
-                value={`${Math.round((device as { battery_pct?: number }).battery_pct!)} %`}
-                onRenamed={() => void loadDevice()}
-                onShowTrend={() => showTrend(deviceMetricKey(device.id, "battery_pct"))}
-              />
-            )}
-            {device.co2_ppm != null && (
-              <DeviceReadingRow
-                deviceId={device.id}
-                itemKey={READING_ITEM_KEYS.co2}
-                label={itemNames[READING_ITEM_KEYS.co2] || "CO₂"}
-                value={`${Math.round(device.co2_ppm)} ppm`}
-                onRenamed={() => void loadDevice()}
-                onShowTrend={() => showTrend(deviceMetricKey(device.id, "co2_ppm"))}
-              />
-            )}
-            {device.illuminance_lux != null && (
-              <DeviceReadingRow
-                deviceId={device.id}
-                itemKey={READING_ITEM_KEYS.illuminance}
-                label={itemNames[READING_ITEM_KEYS.illuminance] || "Valoisuus"}
-                value={`${Math.round(device.illuminance_lux)} lx`}
-                onRenamed={() => void loadDevice()}
-                onShowTrend={() => showTrend(deviceMetricKey(device.id, "illuminance_lux"))}
-              />
-            )}
-            {device.power_w != null && (
-              <DeviceReadingRow
-                deviceId={device.id}
-                itemKey={READING_ITEM_KEYS.power}
-                label={itemNames[READING_ITEM_KEYS.power] || "Teho"}
-                value={`${Math.round(device.power_w)} W`}
-                onRenamed={() => void loadDevice()}
-                onShowTrend={() => showTrend(deviceMetricKey(device.id, "power_w"))}
-              />
-            )}
-            {device.readingLabel &&
-              device.temperature_c == null &&
-              device.humidity_pct == null &&
-              (device as { battery_pct?: number }).battery_pct == null && (
-                <li className="text-stone-700">{device.readingLabel}</li>
-              )}
-          </ul>
+          <p className="mt-1 text-xs text-stone-500">
+            Klikkaa lukemaa tai kaaviokuvaketta — trendi ja toimintahistoria. Nimeä jokainen lukema
+            erikseen.
+          </p>
+          <DeviceReadingsList
+            deviceId={device.id}
+            readings={statusReadings}
+            onRenamed={() => void loadDevice()}
+            onShowTrend={showTrend}
+          />
         </section>
       )}
     </div>

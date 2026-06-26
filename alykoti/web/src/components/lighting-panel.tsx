@@ -3,9 +3,13 @@
 import { useCallback, useEffect, useState, useTransition } from "react";
 import { FloorPlanView } from "@/components/floor-plan-view";
 import { LightMapDevicePopup } from "@/components/light-map-device-popup";
+import { DeviceReadingsInline } from "@/components/device-readings-inline";
 import { buildDeviceMarkers, type FloorPlanMarker } from "@/lib/floor-plan";
+import type { DeviceReading } from "@/lib/capabilities";
 import { inferProtocolFromId, protocolLabel } from "@/lib/device-protocol";
+import { resolveHubDeviceReadings } from "@/lib/device-reading-metrics";
 import { kindLabel } from "@/lib/hub-lights";
+import { useMetricTrend } from "@/hooks/use-metric-trend";
 
 type Device = {
   id: string;
@@ -23,6 +27,15 @@ type Device = {
   locked?: boolean | null;
   capabilitiesLabel?: string;
   readingLabel?: string | null;
+  readings?: DeviceReading[];
+  temperature_c?: number | null;
+  humidity_pct?: number | null;
+  battery_pct?: number | null;
+  co2_ppm?: number | null;
+  illuminance_lux?: number | null;
+  power_w?: number | null;
+  voltage_v?: number | null;
+  sensor_state?: string | null;
 };
 
 type LightsResponse = {
@@ -46,6 +59,7 @@ export function LightingPanel() {
   const [optimisticOn, setOptimisticOn] = useState<Record<string, boolean>>({});
   const [flash, setFlash] = useState<string | null>(null);
   const [popupDevice, setPopupDevice] = useState<Device | null>(null);
+  const { showTrend, modal } = useMetricTrend();
 
   const load = useCallback(async () => {
     try {
@@ -223,6 +237,7 @@ export function LightingPanel() {
         onToggle={toggle}
         effectiveOn={effectiveOn}
         onRefresh={() => void load()}
+        onShowTrend={showTrend}
       />
 
       <DeviceSection
@@ -233,12 +248,14 @@ export function LightingPanel() {
         onToggle={toggle}
         effectiveOn={effectiveOn}
         readOnlyHint="Kaukosäädin — ei ohjattavissa webistä."
+        onShowTrend={showTrend}
       />
 
       <p className="text-center text-xs text-stone-500">
         Shelly, Tasmota, lämmitys ja turvalaitteet löytyvät omilta sivuiltaan tai Asetuksista, jossa voit
         valita laitetyypin.
       </p>
+      {modal}
     </div>
   );
 }
@@ -254,6 +271,7 @@ function DeviceSection({
   readOnlyHint,
   lockMode,
   sensorMode,
+  onShowTrend,
 }: {
   title: string;
   empty: string;
@@ -265,6 +283,7 @@ function DeviceSection({
   readOnlyHint?: string;
   lockMode?: boolean;
   sensorMode?: boolean;
+  onShowTrend?: (metric: string) => void;
 }) {
   return (
     <section className="rounded-2xl border border-stone-200 bg-white p-4 shadow-sm">
@@ -288,30 +307,33 @@ function DeviceSection({
           {devices.map((device) => {
             const on = effectiveOn(device);
             const busy = busyId === device.id;
+            const resolved = resolveHubDeviceReadings(device);
             return (
             <li
               key={device.id}
               className="flex items-center justify-between gap-3 rounded-xl border border-stone-200 bg-stone-50 px-4 py-3"
             >
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1">
                 <p className="truncate font-medium text-stone-900">{device.name}</p>
                 <p className="truncate text-xs text-stone-500">
                   {protocolLabel(device.protocol)}
                   {device.room ? ` · ${device.room}` : ""}
                   {` · ${device.capabilitiesLabel || kindLabel(device.kind as "light")}`}
-                  {device.readingLabel ? ` · ${device.readingLabel}` : ""}
                 </p>
+                {resolved.length > 0 && onShowTrend && (
+                  <DeviceReadingsInline readings={resolved} onShowTrend={onShowTrend} />
+                )}
               </div>
               {sensorMode || (!device.controllable && !lockMode) ? (
                 <span
                   className={`shrink-0 text-right ${
-                    device.readingLabel
+                    resolved.length > 0
                       ? "max-w-[55%] text-sm font-medium tabular-nums text-stone-800"
                       : "text-xs text-stone-500"
                   }`}
                 >
-                  {device.readingLabel || (on ? "Päällä" : "Pois")}
-                  {readOnlyHint && !device.readingLabel ? " · ei ohjaus" : ""}
+                  {resolved.length === 0 ? (on ? "Päällä" : "Pois") : null}
+                  {readOnlyHint && resolved.length === 0 ? " · ei ohjaus" : ""}
                 </span>
               ) : lockMode && device.controllable ? (
                 <div className="flex shrink-0 flex-col items-end gap-1">
@@ -368,13 +390,13 @@ function DeviceSection({
               ) : (
                 <span
                   className={`shrink-0 text-right ${
-                    device.readingLabel
+                    resolved.length > 0
                       ? "max-w-[55%] text-sm font-medium tabular-nums text-stone-800"
                       : "text-xs text-stone-500"
                   }`}
                 >
-                  {device.readingLabel || (on ? "Päällä" : "Pois")}
-                  {readOnlyHint && !device.readingLabel ? " · ei ohjaus" : ""}
+                  {resolved.length === 0 ? (on ? "Päällä" : "Pois") : null}
+                  {readOnlyHint && resolved.length === 0 ? " · ei ohjaus" : ""}
                 </span>
               )}
             </li>

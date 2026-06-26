@@ -10,6 +10,7 @@ type Props = {
   value: string;
   onRenamed: () => void;
   onShowTrend?: () => void;
+  showRename?: boolean;
 };
 
 export function DeviceReadingRow({
@@ -19,15 +20,20 @@ export function DeviceReadingRow({
   value,
   onRenamed,
   onShowTrend,
+  showRename = true,
 }: Props) {
   return (
     <li className="flex justify-between gap-4">
-      <ItemRenameField
-        deviceId={deviceId}
-        itemKey={itemKey}
-        currentName={label}
-        onRenamed={onRenamed}
-      />
+      {showRename ? (
+        <ItemRenameField
+          deviceId={deviceId}
+          itemKey={itemKey}
+          currentName={label}
+          onRenamed={onRenamed}
+        />
+      ) : (
+        <span className="text-stone-700">{label}</span>
+      )}
       <span className="flex shrink-0 items-center gap-1 font-medium">
         {onShowTrend ? (
           <button

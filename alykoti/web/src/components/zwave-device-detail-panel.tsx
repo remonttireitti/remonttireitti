@@ -26,14 +26,15 @@ import type { ZwaveConfigParam, ZwaveNodeDetail, ZwaveNodeEndpoint, ZwavePropert
 import { configParamOptions, endpointShowsBinaryState, formatEndpointBinaryState, formatZwaveValue, zwaveNodeId } from "@/lib/zwave-detail";
 import { hubDeviceToZwaveEndpoint } from "@/lib/zwave-device-resolve";
 import { ItemRenameField } from "@/components/item-rename-field";
-import { DeviceReadingRow } from "@/components/device-reading-row";
+import { DeviceReadingsList } from "@/components/device-readings-list";
 import { useHubCommandStatus } from "@/components/command-status-provider";
 import { useMetricTrend } from "@/hooks/use-metric-trend";
+import { deviceMetricKey } from "@/lib/device-metrics";
 import {
-  deviceMetricKey,
-  zwavePropertyDeviceMetricKey,
-} from "@/lib/device-metrics";
-import { READING_ITEM_KEYS } from "@/lib/device-item-overrides";
+  resolveHubDeviceReadings,
+  resolveZwavePropertyReading,
+  type ResolvedDeviceReading,
+} from "@/lib/device-reading-metrics";
 import type { ZwaveDeviceDetailPayload } from "@/lib/zwave-device-detail-load";
 
 type Props = {
@@ -250,6 +251,36 @@ export function ZwaveDeviceDetailPanel({ deviceIdParam, initial }: Props) {
   const lockMode = isLockDevice(device);
   const helpSections = idLock ? idLockHelpSections(idLockModel) : [];
 
+  const statusReadings = useMemo(() => {
+    const rows: ResolvedDeviceReading[] = [];
+    if (nodeId != null) {
+      for (const p of nodeReadings) {
+        rows.push(
+          resolveZwavePropertyReading(
+            overrideDeviceId,
+            p,
+            nodeId,
+            formatZwaveValue(p.value),
+            p.label,
+          ),
+        );
+      }
+    }
+    for (const r of resolveHubDeviceReadings(device)) {
+      if (!rows.some((x) => x.metric === r.metric)) rows.push(r);
+    }
+    for (const ep of binaryEndpoints) {
+      const id = ep.device_id || overrideDeviceId;
+      rows.push({
+        itemKey: zwaveEndpointItemKey(ep.endpoint),
+        label: ep.label,
+        value: formatEndpointBinaryState(ep),
+        metric: deviceMetricKey(id, "state:on"),
+      });
+    }
+    return rows;
+  }, [binaryEndpoints, device, nodeId, nodeReadings, overrideDeviceId]);
+
   return (
     <div className="mt-6 space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -344,70 +375,18 @@ export function ZwaveDeviceDetailPanel({ deviceIdParam, initial }: Props) {
         </section>
       )}
 
-      {(nodeReadings.length > 0 ||
-        device.temperature_c != null ||
-        device.humidity_pct != null ||
-        device.readingLabel ||
-        binaryEndpoints.length > 0) && (
+      {statusReadings.length > 0 && (
         <section className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
           <h3 className="text-lg font-semibold text-stone-900">Tila</h3>
-          {nodeReadings.length > 0 && (
-            <ul className="mt-3 space-y-3 text-sm text-stone-700">
-              {nodeReadings.map((p) => {
-                const metric = nodeId != null
-                  ? zwavePropertyDeviceMetricKey(overrideDeviceId, p, nodeId)
-                  : null;
-                return (
-                  <DeviceReadingRow
-                    key={`${p.cc}-${p.endpoint}-${p.property ?? ""}`}
-                    deviceId={overrideDeviceId}
-                    itemKey={zwavePropertyItemKey(p)}
-                    label={p.label}
-                    value={formatZwaveValue(p.value)}
-                    onRenamed={() => void loadDevice()}
-                    onShowTrend={metric ? () => showTrend(metric) : undefined}
-                  />
-                );
-              })}
-            </ul>
-          )}
-          {device.temperature_c != null && (
-            <ul className={`mt-3 space-y-2 text-sm ${nodeReadings.length > 0 ? "border-t border-stone-100 pt-3" : ""}`}>
-              <DeviceReadingRow
-                deviceId={overrideDeviceId}
-                itemKey={READING_ITEM_KEYS.temperature}
-                label="Lämpötila"
-                value={`${device.temperature_c.toFixed(1)} °C`}
-                onRenamed={() => void loadDevice()}
-                onShowTrend={() => showTrend(deviceMetricKey(overrideDeviceId, "temperature_c"))}
-              />
-            </ul>
-          )}
-          {device.readingLabel && nodeReadings.length === 0 && !device.temperature_c && (
-            <p className="mt-2 text-sm text-stone-700">{device.readingLabel}</p>
-          )}
-          {binaryEndpoints.length > 0 && (
-            <ul
-              className={`mt-3 space-y-1 text-sm ${
-                nodeReadings.length > 0 ? "border-t border-stone-100 pt-3" : ""
-              }`}
-            >
-              {binaryEndpoints.map((ep) => {
-                const metric = ep.device_id ? deviceMetricKey(ep.device_id, "state:on") : null;
-                return (
-                  <DeviceReadingRow
-                    key={ep.device_id}
-                    deviceId={overrideDeviceId}
-                    itemKey={zwaveEndpointItemKey(ep.endpoint)}
-                    label={ep.label}
-                    value={formatEndpointBinaryState(ep)}
-                    onRenamed={() => void loadDevice()}
-                    onShowTrend={metric ? () => showTrend(metric) : undefined}
-                  />
-                );
-              })}
-            </ul>
-          )}
+          <p className="mt-1 text-xs text-stone-500">
+            Klikkaa lukemaa tai kaaviokuvaketta — trendi ja toimintahistoria.
+          </p>
+          <DeviceReadingsList
+            deviceId={overrideDeviceId}
+            readings={statusReadings}
+            onRenamed={() => void loadDevice()}
+            onShowTrend={showTrend}
+          />
         </section>
       )}
 
