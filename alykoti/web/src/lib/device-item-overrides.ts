@@ -1,3 +1,4 @@
+import { parseZwaveDeviceId } from "@/lib/device-protocol";
 import type { HubDeviceOverride, HubState, ZwaveConfigParam, ZwaveNodeDetail, ZwaveProperty } from "@/lib/types";
 import { zwaveNodeId } from "@/lib/zwave-detail";
 
@@ -116,6 +117,31 @@ export function resolveItemName(
 ): string {
   const custom = overrides?.item_names?.[itemKey]?.trim();
   return custom || defaultLabel;
+}
+
+/** Yhdistää laitteen, Z-Wave-solmun ja WiFi-isännän item_names -kartat. */
+export function resolveDeviceItemNames(
+  deviceId: string,
+  overrides?: HubState["device_overrides"],
+): Record<string, string> {
+  const merged: Record<string, string> = {};
+
+  const zwave = parseZwaveDeviceId(deviceId);
+  if (zwave) {
+    const nodeNames = overrides?.[zwaveNodeId(zwave.nodeId)]?.item_names;
+    if (nodeNames) Object.assign(merged, nodeNames);
+  }
+
+  const wifiTarget = wifiEntityRenameTarget(deviceId);
+  if (wifiTarget) {
+    const hostNames = overrides?.[wifiTarget.deviceId]?.item_names;
+    if (hostNames) Object.assign(merged, hostNames);
+  }
+
+  const direct = overrides?.[deviceId]?.item_names;
+  if (direct) Object.assign(merged, direct);
+
+  return merged;
 }
 
 export function resolveZwaveEndpointLabel(

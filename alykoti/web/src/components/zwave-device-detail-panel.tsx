@@ -57,6 +57,7 @@ export function ZwaveDeviceDetailPanel({ deviceIdParam, initial }: Props) {
   const [device, setDevice] = useState<HubLightDevice | null>(initial?.device ?? null);
   const [zwaveNode, setZwaveNode] = useState<ZwaveNodeDetail | null>(initial?.zwaveNode ?? null);
   const [siblings, setSiblings] = useState<HubLightDevice[]>(initial?.zwaveSiblings ?? []);
+  const [itemNames, setItemNames] = useState<Record<string, string>>(initial?.itemNames ?? {});
   const [events, setEvents] = useState<DeviceLiveEvent[]>(initial?.recentEvents ?? []);
   const [error, setError] = useState<string | null>(null);
   const [flash, setFlash] = useState<string | null>(null);
@@ -80,6 +81,7 @@ export function ZwaveDeviceDetailPanel({ deviceIdParam, initial }: Props) {
       setDevice(json.device);
       setZwaveNode(json.zwaveNode ?? null);
       setSiblings(json.zwaveSiblings ?? []);
+      setItemNames(json.itemNames ?? {});
       if (json.recentEvents?.length) {
         setEvents((prev) => mergeEvents(json.recentEvents!, prev));
       }
@@ -259,7 +261,7 @@ export function ZwaveDeviceDetailPanel({ deviceIdParam, initial }: Props) {
         );
       }
     }
-    for (const r of resolveHubDeviceReadings(device)) {
+    for (const r of resolveHubDeviceReadings(device, itemNames)) {
       if (!rows.some((x) => x.metric === r.metric)) rows.push(r);
     }
     for (const ep of binaryEndpoints) {
@@ -272,7 +274,7 @@ export function ZwaveDeviceDetailPanel({ deviceIdParam, initial }: Props) {
       });
     }
     return rows;
-  }, [binaryEndpoints, device, nodeId, nodeReadings, overrideDeviceId]);
+  }, [binaryEndpoints, device, itemNames, nodeId, nodeReadings, overrideDeviceId]);
 
   return (
     <div className="mt-6 space-y-6">

@@ -14,8 +14,9 @@ import { protocolLabel } from "@/lib/device-protocol";
 import { kindLabel, type HubLightDevice } from "@/lib/hub-lights";
 import { LAITTEET } from "@/lib/laitteet-paths";
 import type { ZwaveConfigParam, ZwaveNodeDetail, ZwaveNodeEndpoint, ZwaveProperty } from "@/lib/types";
-import { configParamOptions, formatZwaveValue, toggleZwaveValue } from "@/lib/zwave-detail";
+import { configParamOptions, formatZwaveValue, toggleZwaveValue, zwaveNodeId } from "@/lib/zwave-detail";
 import { ItemRenameField } from "@/components/item-rename-field";
+import { zwaveEndpointItemKey } from "@/lib/device-item-overrides";
 import { DeviceReadingsList } from "@/components/device-readings-list";
 import { useHubCommandStatus } from "@/components/command-status-provider";
 import { useMetricTrend } from "@/hooks/use-metric-trend";
@@ -267,6 +268,8 @@ export function DeviceDetailPanel({ protocol, deviceIdParam }: Props) {
 
   const nodeProperties = zwaveNode?.properties ?? [];
   const nodeConfig = zwaveNode?.config ?? [];
+  const nodeId = zwaveNode?.node_id ?? device.node_id;
+  const overrideDeviceId = nodeId != null ? zwaveNodeId(nodeId) : device.id;
   const displayName =
     zwaveNode && zwaveEndpoints.length > 1 ? zwaveNode.name : device.name;
 
@@ -321,8 +324,10 @@ export function DeviceDetailPanel({ protocol, deviceIdParam }: Props) {
                 key={ep.endpoint}
                 endpoint={ep}
                 sibling={zwaveSiblings.find((s) => s.id === ep.device_id)}
+                overrideDeviceId={overrideDeviceId}
                 pending={pending}
                 onControl={(id, body, mqttTopic) => controlDevice(id, body, mqttTopic)}
+                onRenamed={() => void loadDevice()}
               />
             ))}
           </div>
@@ -540,7 +545,7 @@ export function DeviceDetailPanel({ protocol, deviceIdParam }: Props) {
             erikseen.
           </p>
           <DeviceReadingsList
-            deviceId={device.id}
+            deviceId={protocol === "zwave" ? overrideDeviceId : device.id}
             readings={statusReadings}
             onRenamed={() => void loadDevice()}
             onShowTrend={showTrend}
@@ -554,13 +559,17 @@ export function DeviceDetailPanel({ protocol, deviceIdParam }: Props) {
 function ZwaveEndpointControl({
   endpoint,
   sibling,
+  overrideDeviceId,
   pending,
   onControl,
+  onRenamed,
 }: {
   endpoint: ZwaveNodeEndpoint;
   sibling?: HubLightDevice;
+  overrideDeviceId: string;
   pending: boolean;
   onControl: (id: string, body: Record<string, unknown>, mqttTopic?: string | null) => void;
+  onRenamed: () => void;
 }) {
   const caps = endpoint.capabilities ?? sibling?.capabilities ?? [];
   const canSwitch = canWrite(caps, "switch") || canWrite(caps, "relay");
@@ -574,7 +583,12 @@ function ZwaveEndpointControl({
   if (!controllable || (!canSwitch && !canLock)) {
     return (
       <div className="rounded-xl border border-stone-100 bg-stone-50 px-4 py-3">
-        <p className="font-medium text-stone-900">{endpoint.label}</p>
+        <ItemRenameField
+          deviceId={overrideDeviceId}
+          itemKey={zwaveEndpointItemKey(endpoint.endpoint)}
+          currentName={endpoint.label}
+          onRenamed={onRenamed}
+        />
         <p className="mt-1 text-sm text-stone-600">
           {endpoint.properties?.length
             ? endpoint.properties.map((p) => `${p.label}: ${formatZwaveValue(p.value)}`).join(" · ")
@@ -588,7 +602,12 @@ function ZwaveEndpointControl({
     <div className="rounded-xl border border-stone-200 px-4 py-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <p className="font-medium text-stone-900">{endpoint.label}</p>
+          <ItemRenameField
+            deviceId={overrideDeviceId}
+            itemKey={zwaveEndpointItemKey(endpoint.endpoint)}
+            currentName={endpoint.label}
+            onRenamed={onRenamed}
+          />
           <p className="text-xs text-stone-500">
             {on ? "Päällä" : "Pois"}
             {deviceId ? ` · ${deviceId}` : ""}

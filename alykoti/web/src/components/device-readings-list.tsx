@@ -33,7 +33,7 @@ export function DeviceReadingsList({
           value={row.value}
           onRenamed={onRenamed ?? (() => {})}
           onShowTrend={() => onShowTrend(row.metric)}
-          showRename={showRename}
+          showRename={showRename && !!row.itemKey}
         />
       ))}
     </ul>

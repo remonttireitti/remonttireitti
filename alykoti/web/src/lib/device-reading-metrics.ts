@@ -1,11 +1,11 @@
 import type { DeviceReading } from "@/lib/capabilities";
-import { READING_ITEM_KEYS, zwavePropertyItemKey } from "@/lib/device-item-overrides";
+import { READING_ITEM_KEYS, resolveDeviceItemNames, zwavePropertyItemKey } from "@/lib/device-item-overrides";
 import {
   deviceMetricKey,
   deviceMetricKeyForReading,
   zwavePropertyMetricField,
 } from "@/lib/device-metrics";
-import type { ZwaveProperty } from "@/lib/types";
+import type { HubState, ZwaveProperty } from "@/lib/types";
 
 export type ResolvedDeviceReading = {
   itemKey?: string;
@@ -40,6 +40,14 @@ export function parseReadingLabelString(
   return out;
 }
 
+function readingLabel(
+  itemNames: Record<string, string> | undefined,
+  key: string,
+  defaultLabel: string,
+): string {
+  return itemNames?.[key]?.trim() || defaultLabel;
+}
+
 export function resolveHubDeviceReadings(
   device: {
     id: string;
@@ -57,54 +65,88 @@ export function resolveHubDeviceReadings(
     sensor_state?: string | null;
   },
   itemNames?: Record<string, string>,
+  allOverrides?: HubState["device_overrides"],
 ): ResolvedDeviceReading[] {
   const out: ResolvedDeviceReading[] = [];
   const id = device.id;
+  const names = itemNames ?? (allOverrides ? resolveDeviceItemNames(id, allOverrides) : {});
 
-  if (device.temperature_c != null && Number.isFinite(device.temperature_c)) {
+  for (const r of device.readings ?? []) {
+    pushUnique(out, readingToResolved(id, r));
+  }
+
+  const coveredItemKeys = new Set(
+    (device.readings ?? []).map((r) => r.itemKey).filter((k): k is string => !!k),
+  );
+
+  if (
+    device.temperature_c != null &&
+    Number.isFinite(device.temperature_c) &&
+    !coveredItemKeys.has(READING_ITEM_KEYS.temperature)
+  ) {
     pushUnique(out, {
       itemKey: READING_ITEM_KEYS.temperature,
-      label: itemNames?.[READING_ITEM_KEYS.temperature]?.trim() || "Lämpötila",
+      label: readingLabel(names, READING_ITEM_KEYS.temperature, "Lämpötila"),
       value: `${device.temperature_c.toFixed(1)} °C`,
       metric: deviceMetricKey(id, "temperature_c"),
     });
   }
-  if (device.humidity_pct != null && Number.isFinite(device.humidity_pct)) {
+  if (
+    device.humidity_pct != null &&
+    Number.isFinite(device.humidity_pct) &&
+    !coveredItemKeys.has(READING_ITEM_KEYS.humidity)
+  ) {
     pushUnique(out, {
       itemKey: READING_ITEM_KEYS.humidity,
-      label: "Kosteus",
+      label: readingLabel(names, READING_ITEM_KEYS.humidity, "Kosteus"),
       value: `${Math.round(device.humidity_pct)} %`,
       metric: deviceMetricKey(id, "humidity_pct"),
     });
   }
-  if (device.battery_pct != null && Number.isFinite(device.battery_pct)) {
+  if (
+    device.battery_pct != null &&
+    Number.isFinite(device.battery_pct) &&
+    !coveredItemKeys.has(READING_ITEM_KEYS.battery)
+  ) {
     pushUnique(out, {
       itemKey: READING_ITEM_KEYS.battery,
-      label: "Akku",
+      label: readingLabel(names, READING_ITEM_KEYS.battery, "Akku"),
       value: `${Math.round(device.battery_pct)} %`,
       metric: deviceMetricKey(id, "battery_pct"),
     });
   }
-  if (device.co2_ppm != null && Number.isFinite(device.co2_ppm)) {
+  if (
+    device.co2_ppm != null &&
+    Number.isFinite(device.co2_ppm) &&
+    !coveredItemKeys.has(READING_ITEM_KEYS.co2)
+  ) {
     pushUnique(out, {
       itemKey: READING_ITEM_KEYS.co2,
-      label: "CO₂",
+      label: readingLabel(names, READING_ITEM_KEYS.co2, "CO₂"),
       value: `${Math.round(device.co2_ppm)} ppm`,
       metric: deviceMetricKey(id, "co2_ppm"),
     });
   }
-  if (device.illuminance_lux != null && Number.isFinite(device.illuminance_lux)) {
+  if (
+    device.illuminance_lux != null &&
+    Number.isFinite(device.illuminance_lux) &&
+    !coveredItemKeys.has(READING_ITEM_KEYS.illuminance)
+  ) {
     pushUnique(out, {
       itemKey: READING_ITEM_KEYS.illuminance,
-      label: "Valoisuus",
+      label: readingLabel(names, READING_ITEM_KEYS.illuminance, "Valoisuus"),
       value: `${Math.round(device.illuminance_lux)} lx`,
       metric: deviceMetricKey(id, "illuminance_lux"),
     });
   }
-  if (device.power_w != null && Number.isFinite(device.power_w)) {
+  if (
+    device.power_w != null &&
+    Number.isFinite(device.power_w) &&
+    !coveredItemKeys.has(READING_ITEM_KEYS.power)
+  ) {
     pushUnique(out, {
       itemKey: READING_ITEM_KEYS.power,
-      label: "Teho",
+      label: readingLabel(names, READING_ITEM_KEYS.power, "Teho"),
       value: `${Math.round(device.power_w)} W`,
       metric: deviceMetricKey(id, "power_w"),
     });
@@ -119,26 +161,24 @@ export function resolveHubDeviceReadings(
   if (device.sensor_state) {
     pushUnique(out, {
       itemKey: READING_ITEM_KEYS.sensor_state,
-      label: "Tila",
+      label: readingLabel(names, READING_ITEM_KEYS.sensor_state, "Tila"),
       value: device.sensor_state,
       metric: deviceMetricKeyForReading(id, "Tila"),
     });
   }
 
-  for (const r of device.readings ?? []) {
-    pushUnique(out, readingToResolved(id, r));
-  }
-
-  if (device.on != null) {
+  if (device.on != null && !coveredItemKeys.has(READING_ITEM_KEYS.switch)) {
     pushUnique(out, {
-      label: "Kytkin",
+      itemKey: READING_ITEM_KEYS.switch,
+      label: readingLabel(names, READING_ITEM_KEYS.switch, "Kytkin"),
       value: device.on ? "Päällä" : "Pois",
       metric: deviceMetricKey(id, "state:on"),
     });
   }
-  if (device.locked != null) {
+  if (device.locked != null && !coveredItemKeys.has(READING_ITEM_KEYS.locked)) {
     pushUnique(out, {
-      label: "Lukko",
+      itemKey: READING_ITEM_KEYS.locked,
+      label: readingLabel(names, READING_ITEM_KEYS.locked, "Lukko"),
       value: device.locked ? "Lukossa" : "Auki",
       metric: deviceMetricKey(id, "state:locked"),
     });
@@ -155,9 +195,12 @@ export function resolveHubDeviceReadings(
 
 export function readingToResolved(deviceId: string, reading: DeviceReading): ResolvedDeviceReading {
   return {
+    itemKey: reading.itemKey,
     label: reading.label,
     value: reading.value,
-    metric: deviceMetricKeyForReading(deviceId, reading.label),
+    metric: reading.itemKey
+      ? deviceMetricKey(deviceId, reading.itemKey)
+      : deviceMetricKeyForReading(deviceId, reading.label),
   };
 }
 

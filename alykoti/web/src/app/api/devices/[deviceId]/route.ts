@@ -8,6 +8,7 @@ import { normalizeHomeDevices } from "@/lib/device-normalize";
 import { parseHubHomeDevices, prepareDevicesForList } from "@/lib/hub-lights";
 import { resolveZigbeeDeviceContext } from "@/lib/zigbee-device-resolve";
 import { hubDeviceEventsToLive } from "@/lib/device-events";
+import { resolveDeviceItemNames } from "@/lib/device-item-overrides";
 import type { HubState } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -76,7 +77,7 @@ export async function GET(
     jsonSafe({
       configured: true,
       device: ctx.device,
-      itemNames: hubState?.device_overrides?.[ctx.fullId]?.item_names ?? {},
+      itemNames: resolveDeviceItemNames(ctx.fullId, hubState?.device_overrides),
       zwaveNode: null,
       zwaveSiblings: [],
       hubOnline: hub.last_seen_at != null,

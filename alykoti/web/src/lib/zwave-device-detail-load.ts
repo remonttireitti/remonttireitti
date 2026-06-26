@@ -1,10 +1,9 @@
-import { hubDeviceEventsToLive } from "@/lib/device-events";
+import { hubDeviceEventsToLive, type DeviceLiveEvent } from "@/lib/device-events";
+import { resolveDeviceItemNames } from "@/lib/device-item-overrides";
 import { normalizeHomeDevices } from "@/lib/device-normalize";
 import { parseHubHomeDevices, prepareDevicesForList, type HubLightDevice } from "@/lib/hub-lights";
 import { resolveZwaveDeviceContext } from "@/lib/zwave-device-resolve";
 import type { Hub, HubState, ZwaveNodeDetail } from "@/lib/types";
-import type { DeviceLiveEvent } from "@/lib/device-events";
-
 export type ZwaveDeviceDetailPayload = {
   device: HubLightDevice;
   zwaveNode: ZwaveNodeDetail | null;
@@ -39,7 +38,7 @@ export function loadZwaveDeviceDetail(
     device: ctx.device,
     zwaveNode: ctx.zwaveNode,
     zwaveSiblings: ctx.zwaveSiblings,
-    itemNames: hubState?.device_overrides?.[ctx.fullId]?.item_names ?? {},
+    itemNames: resolveDeviceItemNames(ctx.fullId, hubState?.device_overrides),
     hubOnline: hub.last_seen_at != null,
     recentEvents: hubDeviceEventsToLive(hubState?.device_live_events, ctx.fullId),
   };

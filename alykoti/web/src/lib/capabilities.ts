@@ -191,7 +191,7 @@ const SENSOR_STATE_LABELS: Record<string, string> = {
   tamper: "Peukalointi",
 };
 
-export type DeviceReading = { label: string; value: string };
+export type DeviceReading = { label: string; value: string; itemKey?: string };
 
 export function sensorStateLabel(state: string | null | undefined): string | null {
   if (!state) return null;
@@ -239,11 +239,12 @@ function pushReading(
   seen: Set<string>,
   label: string,
   value: string,
+  itemKey?: string,
 ) {
   const key = `${label}:${value}`;
   if (seen.has(key)) return;
   seen.add(key);
-  readings.push({ label, value });
+  readings.push({ label, value, ...(itemKey ? { itemKey } : {}) });
 }
 
 export function collectDeviceReadings(
@@ -258,7 +259,7 @@ export function collectDeviceReadings(
   const seen = new Set<string>();
   const named = (key: string, defaultLabel: string, value: string) => {
     const custom = itemNames?.[key]?.trim();
-    pushReading(readings, seen, custom || defaultLabel, value);
+    pushReading(readings, seen, custom || defaultLabel, value, key);
   };
 
   const properties = [...(extraProperties ?? []), ...(device.zwave_properties ?? [])];
