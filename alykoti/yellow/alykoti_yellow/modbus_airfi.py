@@ -78,8 +78,12 @@ _sync_cooldown_from_disk()
 
 _modbus_lock = threading.RLock()
 _last_modbus_at: float = 0.0
-MODBUS_REQUEST_GAP_SEC = float(os.environ.get("AIRFI_MODBUS_DELAY_SEC", "3"))
+# HA: message_wait_milliseconds=30 TCP:lle, delay=1s ensimmäiseen viestiin yhdistämisen jälkeen.
+MODBUS_TCP_GAP_SEC = float(os.environ.get("AIRFI_MODBUS_TCP_GAP_MS", "30")) / 1000.0
+MODBUS_SERIAL_GAP_SEC = float(os.environ.get("AIRFI_MODBUS_DELAY_SEC", "3"))
+MODBUS_CONNECT_DELAY_SEC = float(os.environ.get("AIRFI_MODBUS_CONNECT_DELAY_SEC", "1"))
 MODBUS_CONNECT_GAP_SEC = float(os.environ.get("AIRFI_MODBUS_CONNECT_GAP_SEC", "2"))
+MODBUS_TCP_RETRIES = max(0, int(os.environ.get("AIRFI_MODBUS_RETRIES", "3")))
 
 
 @dataclass
@@ -91,16 +95,24 @@ class _TcpPersistent:
 
 _tcp_persistent = _TcpPersistent()
 _last_tcp_drop_at: float = 0.0
+_tcp_read_fail_streak: int = 0
+_TCP_DROP_AFTER_FAILS = 3
 
 
-def _modbus_pause_locked() -> None:
+def _modbus_pause_locked(*, is_tcp: bool = False) -> None:
     """Kutsu vain kun _modbus_lock on jo pidossa."""
     global _last_modbus_at
+    gap_sec = MODBUS_TCP_GAP_SEC if is_tcp else MODBUS_SERIAL_GAP_SEC
     now = time.monotonic()
-    wait = MODBUS_REQUEST_GAP_SEC - (now - _last_modbus_at)
+    wait = gap_sec - (now - _last_modbus_at)
     if wait > 0:
         time.sleep(wait)
     _last_modbus_at = time.monotonic()
+
+
+def _modbus_pause(*, is_tcp: bool = False) -> None:
+    with _modbus_lock:
+        _modbus_pause_locked(is_tcp=is_tcp)
 
 
 def _socket_alive(sock: socket.socket) -> bool:
@@ -121,14 +133,29 @@ def _socket_alive(sock: socket.socket) -> bool:
 
 
 def _drop_tcp_client() -> None:
-    """Sulje ja pakota uusi TCP-kättely seuraavalla yrityksellä."""
-    global _last_tcp_drop_at
+    """Sulje TCP-yhteys — käytä vain kun yhteys on oikeasti rikki."""
+    global _last_tcp_drop_at, _tcp_read_fail_streak
     if _tcp_persistent.client is not None:
         _safe_close(_tcp_persistent.client)
     _tcp_persistent.client = None
     _tcp_persistent.host = None
     _tcp_persistent.port = None
     _last_tcp_drop_at = time.monotonic()
+    _tcp_read_fail_streak = 0
+
+
+def _note_tcp_read_failure() -> None:
+    """HA close_comm_on_error:false — älä katkaise heti, vain toistuvista virheistä."""
+    global _tcp_read_fail_streak
+    _tcp_read_fail_streak += 1
+    if _tcp_read_fail_streak >= _TCP_DROP_AFTER_FAILS:
+        log.info("Modbus TCP: %s peräkkäistä lukuvirhettä — uusi yhteys", _tcp_read_fail_streak)
+        _drop_tcp_client()
+
+
+def _note_tcp_read_success() -> None:
+    global _tcp_read_fail_streak
+    _tcp_read_fail_streak = 0
 
 
 def _acquire_tcp_client(
@@ -158,24 +185,21 @@ def _acquire_tcp_client(
     client = _open_tcp_client(host, port, read_timeout=read_timeout)
     if not _connect_tcp(
         client,
-        connect_timeout=max(connect_timeout, 8.0),
+        connect_timeout=connect_timeout,
         read_timeout=read_timeout,
-        connect_attempts=3,
+        connect_attempts=MODBUS_TCP_RETRIES,
     ):
         _safe_close(client)
         _last_tcp_drop_at = time.monotonic()
         return None
 
+    if MODBUS_CONNECT_DELAY_SEC > 0:
+        time.sleep(MODBUS_CONNECT_DELAY_SEC)
+
     p.client = client
     p.host = host
     p.port = port
     return client
-
-
-def _modbus_pause() -> None:
-    """Vähintään MODBUS_REQUEST_GAP_SEC kahden pyynnön välillä samalla yhteydellä."""
-    with _modbus_lock:
-        _modbus_pause_locked()
 
 
 INPUT = {
@@ -368,8 +392,12 @@ def _safe_close(client: _ModbusClient | None) -> None:
 
 
 def _open_tcp_client(host: str, port: int, *, read_timeout: float) -> ModbusTcpClient:
-    # retries=0: ei sisäisiä uudelleenyrityksiä (modeemi jumittuu helposti).
-    return ModbusTcpClient(host, port=port, timeout=read_timeout, retries=0)
+    return ModbusTcpClient(
+        host,
+        port=port,
+        timeout=read_timeout,
+        retries=MODBUS_TCP_RETRIES,
+    )
 
 
 def _open_serial_client(port: str, baud: int, *, read_timeout: float) -> ModbusSerialClient:
@@ -438,11 +466,21 @@ def _read_registers(
     read_fn,
     address: int,
     count: int,
+    retries: int = MODBUS_TCP_RETRIES,
 ) -> list[int] | None:
-    rr = read_fn(address, count=count, device_id=unit)
-    if rr.isError() or not rr.registers:
-        return None
-    return list(rr.registers)
+    last_exc: Exception | None = None
+    for attempt in range(1, max(1, retries) + 1):
+        try:
+            rr = read_fn(address, count=count, device_id=unit)
+            if not rr.isError() and rr.registers:
+                return list(rr.registers)
+        except Exception as exc:
+            last_exc = exc
+        if attempt < retries:
+            time.sleep(MODBUS_TCP_GAP_SEC)
+    if last_exc is not None:
+        log.debug("Modbus read reg %s count %s failed: %s", address, count, last_exc)
+    return None
 
 
 def probe_tcp(
@@ -455,7 +493,7 @@ def probe_tcp(
 ) -> bool:
     """Nopea TCP + yksi rekisteriluku ennen täyttä snapshotia."""
     with _modbus_lock:
-        _modbus_pause_locked()
+        _modbus_pause_locked(is_tcp=True)
         client = _acquire_tcp_client(
             host,
             port,
@@ -474,7 +512,7 @@ def probe_tcp(
             )
             return regs is not None
         except Exception:
-            _drop_tcp_client()
+            _note_tcp_read_failure()
             return False
 
 
@@ -536,10 +574,13 @@ def _read_snapshot(
     except Exception as exc:
         log.warning("Modbus read failed: %s", exc)
         if is_tcp:
-            _drop_tcp_client()
+            _note_tcp_read_failure()
         else:
             _safe_close(client)
         return AirfiSnapshot(ok=False, state={"airfi_online": False})
+
+    if is_tcp:
+        _note_tcp_read_success()
 
     outdoor = _parse_temp(_reg(inputs_core, _INPUT_CORE_START, INPUT["outdoor_temp"]))
     exhaust = _parse_temp(_reg(inputs_core, _INPUT_CORE_START, INPUT["exhaust_temp"]))
@@ -635,7 +676,7 @@ def _read_with_retries(
 
     with _modbus_lock:
         for attempt in range(1, attempts + 1):
-            _modbus_pause_locked()
+            _modbus_pause_locked(is_tcp=is_tcp)
             if is_tcp:
                 client = _acquire_tcp_client(
                     host,
@@ -659,7 +700,8 @@ def _read_with_retries(
                     if snap.ok:
                         return snap
                     last = snap
-                    _drop_tcp_client()
+                    if is_tcp:
+                        _note_tcp_read_failure()
                 except Exception as exc:
                     log.warning(
                         "Modbus read error (yritys %s/%s): %s",
@@ -668,7 +710,8 @@ def _read_with_retries(
                         exc,
                     )
                     last = AirfiSnapshot(ok=False, state={"airfi_online": False})
-                    _drop_tcp_client()
+                    if is_tcp:
+                        _note_tcp_read_failure()
             else:
                 client = _open_client(
                     host=None,
@@ -1083,7 +1126,7 @@ def write_fan_pct(
                 f"{path_host}:{tcp_port}" if is_tcp else f"{path_serial}@{baud}"
             )
             for attempt in range(1, attempts + 1):
-                _modbus_pause_locked()
+                _modbus_pause_locked(is_tcp=is_tcp)
                 serial_client: _ModbusClient | None = None
                 try:
                     if is_tcp:
@@ -1265,7 +1308,7 @@ def write_away(
     )
     if client is None:
         return False
-    _modbus_pause()
+    _modbus_pause(is_tcp=bool(host))
     return _write_with_client(
         client,
         unit,
@@ -1296,7 +1339,7 @@ def write_temp_setpoint(
     )
     if client is None:
         return False
-    _modbus_pause()
+    _modbus_pause(is_tcp=bool(host))
     return _write_with_client(
         client,
         unit,
@@ -1327,7 +1370,7 @@ def write_sauna_mode(
     )
     if client is None:
         return False
-    _modbus_pause()
+    _modbus_pause(is_tcp=bool(host))
     return _write_with_client(
         client,
         unit,
@@ -1437,8 +1480,8 @@ def ack_airfi_alarms(
     ]
     with _modbus_lock:
         for attempt in range(1, attempts + 1):
-            _modbus_pause_locked()
             is_tcp = bool(host)
+            _modbus_pause_locked(is_tcp=is_tcp)
             serial_client: _ModbusClient | None = None
             try:
                 if is_tcp:
@@ -1513,7 +1556,7 @@ def write_fireplace(
     )
     if client is None:
         return False
-    _modbus_pause()
+    _modbus_pause(is_tcp=bool(host))
     return _write_registers(
         client,
         unit,
