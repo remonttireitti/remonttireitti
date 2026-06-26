@@ -391,6 +391,10 @@ export type HubState = {
   automation_price_fires?: Record<string, string>;
   /** Yellow automaatiomoottorin viimeisimmät tapahtumat (synkki → web) */
   automation_events?: AutomationEvent[];
+  yellow_capabilities?: {
+    local_automation?: boolean;
+    local_ventilation?: boolean;
+  };
   /** Yellow MQTT: viimeisimmät laitetapahtumat device_id → lista */
   device_live_events?: Record<string, Array<{
     at: string;

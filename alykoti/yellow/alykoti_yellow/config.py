@@ -25,7 +25,7 @@ SYNC_URL = os.environ.get(
 SYNC_INTERVAL_SEC = max(10, int(os.environ.get("SYNC_INTERVAL_SEC", "30")))
 COMMAND_POLL_INTERVAL_SEC = max(
     1,
-    int(os.environ.get("COMMAND_POLL_INTERVAL_SEC", os.environ.get("COMMAND_POLL_SEC", "5"))),
+    int(os.environ.get("COMMAND_POLL_INTERVAL_SEC", os.environ.get("COMMAND_POLL_SEC", "1"))),
 )
 COMMAND_POLL_ENABLED = os.environ.get("COMMAND_POLL_ENABLED", "1").strip() in (
     "1",
@@ -58,7 +58,7 @@ ZWAVE_NODES_JSON = os.environ.get(
 ).strip()
 ZWAVE_GATEWAY = os.environ.get("ZWAVE_GATEWAY_NAME", "Mosquitto").strip()
 
-FIRMWARE_VERSION = "yellow-1.1.0"
+FIRMWARE_VERSION = "yellow-1.2.0"
 
 
 def airfi_kwargs() -> dict:

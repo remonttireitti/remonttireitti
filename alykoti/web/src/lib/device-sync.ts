@@ -694,6 +694,9 @@ export async function syncDevice(
     Number.isFinite(Date.parse(mergedState.airfi_modbus_pause_until)) &&
     Date.now() < Date.parse(mergedState.airfi_modbus_pause_until);
 
+  const hubLocalVentilation =
+    body.state?.yellow_capabilities?.local_ventilation === true;
+
   if (
     effectiveMode === "auto" ||
     effectiveMode === "fireplace" ||
@@ -703,7 +706,7 @@ export async function syncDevice(
       targets: NonNullable<Awaited<ReturnType<typeof computeVentilationTargets>>>,
     ) => {
       ventilationDisplay = targetsToVentilationState(targets);
-      if (!airfiWritesPaused && targets.needsWrite) {
+      if (!hubLocalVentilation && !airfiWritesPaused && targets.needsWrite) {
         ventilationWrite = ventilationWritePayload(targets);
       }
     };

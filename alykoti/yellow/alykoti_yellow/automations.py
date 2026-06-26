@@ -14,7 +14,9 @@ from typing import Any
 import paho.mqtt.client as mqtt
 
 from alykoti_yellow import config
+from alykoti_yellow.local_cache import load_hub_cache, save_hub_cache
 from alykoti_yellow.mqtt_lights import (
+    fetch_zigbee_home,
     _device_topic_name,
     _parse_mqtt_url,
     publish_light,
@@ -27,10 +29,13 @@ from alykoti_yellow.tasmota import set_tasmota_power
 from alykoti_yellow.zwave_mqtt import (
     _load_node_names,
     _slug,
+    fetch_zwave_devices,
     parse_zwave_device_id,
     set_zwave_device,
     set_zwave_lock,
 )
+
+DEVICE_REFRESH_SEC = 45.0
 
 log = logging.getLogger(__name__)
 
@@ -294,6 +299,7 @@ class AutomationEngine:
         self._device_events: dict[str, deque[dict[str, Any]]] = {}
         self._client: mqtt.Client | None = None
         self._thread: threading.Thread | None = None
+        self._refresh_thread: threading.Thread | None = None
 
     def _log_event(self, stage: str, **fields: Any) -> None:
         entry: dict[str, Any] = {
@@ -394,9 +400,70 @@ class AutomationEngine:
                 paths[f"{loc}/{_slug(name)}"] = node_id
         self._zwave_path_to_node = paths
 
+    def refresh_home_devices(self) -> int:
+        """Päivitä laiterekisteri paikallisesti — ei odota pilvisynkkiä."""
+        home_devices: dict[str, Any] = {}
+        try:
+            home_devices.update(
+                fetch_zigbee_home(config.MQTT_URL, config.MQTT_PREFIX, timeout_sec=3.0)
+            )
+        except Exception as exc:
+            log.debug("Automaatio zigbee refresh: %s", exc)
+        try:
+            zwave_result = fetch_zwave_devices(
+                config.MQTT_URL,
+                config.ZWAVE_PREFIX,
+                config.ZWAVE_NODES_JSON,
+                timeout_sec=5.0,
+                gateway=config.ZWAVE_GATEWAY,
+            )
+            if isinstance(zwave_result, dict) and "devices" in zwave_result:
+                home_devices.update(zwave_result["devices"])
+            elif isinstance(zwave_result, dict):
+                home_devices.update(zwave_result)
+        except Exception as exc:
+            log.debug("Automaatio zwave refresh: %s", exc)
+        if not home_devices:
+            return 0
+        with self._lock:
+            rules = list(self._rules)
+            integrations = dict(self._integrations)
+        self.update_config(rules, integrations, home_devices)
+        save_hub_cache(home_devices=home_devices)
+        log.info("Automaatio laiterekisteri päivitetty paikallisesti (%s laitetta)", len(home_devices))
+        return len(home_devices)
+
+    def _refresh_loop(self) -> None:
+        while True:
+            try:
+                self.refresh_home_devices()
+            except Exception as exc:
+                log.warning("Automaatio laiterekisteri refresh: %s", exc)
+            time.sleep(DEVICE_REFRESH_SEC)
+
     def start(self) -> None:
+        snap = load_hub_cache()
+        if snap:
+            self.update_config(
+                snap.get("automations"),
+                snap.get("integrations"),
+                snap.get("home_devices"),
+            )
+            log.info("Automaatiot käynnistetty välimuistista")
         if self._thread and self._thread.is_alive():
             return
+        threading.Thread(
+            target=self.refresh_home_devices,
+            name="automation-bootstrap",
+            daemon=True,
+        ).start()
+        if not (self._refresh_thread and self._refresh_thread.is_alive()):
+            self._refresh_thread = threading.Thread(
+                target=self._refresh_loop,
+                name="automation-device-refresh",
+                daemon=True,
+            )
+            self._refresh_thread.start()
         self._thread = threading.Thread(target=self._run, name="automation-mqtt", daemon=True)
         self._thread.start()
 

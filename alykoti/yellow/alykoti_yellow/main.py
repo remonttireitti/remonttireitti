@@ -34,6 +34,13 @@ from alykoti_yellow.device_commands import (
 )
 from alykoti_yellow.heating import apply_heating_thermostats
 from alykoti_yellow.automations import get_engine
+from alykoti_yellow.local_cache import load_hub_cache, save_hub_cache
+from alykoti_yellow.ventilation_local import (
+    collect_ventilation_humidity_pct,
+    compute_ventilation_targets,
+    effective_control_mode,
+    parse_ventilation_config,
+)
 from alykoti_yellow.mqtt_lights import fetch_zigbee_home, set_light
 from alykoti_yellow.shelly import (
     discover_shelly_devices,
@@ -63,6 +70,8 @@ _feedback_lock = threading.Lock()
 _executed_cmd_ids: dict[str, float] = {}
 cached_integrations: dict = {}
 cached_automations: list[dict] = []
+cached_hub_config: dict = {}
+cached_control_mode: str = "auto"
 cached_shelly_discovered: list[dict] = []
 cached_tasmota_discovered: list[dict] = []
 airfi_poll_state = AirfiPollState(
@@ -412,7 +421,7 @@ def _ventilation_block_reason(state: dict | None) -> str | None:
 _last_ventilation_write_at: float = 0.0
 _last_ventilation_fail_at: float = 0.0
 _last_airfi_emergency_recovery_at: float = 0.0
-VENTILATION_WRITE_MIN_INTERVAL_SEC = 30.0
+VENTILATION_WRITE_MIN_INTERVAL_SEC = 10.0
 VENTILATION_WRITE_FAIL_BACKOFF_SEC = 120.0
 AIRFI_EMERGENCY_RECOVERY_MIN_INTERVAL_SEC = 180.0
 
@@ -435,6 +444,101 @@ def _try_recover_stuck_airfi_emergency(state: dict) -> bool:
     else:
         log.warning("AirFi hätäseis-palautus epäonnistui (Modbus)")
     return ok
+
+
+def _bootstrap_from_cache() -> None:
+    global cached_automations, cached_integrations, cached_hub_config, cached_control_mode
+    snap = load_hub_cache()
+    if not snap:
+        return
+    if isinstance(snap.get("automations"), list):
+        cached_automations = snap["automations"]
+    if isinstance(snap.get("integrations"), dict):
+        cached_integrations = snap["integrations"]
+    if isinstance(snap.get("hub_config"), dict):
+        cached_hub_config = snap["hub_config"]
+    if isinstance(snap.get("control_mode"), str):
+        cached_control_mode = snap["control_mode"]
+    get_engine().update_config(
+        cached_automations,
+        cached_integrations,
+        snap.get("home_devices") if isinstance(snap.get("home_devices"), dict) else None,
+    )
+    log.info(
+        "Käynnistys välimuistista — automaatiot=%s laitteet=%s",
+        len(cached_automations),
+        len(snap.get("home_devices") or {}),
+    )
+
+
+def apply_local_ventilation(state: dict) -> None:
+    """Laske ja kirjoita IV-tuuletus Yellowlla — ei odota pilveä."""
+    global _last_ventilation_write_at, _last_ventilation_fail_at
+    if not config.AIRFI_WRITES:
+        return
+    mode = effective_control_mode(
+        cached_control_mode,
+        {**cached_hub_state, **state},
+    )
+    if mode == "manual":
+        return
+    now = time.monotonic()
+    if now - _last_ventilation_write_at < VENTILATION_WRITE_MIN_INTERVAL_SEC:
+        return
+    if now - _last_ventilation_fail_at < VENTILATION_WRITE_FAIL_BACKOFF_SEC:
+        return
+
+    airfi_state = state if state.get("airfi_online") else _cached_airfi_for_control()
+    if not airfi_state:
+        return
+    reason = _ventilation_block_reason(airfi_state)
+    if reason is not None:
+        return
+
+    vent_cfg = parse_ventilation_config(cached_hub_config)
+    home_devices = state.get("home_devices") if isinstance(state.get("home_devices"), dict) else {}
+    humidity = collect_ventilation_humidity_pct(
+        home_devices,
+        airfi_humidity=airfi_state.get("humidity_pct") or airfi_state.get("internal_humidity"),
+    )
+    inputs = {
+        "co2": state.get("co2_ppm"),
+        "pm25": state.get("pm25_ugm3"),
+        "humidity": humidity,
+        "indoor_temp_c": state.get("temperature_c") or airfi_state.get("supply_room_temp_c"),
+        "outdoor_temp_c": airfi_state.get("outdoor_temp_c"),
+    }
+    targets = compute_ventilation_targets(
+        mode,
+        inputs,
+        vent_cfg,
+        airfi_state,
+    )
+    if not targets or not targets.get("needs_write"):
+        return
+    try:
+        fireplace = bool(targets.get("fireplace"))
+        if fireplace != bool(airfi_state.get("fireplace_active")):
+            write_fireplace(**config.airfi_write_kwargs(), active=fireplace)
+        ok = write_fan_pct(
+            **config.airfi_write_kwargs(),
+            supply=int(targets["supply"]),
+            exhaust=int(targets["exhaust"]),
+            known_state=airfi_state,
+        )
+        if ok:
+            _last_ventilation_write_at = now
+            _last_ventilation_fail_at = 0.0
+            log.info(
+                "AirFi paikallinen tuuletus: tulo %s%% poisto %s%%",
+                targets["supply"],
+                targets["exhaust"],
+            )
+        else:
+            _last_ventilation_fail_at = now
+    except Exception as exc:
+        _last_ventilation_fail_at = now
+        log.warning("AirFi paikallinen tuuletus virhe: %s", exc)
 
 
 def apply_ventilation(response: dict, airfi_state: dict | None = None) -> None:
@@ -583,6 +687,10 @@ def build_state(
 
     state["automation_events"] = get_engine().get_events()
     state["device_live_events"] = get_engine().get_device_events()
+    state["yellow_capabilities"] = {
+        "local_automation": True,
+        "local_ventilation": True,
+    }
 
     heating_runtime = cached_hub_state.get("heating_runtime")
     if isinstance(heating_runtime, dict) and heating_runtime:
@@ -651,7 +759,7 @@ def _process_sync_response(
     update_engine: bool = True,
     apply_vent: bool = True,
 ) -> int:
-    global cached_automations, cached_integrations
+    global cached_automations, cached_integrations, cached_hub_config, cached_control_mode
 
     if update_engine:
         integrations = response.get("integrations")
@@ -664,10 +772,25 @@ def _process_sync_response(
             cfg_auto = response["config"].get("automations")
             if isinstance(cfg_auto, list):
                 cached_automations = cfg_auto
+        cfg = response.get("config")
+        if isinstance(cfg, dict):
+            cached_hub_config = cfg
+        mode = response.get("control_mode")
+        if isinstance(mode, str):
+            cached_control_mode = mode
         get_engine().update_config(
             cached_automations,
             cached_integrations,
             hub_state.get("home_devices") if isinstance(hub_state.get("home_devices"), dict) else None,
+        )
+        save_hub_cache(
+            automations=cached_automations,
+            integrations=cached_integrations,
+            home_devices=hub_state.get("home_devices")
+            if isinstance(hub_state.get("home_devices"), dict)
+            else None,
+            hub_config=cached_hub_config,
+            control_mode=cached_control_mode,
         )
 
     commands = response.get("commands") or []
@@ -734,6 +857,7 @@ def run_loop() -> None:
             cached_shelly_discovered,
             cached_tasmota_discovered,
         )
+        apply_local_ventilation(state)
 
         acks, fails = _drain_pending_feedback()
         response = sync_post(
@@ -770,6 +894,7 @@ def run_loop() -> None:
 
 def main() -> None:
     airfi_poll_state.reset()
+    _bootstrap_from_cache()
     if config.COMMAND_POLL_ENABLED:
         threading.Thread(
             target=run_fast_poll_loop,
