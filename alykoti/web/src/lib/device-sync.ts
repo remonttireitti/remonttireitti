@@ -31,6 +31,7 @@ import {
   type DeviceSyncRequest,
   type DeviceSyncResponse,
   type HubControlMode,
+  type HubHomeDevice,
   type HubIntegrations,
   type HubState,
   type VentilationConfig,
@@ -259,7 +260,7 @@ async function syncDeviceQuick(
 
   const { data: hub, error: lookupError } = await supabase
     .from("hubs")
-    .select("id, control_mode, config")
+    .select("id, control_mode, config, state")
     .eq("device_token", deviceToken)
     .maybeSingle();
 
@@ -297,6 +298,44 @@ async function syncDeviceQuick(
   }
 
   const now = new Date().toISOString();
+  const partialDevices = body.state?.home_devices;
+  const emPatch =
+    partialDevices && typeof partialDevices === "object"
+      ? Object.fromEntries(
+          Object.entries(partialDevices).filter(
+            ([id, dev]) => id.endsWith(":em") && dev != null && typeof dev === "object",
+          ),
+        )
+      : null;
+
+  const hubUpdate: Record<string, unknown> = { last_seen_at: now };
+  if (emPatch && Object.keys(emPatch).length > 0) {
+    const prev = parseState(hub.state);
+    const mergedDevices = { ...(prev.home_devices ?? {}) };
+    for (const [id, dev] of Object.entries(emPatch)) {
+      const prevDev = mergedDevices[id];
+      mergedDevices[id] =
+        prevDev && typeof prevDev === "object"
+          ? { ...prevDev, ...(dev as Record<string, unknown>) }
+          : (dev as HubHomeDevice);
+    }
+    const mergedState: HubState = {
+      ...prev,
+      home_devices: normalizeHomeDevices(mergedDevices, {
+        integrations: prev.integrations,
+      }),
+    };
+    hubUpdate.state = mergedState;
+    if (hubMetricsEnabled()) {
+      void recordEnergySamples(hub.id, mergedState.home_devices);
+      void recordDeviceMetricSamples(
+        hub.id,
+        mergedState.home_devices,
+        mergedState.device_overrides,
+        mergedState.zwave_nodes,
+      );
+    }
+  }
 
   const [{ data: pendingCommands }, { error: seenError }] = await Promise.all([
     supabase
@@ -306,7 +345,7 @@ async function syncDeviceQuick(
       .eq("status", "pending")
       .order("created_at", { ascending: true })
       .limit(10),
-    supabase.from("hubs").update({ last_seen_at: now }).eq("id", hub.id),
+    supabase.from("hubs").update(hubUpdate).eq("id", hub.id),
   ]);
 
   if (seenError) {

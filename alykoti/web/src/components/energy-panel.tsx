@@ -10,6 +10,7 @@ import type {
 } from "@/lib/energy-samples";
 import type { EnergyCostSummary } from "@/lib/energy-cost";
 import { formatEur } from "@/lib/energy-cost";
+import { meterLivePowerKw } from "@/lib/energy-live";
 import { formatPriceCents } from "@/lib/electricity-prices";
 import type { EnergyPhaseReading, EnergyPhases } from "@/lib/types";
 
@@ -107,20 +108,7 @@ function phasePowerKw(p?: EnergyPhaseReading): number | null {
 }
 
 function totalPowerKw(live: MeterLive): number | null {
-  if (live.power_kw != null && Number.isFinite(live.power_kw)) return live.power_kw;
-  if (live.power_w != null && Number.isFinite(live.power_w)) return live.power_w / 1000;
-
-  const phases = live.phases ?? {};
-  let sum = 0;
-  let any = false;
-  for (const key of PHASES) {
-    const kw = phasePowerKw(phases[key]);
-    if (kw != null) {
-      sum += kw;
-      any = true;
-    }
-  }
-  return any ? sum : null;
+  return meterLivePowerKw(live);
 }
 
 function fmtW(v: number | null | undefined): string {

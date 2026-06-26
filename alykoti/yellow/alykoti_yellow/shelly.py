@@ -550,6 +550,86 @@ def fetch_shelly_devices(configured: list[dict[str, Any]]) -> dict[str, dict[str
     return out
 
 
+def fetch_shelly_em_live(configured: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    """Nopea Shelly EM -päivitys — vain energiamittarit (ei kytkimiä)."""
+    out: dict[str, dict[str, Any]] = {}
+    for host, meta in _normalize_hosts(configured).items():
+        gen = meta["gen"]
+        model = meta["model"]
+        name = _resolve_base_name(host, meta["name"], gen)
+
+        if gen == 1:
+            try:
+                resp = requests.get(f"http://{host}/status", timeout=2.5)
+                resp.raise_for_status()
+                data = resp.json()
+            except Exception:
+                continue
+            if not isinstance(data, dict):
+                continue
+            emeters = data.get("emeters")
+            if isinstance(emeters, list) and emeters:
+                before = len(out)
+                _gen1_add_em_device(
+                    out,
+                    host=host,
+                    name=name,
+                    model=model,
+                    meter_rows=[e for e in emeters if isinstance(e, dict)],
+                )
+                if len(out) > before:
+                    continue
+            meters = data.get("meters")
+            if isinstance(meters, list) and meters:
+                _gen1_add_em_device(
+                    out,
+                    host=host,
+                    name=name,
+                    model=model,
+                    meter_rows=[e for e in meters if isinstance(e, dict)],
+                )
+            continue
+
+        rpc = _rpc(host, "Shelly.GetStatus", timeout=2.5)
+        result = rpc.get("result") if rpc else None
+        if not isinstance(result, dict):
+            continue
+
+        em_power, em_energy = _em_status_components(result)
+        if not em_power and not em_energy:
+            continue
+
+        phases = _extract_phases(em_power) if em_power else {}
+        total_power = em_power.get("total_act_power") if em_power else None
+        if total_power is None and em_power and isinstance(em_power.get("act_power"), (int, float)):
+            total_power = em_power.get("act_power")
+        if total_power is None and phases:
+            total_power = sum(
+                float(p["power_w"])
+                for p in phases.values()
+                if isinstance(p.get("power_w"), (int, float))
+            )
+        out[f"shelly:{host}:em"] = {
+            "protocol": "shelly",
+            "kind": "sensor",
+            "name": name,
+            "controllable": False,
+            "host": host,
+            "channel": 0,
+            "gen": 2,
+            "model": model or None,
+            "power_w": total_power,
+            "power_kw": (total_power / 1000.0) if isinstance(total_power, (int, float)) else None,
+            "energy_wh": _extract_energy_wh(em_energy),
+            "em_phases": phases,
+            "capabilities": [
+                {"id": "energy", "read": True, "write": False},
+                {"id": "meter", "read": True, "write": False},
+            ],
+        }
+    return out
+
+
 def set_shelly_switch(host: str, channel: int, on: bool, gen: int = 2) -> bool:
     if gen == 1:
         try:

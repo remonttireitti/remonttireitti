@@ -45,6 +45,7 @@ from alykoti_yellow.mqtt_lights import fetch_zigbee_home, set_light
 from alykoti_yellow.shelly import (
     discover_shelly_devices,
     fetch_shelly_devices,
+    fetch_shelly_em_live,
     probe_shelly,
     set_shelly_switch,
 )
@@ -730,6 +731,32 @@ def _airfi_snapshot(state: dict) -> dict:
     return {k: state[k] for k in keys if k in state}
 
 
+def _shelly_em_snapshot(integrations: dict | None) -> dict[str, dict]:
+    shelly_cfg = (integrations or {}).get("shelly", {}).get("devices") or []
+    if not shelly_cfg:
+        return {}
+    try:
+        return fetch_shelly_em_live(shelly_cfg)
+    except Exception as exc:
+        log.debug("Shelly EM quick poll failed: %s", exc)
+        return {}
+
+
+def _merge_home_devices(base: dict, patch: dict) -> dict:
+    if not patch:
+        return base
+    merged = dict(base)
+    for device_id, meta in patch.items():
+        if not isinstance(meta, dict):
+            continue
+        prev = merged.get(device_id)
+        if isinstance(prev, dict):
+            merged[device_id] = {**prev, **meta}
+        else:
+            merged[device_id] = meta
+    return merged
+
+
 def _process_commands(commands: list[dict]) -> int:
     count = 0
     with _sync_lock:
@@ -807,7 +834,15 @@ def _process_sync_response(
 def run_fast_poll_loop() -> None:
     global cached_hub_state
 
-    log.info("Nopea komentopollaus %ss välein", config.COMMAND_POLL_INTERVAL_SEC)
+    energy_every = max(
+        1,
+        round(config.ENERGY_QUICK_POLL_SEC / config.COMMAND_POLL_INTERVAL_SEC),
+    )
+    log.info(
+        "Nopea komentopollaus %ss välein (Shelly EM %ss)",
+        config.COMMAND_POLL_INTERVAL_SEC,
+        config.ENERGY_QUICK_POLL_SEC,
+    )
     tick = 0
     while True:
         try:
@@ -815,6 +850,14 @@ def run_fast_poll_loop() -> None:
 
             acks, fails = _drain_pending_feedback()
             snapshot = _airfi_snapshot(cached_hub_state)
+            if tick % energy_every == 0:
+                em_patch = _shelly_em_snapshot(cached_integrations)
+                if em_patch:
+                    home = cached_hub_state.get("home_devices")
+                    if not isinstance(home, dict):
+                        home = {}
+                    cached_hub_state["home_devices"] = _merge_home_devices(home, em_patch)
+                    snapshot["home_devices"] = em_patch
             response = quick_pull(
                 config.SYNC_URL,
                 config.DEVICE_TOKEN,

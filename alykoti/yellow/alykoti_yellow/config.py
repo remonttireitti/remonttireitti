@@ -32,6 +32,8 @@ COMMAND_POLL_ENABLED = os.environ.get("COMMAND_POLL_ENABLED", "1").strip() in (
     "true",
     "yes",
 )
+# Shelly EM -päivitys nopeaan komentopollaukseen (s)
+ENERGY_QUICK_POLL_SEC = max(2, int(os.environ.get("ENERGY_QUICK_POLL_SEC", "5")))
 
 AIRFI_MODBUS_HOST = os.environ.get("AIRFI_MODBUS_HOST", "").strip() or None
 AIRFI_MODBUS_PORT = int(os.environ.get("AIRFI_MODBUS_PORT", "502"))

@@ -16,6 +16,7 @@ import {
   sumKwhFromDaily,
 } from "@/lib/energy-samples";
 import { computeEnergyCostSummary } from "@/lib/energy-cost";
+import { meterLivePowerKw } from "@/lib/energy-live";
 import { fetchElectricityPrices } from "@/lib/electricity-prices";
 import { fetchWeatherDailyTemps, mergeDailyTemps } from "@/lib/weather-daily";
 import { isHubOnline } from "@/lib/device-status";
@@ -40,9 +41,7 @@ function sumPowerKw(meters: { live: MeterLive }[]): number | null {
   let sum = 0;
   let any = false;
   for (const m of meters) {
-    const kw =
-      m.live.power_kw ??
-      (m.live.power_w != null && Number.isFinite(m.live.power_w) ? m.live.power_w / 1000 : null);
+    const kw = meterLivePowerKw(m.live);
     if (kw != null) {
       sum += kw;
       any = true;
@@ -94,6 +93,11 @@ export async function GET() {
         energy_wh: liveWh,
         phases,
       };
+      const resolvedKw = meterLivePowerKw(live);
+      if (resolvedKw != null) {
+        live.power_kw = resolvedKw;
+        live.power_w = resolvedKw * 1000;
+      }
 
       const displayName = resolveWifiChannelDisplayName(id, device.name, overrides);
 
