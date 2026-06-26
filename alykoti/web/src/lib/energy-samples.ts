@@ -302,11 +302,97 @@ function pctChange(current: number | null, previous: number | null): number | nu
   return ((current - previous) / previous) * 100;
 }
 
+/** Minuutit keskiyöstä (Europe/Helsinki). */
+export function helsinkiMinutesSinceMidnight(date: Date): number {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: HELSINKI,
+    hour: "numeric",
+    minute: "numeric",
+    hour12: false,
+  }).formatToParts(date);
+  const hour = Number(parts.find((p) => p.type === "hour")?.value ?? 0);
+  const minute = Number(parts.find((p) => p.type === "minute")?.value ?? 0);
+  return hour * 60 + minute;
+}
+
+function helsinkiTimeLabel(date: Date): string {
+  return new Intl.DateTimeFormat("fi-FI", {
+    timeZone: HELSINKI,
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(date);
+}
+
+/** Päivän kWh tähän kellonaikaan asti Wh-laskurin deltoista. */
+export function kwhSoFarForDay(
+  samples: EnergySamplePoint[],
+  dateKey: string,
+  maxMinutes: number,
+  liveWh?: number | null,
+): number | null {
+  const todayKey = helsinkiDateKey(new Date().toISOString());
+  const daySamples = samples
+    .filter((pt) => helsinkiDateKey(pt.t) === dateKey)
+    .filter((pt) => helsinkiMinutesSinceMidnight(new Date(pt.t)) <= maxMinutes);
+
+  let minWh = Infinity;
+  let maxWh = -Infinity;
+  for (const pt of daySamples) {
+    minWh = Math.min(minWh, pt.wh);
+    maxWh = Math.max(maxWh, pt.wh);
+  }
+
+  if (dateKey === todayKey && liveWh != null && Number.isFinite(liveWh)) {
+    minWh = Math.min(minWh, liveWh);
+    maxWh = Math.max(maxWh, liveWh);
+  }
+
+  if (!Number.isFinite(minWh) || !Number.isFinite(maxWh)) return null;
+  const delta = maxWh - minWh;
+  return delta >= 0 ? delta / 1000 : null;
+}
+
+/**
+ * Odotettu kWh tähän hetkeen: historiallinen keskiarvo samalta kellonajalta,
+ * tai päiväkeskiarvo × kulunut osuus päivästä jos historiaa on vähän.
+ */
+export function computeExpectedKwhSoFar(
+  samples: EnergySamplePoint[],
+  avgDailyKwh: number | null,
+  now: Date = new Date(),
+  liveWh?: number | null,
+): number | null {
+  const todayKey = helsinkiDateKey(now.toISOString());
+  const minutes = helsinkiMinutesSinceMidnight(now);
+  const dayFraction = minutes / (24 * 60);
+
+  const pastKeys = [
+    ...new Set(samples.map((pt) => helsinkiDateKey(pt.t)).filter((k) => k < todayKey)),
+  ].sort();
+
+  const intraday: number[] = [];
+  for (const key of pastKeys.slice(-30)) {
+    const kwh = kwhSoFarForDay(samples, key, minutes, liveWh);
+    if (kwh != null && kwh >= 0) intraday.push(kwh);
+  }
+
+  const fromHistory = avgNullable(intraday);
+  if (fromHistory != null && intraday.length >= 3) return fromHistory;
+  if (fromHistory != null && intraday.length >= 1 && avgDailyKwh == null) return fromHistory;
+
+  if (avgDailyKwh != null && avgDailyKwh > 0 && dayFraction > 0) {
+    return avgDailyKwh * dayFraction;
+  }
+
+  return fromHistory;
+}
+
 export function computeModeration(
   todayKwh: number | null,
-  avgDailyKwh: number | null,
+  expectedKwhSoFar: number | null,
+  now: Date = new Date(),
 ): EnergyModeration {
-  if (todayKwh == null || avgDailyKwh == null || avgDailyKwh <= 0) {
+  if (todayKwh == null || expectedKwhSoFar == null || expectedKwhSoFar <= 0) {
     return {
       level: "unknown",
       label: "Ei vertailudataa",
@@ -315,14 +401,15 @@ export function computeModeration(
     };
   }
 
-  const ratio = todayKwh / avgDailyKwh;
+  const ratio = todayKwh / expectedKwhSoFar;
   const vsPct = (ratio - 1) * 100;
+  const timeLabel = helsinkiTimeLabel(now);
 
   if (ratio <= 0.75) {
     return {
       level: "low",
       label: "Maltillinen",
-      detail: `Tämän päivän kulutus on ${Math.abs(vsPct).toFixed(0)} % alle 30 pv keskiarvon.`,
+      detail: `Kulutus klo ${timeLabel} mennessä on ${Math.abs(vsPct).toFixed(0)} % alle tavallisen tason.`,
       today_vs_avg_pct: vsPct,
     };
   }
@@ -330,14 +417,14 @@ export function computeModeration(
     return {
       level: "high",
       label: "Korkea",
-      detail: `Tämän päivän kulutus on ${vsPct.toFixed(0)} % yli 30 pv keskiarvon.`,
+      detail: `Kulutus klo ${timeLabel} mennessä on ${vsPct.toFixed(0)} % yli tavallisen tason.`,
       today_vs_avg_pct: vsPct,
     };
   }
   return {
     level: "moderate",
     label: "Normaali",
-    detail: `Kulutus on lähellä 30 päivän keskiarvoa (${vsPct >= 0 ? "+" : ""}${vsPct.toFixed(0)} %).`,
+    detail: `Kulutus on klo ${timeLabel} mennessä normaalilla tasolla (${vsPct >= 0 ? "+" : ""}${vsPct.toFixed(0)} %).`,
     today_vs_avg_pct: vsPct,
   };
 }
@@ -383,13 +470,16 @@ export function computeEnergyInsights(
   daily: DailyEnergy[],
   outdoor: DailyTemp[],
   indoor: DailyTemp[],
+  samples: EnergySamplePoint[] = [],
+  now: Date = new Date(),
 ): EnergyInsight[] {
   const insights: EnergyInsight[] = [];
-  const todayKey = helsinkiDateKey(new Date().toISOString());
+  const todayKey = helsinkiDateKey(now.toISOString());
 
   const pastDaily = daily.filter((d) => d.kwh != null && d.date !== todayKey);
   const recentKwh = pastDaily.slice(-7).map((d) => d.kwh!);
   const avgKwh = avgNullable(recentKwh);
+  const expectedSoFar = computeExpectedKwhSoFar(samples, avgKwh, now);
 
   const outdoorPast = outdoor.filter((d) => d.avg_c != null && d.date !== todayKey);
   const recentOutdoor = outdoorPast.slice(-7).map((d) => d.avg_c!);
@@ -397,12 +487,13 @@ export function computeEnergyInsights(
 
   const todayOutdoor = outdoor.find((d) => d.date === todayKey)?.avg_c ?? null;
   const todayIndoor = indoor.find((d) => d.date === todayKey)?.avg_c ?? null;
+  const timeLabel = helsinkiTimeLabel(now);
 
-  if (todayKwh != null && avgKwh != null && todayOutdoor != null && avgOutdoor != null) {
+  if (todayKwh != null && expectedSoFar != null && todayOutdoor != null && avgOutdoor != null) {
     const cooler = todayOutdoor < avgOutdoor - 1.5;
     const warmer = todayOutdoor > avgOutdoor + 1.5;
-    const highUse = todayKwh > avgKwh * 1.12;
-    const lowUse = todayKwh < avgKwh * 0.88;
+    const highUse = todayKwh > expectedSoFar * 1.12;
+    const lowUse = todayKwh < expectedSoFar * 0.88;
 
     if (cooler && highUse) {
       insights.push({
@@ -427,15 +518,15 @@ export function computeEnergyInsights(
     }
   }
 
-  if (todayKwh != null && avgKwh != null) {
-    const diffPct = ((todayKwh - avgKwh) / avgKwh) * 100;
+  if (todayKwh != null && expectedSoFar != null) {
+    const diffPct = ((todayKwh - expectedSoFar) / expectedSoFar) * 100;
     if (Math.abs(diffPct) >= 25) {
       insights.push({
         tone: diffPct > 0 ? "warning" : "positive",
         text:
           diffPct > 0
-            ? `Tämän päivän kulutus on ${diffPct.toFixed(0)} % korkeampi kuin viimeisen viikon päiväkeskiarvo.`
-            : `Tämän päivän kulutus on ${Math.abs(diffPct).toFixed(0)} % matalampi kuin viimeisen viikon päiväkeskiarvo.`,
+            ? `Kulutus klo ${timeLabel} mennessä on ${diffPct.toFixed(0)} % korkeampi kuin tavallisesti tähän aikaan.`
+            : `Kulutus klo ${timeLabel} mennessä on ${Math.abs(diffPct).toFixed(0)} % matalampi kuin tavallisesti tähän aikaan.`,
       });
     }
   }

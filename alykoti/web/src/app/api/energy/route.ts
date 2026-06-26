@@ -4,6 +4,7 @@ import {
   computeDailyKwh,
   computeEnergyInsights,
   computeEnergyStatistics,
+  computeExpectedKwhSoFar,
   computeModeration,
   consumptionTodayKwh,
   fetchDailyTempAverages,
@@ -67,10 +68,17 @@ export async function GET() {
   const since = new Date(Date.now() - HISTORY_DAYS * 86_400_000);
   const overrides = (hub.state as HubState)?.device_overrides;
 
+  let primarySamples: Awaited<ReturnType<typeof fetchEnergySamples>> = [];
+  let primaryLiveWh: number | null = null;
+
   const meterResults = await Promise.all(
     meters.map(async ({ id, device }) => {
       const samples = await fetchEnergySamples(hub.id, id, since);
       const liveWh = device.energy_wh ?? null;
+      if (id === primaryMeterId) {
+        primarySamples = samples;
+        primaryLiveWh = liveWh;
+      }
       const powerW = device.power_w ?? null;
       const powerKw =
         device.power_kw ??
@@ -127,8 +135,20 @@ export async function GET() {
     prices = null;
   }
   const cost = computeEnergyCostSummary(aggregatedDaily, prices);
+  const expectedSoFar = computeExpectedKwhSoFar(
+    primarySamples,
+    avgDaily30,
+    new Date(),
+    primaryLiveWh,
+  );
   const insights = appendCostInsights(
-    computeEnergyInsights(todayKwh, aggregatedDaily, outdoorTemp, indoorTemp),
+    computeEnergyInsights(
+      todayKwh,
+      aggregatedDaily,
+      outdoorTemp,
+      indoorTemp,
+      primarySamples,
+    ),
     cost,
   );
 
@@ -147,7 +167,7 @@ export async function GET() {
       week_kwh: weekKwh,
       month_kwh: monthKwh,
     },
-    moderation: computeModeration(todayKwh, avgDaily30),
+    moderation: computeModeration(todayKwh, expectedSoFar),
     trend: {
       daily: aggregatedDaily,
       outdoor_temp: outdoorTemp,
