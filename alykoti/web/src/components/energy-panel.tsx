@@ -398,37 +398,7 @@ function TrendPanel({ data }: { data: EnergyResponse }) {
         </div>
       </div>
 
-      <div className="mt-3 flex flex-wrap gap-4 text-sm">
-        {hasOutdoor && (
-          <label className="flex cursor-pointer items-center gap-2 text-stone-700">
-            <input
-              type="checkbox"
-              checked={showOutdoor}
-              onChange={(e) => setShowOutdoor(e.target.checked)}
-              className="rounded border-stone-300 text-sky-600"
-            />
-            Ulkolämpötila
-          </label>
-        )}
-        {hasIndoor && (
-          <label className="flex cursor-pointer items-center gap-2 text-stone-700">
-            <input
-              type="checkbox"
-              checked={showIndoor}
-              onChange={(e) => setShowIndoor(e.target.checked)}
-              className="rounded border-stone-300 text-rose-600"
-            />
-            Sisälämpötila
-          </label>
-        )}
-        {!hasOutdoor && !hasIndoor && (
-          <p className="text-xs text-stone-500">
-            Lämpötilakerrokset tulevat saataville kun AirFi / Airthings -dataa on kerätty.
-          </p>
-        )}
-      </div>
-
-      <div className="mt-4">
+      <div className="mt-3">
         <EnergyTrendChart
           daily={data.trend.daily}
           outdoor={data.trend.outdoor_temp}
@@ -436,6 +406,10 @@ function TrendPanel({ data }: { data: EnergyResponse }) {
           showOutdoor={showOutdoor && hasOutdoor}
           showIndoor={showIndoor && hasIndoor}
           lastNDays={rangeDays}
+          hasOutdoor={hasOutdoor}
+          hasIndoor={hasIndoor}
+          onToggleOutdoor={() => setShowOutdoor((v) => !v)}
+          onToggleIndoor={() => setShowIndoor((v) => !v)}
         />
       </div>
     </section>

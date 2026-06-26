@@ -10,11 +10,15 @@ type Props = {
   showOutdoor: boolean;
   showIndoor: boolean;
   lastNDays: number;
+  onToggleOutdoor?: () => void;
+  onToggleIndoor?: () => void;
+  hasOutdoor?: boolean;
+  hasIndoor?: boolean;
 };
 
 const W = 560;
-const H = 240;
-const PAD = { top: 16, right: 44, bottom: 32, left: 40 };
+const H = 200;
+const PAD = { top: 12, right: 28, bottom: 28, left: 36 };
 
 export function EnergyTrendChart({
   daily,
@@ -23,6 +27,10 @@ export function EnergyTrendChart({
   showOutdoor,
   showIndoor,
   lastNDays,
+  onToggleOutdoor,
+  onToggleIndoor,
+  hasOutdoor = false,
+  hasIndoor = false,
 }: Props) {
   const svgRef = useRef<SVGSVGElement>(null);
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
@@ -56,7 +64,10 @@ export function EnergyTrendChart({
   const tempMin = tempVals.length ? Math.min(...tempVals) - 2 : -10;
   const tempMax = tempVals.length ? Math.max(...tempVals) + 2 : 25;
 
-  const plotW = W - PAD.left - PAD.right;
+  const showTempAxis =
+    (showOutdoor && slice.some((d) => outdoorByDate.get(d.date) != null)) ||
+    (showIndoor && slice.some((d) => indoorByDate.get(d.date) != null));
+  const plotW = W - PAD.left - (showTempAxis ? PAD.right : 8);
   const plotH = H - PAD.top - PAD.bottom;
   const barGap = 4;
   const barW = slice.length > 0 ? (plotW - barGap * (slice.length - 1)) / slice.length : plotW;
@@ -104,22 +115,34 @@ export function EnergyTrendChart({
 
   return (
     <div className="relative">
-      <div className="mb-3 flex flex-wrap gap-4 text-xs text-stone-600">
-        <span className="flex items-center gap-1.5">
-          <span className="inline-block h-3 w-3 rounded-sm bg-amber-500" />
-          Kulutus (kWh)
+      <div className="mb-2 flex flex-wrap items-center gap-2 text-[11px] text-stone-600">
+        <span className="flex items-center gap-1">
+          <span className="inline-block h-2.5 w-2.5 rounded-sm bg-amber-500" />
+          kWh
         </span>
-        {showOutdoor && (
-          <span className="flex items-center gap-1.5">
-            <span className="inline-block h-0 w-5 border-t-2 border-dashed border-sky-600" />
-            Ulkolämpö (°C)
-          </span>
+        {hasOutdoor && (
+          <button
+            type="button"
+            onClick={onToggleOutdoor}
+            className={`flex items-center gap-1 rounded-full px-2 py-0.5 transition ${
+              showOutdoor ? "bg-sky-50 text-sky-900 ring-1 ring-sky-200" : "text-stone-400 line-through"
+            }`}
+          >
+            <span className="inline-block h-0 w-3 border-t border-dashed border-sky-600" />
+            Ulko
+          </button>
         )}
-        {showIndoor && (
-          <span className="flex items-center gap-1.5">
-            <span className="inline-block h-0 w-5 border-t-2 border-dashed border-rose-500" />
-            Sisälämpö (°C)
-          </span>
+        {hasIndoor && (
+          <button
+            type="button"
+            onClick={onToggleIndoor}
+            className={`flex items-center gap-1 rounded-full px-2 py-0.5 transition ${
+              showIndoor ? "bg-rose-50 text-rose-900 ring-1 ring-rose-200" : "text-stone-400 line-through"
+            }`}
+          >
+            <span className="inline-block h-0 w-3 border-t border-dashed border-rose-500" />
+            Sisä
+          </button>
         )}
       </div>
 
@@ -137,7 +160,7 @@ export function EnergyTrendChart({
           const y = PAD.top + frac * plotH;
           return (
             <g key={`kwh-${frac}`}>
-              <line x1={PAD.left} y1={y} x2={W - PAD.right} y2={y} stroke="#e7e5e4" strokeWidth="1" />
+              <line x1={PAD.left} y1={y} x2={W - (showTempAxis ? PAD.right : 8)} y2={y} stroke="#e7e5e4" strokeWidth="1" />
               <text x={PAD.left - 6} y={y + 3} textAnchor="end" fill="#a8a29e" fontSize="9">
                 {v < 10 ? v.toFixed(1) : Math.round(v)}
               </text>
@@ -145,18 +168,18 @@ export function EnergyTrendChart({
           );
         })}
 
-        {(showOutdoor || showIndoor) &&
+        {(showOutdoor || showIndoor) && showTempAxis &&
           [0, 0.5, 1].map((frac) => {
             const v = tempMin + (tempMax - tempMin) * (1 - frac);
             const y = PAD.top + frac * plotH;
             return (
               <text
                 key={`temp-${frac}`}
-                x={W - PAD.right + 6}
+                x={W - PAD.right + 4}
                 y={y + 3}
                 textAnchor="start"
                 fill="#94a3b8"
-                fontSize="9"
+                fontSize="8"
               >
                 {v.toFixed(0)}°
               </text>

@@ -1,8 +1,10 @@
 import { collectDeviceReadings, type DeviceReading } from "@/lib/capabilities";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { zwaveNodeId } from "@/lib/zwave-detail";
 import type { MetricKind, MetricPoint, MetricRange } from "@/lib/metric-samples";
 import { metricRangeBounds, type MetricHistory } from "@/lib/metric-samples";
-import type { HubHomeDevice, HubState } from "@/lib/types";
+import type { HubHomeDevice, HubState, ZwaveProperty } from "@/lib/types";
+import { formatZwavePropertyReadings } from "@/lib/zwave-detail";
 
 export const DEVICE_METRIC_PREFIX = "device:";
 
@@ -72,6 +74,27 @@ type ParsedDeviceMetric = {
 
 export function deviceMetricKey(deviceId: string, field: string): string {
   return `${DEVICE_METRIC_PREFIX}${deviceId}:${field}`;
+}
+
+export function metricFieldForZwaveProperty(
+  prop: ZwaveProperty,
+  nodeId: number,
+  overrides?: HubState["device_overrides"],
+): string | null {
+  const readings = formatZwavePropertyReadings([prop], nodeId, overrides);
+  if (readings.length === 0) return null;
+  return fieldKeyFromReadingLabel(readings[0]!.label);
+}
+
+export function zwavePropertyDeviceMetricKey(
+  nodeDeviceId: string,
+  prop: ZwaveProperty,
+  nodeId: number,
+  overrides?: HubState["device_overrides"],
+): string | null {
+  const field = metricFieldForZwaveProperty(prop, nodeId, overrides);
+  if (!field) return null;
+  return deviceMetricKey(nodeDeviceId, field);
 }
 
 export function parseDeviceMetricKey(metric: string): ParsedDeviceMetric | null {
@@ -209,11 +232,12 @@ export function buildDeviceMetricSamples(
   hubId: string,
   homeDevices: Record<string, HubHomeDevice> | undefined,
   overrides?: HubState["device_overrides"],
+  zwaveNodes?: HubState["zwave_nodes"],
 ): SampleRow[] {
-  if (!homeDevices) return [];
+  if (!homeDevices && !zwaveNodes) return [];
   const rows: SampleRow[] = [];
 
-  for (const [deviceId, device] of Object.entries(homeDevices)) {
+  for (const [deviceId, device] of Object.entries(homeDevices ?? {})) {
     const override = overrides?.[deviceId];
 
     for (const field of Object.keys(NUMERIC_FIELDS)) {
@@ -253,6 +277,36 @@ export function buildDeviceMetricSamples(
     }
   }
 
+  if (zwaveNodes) {
+    for (const [nodeKey, node] of Object.entries(zwaveNodes)) {
+      const nodeId = Number(nodeKey);
+      if (!Number.isFinite(nodeId)) continue;
+      const deviceId = zwaveNodeId(nodeId);
+      if (homeDevices?.[deviceId]) continue;
+      const properties = node.properties ?? [];
+      if (properties.length === 0) continue;
+
+      const synthetic: HubHomeDevice = {
+        protocol: "zwave",
+        kind: "sensor",
+        name: node.name ?? deviceId,
+        capabilities: [],
+        zwave_properties: properties,
+        node_id: nodeId,
+      };
+      const nodeOverride = overrides?.[deviceId];
+      const readings = collectDeviceReadings(
+        synthetic,
+        nodeOverride?.item_names,
+        nodeId,
+        overrides,
+      );
+      for (const reading of readings) {
+        pushReadingSample(rows, hubId, deviceId, reading);
+      }
+    }
+  }
+
   return rows;
 }
 
@@ -260,13 +314,14 @@ export async function recordDeviceMetricSamples(
   hubId: string,
   homeDevices: Record<string, HubHomeDevice> | undefined,
   overrides?: HubState["device_overrides"],
+  zwaveNodes?: HubState["zwave_nodes"],
 ): Promise<void> {
   const nowMs = Date.now();
   const last = lastDeviceMetricSampleAt.get(hubId) ?? 0;
   if (nowMs - last < DEVICE_METRIC_SAMPLE_INTERVAL_MS) return;
   lastDeviceMetricSampleAt.set(hubId, nowMs);
 
-  const samples = buildDeviceMetricSamples(hubId, homeDevices, overrides);
+  const samples = buildDeviceMetricSamples(hubId, homeDevices, overrides, zwaveNodes);
   if (samples.length === 0) return;
 
   const payload = samples.map((row) => ({

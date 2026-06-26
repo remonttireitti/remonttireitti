@@ -26,7 +26,14 @@ import type { ZwaveConfigParam, ZwaveNodeDetail, ZwaveNodeEndpoint, ZwavePropert
 import { configParamOptions, endpointShowsBinaryState, formatEndpointBinaryState, formatZwaveValue, zwaveNodeId } from "@/lib/zwave-detail";
 import { hubDeviceToZwaveEndpoint } from "@/lib/zwave-device-resolve";
 import { ItemRenameField } from "@/components/item-rename-field";
+import { DeviceReadingRow } from "@/components/device-reading-row";
 import { useHubCommandStatus } from "@/components/command-status-provider";
+import { useMetricTrend } from "@/hooks/use-metric-trend";
+import {
+  deviceMetricKey,
+  zwavePropertyDeviceMetricKey,
+} from "@/lib/device-metrics";
+import { READING_ITEM_KEYS } from "@/lib/device-item-overrides";
 import type { ZwaveDeviceDetailPayload } from "@/lib/zwave-device-detail-load";
 
 type Props = {
@@ -56,6 +63,7 @@ export function ZwaveDeviceDetailPanel({ deviceIdParam, initial }: Props) {
     configDraftsFromNode(initial?.zwaveNode),
   );
   const { trackCommandIds } = useHubCommandStatus();
+  const { showTrend, modal } = useMetricTrend();
 
   const encodedParam = encodeURIComponent(deviceIdParam);
 
@@ -345,20 +353,37 @@ export function ZwaveDeviceDetailPanel({ deviceIdParam, initial }: Props) {
           <h3 className="text-lg font-semibold text-stone-900">Tila</h3>
           {nodeReadings.length > 0 && (
             <ul className="mt-3 space-y-3 text-sm text-stone-700">
-              {nodeReadings.map((p) => (
-                <li key={`${p.cc}-${p.endpoint}-${p.property ?? ""}`} className="flex justify-between gap-4">
-                  <ItemRenameField
+              {nodeReadings.map((p) => {
+                const metric = nodeId != null
+                  ? zwavePropertyDeviceMetricKey(overrideDeviceId, p, nodeId)
+                  : null;
+                return (
+                  <DeviceReadingRow
+                    key={`${p.cc}-${p.endpoint}-${p.property ?? ""}`}
                     deviceId={overrideDeviceId}
                     itemKey={zwavePropertyItemKey(p)}
-                    currentName={p.label}
+                    label={p.label}
+                    value={formatZwaveValue(p.value)}
                     onRenamed={() => void loadDevice()}
+                    onShowTrend={metric ? () => showTrend(metric) : undefined}
                   />
-                  <span className="shrink-0 font-medium">{formatZwaveValue(p.value)}</span>
-                </li>
-              ))}
+                );
+              })}
             </ul>
           )}
-          {device.readingLabel && nodeReadings.length === 0 && (
+          {device.temperature_c != null && (
+            <ul className={`mt-3 space-y-2 text-sm ${nodeReadings.length > 0 ? "border-t border-stone-100 pt-3" : ""}`}>
+              <DeviceReadingRow
+                deviceId={overrideDeviceId}
+                itemKey={READING_ITEM_KEYS.temperature}
+                label="Lämpötila"
+                value={`${device.temperature_c.toFixed(1)} °C`}
+                onRenamed={() => void loadDevice()}
+                onShowTrend={() => showTrend(deviceMetricKey(overrideDeviceId, "temperature_c"))}
+              />
+            </ul>
+          )}
+          {device.readingLabel && nodeReadings.length === 0 && !device.temperature_c && (
             <p className="mt-2 text-sm text-stone-700">{device.readingLabel}</p>
           )}
           {binaryEndpoints.length > 0 && (
@@ -367,19 +392,20 @@ export function ZwaveDeviceDetailPanel({ deviceIdParam, initial }: Props) {
                 nodeReadings.length > 0 ? "border-t border-stone-100 pt-3" : ""
               }`}
             >
-              {binaryEndpoints.map((ep) => (
-                <li key={ep.device_id} className="flex justify-between gap-4 text-stone-600">
-                  <ItemRenameField
+              {binaryEndpoints.map((ep) => {
+                const metric = ep.device_id ? deviceMetricKey(ep.device_id, "state:on") : null;
+                return (
+                  <DeviceReadingRow
+                    key={ep.device_id}
                     deviceId={overrideDeviceId}
                     itemKey={zwaveEndpointItemKey(ep.endpoint)}
-                    currentName={ep.label}
+                    label={ep.label}
+                    value={formatEndpointBinaryState(ep)}
                     onRenamed={() => void loadDevice()}
+                    onShowTrend={metric ? () => showTrend(metric) : undefined}
                   />
-                  <span className={`shrink-0 ${ep.on ? "font-medium text-amber-700" : ""}`}>
-                    {formatEndpointBinaryState(ep)}
-                  </span>
-                </li>
-              ))}
+                );
+              })}
             </ul>
           )}
         </section>
@@ -482,7 +508,18 @@ export function ZwaveDeviceDetailPanel({ deviceIdParam, initial }: Props) {
       <section className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
         <div className="flex items-center justify-between gap-3">
           <h3 className="text-lg font-semibold text-stone-900">Live-tapahtumat</h3>
-          <span className="text-xs text-stone-500">Yellow · ~30 s</span>
+          <div className="flex items-center gap-2">
+            {hasCapability(device.capabilities ?? [], "button") && (
+              <button
+                type="button"
+                onClick={() => showTrend(deviceMetricKey(device.id, "reading:switch"))}
+                className="text-xs font-medium text-sky-700 hover:underline"
+              >
+                Toimintahistoria
+              </button>
+            )}
+            <span className="text-xs text-stone-500">Yellow · ~30 s</span>
+          </div>
         </div>
         {triggerActionPreview.length > 0 && (
           <div className="mt-4 rounded-xl border border-stone-100 bg-stone-50 p-3 text-xs text-stone-600">
@@ -526,6 +563,7 @@ export function ZwaveDeviceDetailPanel({ deviceIdParam, initial }: Props) {
           </ul>
         )}
       </section>
+      {modal}
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { deviceMetricKey } from "@/lib/device-metrics";
 import {
   appendCostInsights,
   computeDailyKwh,
@@ -10,11 +11,13 @@ import {
   fetchDailyTempAverages,
   fetchEnergySamples,
   findEmMeters,
+  findPrimaryAirthingsDevice,
   findPrimaryEmMeter,
   sumKwhFromDaily,
 } from "@/lib/energy-samples";
 import { computeEnergyCostSummary } from "@/lib/energy-cost";
 import { fetchElectricityPrices } from "@/lib/electricity-prices";
+import { fetchWeatherDailyTemps, mergeDailyTemps } from "@/lib/weather-daily";
 import { isHubOnline } from "@/lib/device-status";
 import { resolveWifiChannelDisplayName } from "@/lib/device-item-overrides";
 import { fetchPrimaryHub } from "@/lib/hubs";
@@ -120,10 +123,19 @@ export async function GET() {
     ? completeDaily.reduce((s, d) => s + d.kwh!, 0) / completeDaily.length
     : null;
 
-  const [outdoorTemp, indoorTemp] = await Promise.all([
+  const airthingsId = findPrimaryAirthingsDevice(hub.state.home_devices);
+  const indoorMetric = airthingsId
+    ? deviceMetricKey(airthingsId, "temperature_c")
+    : null;
+
+  const [ivOutdoor, weatherOutdoor, indoorTemp] = await Promise.all([
     fetchDailyTempAverages(hub.id, "outdoor_temp_c", since),
-    fetchDailyTempAverages(hub.id, "temperature_c", since),
+    fetchWeatherDailyTemps(since),
+    indoorMetric
+      ? fetchDailyTempAverages(hub.id, indoorMetric, since)
+      : Promise.resolve([]),
   ]);
+  const outdoorTemp = mergeDailyTemps(ivOutdoor, weatherOutdoor);
 
   const stats7 = computeEnergyStatistics(aggregatedDaily, 7);
   const stats30 = computeEnergyStatistics(aggregatedDaily, 30);

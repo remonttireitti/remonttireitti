@@ -803,6 +803,7 @@ export async function syncDevice(
       hub.id,
       mergedState.home_devices,
       mergedState.device_overrides,
+      mergedState.zwave_nodes,
     );
     void recordEnergySamples(hub.id, mergedState.home_devices);
   }

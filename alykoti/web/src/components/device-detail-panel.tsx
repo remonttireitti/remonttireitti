@@ -17,9 +17,9 @@ import { LAITTEET } from "@/lib/laitteet-paths";
 import type { ZwaveConfigParam, ZwaveNodeDetail, ZwaveNodeEndpoint, ZwaveProperty } from "@/lib/types";
 import { configParamOptions, formatZwaveValue, toggleZwaveValue } from "@/lib/zwave-detail";
 import { ItemRenameField } from "@/components/item-rename-field";
+import { DeviceReadingRow } from "@/components/device-reading-row";
 import { useHubCommandStatus } from "@/components/command-status-provider";
 import { useMetricTrend } from "@/hooks/use-metric-trend";
-import { TrendTrigger } from "@/components/trend-trigger";
 import { deviceMetricKey } from "@/lib/device-metrics";
 
 type Props = {
@@ -517,7 +517,7 @@ export function DeviceDetailPanel({ protocol, deviceIdParam }: Props) {
           <p className="mt-1 text-xs text-stone-500">Nimeä jokainen lukema — nimet näkyvät listanäkymässä.</p>
           <ul className="mt-3 space-y-2 text-sm text-stone-700">
             {device.temperature_c != null && (
-              <ReadingRow
+              <DeviceReadingRow
                 deviceId={device.id}
                 itemKey={READING_ITEM_KEYS.temperature}
                 label={itemNames[READING_ITEM_KEYS.temperature] || "Lämpötila"}
@@ -527,7 +527,7 @@ export function DeviceDetailPanel({ protocol, deviceIdParam }: Props) {
               />
             )}
             {device.humidity_pct != null && (
-              <ReadingRow
+              <DeviceReadingRow
                 deviceId={device.id}
                 itemKey={READING_ITEM_KEYS.humidity}
                 label={itemNames[READING_ITEM_KEYS.humidity] || "Kosteus"}
@@ -537,7 +537,7 @@ export function DeviceDetailPanel({ protocol, deviceIdParam }: Props) {
               />
             )}
             {typeof (device as { battery_pct?: number }).battery_pct === "number" && (
-              <ReadingRow
+              <DeviceReadingRow
                 deviceId={device.id}
                 itemKey={READING_ITEM_KEYS.battery}
                 label={itemNames[READING_ITEM_KEYS.battery] || "Akku"}
@@ -547,7 +547,7 @@ export function DeviceDetailPanel({ protocol, deviceIdParam }: Props) {
               />
             )}
             {device.co2_ppm != null && (
-              <ReadingRow
+              <DeviceReadingRow
                 deviceId={device.id}
                 itemKey={READING_ITEM_KEYS.co2}
                 label={itemNames[READING_ITEM_KEYS.co2] || "CO₂"}
@@ -557,7 +557,7 @@ export function DeviceDetailPanel({ protocol, deviceIdParam }: Props) {
               />
             )}
             {device.illuminance_lux != null && (
-              <ReadingRow
+              <DeviceReadingRow
                 deviceId={device.id}
                 itemKey={READING_ITEM_KEYS.illuminance}
                 label={itemNames[READING_ITEM_KEYS.illuminance] || "Valoisuus"}
@@ -567,7 +567,7 @@ export function DeviceDetailPanel({ protocol, deviceIdParam }: Props) {
               />
             )}
             {device.power_w != null && (
-              <ReadingRow
+              <DeviceReadingRow
                 deviceId={device.id}
                 itemKey={READING_ITEM_KEYS.power}
                 label={itemNames[READING_ITEM_KEYS.power] || "Teho"}
@@ -703,37 +703,6 @@ function ZwavePropertyRow({
           </button>
         )}
       </div>
-    </li>
-  );
-}
-
-function ReadingRow({
-  deviceId,
-  itemKey,
-  label,
-  value,
-  onRenamed,
-  onShowTrend,
-}: {
-  deviceId: string;
-  itemKey: string;
-  label: string;
-  value: string;
-  onRenamed: () => void;
-  onShowTrend?: () => void;
-}) {
-  return (
-    <li className="flex justify-between gap-4">
-      <ItemRenameField
-        deviceId={deviceId}
-        itemKey={itemKey}
-        currentName={label}
-        onRenamed={onRenamed}
-      />
-      <span className="flex shrink-0 items-center gap-1 font-medium">
-        {value}
-        {onShowTrend && <TrendTrigger onClick={onShowTrend} />}
-      </span>
     </li>
   );
 }

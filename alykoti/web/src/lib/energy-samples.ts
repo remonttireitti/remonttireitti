@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { deviceMetricKey } from "@/lib/device-metrics";
 import { hasCapability } from "@/lib/capabilities";
 import type { HubHomeDevice } from "@/lib/types";
 
@@ -110,6 +111,23 @@ export function findPrimaryEmMeter(
   if (emOnly.length > 0) return emOnly[0]!.id;
 
   return meters.length === 1 ? meters[0]!.id : null;
+}
+
+/** Ensimmäinen Airthings-laite jolla lämpötiladataa. */
+export function findPrimaryAirthingsDevice(
+  home: Record<string, HubHomeDevice> | undefined,
+): string | null {
+  if (!home) return null;
+  const candidates = Object.entries(home).filter(
+    ([id, d]) =>
+      (id.startsWith("airthings:") || d.protocol === "airthings") &&
+      (d.temperature_c != null ||
+        hasCapability(d.capabilities, "temperature") ||
+        hasCapability(d.capabilities, "climate")),
+  );
+  if (candidates.length === 0) return null;
+  candidates.sort((a, b) => a[1].name.localeCompare(b[1].name, "fi"));
+  return candidates[0]![0];
 }
 
 function num(v: number | null | undefined): number | null {

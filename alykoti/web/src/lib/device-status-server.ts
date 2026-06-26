@@ -77,6 +77,7 @@ export async function getDeviceStatus(
       hub.id,
       hub.state.home_devices,
       hub.state.device_overrides,
+      hub.state.zwave_nodes,
     );
   }
 
