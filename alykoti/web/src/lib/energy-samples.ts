@@ -479,8 +479,8 @@ export function computeModeration(
 
   const hoursElapsed = helsinkiMinutesSinceMidnight(now) / 60;
   if (hoursElapsed >= 1 && todayKwh > 0 && livePowerKw != null && livePowerKw > 0) {
-    const impliedAvgKw = todayKwh / hoursElapsed;
-    if (impliedAvgKw > livePowerKw * 2.5 + 0.5) {
+    const maxPlausibleKwh = livePowerKw * hoursElapsed * 1.25;
+    if (todayKwh > maxPlausibleKwh + 1) {
       return {
         level: "unknown",
         label: "Epävarma",
@@ -562,6 +562,7 @@ export function computeEnergyInsights(
   indoor: DailyTemp[],
   samples: EnergySamplePoint[] = [],
   now: Date = new Date(),
+  expectedKwhSoFar?: number | null,
 ): EnergyInsight[] {
   const insights: EnergyInsight[] = [];
   const todayKey = helsinkiDateKey(now.toISOString());
@@ -569,7 +570,10 @@ export function computeEnergyInsights(
   const pastDaily = daily.filter((d) => d.kwh != null && d.date !== todayKey);
   const recentKwh = pastDaily.slice(-7).map((d) => d.kwh!);
   const avgKwh = avgNullable(recentKwh);
-  const expectedSoFar = computeExpectedKwhSoFar(samples, avgKwh, now);
+  const expectedSoFar =
+    expectedKwhSoFar !== undefined
+      ? expectedKwhSoFar
+      : computeExpectedKwhSoFar(samples, avgKwh, now);
 
   const outdoorPast = outdoor.filter((d) => d.avg_c != null && d.date !== todayKey);
   const recentOutdoor = outdoorPast.slice(-7).map((d) => d.avg_c!);
@@ -577,7 +581,6 @@ export function computeEnergyInsights(
 
   const todayOutdoor = outdoor.find((d) => d.date === todayKey)?.avg_c ?? null;
   const todayIndoor = indoor.find((d) => d.date === todayKey)?.avg_c ?? null;
-  const timeLabel = helsinkiTimeLabel(now);
 
   if (todayKwh != null && expectedSoFar != null && todayOutdoor != null && avgOutdoor != null) {
     const cooler = todayOutdoor < avgOutdoor - 1.5;
@@ -604,19 +607,6 @@ export function computeEnergyInsights(
       insights.push({
         tone: "warning",
         text: "Lämpimämpi päivä mutta kulutus korkeampi kuin tavallisesti — tarkista jäähdytys, IV-kone ja muut suuritehoiset laitteet.",
-      });
-    }
-  }
-
-  if (todayKwh != null && expectedSoFar != null) {
-    const diffPct = ((todayKwh - expectedSoFar) / expectedSoFar) * 100;
-    if (Math.abs(diffPct) >= 25) {
-      insights.push({
-        tone: diffPct > 0 ? "warning" : "positive",
-        text:
-          diffPct > 0
-            ? `Kulutus klo ${timeLabel} mennessä on ${diffPct.toFixed(0)} % korkeampi kuin tavallisesti tähän aikaan.`
-            : `Kulutus klo ${timeLabel} mennessä on ${Math.abs(diffPct).toFixed(0)} % matalampi kuin tavallisesti tähän aikaan.`,
       });
     }
   }

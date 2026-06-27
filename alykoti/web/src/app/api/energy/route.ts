@@ -164,6 +164,8 @@ export async function GET() {
       outdoorTemp,
       indoorTemp,
       primarySamples,
+      new Date(),
+      expectedSoFar,
     ),
     cost,
   );
