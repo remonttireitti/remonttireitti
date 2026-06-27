@@ -731,6 +731,83 @@ function MeterCard({ meter }: { meter: EnergyMeter }) {
   );
 }
 
+type EnergyLiveResponse = {
+  hubOnline?: boolean;
+  primary_meter_id?: string | null;
+  summary: { power_kw_total: number | null };
+  meters: EnergyMeter[];
+};
+
+const EMPTY_MODERATION: EnergyModeration = {
+  level: "unknown",
+  label: "Ladataan",
+  detail: "Haetaan kulutushistoriaa…",
+  today_vs_avg_pct: null,
+};
+
+const EMPTY_STATS: EnergyStatistics = {
+  range_days: 7,
+  period_kwh: null,
+  prev_period_kwh: null,
+  change_pct: null,
+  avg_daily_kwh: null,
+  max_daily_kwh: null,
+  min_daily_kwh: null,
+  days_above_avg: 0,
+  days_below_avg: 0,
+};
+
+function shellFromLive(live: EnergyLiveResponse): EnergyResponse {
+  return {
+    hubOnline: live.hubOnline,
+    primary_meter_id: live.primary_meter_id,
+    summary: {
+      power_kw_total: live.summary.power_kw_total,
+      today_kwh: null,
+      week_kwh: null,
+      month_kwh: null,
+      today_kwh_reliable: false,
+    },
+    moderation: EMPTY_MODERATION,
+    trend: { daily: [], outdoor_temp: [], indoor_temp: [] },
+    statistics: { week: EMPTY_STATS, month: { ...EMPTY_STATS, range_days: 30 } },
+    cost: {
+      current_price_cents: null,
+      today_avg_price_cents: null,
+      today_kwh: null,
+      today_cost_eur: null,
+      yesterday_cost_eur: null,
+      today_vs_yesterday_pct: null,
+      week_cost_eur: null,
+      prev_week_cost_eur: null,
+      week_vs_prev_pct: null,
+      month_cost_eur: null,
+      daily: [],
+    },
+    insights: [],
+    meters: live.meters,
+  };
+}
+
+function mergeLiveInto(base: EnergyResponse, live: EnergyLiveResponse): EnergyResponse {
+  const liveById = new Map(live.meters.map((m) => [m.id, m]));
+  return {
+    ...base,
+    hubOnline: live.hubOnline ?? base.hubOnline,
+    primary_meter_id: live.primary_meter_id ?? base.primary_meter_id,
+    summary: {
+      ...base.summary,
+      power_kw_total: live.summary.power_kw_total,
+    },
+    meters: base.meters.length
+      ? base.meters.map((m) => {
+          const u = liveById.get(m.id);
+          return u ? { ...m, live: u.live } : m;
+        })
+      : live.meters,
+  };
+}
+
 export function EnergyPanel({
   variant = "page",
   className = "",
@@ -741,23 +818,45 @@ export function EnergyPanel({
 }) {
   const [data, setData] = useState<EnergyResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [fullLoaded, setFullLoaded] = useState(false);
 
-  const load = useCallback(async () => {
+  const loadLive = useCallback(async () => {
+    try {
+      const res = await fetch("/api/energy/live", { cache: "no-store" });
+      if (!res.ok) return;
+      const live = (await res.json()) as EnergyLiveResponse;
+      setData((prev) =>
+        prev && fullLoaded ? mergeLiveInto(prev, live) : shellFromLive(live),
+      );
+      setError(null);
+    } catch {
+      /* live-päivitys voi epäonnistua hiljaa */
+    }
+  }, [fullLoaded]);
+
+  const loadFull = useCallback(async () => {
     try {
       const res = await fetch("/api/energy", { cache: "no-store" });
       if (!res.ok) throw new Error("fetch_failed");
-      setData((await res.json()) as EnergyResponse);
+      const full = (await res.json()) as EnergyResponse;
+      setData(full);
+      setFullLoaded(true);
       setError(null);
     } catch {
-      setError("Energiatietojen haku epäonnistui");
+      setError((prev) => prev ?? "Energiatietojen haku epäonnistui");
     }
   }, []);
 
   useEffect(() => {
-    void load();
-    const id = setInterval(() => void load(), 8_000);
-    return () => clearInterval(id);
-  }, [load]);
+    void loadLive();
+    void loadFull();
+    const liveId = setInterval(() => void loadLive(), 5_000);
+    const fullId = setInterval(() => void loadFull(), 45_000);
+    return () => {
+      clearInterval(liveId);
+      clearInterval(fullId);
+    };
+  }, [loadLive, loadFull]);
 
   if (error && !data) {
     return (

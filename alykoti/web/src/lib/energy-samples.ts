@@ -316,26 +316,53 @@ export async function fetchEnergySamples(
   since: Date,
 ): Promise<EnergySamplePoint[]> {
   const supabase = createAdminClient();
-  const { data, error } = await supabase
-    .from("hub_metric_samples")
-    .select("value, recorded_at")
-    .eq("hub_id", hubId)
-    .eq("metric", energyMetricKey(deviceId))
-    .gte("recorded_at", since.toISOString())
-    .order("recorded_at", { ascending: true })
-    .limit(5000);
+  const sinceIso = since.toISOString();
+  const [{ data, error }, baseline] = await Promise.all([
+    supabase
+      .from("hub_metric_samples")
+      .select("value, recorded_at")
+      .eq("hub_id", hubId)
+      .eq("metric", energyMetricKey(deviceId))
+      .gte("recorded_at", sinceIso)
+      .order("recorded_at", { ascending: true })
+      .limit(2500),
+    supabase
+      .from("hub_metric_samples")
+      .select("value, recorded_at")
+      .eq("hub_id", hubId)
+      .eq("metric", energyMetricKey(deviceId))
+      .lt("recorded_at", sinceIso)
+      .order("recorded_at", { ascending: false })
+      .limit(1),
+  ]);
 
   if (error) {
     console.warn("[energy] Haku epäonnistui:", error.message);
     return [];
   }
 
-  return (data ?? [])
-    .map((row) => ({
+  const points: EnergySamplePoint[] = [];
+  const baseRow = baseline.data?.[0];
+  if (baseRow) {
+    points.push({
+      t: String(baseRow.recorded_at),
+      wh: Number(baseRow.value),
+    });
+  }
+  for (const row of data ?? []) {
+    points.push({
       t: String(row.recorded_at),
       wh: Number(row.value),
-    }))
-    .filter((pt) => Number.isFinite(pt.wh));
+    });
+  }
+  return points.filter((pt) => Number.isFinite(pt.wh));
+}
+
+/** Poista trendistä epärealistiset päivät (mittauskatko). */
+export function sanitizeDailyTrend(daily: DailyEnergy[]): DailyEnergy[] {
+  return daily.map((d) =>
+    d.kwh != null && d.kwh > MAX_DAILY_KWH ? { ...d, kwh: null } : d,
+  );
 }
 
 /** Yhdistä usean mittarin päivittäiset kWh-summat. */
@@ -704,7 +731,7 @@ export async function fetchDailyTempAverages(
     .eq("metric", metric)
     .gte("recorded_at", since.toISOString())
     .order("recorded_at", { ascending: true })
-    .limit(5000);
+    .limit(1500);
 
   if (error) {
     console.warn("[energy] Lämpötilahaku epäonnistui:", error.message);

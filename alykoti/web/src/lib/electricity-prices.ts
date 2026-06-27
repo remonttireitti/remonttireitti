@@ -184,3 +184,24 @@ export async function fetchElectricityPrices(
 
   return buildElectricityPrices(rows, region);
 }
+
+let pricesCache: { at: number; data: ElectricityPrices; region: ElectricityPriceRegion } | null =
+  null;
+const PRICES_CACHE_MS = 60_000;
+
+/** Välimuistilla — energiasivu kutsuu usein. */
+export async function fetchElectricityPricesCached(
+  region: ElectricityPriceRegion = ELECTRICITY_PRICE_REGION,
+): Promise<ElectricityPrices> {
+  const now = Date.now();
+  if (
+    pricesCache &&
+    pricesCache.region === region &&
+    now - pricesCache.at < PRICES_CACHE_MS
+  ) {
+    return pricesCache.data;
+  }
+  const data = await fetchElectricityPrices(region);
+  pricesCache = { at: now, data, region };
+  return data;
+}
