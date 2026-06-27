@@ -41,6 +41,7 @@ type EnergyResponse = {
     today_kwh: number | null;
     week_kwh: number | null;
     month_kwh: number | null;
+    today_kwh_reliable?: boolean;
   };
   moderation: EnergyModeration;
   trend: {
@@ -217,9 +218,11 @@ function SummaryHeader({ data }: { data: EnergyResponse }) {
             label="Tänään"
             value={fmtKwhEur(cost.today_kwh ?? summary.today_kwh, cost.today_cost_eur)}
             sub={
-              cost.today_vs_yesterday_pct != null
-                ? `${cost.today_vs_yesterday_pct > 0 ? "+" : ""}${cost.today_vs_yesterday_pct} % vs eilen`
-                : undefined
+              summary.today_kwh_reliable === false
+                ? "lasketaan uudelleen"
+                : cost.today_vs_yesterday_pct != null
+                  ? `${cost.today_vs_yesterday_pct > 0 ? "+" : ""}${cost.today_vs_yesterday_pct} % vs eilen`
+                  : undefined
             }
             subTone={
               cost.today_vs_yesterday_pct != null
@@ -278,21 +281,25 @@ function SummaryHeader({ data }: { data: EnergyResponse }) {
             </span>
           )}
         </div>
-        <div className="relative mt-3 h-2.5 overflow-hidden rounded-full bg-white/70">
-          <div
-            className={`absolute inset-y-0 left-0 rounded-full bg-gradient-to-r ${styles.bar} transition-all duration-700`}
-            style={{ width: `${gaugePct}%` }}
-          />
-          <div
-            className="absolute top-1/2 h-3 w-3 -translate-y-1/2 rounded-full border-2 border-white bg-stone-800 shadow"
-            style={{ left: `calc(${gaugePct}% - 6px)` }}
-          />
-        </div>
-        <div className="mt-1 flex justify-between text-[10px] text-stone-500">
-          <span>Matala</span>
-          <span>Normaali</span>
-          <span>Korkea</span>
-        </div>
+        {moderation.level !== "unknown" && (
+          <>
+            <div className="relative mt-3 h-2.5 overflow-hidden rounded-full bg-white/70">
+              <div
+                className={`absolute inset-y-0 left-0 rounded-full bg-gradient-to-r ${styles.bar} transition-all duration-700`}
+                style={{ width: `${gaugePct}%` }}
+              />
+              <div
+                className="absolute top-1/2 h-3 w-3 -translate-y-1/2 rounded-full border-2 border-white bg-stone-800 shadow"
+                style={{ left: `calc(${gaugePct}% - 6px)` }}
+              />
+            </div>
+            <div className="mt-1 flex justify-between text-[10px] text-stone-500">
+              <span>Matala</span>
+              <span>Normaali</span>
+              <span>Korkea</span>
+            </div>
+          </>
+        )}
       </div>
     </section>
   );

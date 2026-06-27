@@ -13,6 +13,8 @@ import {
   findEmMeters,
   findPrimaryAirthingsDevice,
   findPrimaryEmMeter,
+  helsinkiDateKey,
+  isTodayKwhUnreliable,
   sumKwhFromDaily,
 } from "@/lib/energy-samples";
 import { computeEnergyCostSummary } from "@/lib/energy-cost";
@@ -151,6 +153,24 @@ export async function GET() {
     prices = null;
   }
   const cost = computeEnergyCostSummary(aggregatedDaily, prices);
+  const liveKw = primaryMeter ? meterLivePowerKw(primaryMeter.live) : null;
+  const todayKey = helsinkiDateKey(new Date().toISOString());
+  const todayUnreliable = isTodayKwhUnreliable(todayKwh, liveKw);
+  const displayTodayKwh = todayUnreliable ? null : todayKwh;
+
+  const trendDaily = todayUnreliable
+    ? aggregatedDaily.map((d) => (d.date === todayKey ? { ...d, kwh: null } : d))
+    : aggregatedDaily;
+
+  const displayCost = todayUnreliable
+    ? {
+        ...cost,
+        today_kwh: null,
+        today_cost_eur: null,
+        today_vs_yesterday_pct: null,
+      }
+    : cost;
+
   const expectedSoFar = computeExpectedKwhSoFar(
     primarySamples,
     avgDaily30,
@@ -159,15 +179,16 @@ export async function GET() {
   );
   const insights = appendCostInsights(
     computeEnergyInsights(
-      todayKwh,
-      aggregatedDaily,
+      displayTodayKwh,
+      trendDaily,
       outdoorTemp,
       indoorTemp,
       primarySamples,
       new Date(),
       expectedSoFar,
+      !todayUnreliable,
     ),
-    cost,
+    displayCost,
   );
 
   const metersForClient = meterResults.map(({ daily30: _d, ...rest }) => ({
@@ -180,19 +201,20 @@ export async function GET() {
     hubOnline: isHubOnline(hub.last_seen_at),
     primary_meter_id: primaryMeterId,
     summary: {
-      power_kw_total: primaryMeter ? sumPowerKw([primaryMeter]) : null,
-      today_kwh: todayKwh,
+      power_kw_total: liveKw,
+      today_kwh: displayTodayKwh,
       week_kwh: weekKwh,
       month_kwh: monthKwh,
+      today_kwh_reliable: !todayUnreliable,
     },
     moderation: computeModeration(
       todayKwh,
       expectedSoFar,
       new Date(),
-      primaryMeter ? meterLivePowerKw(primaryMeter.live) : null,
+      liveKw,
     ),
     trend: {
-      daily: aggregatedDaily,
+      daily: trendDaily,
       outdoor_temp: outdoorTemp,
       indoor_temp: indoorTemp,
     },
@@ -200,7 +222,7 @@ export async function GET() {
       week: stats7,
       month: stats30,
     },
-    cost,
+    cost: displayCost,
     insights,
     meters: metersForClient,
   });

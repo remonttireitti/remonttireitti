@@ -399,6 +399,19 @@ function helsinkiTimeLabel(date: Date): string {
   }).format(date);
 }
 
+/** Päivän kWh on epäluotettava jos se ylittää reaaliaikaisen tehon salliman enimmäiskertymän. */
+export function isTodayKwhUnreliable(
+  todayKwh: number | null,
+  livePowerKw: number | null,
+  now: Date = new Date(),
+): boolean {
+  if (todayKwh == null || todayKwh <= 0) return false;
+  const hours = helsinkiMinutesSinceMidnight(now) / 60;
+  if (hours < 1 || livePowerKw == null || livePowerKw <= 0) return false;
+  const maxPlausibleKwh = livePowerKw * hours * 1.25;
+  return todayKwh > maxPlausibleKwh + 1;
+}
+
 /** Päivän kWh tähän kellonaikaan asti Wh-laskurin deltoista. */
 export function kwhSoFarForDay(
   samples: EnergySamplePoint[],
@@ -478,17 +491,14 @@ export function computeModeration(
   }
 
   const hoursElapsed = helsinkiMinutesSinceMidnight(now) / 60;
-  if (hoursElapsed >= 1 && todayKwh > 0 && livePowerKw != null && livePowerKw > 0) {
-    const maxPlausibleKwh = livePowerKw * hoursElapsed * 1.25;
-    if (todayKwh > maxPlausibleKwh + 1) {
-      return {
-        level: "unknown",
-        label: "Epävarma",
-        detail:
-          "Päivän kWh vaikuttaa liian suurelta mittauskatkon jälkeen — odota synkkiä tai tarkista mittarin laskuri.",
-        today_vs_avg_pct: null,
-      };
-    }
+  if (isTodayKwhUnreliable(todayKwh, livePowerKw ?? null, now)) {
+    return {
+      level: "unknown",
+      label: "Epävarma",
+      detail:
+        "Päivän kWh vaikuttaa liian suurelta mittauskatkon jälkeen — odota synkkiä tai tarkista mittarin laskuri.",
+      today_vs_avg_pct: null,
+    };
   }
 
   const ratio = todayKwh / expectedKwhSoFar;
@@ -563,6 +573,7 @@ export function computeEnergyInsights(
   samples: EnergySamplePoint[] = [],
   now: Date = new Date(),
   expectedKwhSoFar?: number | null,
+  todayReliable: boolean = true,
 ): EnergyInsight[] {
   const insights: EnergyInsight[] = [];
   const todayKey = helsinkiDateKey(now.toISOString());
@@ -624,7 +635,9 @@ export function computeEnergyInsights(
   if (insights.length === 0) {
     insights.push({
       tone: "neutral",
-      text: "Kulutus ja lämpötilat ovat tänään tavallisella tasolla. Data päivittyy synkin myötä.",
+      text: todayReliable
+        ? "Kulutus ja lämpötilat ovat tänään tavallisella tasolla. Data päivittyy synkin myötä."
+        : "Päivän kWh-laskenta epävarma mittauskatkon jälkeen — reaaliaikainen teho yllä on luotettavampi.",
     });
   }
 
