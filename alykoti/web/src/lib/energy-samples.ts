@@ -155,6 +155,51 @@ function dayLabel(dateKey: string): string {
   });
 }
 
+/**
+ * Päivän Wh-kulutus: viimeinen lukema (tai live) miinus edellisen päivän viimeinen
+ * tai päivän ensimmäinen näyte. Korjaa tilanteen jossa tänään ei ole vielä näytteitä
+ * mutta live-laskuri on päivittynyt.
+ */
+function dayWhDeltaWh(
+  samples: EnergySamplePoint[],
+  dateKey: string,
+  options?: { endWh?: number | null; maxMinutes?: number },
+): number | null {
+  const maxMin = options?.maxMinutes ?? 24 * 60;
+  let baselineBeforeDay: number | null = null;
+  let dayFirst: number | null = null;
+  let dayLast: number | null = null;
+
+  for (const pt of samples) {
+    const key = helsinkiDateKey(pt.t);
+    if (key < dateKey) {
+      baselineBeforeDay = pt.wh;
+      continue;
+    }
+    if (key > dateKey) continue;
+    const mins = helsinkiMinutesSinceMidnight(new Date(pt.t));
+    if (mins > maxMin) continue;
+    if (dayFirst == null) dayFirst = pt.wh;
+    dayLast = pt.wh;
+  }
+
+  const end = options?.endWh ?? dayLast;
+  if (end == null || !Number.isFinite(end)) {
+    if (dayFirst != null && dayLast != null && dayLast > dayFirst) {
+      return dayLast - dayFirst;
+    }
+    return null;
+  }
+
+  const start = baselineBeforeDay ?? dayFirst;
+  if (start == null || !Number.isFinite(start)) return null;
+
+  const delta = end - start;
+  if (delta < 0) return null;
+  if (delta === 0 && baselineBeforeDay == null && dayFirst == null) return null;
+  return delta;
+}
+
 /** Kulutus kWh päivän Wh-laskurin deltoista (Europe/Helsinki). */
 export function computeDailyKwh(
   samples: EnergySamplePoint[],
@@ -169,33 +214,15 @@ export function computeDailyKwh(
     dayKeys.push(helsinkiDateKey(d.toISOString()));
   }
 
-  const byDay = new Map<string, { min: number; max: number }>();
-  for (const key of dayKeys) {
-    byDay.set(key, { min: Infinity, max: -Infinity });
-  }
-
-  for (const pt of samples) {
-    const key = helsinkiDateKey(pt.t);
-    if (!byDay.has(key)) continue;
-    const row = byDay.get(key)!;
-    row.min = Math.min(row.min, pt.wh);
-    row.max = Math.max(row.max, pt.wh);
-  }
-
-  if (liveWh != null && Number.isFinite(liveWh) && byDay.has(todayKey)) {
-    const row = byDay.get(todayKey)!;
-    row.min = Math.min(row.min, liveWh);
-    row.max = Math.max(row.max, liveWh);
-  }
-
   return dayKeys.map((date) => {
-    const row = byDay.get(date)!;
-    if (!Number.isFinite(row.min) || !Number.isFinite(row.max)) {
+    const isToday = date === todayKey;
+    const deltaWh = dayWhDeltaWh(samples, date, {
+      endWh: isToday ? liveWh : undefined,
+    });
+    if (deltaWh == null) {
       return { date, label: dayLabel(date), kwh: null };
     }
-    const delta = row.max - row.min;
-    const kwh = delta >= 0 ? delta / 1000 : null;
-    return { date, label: dayLabel(date), kwh };
+    return { date, label: dayLabel(date), kwh: deltaWh / 1000 };
   });
 }
 
@@ -347,25 +374,11 @@ export function kwhSoFarForDay(
   liveWh?: number | null,
 ): number | null {
   const todayKey = helsinkiDateKey(new Date().toISOString());
-  const daySamples = samples
-    .filter((pt) => helsinkiDateKey(pt.t) === dateKey)
-    .filter((pt) => helsinkiMinutesSinceMidnight(new Date(pt.t)) <= maxMinutes);
-
-  let minWh = Infinity;
-  let maxWh = -Infinity;
-  for (const pt of daySamples) {
-    minWh = Math.min(minWh, pt.wh);
-    maxWh = Math.max(maxWh, pt.wh);
-  }
-
-  if (dateKey === todayKey && liveWh != null && Number.isFinite(liveWh)) {
-    minWh = Math.min(minWh, liveWh);
-    maxWh = Math.max(maxWh, liveWh);
-  }
-
-  if (!Number.isFinite(minWh) || !Number.isFinite(maxWh)) return null;
-  const delta = maxWh - minWh;
-  return delta >= 0 ? delta / 1000 : null;
+  const deltaWh = dayWhDeltaWh(samples, dateKey, {
+    maxMinutes,
+    endWh: dateKey === todayKey ? liveWh : undefined,
+  });
+  return deltaWh != null ? deltaWh / 1000 : null;
 }
 
 /**
@@ -407,12 +420,26 @@ export function computeModeration(
   todayKwh: number | null,
   expectedKwhSoFar: number | null,
   now: Date = new Date(),
+  livePowerKw?: number | null,
 ): EnergyModeration {
   if (todayKwh == null || expectedKwhSoFar == null || expectedKwhSoFar <= 0) {
     return {
       level: "unknown",
       label: "Ei vertailudataa",
       detail: "Kulutushistoriaa kertyy synkin myötä — arvio päivittyy muutaman päivän kuluttua.",
+      today_vs_avg_pct: null,
+    };
+  }
+
+  const hasLiveLoad =
+    livePowerKw != null && Number.isFinite(livePowerKw) && livePowerKw > 0.05;
+  if (todayKwh <= 0.01 && (hasLiveLoad || expectedKwhSoFar > 0.5)) {
+    return {
+      level: "unknown",
+      label: "Lasketaan",
+      detail: hasLiveLoad
+        ? "Reaaliaikainen teho näkyy — päivän kWh päivittyy kun energialaskurin historia kertyy."
+        : "Päivän kulutustieto puuttuu — arvio tulee näkyviin synkin jälkeen.",
       today_vs_avg_pct: null,
     };
   }

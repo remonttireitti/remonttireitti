@@ -183,7 +183,12 @@ export async function GET() {
       week_kwh: weekKwh,
       month_kwh: monthKwh,
     },
-    moderation: computeModeration(todayKwh, expectedSoFar),
+    moderation: computeModeration(
+      todayKwh,
+      expectedSoFar,
+      new Date(),
+      primaryMeter ? meterLivePowerKw(primaryMeter.live) : null,
+    ),
     trend: {
       daily: aggregatedDaily,
       outdoor_temp: outdoorTemp,
