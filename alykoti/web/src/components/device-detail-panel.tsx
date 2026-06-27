@@ -13,6 +13,7 @@ import { triggerHintToAutomationFields, type DeviceLiveEvent } from "@/lib/devic
 import { protocolLabel } from "@/lib/device-protocol";
 import { kindLabel, type HubLightDevice } from "@/lib/hub-lights";
 import { LAITTEET } from "@/lib/laitteet-paths";
+import { POLL_DEVICE_DETAIL_MS } from "@/lib/poll-intervals";
 import type { ZwaveConfigParam, ZwaveNodeDetail, ZwaveNodeEndpoint, ZwaveProperty } from "@/lib/types";
 import { configParamOptions, formatZwaveValue, toggleZwaveValue, zwaveNodeId } from "@/lib/zwave-detail";
 import { ItemRenameField } from "@/components/item-rename-field";
@@ -103,7 +104,7 @@ export function DeviceDetailPanel({ protocol, deviceIdParam }: Props) {
 
   useEffect(() => {
     void loadDevice();
-    const id = setInterval(() => void loadDevice(), 5_000);
+    const id = setInterval(() => void loadDevice(), POLL_DEVICE_DETAIL_MS);
     return () => clearInterval(id);
   }, [loadDevice]);
 

@@ -10,6 +10,7 @@ import {
 } from "@/app/actions/integrations";
 import { WifiIntegrationHostList } from "@/components/wifi-integration-host-list";
 import type { TasmotaDeviceConfig, TasmotaDiscoveredDevice } from "@/lib/types";
+import { POLL_DEVICES_MS } from "@/lib/poll-intervals";
 import type { WifiIntegrationChannelLive, WifiIntegrationHostLive } from "@/lib/wifi-integration-live";
 
 type TasmotaResponse = {
@@ -38,7 +39,7 @@ export function TasmotaPanel() {
 
   useEffect(() => {
     void load();
-    const id = setInterval(() => void load(), 8_000);
+    const id = setInterval(() => void load(), POLL_DEVICES_MS);
     return () => clearInterval(id);
   }, [load]);
 

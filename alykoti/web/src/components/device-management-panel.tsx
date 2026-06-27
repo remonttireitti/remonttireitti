@@ -33,6 +33,7 @@ import { HOUSE_ROOMS } from "@/lib/rooms";
 import { LAITTEET } from "@/lib/laitteet-paths";
 import { useHubCommandStatus } from "@/components/command-status-provider";
 import { lightControlCommandIds, sendLightControl } from "@/lib/light-control-send";
+import { POLL_DEVICES_MS } from "@/lib/poll-intervals";
 import type { DeviceReading } from "@/lib/capabilities";
 import { DeviceReadingsInline } from "@/components/device-readings-inline";
 import { resolveHubDeviceReadings } from "@/lib/device-reading-metrics";
@@ -107,7 +108,7 @@ export function DeviceManagementPanel({
 
   useEffect(() => {
     void load();
-    const id = setInterval(() => void load(), 8_000);
+    const id = setInterval(() => void load(), POLL_DEVICES_MS);
     return () => clearInterval(id);
   }, [load]);
 

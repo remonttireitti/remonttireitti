@@ -214,9 +214,16 @@ def _apply_heating_pump(
         )
 
 
-def apply_heating_thermostats(response: dict, hub_state: dict) -> None:
+def apply_heating_thermostats(
+    response: dict,
+    hub_state: dict,
+    *,
+    hub_config: dict | None = None,
+) -> None:
     """Säätää lämmitystoimilaiset termostaattisääntöjen mukaan."""
     config = response.get("config")
+    if not isinstance(config, dict):
+        config = hub_config
     if not isinstance(config, dict):
         return
 

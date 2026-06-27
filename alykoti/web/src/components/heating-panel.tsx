@@ -17,6 +17,7 @@ import {
   type HeatingPumpConfig,
   type HeatingThermostat,
 } from "@/lib/heating-thermostats";
+import { POLL_HEATING_MS } from "@/lib/poll-intervals";
 import type { HubLightDevice } from "@/lib/hub-lights";
 import { HeatingThermostatCard } from "@/components/heating-thermostat-card";
 import { useMetricTrend } from "@/hooks/use-metric-trend";
@@ -76,7 +77,7 @@ export function HeatingPanel() {
 
   useEffect(() => {
     void load();
-    const id = setInterval(() => void load(), 8_000);
+    const id = setInterval(() => void load(), POLL_HEATING_MS);
     return () => clearInterval(id);
   }, [load]);
 

@@ -252,15 +252,29 @@ function patchAirfiState(prev: HubState, incoming: HubState | undefined): { stat
   };
 }
 
+/** Quick sync: päivitä last_seen korkeintaan näin usein ilman EM-päivitystä. */
+const QUICK_SYNC_SEEN_INTERVAL_MS = 30_000;
+
 async function syncDeviceQuick(
   deviceToken: string,
   body: DeviceSyncRequest,
 ): Promise<DeviceSyncResponse | null> {
   const supabase = createAdminClient();
 
+  const partialDevices = body.state?.home_devices;
+  const emPatch =
+    partialDevices && typeof partialDevices === "object"
+      ? Object.fromEntries(
+          Object.entries(partialDevices).filter(
+            ([id, dev]) => id.endsWith(":em") && dev != null && typeof dev === "object",
+          ),
+        )
+      : null;
+  const hasEmPatch = emPatch != null && Object.keys(emPatch).length > 0;
+
   const { data: hub, error: lookupError } = await supabase
     .from("hubs")
-    .select("id, control_mode, config, state")
+    .select("id, last_seen_at, state")
     .eq("device_token", deviceToken)
     .maybeSingle();
 
@@ -269,6 +283,14 @@ async function syncDeviceQuick(
   const ackedIds = (body.acked_command_ids ?? []).filter(
     (id) => typeof id === "string" && id.length > 0,
   );
+  const failedCommands = (body.failed_commands ?? []).filter(
+    (row): row is { id: string; message?: string } =>
+      typeof row === "object" &&
+      row != null &&
+      typeof (row as { id?: unknown }).id === "string" &&
+      (row as { id: string }).id.length > 0,
+  );
+
   if (ackedIds.length > 0) {
     await supabase
       .from("commands")
@@ -277,14 +299,6 @@ async function syncDeviceQuick(
       .in("id", ackedIds)
       .in("status", ["pending", "delivered"]);
   }
-
-  const failedCommands = (body.failed_commands ?? []).filter(
-    (row): row is { id: string; message?: string } =>
-      typeof row === "object" &&
-      row != null &&
-      typeof (row as { id?: unknown }).id === "string" &&
-      (row as { id: string }).id.length > 0,
-  );
   for (const row of failedCommands) {
     await supabase
       .from("commands")
@@ -298,59 +312,59 @@ async function syncDeviceQuick(
   }
 
   const now = new Date().toISOString();
-  const partialDevices = body.state?.home_devices;
-  const emPatch =
-    partialDevices && typeof partialDevices === "object"
-      ? Object.fromEntries(
-          Object.entries(partialDevices).filter(
-            ([id, dev]) => id.endsWith(":em") && dev != null && typeof dev === "object",
-          ),
-        )
-      : null;
+  const nowMs = Date.now();
+  const lastSeenMs = hub.last_seen_at ? new Date(hub.last_seen_at).getTime() : 0;
+  const shouldTouchSeen =
+    hasEmPatch ||
+    ackedIds.length > 0 ||
+    failedCommands.length > 0 ||
+    nowMs - lastSeenMs >= QUICK_SYNC_SEEN_INTERVAL_MS;
 
-  const hubUpdate: Record<string, unknown> = { last_seen_at: now };
-  if (emPatch && Object.keys(emPatch).length > 0) {
-    const prev = parseState(hub.state);
-    const mergedDevices = { ...(prev.home_devices ?? {}) };
-    for (const [id, dev] of Object.entries(emPatch)) {
-      const prevDev = mergedDevices[id];
-      mergedDevices[id] =
-        prevDev && typeof prevDev === "object"
-          ? { ...prevDev, ...(dev as Record<string, unknown>) }
-          : (dev as HubHomeDevice);
+  if (shouldTouchSeen) {
+    const hubUpdate: Record<string, unknown> = { last_seen_at: now };
+    if (hasEmPatch) {
+      const prev = parseState(hub.state);
+      const mergedDevices = { ...(prev.home_devices ?? {}) };
+      for (const [id, dev] of Object.entries(emPatch!)) {
+        const prevDev = mergedDevices[id];
+        mergedDevices[id] =
+          prevDev && typeof prevDev === "object"
+            ? { ...prevDev, ...(dev as Record<string, unknown>) }
+            : (dev as HubHomeDevice);
+      }
+      const mergedState: HubState = {
+        ...prev,
+        home_devices: normalizeHomeDevices(mergedDevices, {
+          integrations: prev.integrations,
+        }),
+      };
+      hubUpdate.state = mergedState;
+      if (hubMetricsEnabled()) {
+        void recordEnergySamples(hub.id, mergedState.home_devices);
+        void recordDeviceMetricSamples(
+          hub.id,
+          mergedState.home_devices,
+          mergedState.device_overrides,
+          mergedState.zwave_nodes,
+        );
+      }
     }
-    const mergedState: HubState = {
-      ...prev,
-      home_devices: normalizeHomeDevices(mergedDevices, {
-        integrations: prev.integrations,
-      }),
-    };
-    hubUpdate.state = mergedState;
-    if (hubMetricsEnabled()) {
-      void recordEnergySamples(hub.id, mergedState.home_devices);
-      void recordDeviceMetricSamples(
-        hub.id,
-        mergedState.home_devices,
-        mergedState.device_overrides,
-        mergedState.zwave_nodes,
-      );
+    const { error: seenError } = await supabase
+      .from("hubs")
+      .update(hubUpdate)
+      .eq("id", hub.id);
+    if (seenError) {
+      console.warn("[sync] quick last_seen epäonnistui:", seenError.message);
     }
   }
 
-  const [{ data: pendingCommands }, { error: seenError }] = await Promise.all([
-    supabase
-      .from("commands")
-      .select("id, command, payload")
-      .eq("hub_id", hub.id)
-      .eq("status", "pending")
-      .order("created_at", { ascending: true })
-      .limit(25),
-    supabase.from("hubs").update(hubUpdate).eq("id", hub.id),
-  ]);
-
-  if (seenError) {
-    console.warn("[sync] quick last_seen epäonnistui:", seenError.message);
-  }
+  const { data: pendingCommands } = await supabase
+    .from("commands")
+    .select("id, command, payload")
+    .eq("hub_id", hub.id)
+    .eq("status", "pending")
+    .order("created_at", { ascending: true })
+    .limit(25);
 
   const hubCommands: DeviceSyncResponse["commands"] = (pendingCommands ?? []).map(
     (cmd) => ({
@@ -370,11 +384,7 @@ async function syncDeviceQuick(
       .eq("status", "pending");
   }
 
-  return {
-    control_mode: hub.control_mode as HubControlMode,
-    config: parseHubConfig(hub.config),
-    commands: hubCommands,
-  };
+  return { commands: hubCommands };
 }
 
 export async function syncDevice(

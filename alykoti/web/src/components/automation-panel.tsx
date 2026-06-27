@@ -44,6 +44,7 @@ import {
   type Hue4BtnGesture,
 } from "@/lib/automation-trigger-profiles";
 import { protocolLabel } from "@/lib/device-protocol";
+import { POLL_AUTOMATION_MS } from "@/lib/poll-intervals";
 import {
   type AutomationDeviceOption,
   type AutomationTargetGroups,
@@ -150,7 +151,7 @@ export function AutomationPanel({
 
   useEffect(() => {
     void load();
-    const id = setInterval(() => void load(), 10_000);
+    const id = setInterval(() => void load(), POLL_AUTOMATION_MS);
     return () => clearInterval(id);
   }, [load]);
 

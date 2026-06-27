@@ -16,6 +16,7 @@ import {
 import { LIGHT_PAGE_ROLES } from "@/lib/device-roles";
 import type { DeviceRole } from "@/lib/device-roles";
 import { lightControlCommandIds, sendLightControl } from "@/lib/light-control-send";
+import { POLL_FLOOR_PLAN_MS } from "@/lib/poll-intervals";
 import type { Hub } from "@/lib/types";
 import Link from "next/link";
 
@@ -57,7 +58,7 @@ export function HomeFloorPlan({ hub }: Props) {
 
   useEffect(() => {
     void load();
-    const id = setInterval(() => void load(), 10_000);
+    const id = setInterval(() => void load(), POLL_FLOOR_PLAN_MS);
     return () => clearInterval(id);
   }, [load]);
 

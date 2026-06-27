@@ -843,7 +843,7 @@ def _process_sync_response(
     if apply_vent:
         vent_state = hub_state if hub_state.get("airfi_online") else _cached_airfi_for_control()
         apply_ventilation(response, vent_state)
-    apply_heating_thermostats(response, hub_state)
+    apply_heating_thermostats(response, hub_state, hub_config=cached_hub_config)
     return cmd_count
 
 

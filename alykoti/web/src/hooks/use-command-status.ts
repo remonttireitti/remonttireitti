@@ -3,8 +3,13 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { CommandRow } from "@/app/api/device/commands/route";
 
-const POLL_ACTIVE_MS = 1_500;
-const POLL_IDLE_MS = 30_000;
+import {
+  POLL_COMMAND_ACTIVE_MS,
+  POLL_COMMAND_IDLE_MS,
+} from "@/lib/poll-intervals";
+
+const POLL_ACTIVE_MS = POLL_COMMAND_ACTIVE_MS;
+const POLL_IDLE_MS = POLL_COMMAND_IDLE_MS;
 
 export function isCommandActive(status: string): boolean {
   return status === "pending" || status === "delivered";

@@ -9,6 +9,7 @@ import {
 import type { AirthingsDeviceConfig } from "@/lib/types";
 import { useMetricTrend } from "@/hooks/use-metric-trend";
 import { TrendTrigger } from "@/components/trend-trigger";
+import { POLL_AIRTHINGS_MS } from "@/lib/poll-intervals";
 
 type AvailableDevice = {
   serial: string;
@@ -59,7 +60,7 @@ export function AirthingsPanel() {
 
   useEffect(() => {
     void load();
-    const id = setInterval(() => void load(), 10_000);
+    const id = setInterval(() => void load(), POLL_AIRTHINGS_MS);
     return () => clearInterval(id);
   }, [load]);
 

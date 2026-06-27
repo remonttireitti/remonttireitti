@@ -458,8 +458,8 @@ export type DeviceSyncDisplay = {
 };
 
 export type DeviceSyncResponse = {
-  control_mode: HubControlMode;
-  config: HubConfig;
+  control_mode?: HubControlMode;
+  config?: HubConfig;
   commands: Array<{
     id: string;
     command: string;

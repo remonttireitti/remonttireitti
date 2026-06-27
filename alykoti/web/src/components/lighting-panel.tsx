@@ -12,6 +12,7 @@ import { resolveHubDeviceReadings } from "@/lib/device-reading-metrics";
 import { kindLabel } from "@/lib/hub-lights";
 import { useMetricTrend } from "@/hooks/use-metric-trend";
 import { lightControlCommandIds, sendLightControl } from "@/lib/light-control-send";
+import { POLL_LIGHTS_MS } from "@/lib/poll-intervals";
 
 type Device = {
   id: string;
@@ -78,7 +79,7 @@ export function LightingPanel() {
 
   useEffect(() => {
     void load();
-    const id = setInterval(() => void load(), 5_000);
+    const id = setInterval(() => void load(), POLL_LIGHTS_MS);
     return () => clearInterval(id);
   }, [load]);
 

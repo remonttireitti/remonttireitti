@@ -10,6 +10,7 @@ import {
 import type { DeviceReading } from "@/lib/capabilities";
 import { inferProtocolFromId, protocolLabel, type DeviceProtocol } from "@/lib/device-protocol";
 import { kindLabel } from "@/lib/hub-lights";
+import { POLL_DEVICES_MS } from "@/lib/poll-intervals";
 import { lightControlCommandIds, sendLightControl } from "@/lib/light-control-send";
 import { useHubCommandStatus } from "@/components/command-status-provider";
 import { TrendTrigger } from "@/components/trend-trigger";
@@ -91,7 +92,7 @@ export function RoleDevicesPanel({ sections, pageTitle, pageDescription }: Props
 
   useEffect(() => {
     void load();
-    const id = setInterval(() => void load(), 8_000);
+    const id = setInterval(() => void load(), POLL_DEVICES_MS);
     return () => clearInterval(id);
   }, [load]);
 

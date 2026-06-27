@@ -21,6 +21,7 @@ import {
   isIdLockDevice,
 } from "@/lib/idlock-150";
 import { kindLabel, type HubLightDevice } from "@/lib/hub-lights";
+import { POLL_DEVICE_DETAIL_MS } from "@/lib/poll-intervals";
 import { LAITTEET } from "@/lib/laitteet-paths";
 import type { ZwaveConfigParam, ZwaveNodeDetail, ZwaveNodeEndpoint, ZwaveProperty } from "@/lib/types";
 import { configParamOptions, endpointShowsBinaryState, formatEndpointBinaryState, formatZwaveValue, zwaveNodeId } from "@/lib/zwave-detail";
@@ -104,7 +105,7 @@ export function ZwaveDeviceDetailPanel({ deviceIdParam, initial }: Props) {
 
   useEffect(() => {
     void loadDevice();
-    const id = setInterval(() => void loadDevice(), 5_000);
+    const id = setInterval(() => void loadDevice(), POLL_DEVICE_DETAIL_MS);
     return () => clearInterval(id);
   }, [loadDevice]);
 

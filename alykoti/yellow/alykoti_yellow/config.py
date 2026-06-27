@@ -25,7 +25,7 @@ SYNC_URL = os.environ.get(
 SYNC_INTERVAL_SEC = max(10, int(os.environ.get("SYNC_INTERVAL_SEC", "30")))
 COMMAND_POLL_INTERVAL_SEC = max(
     1,
-    int(os.environ.get("COMMAND_POLL_INTERVAL_SEC", os.environ.get("COMMAND_POLL_SEC", "1"))),
+    int(os.environ.get("COMMAND_POLL_INTERVAL_SEC", os.environ.get("COMMAND_POLL_SEC", "5"))),
 )
 COMMAND_POLL_ENABLED = os.environ.get("COMMAND_POLL_ENABLED", "1").strip() in (
     "1",
@@ -33,7 +33,7 @@ COMMAND_POLL_ENABLED = os.environ.get("COMMAND_POLL_ENABLED", "1").strip() in (
     "yes",
 )
 # Shelly EM -päivitys nopeaan komentopollaukseen (s)
-ENERGY_QUICK_POLL_SEC = max(2, int(os.environ.get("ENERGY_QUICK_POLL_SEC", "5")))
+ENERGY_QUICK_POLL_SEC = max(2, int(os.environ.get("ENERGY_QUICK_POLL_SEC", "10")))
 
 AIRFI_MODBUS_HOST = os.environ.get("AIRFI_MODBUS_HOST", "").strip() or None
 AIRFI_MODBUS_PORT = int(os.environ.get("AIRFI_MODBUS_PORT", "502"))

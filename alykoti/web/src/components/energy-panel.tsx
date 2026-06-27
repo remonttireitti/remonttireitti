@@ -12,6 +12,7 @@ import type { EnergyCostSummary } from "@/lib/energy-cost";
 import { formatEur } from "@/lib/energy-cost";
 import { meterLivePowerKw } from "@/lib/energy-live";
 import { formatPriceCents } from "@/lib/electricity-prices";
+import { POLL_ENERGY_FULL_MS, POLL_ENERGY_LIVE_MS } from "@/lib/poll-intervals";
 import type { EnergyPhaseReading, EnergyPhases } from "@/lib/types";
 
 type MeterLive = {
@@ -850,8 +851,8 @@ export function EnergyPanel({
   useEffect(() => {
     void loadLive();
     void loadFull();
-    const liveId = setInterval(() => void loadLive(), 5_000);
-    const fullId = setInterval(() => void loadFull(), 45_000);
+    const liveId = setInterval(() => void loadLive(), POLL_ENERGY_LIVE_MS);
+    const fullId = setInterval(() => void loadFull(), POLL_ENERGY_FULL_MS);
     return () => {
       clearInterval(liveId);
       clearInterval(fullId);

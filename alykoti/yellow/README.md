@@ -72,6 +72,8 @@ Kun Modbus-luku vakaata, aseta `AIRFI_WRITES_ENABLED=1` ja restart.
 | `ALYKOTI_DEVICE_TOKEN` | Pakollinen |
 | `ALYKOTI_SYNC_URL` | `https://alykoti.vercel.app/api/device/sync` |
 | `SYNC_INTERVAL_SEC` | 30 |
+| `COMMAND_POLL_INTERVAL_SEC` | 5 (komennot; aiemmin 1) |
+| `ENERGY_QUICK_POLL_SEC` | 10 (Shelly EM quick syncissä) |
 | `AIRFI_MODBUS_SERIAL` | RS485-portti |
 | `AIRFI_WRITES_ENABLED` | 0/1 |
 | `MQTT_URL` | `mqtt://127.0.0.1:1883` |
