@@ -39,9 +39,33 @@ function kwhToEur(kwh: number, centsPerKwh: number): number {
   return Math.round(kwh * centsPerKwh) / 100;
 }
 
-function sumCosts(rows: DailyEnergyCost[]): number | null {
-  if (rows.length === 0) return null;
-  return Math.round(rows.reduce((a, r) => a + r.cost_eur, 0) * 100) / 100;
+function calendarDayKeys(count: number): string[] {
+  const keys: string[] = [];
+  for (let i = count - 1; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    keys.push(helsinkiDateKey(d.toISOString()));
+  }
+  return keys;
+}
+
+function costForDayKeys(
+  daily: DailyEnergy[],
+  dayKeys: string[],
+  slots: SpotPriceSlot[],
+): { cost: number | null; daysWithData: number } {
+  let total = 0;
+  let daysWithData = 0;
+  for (const key of dayKeys) {
+    const row = daily.find((d) => d.date === key);
+    if (row?.kwh == null || row.kwh <= 0) continue;
+    const cents = avgCentsForDay(key, slots);
+    if (cents == null) continue;
+    total += kwhToEur(row.kwh, cents);
+    daysWithData++;
+  }
+  if (daysWithData === 0) return { cost: null, daysWithData: 0 };
+  return { cost: Math.round(total * 100) / 100, daysWithData };
 }
 
 /** Arvio päivän kustannuksesta: päivän kWh × päivän keskihinta (Nord Pool). */
@@ -83,9 +107,13 @@ export function computeEnergyCostSummary(
     });
   }
 
-  const last7 = costRows.slice(-7);
-  const prev7 = costRows.slice(-14, -7);
-  const last30 = costRows.slice(-30);
+  const weekKeys = calendarDayKeys(7);
+  const prevWeekKeys = calendarDayKeys(14).slice(0, 7);
+  const monthKeys = calendarDayKeys(30);
+
+  const weekCost = costForDayKeys(daily, weekKeys, prices.slots);
+  const prevWeekCost = costForDayKeys(daily, prevWeekKeys, prices.slots);
+  const monthCost = costForDayKeys(daily, monthKeys, prices.slots);
 
   const todayRow = costRows.find((r) => r.date === todayKey);
   const yesterdayKey = helsinkiDateKey(new Date(Date.now() - 86_400_000).toISOString());
@@ -98,11 +126,14 @@ export function computeEnergyCostSummary(
     today_cost_eur: todayRow?.cost_eur ?? null,
     yesterday_cost_eur: yesterdayRow?.cost_eur ?? null,
     today_vs_yesterday_pct: pctChange(todayRow?.cost_eur ?? null, yesterdayRow?.cost_eur ?? null),
-    week_cost_eur: sumCosts(last7),
-    prev_week_cost_eur: sumCosts(prev7),
-    week_vs_prev_pct: pctChange(sumCosts(last7), sumCosts(prev7)),
-    month_cost_eur: sumCosts(last30),
-    daily: last7,
+    week_cost_eur: weekCost.daysWithData >= 2 ? weekCost.cost : null,
+    prev_week_cost_eur: prevWeekCost.daysWithData >= 2 ? prevWeekCost.cost : null,
+    week_vs_prev_pct: pctChange(
+      weekCost.daysWithData >= 2 ? weekCost.cost : null,
+      prevWeekCost.daysWithData >= 2 ? prevWeekCost.cost : null,
+    ),
+    month_cost_eur: monthCost.daysWithData >= 3 ? monthCost.cost : null,
+    daily: costRows.filter((r) => weekKeys.includes(r.date)),
   };
 }
 

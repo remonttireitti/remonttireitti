@@ -155,10 +155,30 @@ function dayLabel(dateKey: string): string {
   });
 }
 
+function previousDayKey(dateKey: string): string {
+  const [y, m, day] = dateKey.split("-").map(Number);
+  const d = new Date(y, m - 1, day, 12, 0, 0);
+  d.setDate(d.getDate() - 1);
+  return helsinkiDateKey(d.toISOString());
+}
+
+/** Korkein Wh-lukema kullekin kalenteripäivälle. */
+function lastWhByDay(samples: EnergySamplePoint[]): Map<string, number> {
+  const map = new Map<string, number>();
+  for (const pt of samples) {
+    const key = helsinkiDateKey(pt.t);
+    const prev = map.get(key);
+    map.set(key, prev == null ? pt.wh : Math.max(prev, pt.wh));
+  }
+  return map;
+}
+
+const MAX_DAILY_KWH = 120;
+
 /**
- * Päivän Wh-kulutus: viimeinen lukema (tai live) miinus edellisen päivän viimeinen
- * tai päivän ensimmäinen näyte. Korjaa tilanteen jossa tänään ei ole vielä näytteitä
- * mutta live-laskuri on päivittynyt.
+ * Päivän Wh-kulutus kumulatiivisesta laskurista:
+ * päivän luku − edellisen kalenteripäivän luku.
+ * Ei käytä vanhentunutta näytettä usean päivän takaa.
  */
 function dayWhDeltaWh(
   samples: EnergySamplePoint[],
@@ -166,38 +186,51 @@ function dayWhDeltaWh(
   options?: { endWh?: number | null; maxMinutes?: number },
 ): number | null {
   const maxMin = options?.maxMinutes ?? 24 * 60;
-  let baselineBeforeDay: number | null = null;
+  const byDay = lastWhByDay(samples);
+  const prevKey = previousDayKey(dateKey);
+
+  let end: number | null =
+    options?.endWh != null && Number.isFinite(options.endWh) ? options.endWh : null;
+
+  if (end == null && maxMin >= 24 * 60) {
+    end = byDay.get(dateKey) ?? null;
+  }
+
+  if (maxMin < 24 * 60 || (end == null && maxMin < 24 * 60)) {
+    let dayLast: number | null = null;
+    for (const pt of samples) {
+      if (helsinkiDateKey(pt.t) !== dateKey) continue;
+      const mins = helsinkiMinutesSinceMidnight(new Date(pt.t));
+      if (mins > maxMin) continue;
+      dayLast = dayLast == null ? pt.wh : Math.max(dayLast, pt.wh);
+    }
+    if (end == null) end = dayLast;
+  }
+
+  if (end == null || !Number.isFinite(end)) return null;
+
+  const prevClose = byDay.get(prevKey) ?? null;
+  if (prevClose != null && Number.isFinite(prevClose)) {
+    const delta = end - prevClose;
+    if (delta < 0) return null;
+    if (delta / 1000 > MAX_DAILY_KWH) return null;
+    return delta;
+  }
+
+  // Ei eilisen lukemaa — laske vain saman päivän sisäinen delta (≥2 näytettä)
   let dayFirst: number | null = null;
   let dayLast: number | null = null;
-
   for (const pt of samples) {
-    const key = helsinkiDateKey(pt.t);
-    if (key < dateKey) {
-      baselineBeforeDay = pt.wh;
-      continue;
-    }
-    if (key > dateKey) continue;
+    if (helsinkiDateKey(pt.t) !== dateKey) continue;
     const mins = helsinkiMinutesSinceMidnight(new Date(pt.t));
     if (mins > maxMin) continue;
     if (dayFirst == null) dayFirst = pt.wh;
-    dayLast = pt.wh;
+    dayLast = dayLast == null ? pt.wh : Math.max(dayLast, pt.wh);
   }
-
-  const end = options?.endWh ?? dayLast;
-  if (end == null || !Number.isFinite(end)) {
-    if (dayFirst != null && dayLast != null && dayLast > dayFirst) {
-      return dayLast - dayFirst;
-    }
-    return null;
-  }
-
-  const start = baselineBeforeDay ?? dayFirst;
-  if (start == null || !Number.isFinite(start)) return null;
-
-  const delta = end - start;
-  if (delta < 0) return null;
-  if (delta === 0 && baselineBeforeDay == null && dayFirst == null) return null;
-  return delta;
+  if (dayFirst == null || dayLast == null || dayLast <= dayFirst) return null;
+  const intra = dayLast - dayFirst;
+  if (intra / 1000 > MAX_DAILY_KWH) return null;
+  return intra;
 }
 
 /** Kulutus kWh päivän Wh-laskurin deltoista (Europe/Helsinki). */
@@ -442,6 +475,20 @@ export function computeModeration(
         : "Päivän kulutustieto puuttuu — arvio tulee näkyviin synkin jälkeen.",
       today_vs_avg_pct: null,
     };
+  }
+
+  const hoursElapsed = helsinkiMinutesSinceMidnight(now) / 60;
+  if (hoursElapsed >= 1 && todayKwh > 0 && livePowerKw != null && livePowerKw > 0) {
+    const impliedAvgKw = todayKwh / hoursElapsed;
+    if (impliedAvgKw > livePowerKw * 2.5 + 0.5) {
+      return {
+        level: "unknown",
+        label: "Epävarma",
+        detail:
+          "Päivän kWh vaikuttaa liian suurelta mittauskatkon jälkeen — odota synkkiä tai tarkista mittarin laskuri.",
+        today_vs_avg_pct: null,
+      };
+    }
   }
 
   const ratio = todayKwh / expectedKwhSoFar;
