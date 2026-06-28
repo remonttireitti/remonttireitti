@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { expandMirrorCommandIds } from "@/lib/automation-presets";
 import { parseHubHomeDevices } from "@/lib/hub-lights";
 import { fetchPrimaryHub } from "@/lib/hubs";
+import { delegateToYellowApi } from "@/lib/local-api-route";
 import { createClient } from "@/lib/supabase/server";
 import { isZigbeeConfigured, setLightState } from "@/lib/zigbee2mqtt";
 import { parseZwaveDeviceId } from "@/lib/device-protocol";
@@ -112,6 +113,9 @@ function buildSetDevicePayload(
 }
 
 export async function POST(request: Request) {
+  const local = await delegateToYellowApi(request, "/api/lights/control");
+  if (local) return local;
+
   let body: {
     id?: string;
     on?: boolean;

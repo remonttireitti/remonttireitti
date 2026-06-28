@@ -3,6 +3,8 @@ Description=Alykoti Yellow — paikallinen ohjaus + synkki (Modbus + MQTT)
 After=network-online.target docker.service
 Wants=network-online.target
 
+# Yellow API (:3080) + synkki. Next.js UI: alykoti-web.service (:3001)
+
 [Service]
 Type=simple
 User=ek

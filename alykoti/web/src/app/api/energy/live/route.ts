@@ -5,6 +5,7 @@ import { meterLivePowerKw } from "@/lib/energy-live";
 import { findEmMeters, findPrimaryEmMeter } from "@/lib/energy-samples";
 import { isHubOnline } from "@/lib/device-status";
 import { fetchPrimaryHub } from "@/lib/hubs";
+import { delegateToYellowApi } from "@/lib/local-api-route";
 import type { HubState } from "@/lib/types";
 import { createClient } from "@/lib/supabase/server";
 
@@ -13,6 +14,9 @@ export const runtime = "nodejs";
 
 /** Nopea reaaliaikainen teho — vain hub-tila, ei historianäytteitä. */
 export async function GET() {
+  const local = await delegateToYellowApi(new Request("http://local"), "/api/energy/live");
+  if (local) return local;
+
   const supabase = await createClient();
   const {
     data: { user },

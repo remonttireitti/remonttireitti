@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { randomBytes } from "crypto";
 import { revalidateLaitteet } from "@/lib/revalidate-laitteet";
 import { validateVentilationConfig, parseHubConfig } from "@/lib/hubs";
+import { isLocalMode, LOCAL_USER_ID } from "@/lib/local-mode";
+import { sendYellowCommand } from "@/lib/yellow-commands";
 import {
   extendUntil,
   formatRemaining,
@@ -26,6 +28,9 @@ export type ActionState = {
 };
 
 async function requireUser() {
+  if (isLocalMode()) {
+    return { supabase: null as Awaited<ReturnType<typeof createClient>> | null, user: { id: LOCAL_USER_ID } };
+  }
   const supabase = await createClient();
   const {
     data: { user },
@@ -33,11 +38,29 @@ async function requireUser() {
   return { supabase, user };
 }
 
+function localCloudOnly(): ActionState {
+  return {
+    error: "Toiminto vaatii pilvipalvelun — paikallisessa tilassa muokkaa Yellow local/-tiedostoja.",
+  };
+}
+
 async function getOwnedHubRow(
-  supabase: Awaited<ReturnType<typeof createClient>>,
+  supabase: Awaited<ReturnType<typeof createClient>> | null,
   hubId: string,
   userId: string,
 ) {
+  if (isLocalMode()) {
+    const { fetchYellowHub } = await import("@/lib/yellow-api");
+    const hub = await fetchYellowHub();
+    if (!hub || hub.id !== hubId) return null;
+    return {
+      id: hub.id,
+      state: hub.state,
+      config: hub.config,
+      control_mode: hub.control_mode,
+    };
+  }
+  if (!supabase) return null;
   const { data } = await supabase
     .from("hubs")
     .select("id, state, config, control_mode")
@@ -48,11 +71,13 @@ async function getOwnedHubRow(
 }
 
 async function patchHubState(
-  supabase: Awaited<ReturnType<typeof createClient>>,
+  supabase: Awaited<ReturnType<typeof createClient>> | null,
   hubId: string,
   statePatch: Partial<HubState>,
   controlMode?: HubControlMode,
 ) {
+  if (isLocalMode()) return;
+  if (!supabase) return;
   const { data: hub } = await supabase
     .from("hubs")
     .select("state")
@@ -99,10 +124,12 @@ async function queueFanCommand(
 }
 
 async function getOwnedHub(
-  supabase: Awaited<ReturnType<typeof createClient>>,
+  supabase: Awaited<ReturnType<typeof createClient>> | null,
   hubId: string,
   userId: string,
 ) {
+  if (isLocalMode()) return userId === LOCAL_USER_ID;
+  if (!supabase) return false;
   const { data } = await supabase
     .from("hubs")
     .select("id")
@@ -116,8 +143,9 @@ export async function registerHub(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
+  if (isLocalMode()) return localCloudOnly();
   const { supabase, user } = await requireUser();
-  if (!user) return { error: "Kirjaudu sisään." };
+  if (!user || !supabase) return { error: "Kirjaudu sisään." };
 
   const name = String(formData.get("name") ?? "").trim();
   if (!name) return { error: "Anna keskusyksikölle nimi." };
@@ -145,8 +173,9 @@ export async function saveVentilationConfig(
   hubId: string,
   config: VentilationConfig,
 ): Promise<ActionState> {
+  if (isLocalMode()) return localCloudOnly();
   const { supabase, user } = await requireUser();
-  if (!user) return { error: "Kirjaudu sisään." };
+  if (!user || !supabase) return { error: "Kirjaudu sisään." };
 
   const validationError = validateVentilationConfig(config);
   if (validationError) return { error: validationError };
@@ -181,7 +210,18 @@ async function queueCommand(
   const { supabase, user } = await requireUser();
   if (!user) return { error: "Kirjaudu sisään." };
 
-  if (!(await getOwnedHub(supabase, hubId, user.id))) {
+  if (isLocalMode()) {
+    const result = await sendYellowCommand(command, payload);
+    if (!result.ok) return { error: result.error ?? "Komennon lähetys epäonnistui." };
+    revalidatePath("/ilmanvaihto");
+    revalidatePath("/ilmanvaihto/asetukset");
+    if (command === "set_light" || command === "set_device") {
+      revalidateLaitteet();
+    }
+    return { ok: "Komento suoritettu paikallisesti.", commandIds: ["local"] };
+  }
+
+  if (!supabase || !(await getOwnedHub(supabase, hubId, user.id))) {
     return { error: "Keskusyksikköä ei löydy." };
   }
 
@@ -480,8 +520,9 @@ export async function setFanSpeedLevel(
 }
 
 export async function deleteHub(hubId: string): Promise<ActionState> {
+  if (isLocalMode()) return localCloudOnly();
   const { supabase, user } = await requireUser();
-  if (!user) return { error: "Kirjaudu sisään." };
+  if (!user || !supabase) return { error: "Kirjaudu sisään." };
 
   if (!(await getOwnedHub(supabase, hubId, user.id))) {
     return { error: "Keskusyksikköä ei löydy." };

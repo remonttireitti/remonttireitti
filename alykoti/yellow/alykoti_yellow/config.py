@@ -64,10 +64,18 @@ ZWAVE_NODES_JSON = os.environ.get(
 ).strip()
 ZWAVE_GATEWAY = os.environ.get("ZWAVE_GATEWAY_NAME", "Mosquitto").strip()
 
-# Paikallinen web-ohjauspaneeli (LAN)
+# Paikallinen JSON-API (LAN) — Next.js LOCAL_MODE käyttää tätä
 LOCAL_UI_ENABLED = os.environ.get("LOCAL_UI_ENABLED", "1").strip() in ("1", "true", "yes")
 LOCAL_UI_HOST = os.environ.get("LOCAL_UI_HOST", "0.0.0.0").strip() or "0.0.0.0"
-LOCAL_UI_PORT = max(1024, int(os.environ.get("LOCAL_UI_PORT", "3001")))
+LOCAL_API_PORT = max(
+    1024,
+    int(os.environ.get("LOCAL_API_PORT", os.environ.get("LOCAL_UI_PORT", "3080"))),
+)
+# Vanha nimi — sama kuin LOCAL_API_PORT
+LOCAL_UI_PORT = LOCAL_API_PORT
+LOCAL_HUB_ID = os.environ.get("LOCAL_HUB_ID", "local-yellow").strip() or "local-yellow"
+LOCAL_HUB_NAME = os.environ.get("LOCAL_HUB_NAME", "Yellow").strip() or "Yellow"
+LOCAL_NEXTJS_URL = os.environ.get("LOCAL_NEXTJS_URL", "http://127.0.0.1:3001").strip()
 
 FIRMWARE_VERSION = "yellow-1.2.0"
 

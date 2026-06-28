@@ -3,6 +3,7 @@ import { inferDeviceApiProtocol } from "@/lib/device-protocol";
 import { jsonSafe } from "@/lib/json-safe";
 import { fetchPrimaryHub } from "@/lib/hubs";
 import { loadZwaveDeviceDetail } from "@/lib/zwave-device-detail-load";
+import { delegateToYellowApi } from "@/lib/local-api-route";
 import { createClient } from "@/lib/supabase/server";
 import { normalizeHomeDevices } from "@/lib/device-normalize";
 import { parseHubHomeDevices, prepareDevicesForList } from "@/lib/hub-lights";
@@ -22,6 +23,12 @@ export async function GET(
   const url = new URL(request.url);
   const protocolParam = url.searchParams.get("protocol");
   const protocol = inferDeviceApiProtocol(param, protocolParam);
+
+  const yellowPath = `/api/devices/${encodeURIComponent(param)}${
+    protocolParam ? `?protocol=${encodeURIComponent(protocolParam)}` : ""
+  }`;
+  const local = await delegateToYellowApi(request, yellowPath);
+  if (local) return local;
 
   const supabase = await createClient();
   const {

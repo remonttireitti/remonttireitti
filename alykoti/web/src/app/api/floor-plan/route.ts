@@ -4,6 +4,7 @@ import { parseHubHomeDevices, prepareDevicesForList } from "@/lib/hub-lights";
 import { normalizeHomeDevices } from "@/lib/device-normalize";
 import type { FloorPlanPin } from "@/lib/floor-plan-pins";
 import { fetchPrimaryHub } from "@/lib/hubs";
+import { delegateToYellowApi } from "@/lib/local-api-route";
 import type { HubState } from "@/lib/types";
 import { createClient } from "@/lib/supabase/server";
 
@@ -11,6 +12,9 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 export async function GET() {
+  const local = await delegateToYellowApi(new Request("http://local"), "/api/floor-plan");
+  if (local) return local;
+
   const supabase = await createClient();
   const {
     data: { user },

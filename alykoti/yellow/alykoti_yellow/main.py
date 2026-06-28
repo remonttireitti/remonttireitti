@@ -1024,6 +1024,19 @@ def _local_ui_meta() -> dict:
     return {
         "automation_count": len(cached_automations),
         "cloud_sync_ok": cloud_ok,
+        "mqtt_ok": True,
+    }
+
+
+def _local_hub_info() -> dict:
+    return {
+        "id": config.LOCAL_HUB_ID,
+        "name": config.LOCAL_HUB_NAME,
+        "control_mode": cached_control_mode,
+        "hub_config": cached_hub_config,
+        "automations": cached_automations,
+        "integrations": cached_integrations,
+        "cached_state": cached_hub_state,
     }
 
 
@@ -1039,6 +1052,7 @@ def _start_local_ui() -> None:
         get_state=_local_ui_state,
         execute_command=_local_execute_command,
         get_meta=_local_ui_meta,
+        get_hub_info=_local_hub_info,
     )
     start_local_ui()
 

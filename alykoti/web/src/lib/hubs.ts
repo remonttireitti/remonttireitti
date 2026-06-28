@@ -2,6 +2,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { normalizeAutomationRules } from "@/lib/automation";
 import { normalizeElectricityPricePeriods } from "@/lib/electricity-price-periods";
 import { normalizeHeatingThermostats, normalizeHeatingPump } from "@/lib/heating-thermostats";
+import { isLocalMode, LOCAL_USER_ID } from "@/lib/local-mode";
+import { fetchYellowHub } from "@/lib/yellow-api";
 import {
   DEFAULT_VENTILATION_CONFIG,
   type Hub,
@@ -91,9 +93,15 @@ export function normalizeHub(row: Record<string, unknown>): Hub {
 }
 
 export async function fetchHubs(
-  supabase: SupabaseClient,
+  supabase: SupabaseClient | null,
   userId: string,
 ): Promise<Hub[]> {
+  if (isLocalMode() && userId === LOCAL_USER_ID) {
+    const hub = await fetchYellowHub();
+    return hub ? [hub] : [];
+  }
+  if (!supabase) return [];
+
   const { data, error } = await supabase
     .from("hubs")
     .select("*")
@@ -105,10 +113,16 @@ export async function fetchHubs(
 }
 
 export async function fetchHub(
-  supabase: SupabaseClient,
+  supabase: SupabaseClient | null,
   hubId: string,
   userId: string,
 ): Promise<Hub | null> {
+  if (isLocalMode() && userId === LOCAL_USER_ID) {
+    const hub = await fetchYellowHub();
+    return hub?.id === hubId ? hub : null;
+  }
+  if (!supabase) return null;
+
   const { data, error } = await supabase
     .from("hubs")
     .select("*")
@@ -122,9 +136,13 @@ export async function fetchHub(
 
 /** Ensimmäinen (päivittynyt viimeksi) keskusyksikkö ilmanvaihdolle. */
 export async function fetchPrimaryHub(
-  supabase: SupabaseClient,
+  supabase: SupabaseClient | null,
   userId: string,
 ): Promise<Hub | null> {
+  if (isLocalMode() && userId === LOCAL_USER_ID) {
+    return fetchYellowHub();
+  }
+
   const hubs = await fetchHubs(supabase, userId);
   return hubs[0] ?? null;
 }

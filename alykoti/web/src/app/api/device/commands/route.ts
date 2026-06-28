@@ -1,4 +1,5 @@
 import { fetchPrimaryHub } from "@/lib/hubs";
+import { delegateToYellowApi } from "@/lib/local-api-route";
 import { createClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 
@@ -14,6 +15,9 @@ export type CommandRow = {
 };
 
 export async function GET(request: Request) {
+  const local = await delegateToYellowApi(request, "/api/device/commands");
+  if (local) return local;
+
   const supabase = await createClient();
   const {
     data: { user },

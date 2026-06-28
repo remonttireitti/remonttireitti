@@ -26,6 +26,7 @@ import { fetchWeatherDailyTemps, mergeDailyTemps } from "@/lib/weather-daily";
 import { isHubOnline } from "@/lib/device-status";
 import { resolveWifiChannelDisplayName } from "@/lib/device-item-overrides";
 import { fetchPrimaryHub } from "@/lib/hubs";
+import { delegateToYellowApi } from "@/lib/local-api-route";
 import type { HubState } from "@/lib/types";
 import { createClient } from "@/lib/supabase/server";
 
@@ -35,6 +36,9 @@ export const runtime = "nodejs";
 const HISTORY_DAYS = 30;
 
 export async function GET() {
+  const local = await delegateToYellowApi(new Request("http://local"), "/api/energy");
+  if (local) return local;
+
   const supabase = await createClient();
   const {
     data: { user },

@@ -16,6 +16,8 @@ import { hubMetricsEnabled } from "@/lib/hub-metrics-config";
 import { recordHubMetrics } from "@/lib/metric-samples";
 import { enrichLtoFromHubState } from "@/lib/lto-efficiency";
 import { fetchPrimaryHub } from "@/lib/hubs";
+import { isLocalMode, LOCAL_USER_ID } from "@/lib/local-mode";
+import { fetchYellowApi } from "@/lib/yellow-api";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { HubState } from "@/lib/types";
@@ -45,6 +47,12 @@ export async function getDeviceStatus(
   supabase: SupabaseClient,
   userId: string,
 ): Promise<DeviceStatus | null> {
+  if (isLocalMode() && userId === LOCAL_USER_ID) {
+    const { status, data } = await fetchYellowApi<DeviceStatus>("/api/device/status");
+    if (status === 200 && data) return data;
+    return null;
+  }
+
   const hub = await fetchPrimaryHub(supabase, userId);
   if (!hub) return null;
 

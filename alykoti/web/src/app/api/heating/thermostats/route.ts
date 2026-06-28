@@ -9,12 +9,16 @@ import { parseHubHomeDevices, prepareDevicesForList } from "@/lib/hub-lights";
 import { normalizeHomeDevices } from "@/lib/device-normalize";
 import { fetchPrimaryHub, parseHubConfig } from "@/lib/hubs";
 import { isHubOnline } from "@/lib/device-status";
+import { delegateToYellowApi } from "@/lib/local-api-route";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 export async function GET() {
+  const local = await delegateToYellowApi(new Request("http://local"), "/api/heating/thermostats");
+  if (local) return local;
+
   const supabase = await createClient();
   const {
     data: { user },

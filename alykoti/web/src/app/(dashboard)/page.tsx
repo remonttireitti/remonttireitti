@@ -7,16 +7,20 @@ import { fetchElectricityPrices } from "@/lib/electricity-prices";
 import { fetchHubs } from "@/lib/hubs";
 import { isHubOnline } from "@/lib/device-status";
 import { LAITTEET } from "@/lib/laitteet-paths";
+import { isLocalMode, LOCAL_USER_ID } from "@/lib/local-mode";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function OverviewPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const localMode = isLocalMode();
+  const supabase = localMode ? null : await createClient();
+  const user = localMode
+    ? { id: LOCAL_USER_ID }
+    : (
+        await supabase!.auth.getUser()
+      ).data.user;
 
   const [hubs, electricityPrices] = await Promise.all([
-    user ? fetchHubs(supabase, user.id).catch(() => []) : Promise.resolve([]),
+    user ? fetchHubs(supabase as Awaited<ReturnType<typeof createClient>>, user.id).catch(() => []) : Promise.resolve([]),
     fetchElectricityPrices().catch(() => null),
   ]);
 

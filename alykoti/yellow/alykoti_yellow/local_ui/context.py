@@ -7,6 +7,7 @@ from typing import Any, Callable
 _get_state: Callable[[], dict[str, Any]] | None = None
 _execute_command: Callable[[dict[str, Any]], bool] | None = None
 _get_meta: Callable[[], dict[str, Any]] | None = None
+_get_hub_info: Callable[[], dict[str, Any]] | None = None
 
 
 def bind(
@@ -14,11 +15,13 @@ def bind(
     get_state: Callable[[], dict[str, Any]],
     execute_command: Callable[[dict[str, Any]], bool],
     get_meta: Callable[[], dict[str, Any]] | None = None,
+    get_hub_info: Callable[[], dict[str, Any]] | None = None,
 ) -> None:
-    global _get_state, _execute_command, _get_meta
+    global _get_state, _execute_command, _get_meta, _get_hub_info
     _get_state = get_state
     _execute_command = execute_command
     _get_meta = get_meta
+    _get_hub_info = get_hub_info
 
 
 def snapshot_state() -> dict[str, Any]:
@@ -37,3 +40,9 @@ def meta() -> dict[str, Any]:
     if _get_meta is None:
         return {}
     return _get_meta()
+
+
+def hub_info() -> dict[str, Any]:
+    if _get_hub_info is None:
+        return {}
+    return _get_hub_info()

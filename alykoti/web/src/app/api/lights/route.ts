@@ -4,6 +4,7 @@ import { normalizeHomeDevices } from "@/lib/device-normalize";
 import { fetchPrimaryHub } from "@/lib/hubs";
 import { isHubOnline } from "@/lib/device-status";
 import { anchorForLight } from "@/lib/lights-config";
+import { delegateToYellowApi } from "@/lib/local-api-route";
 import { createClient } from "@/lib/supabase/server";
 import { fetchLights, isZigbeeConfigured } from "@/lib/zigbee2mqtt";
 
@@ -11,6 +12,9 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 export async function GET() {
+  const local = await delegateToYellowApi(new Request("http://local"), "/api/lights");
+  if (local) return local;
+
   const supabase = await createClient();
   const {
     data: { user },
