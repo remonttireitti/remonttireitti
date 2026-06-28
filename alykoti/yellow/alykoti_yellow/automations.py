@@ -14,7 +14,8 @@ from typing import Any
 import paho.mqtt.client as mqtt
 
 from alykoti_yellow import config
-from alykoti_yellow.local_cache import load_hub_cache, save_hub_cache
+from alykoti_yellow.local_cache import load_hub_cache
+from alykoti_yellow.local_store import load_local_store
 from alykoti_yellow.mqtt_lights import (
     fetch_zigbee_home,
     _device_topic_name,
@@ -476,14 +477,15 @@ class AutomationEngine:
             time.sleep(DEVICE_REFRESH_SEC)
 
     def start(self) -> None:
-        snap = load_hub_cache()
+        local = load_local_store()
+        snap = local or load_hub_cache()
         if snap:
             self.update_config(
                 snap.get("automations"),
                 snap.get("integrations"),
                 snap.get("home_devices"),
             )
-            log.info("Automaatiot käynnistetty välimuistista")
+            log.info("Automaatiot käynnistetty (%s)", "local/" if local else "välimuisti")
         if self._thread and self._thread.is_alive():
             return
         threading.Thread(

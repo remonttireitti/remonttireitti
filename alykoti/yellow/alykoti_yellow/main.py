@@ -35,7 +35,11 @@ from alykoti_yellow.device_commands import (
 from alykoti_yellow.heating import apply_heating_thermostats
 from alykoti_yellow.automations import get_engine
 from alykoti_yellow.local_cache import load_hub_cache, save_hub_cache
-from alykoti_yellow.supabase_hub import fetch_hub_snapshot
+from alykoti_yellow.local_store import (
+    load_local_store,
+    migrate_cache_to_local,
+    persist_local_snapshot,
+)
 from alykoti_yellow.ventilation_local import (
     collect_ventilation_humidity_pct,
     compute_ventilation_targets,
@@ -479,32 +483,48 @@ def _apply_hub_snapshot(snap: dict) -> None:
         hub_config=cached_hub_config,
         control_mode=cached_control_mode,
     )
+    if cached_automations or cached_integrations:
+        persist_local_snapshot(
+            {
+                "automations": cached_automations,
+                "integrations": cached_integrations,
+                "hub_config": cached_hub_config,
+                "control_mode": cached_control_mode,
+            }
+        )
 
 
-def _bootstrap_from_cache() -> None:
-    snap = load_hub_cache()
-    has_rules = isinstance(snap, dict) and isinstance(snap.get("automations"), list) and len(snap["automations"]) > 0
-    if has_rules:
-        _apply_hub_snapshot(snap)
+def _bootstrap_from_local() -> None:
+    local = load_local_store()
+    if isinstance(local, dict) and isinstance(local.get("automations"), list) and local["automations"]:
+        _apply_hub_snapshot(local)
         log.info(
-            "Käynnistys välimuistista — automaatiot=%s laitteet=%s",
-            len(snap.get("automations") or []),
-            len(snap.get("home_devices") or {}),
+            "Käynnistys paikallisista tiedostoista — automaatiot=%s",
+            len(local["automations"]),
         )
         return
 
-    cloud = fetch_hub_snapshot(config.DEVICE_TOKEN)
-    if cloud:
-        _apply_hub_snapshot(cloud)
-        log.info("Käynnistys Supabasesta — automaatiot=%s", len(cloud.get("automations") or []))
-        return
+    cache = load_hub_cache()
+    if isinstance(cache, dict):
+        autos = cache.get("automations")
+        if not isinstance(autos, list) or not autos:
+            hub_cfg = cache.get("hub_config")
+            if isinstance(hub_cfg, dict) and isinstance(hub_cfg.get("automations"), list):
+                cache = {**cache, "automations": hub_cfg["automations"]}
+        if migrate_cache_to_local(cache):
+            _apply_hub_snapshot(cache)
+            return
+        if isinstance(cache.get("automations"), list) and cache["automations"]:
+            _apply_hub_snapshot(cache)
+            log.info(
+                "Käynnistys välimuistista — automaatiot=%s",
+                len(cache["automations"]),
+            )
+            return
 
-    if isinstance(snap, dict):
-        _apply_hub_snapshot(snap)
-        log.warning(
-            "Käynnistys osittaisella välimuistilla — automaatiot=%s",
-            len(snap.get("automations") or []),
-        )
+    log.warning(
+        "Ei paikallisia automaatioita — lisää local/automations.json tai odota onnistunutta synkkiä"
+    )
 
 
 def apply_local_ventilation(state: dict) -> None:
@@ -860,6 +880,14 @@ def _process_sync_response(
             hub_config=cached_hub_config,
             control_mode=cached_control_mode,
         )
+        persist_local_snapshot(
+            {
+                "automations": cached_automations,
+                "integrations": cached_integrations,
+                "hub_config": cached_hub_config,
+                "control_mode": cached_control_mode,
+            }
+        )
 
     commands = response.get("commands") or []
     cmd_count = _process_commands(commands)
@@ -972,32 +1000,13 @@ def run_loop() -> None:
             )
         else:
             log.warning("Sync skipped")
-            _maybe_refresh_from_supabase()
 
         time.sleep(config.SYNC_INTERVAL_SEC)
 
 
-_last_supabase_refresh = 0.0
-
-
-def _maybe_refresh_from_supabase() -> None:
-    global _last_supabase_refresh
-    if config.SUPABASE_REFRESH_SEC <= 0:
-        return
-    if not config.SUPABASE_URL or not config.SUPABASE_SERVICE_ROLE_KEY:
-        return
-    now = time.monotonic()
-    if now - _last_supabase_refresh < config.SUPABASE_REFRESH_SEC:
-        return
-    _last_supabase_refresh = now
-    cloud = fetch_hub_snapshot(config.DEVICE_TOKEN)
-    if cloud:
-        _apply_hub_snapshot(cloud)
-
-
 def main() -> None:
     airfi_poll_state.reset()
-    _bootstrap_from_cache()
+    _bootstrap_from_local()
     if config.COMMAND_POLL_ENABLED:
         threading.Thread(
             target=run_fast_poll_loop,

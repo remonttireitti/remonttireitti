@@ -36,8 +36,8 @@ COMMAND_POLL_ENABLED = os.environ.get("COMMAND_POLL_ENABLED", "1").strip() in (
 )
 # Shelly EM -päivitys nopeaan komentopollaukseen (s)
 ENERGY_QUICK_POLL_SEC = max(2, int(os.environ.get("ENERGY_QUICK_POLL_SEC", "10")))
-# Suora Supabase-haku kun Vercel on poissa (s), 0 = vain käynnistyksessä
-SUPABASE_REFRESH_SEC = max(0, int(os.environ.get("SUPABASE_REFRESH_SEC", "300")))
+# Suora Supabase-varmuus (valinnainen, oletus pois — käytä local/)
+SUPABASE_REFRESH_SEC = max(0, int(os.environ.get("SUPABASE_REFRESH_SEC", "0")))
 
 AIRFI_MODBUS_HOST = os.environ.get("AIRFI_MODBUS_HOST", "").strip() or None
 AIRFI_MODBUS_PORT = int(os.environ.get("AIRFI_MODBUS_PORT", "502"))

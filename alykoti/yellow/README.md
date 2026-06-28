@@ -74,8 +74,8 @@ Kun Modbus-luku vakaata, aseta `AIRFI_WRITES_ENABLED=1` ja restart.
 | `SYNC_INTERVAL_SEC` | 30 |
 | `COMMAND_POLL_INTERVAL_SEC` | 5 (komennot; aiemmin 1) |
 | `ENERGY_QUICK_POLL_SEC` | 10 (Shelly EM quick syncissä) |
-| `SUPABASE_URL` | Automaatiot suoraan DB:stä (ei Verceliä) |
-| `SUPABASE_SERVICE_ROLE_KEY` | Supabase service_role |
+| `local/automations.json` | Automaatiot — toimii ilman nettiä |
+| `local/integrations.json` | Shelly/Tasmota LAN-konfig |
 | `AIRFI_MODBUS_SERIAL` | RS485-portti |
 | `AIRFI_WRITES_ENABLED` | 0/1 |
 | `MQTT_URL` | `mqtt://127.0.0.1:1883` |
