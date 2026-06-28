@@ -10,7 +10,6 @@ User=ek
 WorkingDirectory=/home/ek/alykoti-yellow/web
 EnvironmentFile=/home/ek/alykoti-yellow/web/.env.local
 Environment=NODE_ENV=production
-ExecStartPre=/usr/bin/npm run build
 ExecStart=/usr/bin/npm run start
 Restart=always
 RestartSec=15

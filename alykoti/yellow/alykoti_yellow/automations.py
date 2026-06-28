@@ -14,7 +14,7 @@ from typing import Any
 import paho.mqtt.client as mqtt
 
 from alykoti_yellow import config
-from alykoti_yellow.local_cache import load_hub_cache
+from alykoti_yellow.local_cache import load_hub_cache, save_hub_cache
 from alykoti_yellow.local_store import load_local_store
 from alykoti_yellow.mqtt_lights import (
     fetch_zigbee_home,

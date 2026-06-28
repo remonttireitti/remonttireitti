@@ -98,7 +98,18 @@ def upload_web_tar(client: paramiko.SSHClient) -> int:
     )
 
 
-def patch_env(client: paramiko.SSHClient) -> None:
+def ensure_node(client: paramiko.SSHClient) -> None:
+    """Asenna Node.js 22 jos npm puuttuu (Nodesource)."""
+    if run(client, "command -v npm >/dev/null") == 0:
+        return
+    print("Asennetaan Node.js...")
+    sudo = f"echo {PASS} | sudo -S" if PASS else "sudo"
+    run(
+        client,
+        f"curl -fsSL https://deb.nodesource.com/setup_22.x | {sudo} bash -",
+        timeout=300,
+    )
+    run(client, f"{sudo} apt-get install -y nodejs", timeout=600)
     """Lisää paikallisen API:n asetukset .env-tiedostoon jos puuttuvat."""
     lines = [
         "LOCAL_API_PORT=3080",
@@ -151,6 +162,8 @@ def main() -> int:
         return 1
 
     patch_env(client)
+
+    ensure_node(client)
 
     run(client, f"cd {REMOTE_WEB} && npm ci 2>/dev/null || npm install", timeout=600)
     run(client, f"cd {REMOTE_WEB} && npm run build", timeout=600)
