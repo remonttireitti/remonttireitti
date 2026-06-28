@@ -74,6 +74,29 @@ def has_local_automations() -> bool:
     return isinstance(automations, list) and len(automations) > 0
 
 
+def has_local_integrations() -> bool:
+    integrations = _read_json(INTEGRATIONS_FILE)
+    if not isinstance(integrations, dict) or not integrations:
+        return False
+    for key in ("shelly", "tasmota", "airthings"):
+        block = integrations.get(key)
+        if isinstance(block, dict) and block.get("devices"):
+            return True
+    return False
+
+
+def _snapshot_has_data(snap: dict[str, Any]) -> bool:
+    if isinstance(snap.get("integrations"), dict) and snap["integrations"]:
+        return True
+    if isinstance(snap.get("automations"), list) and snap["automations"]:
+        return True
+    if isinstance(snap.get("hub_config"), dict) and snap["hub_config"]:
+        return True
+    if isinstance(snap.get("home_devices"), dict) and snap["home_devices"]:
+        return True
+    return False
+
+
 def persist_local_snapshot(snap: dict[str, Any]) -> None:
     """Tallenna pilvestä/synkistä saatu config paikallisiin tiedostoihin."""
     automations = snap.get("automations")
@@ -96,7 +119,7 @@ def persist_local_snapshot(snap: dict[str, Any]) -> None:
 
 def migrate_cache_to_local(cache: dict[str, Any]) -> bool:
     """Siirrä vanha .hub_cache.json → local/ kerran."""
-    if has_local_automations():
+    if has_local_automations() or has_local_integrations():
         return False
     automations = cache.get("automations")
     if not isinstance(automations, list) or not automations:
@@ -104,8 +127,8 @@ def migrate_cache_to_local(cache: dict[str, Any]) -> bool:
         if isinstance(hub_config, dict) and isinstance(hub_config.get("automations"), list):
             automations = hub_config["automations"]
             cache = {**cache, "automations": automations}
-    if not isinstance(automations, list) or not automations:
+    if not _snapshot_has_data(cache):
         return False
     persist_local_snapshot(cache)
-    log.info("Automaatiot siirretty välimuistista → local/")
+    log.info("Hub-data siirretty välimuistista → local/")
     return True

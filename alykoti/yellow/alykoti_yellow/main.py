@@ -39,6 +39,7 @@ from alykoti_yellow.local_store import (
     load_local_store,
     migrate_cache_to_local,
     persist_local_snapshot,
+    _snapshot_has_data,
 )
 from alykoti_yellow.ventilation_local import (
     collect_ventilation_humidity_pct,
@@ -484,7 +485,7 @@ def _apply_hub_snapshot(snap: dict) -> None:
         hub_config=cached_hub_config,
         control_mode=cached_control_mode,
     )
-    if cached_automations or cached_integrations:
+    if cached_automations or cached_integrations or cached_hub_config:
         persist_local_snapshot(
             {
                 "automations": cached_automations,
@@ -497,11 +498,12 @@ def _apply_hub_snapshot(snap: dict) -> None:
 
 def _bootstrap_from_local() -> None:
     local = load_local_store()
-    if isinstance(local, dict) and isinstance(local.get("automations"), list) and local["automations"]:
+    if isinstance(local, dict) and _snapshot_has_data(local):
         _apply_hub_snapshot(local)
         log.info(
-            "Käynnistys paikallisista tiedostoista — automaatiot=%s",
-            len(local["automations"]),
+            "Käynnistys paikallisista tiedostoista — automaatiot=%s integraatiot=%s",
+            len(local.get("automations") or []),
+            list((local.get("integrations") or {}).keys()),
         )
         return
 
@@ -515,16 +517,39 @@ def _bootstrap_from_local() -> None:
         if migrate_cache_to_local(cache):
             _apply_hub_snapshot(cache)
             return
-        if isinstance(cache.get("automations"), list) and cache["automations"]:
+        if _snapshot_has_data(cache):
             _apply_hub_snapshot(cache)
             log.info(
-                "Käynnistys välimuistista — automaatiot=%s",
-                len(cache["automations"]),
+                "Käynnistys välimuistista — automaatiot=%s integraatiot=%s",
+                len(cache.get("automations") or []),
+                list((cache.get("integrations") or {}).keys()),
             )
             return
 
+    _try_supabase_bootstrap()
+    if cached_integrations:
+        return
+
     log.warning(
-        "Ei paikallisia automaatioita — lisää local/automations.json tai odota onnistunutta synkkiä"
+        "Ei paikallisia integraatioita — lisää local/integrations.json tai SUPABASE_SERVICE_ROLE_KEY .env:iin"
+    )
+
+
+def _try_supabase_bootstrap() -> None:
+    if cached_integrations.get("shelly", {}).get("devices"):
+        return
+    if not config.SUPABASE_SERVICE_ROLE_KEY:
+        return
+    from alykoti_yellow.supabase_hub import fetch_hub_snapshot
+
+    snap = fetch_hub_snapshot(config.DEVICE_TOKEN)
+    if not isinstance(snap, dict) or not _snapshot_has_data(snap):
+        return
+    _apply_hub_snapshot(snap)
+    log.info(
+        "Supabase bootstrap — automaatiot=%s integraatiot=%s",
+        len(snap.get("automations") or []),
+        list((snap.get("integrations") or {}).keys()),
     )
 
 
