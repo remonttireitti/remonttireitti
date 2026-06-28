@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Älykoti — paikallinen ohjaus</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0f1419;
+      --card: #1a2332;
+      --border: #2a3544;
+      --text: #e8eef4;
+      --muted: #8b9cb3;
+      --accent: #3b82f6;
+      --ok: #22c55e;
+      --warn: #f59e0b;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, Segoe UI, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.4;
+    }
+    header {
+      padding: 1rem 1.25rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem 1.5rem;
+      align-items: center;
+      justify-content: space-between;
+    }
+    h1 { margin: 0; font-size: 1.15rem; font-weight: 600; }
+    .badges { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+    .badge {
+      font-size: 0.75rem;
+      padding: 0.2rem 0.55rem;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      color: var(--muted);
+    }
+    .badge.ok { border-color: #166534; color: #86efac; }
+    .badge.warn { border-color: #92400e; color: #fcd34d; }
+    main { padding: 1rem 1.25rem 2rem; max-width: 960px; margin: 0 auto; }
+    .hint { color: var(--muted); font-size: 0.85rem; margin: 0 0 1rem; }
+    .tabs { display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap; }
+    .tab {
+      background: var(--card);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 0.4rem 0.85rem;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    .tab.active { border-color: var(--accent); color: #fff; }
+    .grid { display: grid; gap: 0.65rem; }
+    .device {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 0.75rem 1rem;
+    }
+    .device.offline { opacity: 0.55; }
+    .meta { min-width: 0; }
+    .name { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .sub { font-size: 0.78rem; color: var(--muted); }
+    button.toggle {
+      flex-shrink: 0;
+      min-width: 4.5rem;
+      border: none;
+      border-radius: 8px;
+      padding: 0.45rem 0.75rem;
+      font-weight: 600;
+      cursor: pointer;
+      background: #334155;
+      color: #fff;
+    }
+    button.toggle.on { background: var(--accent); }
+    button.toggle:disabled { opacity: 0.5; cursor: wait; }
+    .empty { color: var(--muted); padding: 2rem 0; text-align: center; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Älykoti · paikallinen</h1>
+    <div class="badges" id="badges"></div>
+  </header>
+  <main>
+    <p class="hint">
+      Ohjaus toimii kotiverkossa ilman internetiä. Pilvi-UI (
+      <a href="https://alykoti.vercel.app" target="_blank" rel="noopener">alykoti.vercel.app</a>
+      ) täydentää kun se on käytettävissä.
+    </p>
+    <div class="tabs" id="tabs"></div>
+    <div class="grid" id="grid"></div>
+    <p class="empty" id="empty" hidden>Ei laitteita tässä ryhmässä.</p>
+  </main>
+  <script>
+    const POLL_MS = 8000;
+    let devices = [];
+    let activeTab = "lights";
+    let status = {};
+
+    const TAB_LABELS = {
+      lights: "Valot",
+      switches: "Kytkimet",
+      locks: "Lukot",
+      sensors: "Anturit",
+      other: "Muut",
+    };
+
+    async function loadStatus() {
+      const res = await fetch("/api/status", { cache: "no-store" });
+      status = await res.json();
+      const b = document.getElementById("badges");
+      b.innerHTML = "";
+      const add = (label, ok) => {
+        const s = document.createElement("span");
+        s.className = "badge " + (ok ? "ok" : "warn");
+        s.textContent = label;
+        b.appendChild(s);
+      };
+      add("Yellow online", true);
+      add("AirFi " + (status.airfi_online ? "OK" : "—"), !!status.airfi_online);
+      add("Automaatiot " + (status.automation_count ?? 0), (status.automation_count ?? 0) > 0);
+      add("Pilvisynkki " + (status.cloud_sync_ok ? "OK" : "pois"), !!status.cloud_sync_ok);
+    }
+
+    async function loadDevices() {
+      const res = await fetch("/api/lights", { cache: "no-store" });
+      const body = await res.json();
+      devices = body.devices || [];
+      renderTabs(body);
+      renderGrid();
+    }
+
+    function renderTabs(body) {
+      const tabs = document.getElementById("tabs");
+      tabs.innerHTML = "";
+      for (const key of Object.keys(TAB_LABELS)) {
+        const count = (body[key] || []).length;
+        if (count === 0 && key !== activeTab) continue;
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "tab" + (key === activeTab ? " active" : "");
+        btn.textContent = TAB_LABELS[key] + " (" + count + ")";
+        btn.onclick = () => { activeTab = key; renderTabs(body); renderGrid(); };
+        tabs.appendChild(btn);
+      }
+    }
+
+    function renderGrid() {
+      const grid = document.getElementById("grid");
+      const empty = document.getElementById("empty");
+      const list = devices.filter((d) => {
+        if (activeTab === "lights") return d.kind === "light";
+        if (activeTab === "switches") return d.kind === "switch";
+        if (activeTab === "locks") return d.kind === "lock";
+        if (activeTab === "sensors") return d.kind === "sensor";
+        return !["light", "switch", "lock", "sensor"].includes(d.kind);
+      });
+      grid.innerHTML = "";
+      empty.hidden = list.length > 0;
+      for (const dev of list) {
+        const row = document.createElement("div");
+        row.className = "device" + (dev.reachable === false ? " offline" : "");
+        const meta = document.createElement("div");
+        meta.className = "meta";
+        meta.innerHTML =
+          '<div class="name">' + escapeHtml(dev.name) + "</div>" +
+          '<div class="sub">' + escapeHtml(dev.protocol) + " · " + escapeHtml(dev.id) + "</div>";
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "toggle" + (dev.on ? " on" : "");
+        btn.textContent = dev.on ? "Päällä" : "Pois";
+        btn.disabled = !dev.controllable;
+        if (dev.controllable) {
+          btn.onclick = () => toggle(dev, btn);
+        }
+        row.append(meta, btn);
+        grid.appendChild(row);
+      }
+    }
+
+    async function toggle(dev, btn) {
+      const next = !dev.on;
+      btn.disabled = true;
+      try {
+        const res = await fetch("/api/lights/control", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: dev.id, on: next }),
+        });
+        const body = await res.json();
+        if (body.ok) {
+          dev.on = next;
+          btn.className = "toggle" + (next ? " on" : "");
+          btn.textContent = next ? "Päällä" : "Pois";
+        }
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    function escapeHtml(s) {
+      return String(s)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    async function tick() {
+      try {
+        await Promise.all([loadStatus(), loadDevices()]);
+      } catch (e) {
+        console.warn(e);
+      }
+    }
+
+    tick();
+    setInterval(tick, POLL_MS);
+  </script>
+</body>
+</html>

@@ -1,5 +1,5 @@
 [Unit]
-Description=Alykoti Yellow hub sync (Modbus + MQTT → Vercel)
+Description=Alykoti Yellow — paikallinen ohjaus + synkki (Modbus + MQTT)
 After=network-online.target docker.service
 Wants=network-online.target
 

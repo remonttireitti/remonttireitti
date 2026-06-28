@@ -46,6 +46,8 @@ print(read_airfi('/dev/ttyAMA2', 9600, 1))
 
 ## 4. Käynnistä synkki
 
+Paikallinen ohjauspaneeli käynnistyy automaattisesti: **http://192.168.50.108:3001/** (korvaa Pi:n IP).
+
 ```bash
 source .venv/bin/activate
 python -m alykoti_yellow.main
@@ -76,6 +78,8 @@ Kun Modbus-luku vakaata, aseta `AIRFI_WRITES_ENABLED=1` ja restart.
 | `ENERGY_QUICK_POLL_SEC` | 10 (Shelly EM quick syncissä) |
 | `local/automations.json` | Automaatiot — toimii ilman nettiä |
 | `local/integrations.json` | Shelly/Tasmota LAN-konfig |
+| `LOCAL_UI_ENABLED` | 1 = paikallinen web-UI käyntiin |
+| `LOCAL_UI_PORT` | 3001 (http://\<pi-ip\>:3001/) |
 | `AIRFI_MODBUS_SERIAL` | RS485-portti |
 | `AIRFI_WRITES_ENABLED` | 0/1 |
 | `MQTT_URL` | `mqtt://127.0.0.1:1883` |

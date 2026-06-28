@@ -72,6 +72,7 @@ log = logging.getLogger("alykoti-yellow")
 pending_acks: list[str] = []
 pending_fails: list[dict[str, str]] = []
 _sync_lock = threading.RLock()
+_last_cloud_sync_ok: float | None = None
 _feedback_lock = threading.Lock()
 _executed_cmd_ids: dict[str, float] = {}
 cached_integrations: dict = {}
@@ -982,6 +983,8 @@ def run_loop() -> None:
         )
 
         if response:
+            global _last_cloud_sync_ok
+            _last_cloud_sync_ok = time.monotonic()
             cached_hub_state = state
             _process_sync_response(response, state, update_engine=True, apply_vent=True)
             devices = state.get("home_devices") or {}
@@ -1004,9 +1007,46 @@ def run_loop() -> None:
         time.sleep(config.SYNC_INTERVAL_SEC)
 
 
+def _local_ui_state() -> dict:
+    state = build_state(
+        cached_integrations,
+        cached_shelly_discovered,
+        cached_tasmota_discovered,
+    )
+    return {**cached_hub_state, **state}
+
+
+def _local_ui_meta() -> dict:
+    cloud_ok = (
+        _last_cloud_sync_ok is not None
+        and time.monotonic() - _last_cloud_sync_ok < config.SYNC_INTERVAL_SEC * 2.5
+    )
+    return {
+        "automation_count": len(cached_automations),
+        "cloud_sync_ok": cloud_ok,
+    }
+
+
+def _local_execute_command(cmd: dict) -> bool:
+    return execute_command({"id": "local-ui", **cmd})
+
+
+def _start_local_ui() -> None:
+    from alykoti_yellow.local_ui import context as local_ui_context
+    from alykoti_yellow.local_ui.server import start_local_ui
+
+    local_ui_context.bind(
+        get_state=_local_ui_state,
+        execute_command=_local_execute_command,
+        get_meta=_local_ui_meta,
+    )
+    start_local_ui()
+
+
 def main() -> None:
     airfi_poll_state.reset()
     _bootstrap_from_local()
+    _start_local_ui()
     if config.COMMAND_POLL_ENABLED:
         threading.Thread(
             target=run_fast_poll_loop,

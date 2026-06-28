@@ -64,6 +64,11 @@ ZWAVE_NODES_JSON = os.environ.get(
 ).strip()
 ZWAVE_GATEWAY = os.environ.get("ZWAVE_GATEWAY_NAME", "Mosquitto").strip()
 
+# Paikallinen web-ohjauspaneeli (LAN)
+LOCAL_UI_ENABLED = os.environ.get("LOCAL_UI_ENABLED", "1").strip() in ("1", "true", "yes")
+LOCAL_UI_HOST = os.environ.get("LOCAL_UI_HOST", "0.0.0.0").strip() or "0.0.0.0"
+LOCAL_UI_PORT = max(1024, int(os.environ.get("LOCAL_UI_PORT", "3001")))
+
 FIRMWARE_VERSION = "yellow-1.2.0"
 
 
