@@ -4,7 +4,7 @@ import { deleteHub } from "@/app/actions/hubs";
 import { isHubOnline } from "@/lib/device-status";
 import { fetchHub, formatLastSeen } from "@/lib/hubs";
 import { LAITTEET } from "@/lib/laitteet-paths";
-import { createClient } from "@/lib/supabase/server";
+import { getSessionSupabase, getSessionUser } from "@/lib/local-session";
 
 function isOnline(lastSeen: string | null): boolean {
   return isHubOnline(lastSeen);
@@ -15,11 +15,9 @@ export default async function LaitteetHubDetailPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getSessionUser();
   if (!user) redirect("/login");
+  const supabase = await getSessionSupabase();
 
   const { id } = await params;
   const hub = await fetchHub(supabase, id, user.id);

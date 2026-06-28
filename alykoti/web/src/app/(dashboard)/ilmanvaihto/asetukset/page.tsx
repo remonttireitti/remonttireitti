@@ -6,14 +6,12 @@ import { CommandStatusProvider } from "@/components/command-status-provider";
 import { DeviceOfflineAlert } from "@/components/device-offline-alert";
 import { VentilationControls } from "@/components/ventilation-controls";
 import { fetchPrimaryHub } from "@/lib/hubs";
-import { createClient } from "@/lib/supabase/server";
+import { getSessionSupabase, getSessionUser } from "@/lib/local-session";
 
 export default async function VentilationSettingsPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getSessionUser();
   if (!user) redirect("/login");
+  const supabase = await getSessionSupabase();
 
   const hub = await fetchPrimaryHub(supabase, user.id);
   if (!hub) notFound();

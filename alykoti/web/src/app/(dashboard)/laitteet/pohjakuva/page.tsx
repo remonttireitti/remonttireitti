@@ -4,17 +4,15 @@ import { normalizeHomeDevices } from "@/lib/device-normalize";
 import type { FloorPlanPin } from "@/lib/floor-plan-pins";
 import { fetchPrimaryHub } from "@/lib/hubs";
 import type { HubState } from "@/lib/types";
-import { createClient } from "@/lib/supabase/server";
+import { getSessionSupabase, getSessionUser } from "@/lib/local-session";
 import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
 export default async function PohjakuvaPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getSessionUser();
   if (!user) redirect("/login");
+  const supabase = await getSessionSupabase();
 
   const hub = await fetchPrimaryHub(supabase, user.id);
   if (!hub) {

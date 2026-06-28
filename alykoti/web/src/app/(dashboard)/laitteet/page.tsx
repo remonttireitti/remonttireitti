@@ -5,7 +5,7 @@ import { normalizeHomeDevices } from "@/lib/device-normalize";
 import { parseHubHomeDevices } from "@/lib/hub-lights";
 import { fetchPrimaryHub } from "@/lib/hubs";
 import { LAITTEET } from "@/lib/laitteet-paths";
-import { createClient } from "@/lib/supabase/server";
+import { getSessionSupabase, getSessionUser } from "@/lib/local-session";
 
 const INTEGRATIONS = [
   {
@@ -47,10 +47,8 @@ const INTEGRATIONS = [
 ] as const;
 
 export default async function LaitteetOverviewPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getSessionUser();
+  const supabase = await getSessionSupabase();
 
   const hub = user ? await fetchPrimaryHub(supabase, user.id) : null;
   const hubOnline = hub ? isHubOnline(hub.last_seen_at) : false;

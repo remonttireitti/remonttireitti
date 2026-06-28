@@ -3,7 +3,7 @@ import { RegisterHubForm } from "@/components/register-hub-form";
 import { isHubOnline } from "@/lib/device-status";
 import { fetchHubs, formatLastSeen } from "@/lib/hubs";
 import { LAITTEET } from "@/lib/laitteet-paths";
-import { createClient } from "@/lib/supabase/server";
+import { getSessionSupabase, getSessionUser } from "@/lib/local-session";
 import type { Hub } from "@/lib/types";
 
 function isMissingSchemaError(error: unknown): boolean {
@@ -20,10 +20,8 @@ function isOnline(hub: Hub): boolean {
 }
 
 export default async function LaitteetKeskusyksikkoPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getSessionUser();
+  const supabase = await getSessionSupabase();
 
   let hubs: Hub[] = [];
   let setupError: string | null = null;

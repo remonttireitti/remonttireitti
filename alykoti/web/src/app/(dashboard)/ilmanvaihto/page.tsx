@@ -4,7 +4,7 @@ import { AirfiStatusPanel } from "@/components/airfi-status-panel";
 import { VentilationDiagram } from "@/components/ventilation-diagram";
 import { fetchPrimaryHub } from "@/lib/hubs";
 import { LAITTEET } from "@/lib/laitteet-paths";
-import { createClient } from "@/lib/supabase/server";
+import { getSessionSupabase, getSessionUser } from "@/lib/local-session";
 
 function isMissingSchemaError(error: unknown): boolean {
   if (!error || typeof error !== "object") return false;
@@ -17,11 +17,9 @@ function isMissingSchemaError(error: unknown): boolean {
 }
 
 export default async function VentilationPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getSessionUser();
   if (!user) redirect("/login");
+  const supabase = await getSessionSupabase();
 
   let setupError: string | null = null;
   let hub = null;
