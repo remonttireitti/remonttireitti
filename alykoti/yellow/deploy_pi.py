@@ -110,6 +110,9 @@ def ensure_node(client: paramiko.SSHClient) -> None:
         timeout=300,
     )
     run(client, f"{sudo} apt-get install -y nodejs", timeout=600)
+
+
+def patch_env(client: paramiko.SSHClient) -> None:
     """Lisää paikallisen API:n asetukset .env-tiedostoon jos puuttuvat."""
     lines = [
         "LOCAL_API_PORT=3080",
