@@ -19,6 +19,8 @@ def _load_dotenv(path: Path) -> None:
 _load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
 DEVICE_TOKEN = os.environ.get("ALYKOTI_DEVICE_TOKEN", "").strip()
+SUPABASE_URL = os.environ.get("NEXT_PUBLIC_SUPABASE_URL", os.environ.get("SUPABASE_URL", "")).strip()
+SUPABASE_SERVICE_ROLE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "").strip()
 SYNC_URL = os.environ.get(
     "ALYKOTI_SYNC_URL", "https://alykoti.vercel.app/api/device/sync"
 ).strip()
@@ -34,6 +36,8 @@ COMMAND_POLL_ENABLED = os.environ.get("COMMAND_POLL_ENABLED", "1").strip() in (
 )
 # Shelly EM -päivitys nopeaan komentopollaukseen (s)
 ENERGY_QUICK_POLL_SEC = max(2, int(os.environ.get("ENERGY_QUICK_POLL_SEC", "10")))
+# Suora Supabase-haku kun Vercel on poissa (s), 0 = vain käynnistyksessä
+SUPABASE_REFRESH_SEC = max(0, int(os.environ.get("SUPABASE_REFRESH_SEC", "300")))
 
 AIRFI_MODBUS_HOST = os.environ.get("AIRFI_MODBUS_HOST", "").strip() or None
 AIRFI_MODBUS_PORT = int(os.environ.get("AIRFI_MODBUS_PORT", "502"))

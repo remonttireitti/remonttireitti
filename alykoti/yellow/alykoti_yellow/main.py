@@ -35,6 +35,7 @@ from alykoti_yellow.device_commands import (
 from alykoti_yellow.heating import apply_heating_thermostats
 from alykoti_yellow.automations import get_engine
 from alykoti_yellow.local_cache import load_hub_cache, save_hub_cache
+from alykoti_yellow.supabase_hub import fetch_hub_snapshot
 from alykoti_yellow.ventilation_local import (
     collect_ventilation_humidity_pct,
     compute_ventilation_targets,
@@ -455,11 +456,9 @@ def _try_recover_stuck_airfi_emergency(state: dict) -> bool:
     return ok
 
 
-def _bootstrap_from_cache() -> None:
+def _apply_hub_snapshot(snap: dict) -> None:
     global cached_automations, cached_integrations, cached_hub_config, cached_control_mode, cached_hub_state
-    snap = load_hub_cache()
-    if not snap:
-        return
+
     if isinstance(snap.get("automations"), list):
         cached_automations = snap["automations"]
     if isinstance(snap.get("integrations"), dict):
@@ -470,16 +469,42 @@ def _bootstrap_from_cache() -> None:
         cached_control_mode = snap["control_mode"]
     if isinstance(snap.get("home_devices"), dict):
         cached_hub_state = {"home_devices": snap["home_devices"]}
-    get_engine().update_config(
-        cached_automations,
-        cached_integrations,
-        snap.get("home_devices") if isinstance(snap.get("home_devices"), dict) else None,
+
+    home = snap.get("home_devices") if isinstance(snap.get("home_devices"), dict) else None
+    get_engine().update_config(cached_automations, cached_integrations, home)
+    save_hub_cache(
+        automations=cached_automations,
+        integrations=cached_integrations,
+        home_devices=home,
+        hub_config=cached_hub_config,
+        control_mode=cached_control_mode,
     )
-    log.info(
-        "Käynnistys välimuistista — automaatiot=%s laitteet=%s",
-        len(cached_automations),
-        len(snap.get("home_devices") or {}),
-    )
+
+
+def _bootstrap_from_cache() -> None:
+    snap = load_hub_cache()
+    has_rules = isinstance(snap, dict) and isinstance(snap.get("automations"), list) and len(snap["automations"]) > 0
+    if has_rules:
+        _apply_hub_snapshot(snap)
+        log.info(
+            "Käynnistys välimuistista — automaatiot=%s laitteet=%s",
+            len(snap.get("automations") or []),
+            len(snap.get("home_devices") or {}),
+        )
+        return
+
+    cloud = fetch_hub_snapshot(config.DEVICE_TOKEN)
+    if cloud:
+        _apply_hub_snapshot(cloud)
+        log.info("Käynnistys Supabasesta — automaatiot=%s", len(cloud.get("automations") or []))
+        return
+
+    if isinstance(snap, dict):
+        _apply_hub_snapshot(snap)
+        log.warning(
+            "Käynnistys osittaisella välimuistilla — automaatiot=%s",
+            len(snap.get("automations") or []),
+        )
 
 
 def apply_local_ventilation(state: dict) -> None:
@@ -947,8 +972,27 @@ def run_loop() -> None:
             )
         else:
             log.warning("Sync skipped")
+            _maybe_refresh_from_supabase()
 
         time.sleep(config.SYNC_INTERVAL_SEC)
+
+
+_last_supabase_refresh = 0.0
+
+
+def _maybe_refresh_from_supabase() -> None:
+    global _last_supabase_refresh
+    if config.SUPABASE_REFRESH_SEC <= 0:
+        return
+    if not config.SUPABASE_URL or not config.SUPABASE_SERVICE_ROLE_KEY:
+        return
+    now = time.monotonic()
+    if now - _last_supabase_refresh < config.SUPABASE_REFRESH_SEC:
+        return
+    _last_supabase_refresh = now
+    cloud = fetch_hub_snapshot(config.DEVICE_TOKEN)
+    if cloud:
+        _apply_hub_snapshot(cloud)
 
 
 def main() -> None:
