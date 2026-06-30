@@ -1,0 +1,12 @@
+# Paikallinen preview: kopioi .dev.vars ja täytä arvot (ei commitoida).
+NEXTJS_ENV=development
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
+NEXT_PUBLIC_SITE_URL=http://localhost:8787
+RESEND_API_KEY=
+EMAIL_FROM=Remonttireitti <noreply@remonttireitti.fi>
+CRON_SECRET=
+BOOTSTRAP_ADMIN_EMAIL=
+ADMIN_NOTIFY_EMAIL=
+PLATFORM_FEE_BETA_FREE_DEALS=3

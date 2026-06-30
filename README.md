@@ -45,6 +45,37 @@ Ilmoitukset lähetetään [Resend](https://resend.com)-palvelulla. Ilman avainta
 
 Vahvista lähettäjädomain Resendissä (DNS-tietueet). Kehityksessä Resend voi lähettää vain vahvistettuihin osoitteisiin.
 
+### Tuotanto: Cloudflare Workers (OpenNext)
+
+Sovellus ajetaan [Cloudflare Workers](https://developers.cloudflare.com/workers/)-alustalla `@opennextjs/cloudflare` -adapterilla.
+
+**Paikallinen esikatselu:**
+
+```powershell
+copy .dev.vars.example .dev.vars
+# täytä .dev.vars
+npm run preview
+```
+
+**Deploy:**
+
+```powershell
+# Build lukee .env.local / ympäristömuuttujat (NEXT_PUBLIC_*)
+npm run deploy
+```
+
+**Salaisuudet tuotantoon** (Wrangler):
+
+```powershell
+npx wrangler secret bulk .env.production.secrets
+```
+
+Tiedostoon vain server-side avaimet (`SUPABASE_SERVICE_ROLE_KEY`, `RESEND_API_KEY`, `CRON_SECRET`, …). `NEXT_PUBLIC_*` tulee buildin aikana.
+
+**Domain:** `wrangler.jsonc` reitittää `remonttireitti.fi` → worker. Vaihda domainin nameserverit Cloudflareen ja kopioi DNS-tietueet (MX, Resend DKIM, Google verification).
+
+**Cron-ajot:** Vercel-cronin korvasi GitHub Actions (`.github/workflows/cron.yml`). Aseta repoon `CRON_SECRET` (secret) ja `SITE_URL=https://remonttireitti.fi` (variable).
+
 ### 3. Aja tietokantamigraatio
 
 **Vaihtoehto A — Supabase Dashboard**

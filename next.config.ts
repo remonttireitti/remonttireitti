@@ -30,6 +30,12 @@ const nextConfig: NextConfig = {
         destination: "/favicon.ico",
         permanent: true,
       },
+      {
+        source: "/:path*",
+        has: [{ type: "host", value: "www.remonttireitti.fi" }],
+        destination: "https://remonttireitti.fi/:path*",
+        permanent: true,
+      },
     ];
   },
   async headers() {
@@ -57,3 +63,5 @@ const nextConfig: NextConfig = {
 };
 
 export default nextConfig;
+
+import('@opennextjs/cloudflare').then(m => m.initOpenNextCloudflareForDev());
