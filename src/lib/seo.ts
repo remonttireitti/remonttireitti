@@ -37,7 +37,7 @@ const defaultKeywords = mergeKeywords(SITE_KEYWORDS, [
   "remonttitori",
 ]);
 
-const defaultOgImage = "/opengraph-image";
+const defaultOgImage = "/opengraph-image.png";
 
 /** Juuri-layoutin metadata (metadataBase, OG-oletukset). */
 export const rootMetadata: Metadata = {
