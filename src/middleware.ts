@@ -7,7 +7,7 @@ export async function middleware(request: NextRequest) {
   const host = request.headers.get("host")?.split(":")[0]?.toLowerCase();
   const { pathname } = request.nextUrl;
 
-  // Cloudflare redirect rule typo: www → https://remonttireitti.fi/:path*
+  // Fallback for cached bad redirect (next.config used to send /:path* literally).
   if (pathname === "/:path*" || pathname.startsWith("/:path")) {
     return NextResponse.redirect("https://remonttireitti.fi/", 301);
   }
