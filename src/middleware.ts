@@ -5,18 +5,19 @@ const SITE_HOST = "remonttireitti.fi";
 
 export async function middleware(request: NextRequest) {
   const host = request.headers.get("host")?.split(":")[0]?.toLowerCase();
-  const { pathname, search } = request.nextUrl;
+  const { pathname } = request.nextUrl;
 
   // Cloudflare redirect rule typo: www → https://remonttireitti.fi/:path*
   if (pathname === "/:path*" || pathname.startsWith("/:path")) {
-    return NextResponse.redirect(new URL(`https://${SITE_HOST}/`), 301);
+    return NextResponse.redirect("https://remonttireitti.fi/", 301);
   }
 
   if (host === `www.${SITE_HOST}`) {
-    return NextResponse.redirect(
-      new URL(`${pathname}${search}`, `https://${SITE_HOST}`),
-      301,
-    );
+    const url = request.nextUrl.clone();
+    url.protocol = "https:";
+    url.hostname = SITE_HOST;
+    url.port = "";
+    return NextResponse.redirect(url, 301);
   }
 
   return updateSession(request);
