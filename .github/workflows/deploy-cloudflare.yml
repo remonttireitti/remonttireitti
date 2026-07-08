@@ -27,6 +27,7 @@ jobs:
         run: npm ci
 
       - name: Upload worker secrets
+        continue-on-error: true
         run: |
           printf '%s\n' \
             "SUPABASE_SERVICE_ROLE_KEY=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
