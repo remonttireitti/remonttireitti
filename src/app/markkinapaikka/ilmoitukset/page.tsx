@@ -8,8 +8,8 @@ import { ListingCardGrid } from "@/components/marketplace/listing-card-grid";
 import { ListingCategoryFilter } from "@/components/marketplace/listing-category-filter";
 import {
   ListingKindFilter,
-  listingKindFromUrlParam,
 } from "@/components/marketplace/listing-kind-filter";
+import { listingKindFromUrlParam } from "@/lib/marketplace-listings";
 import { fetchPublishedListings } from "@/lib/marketplace-listings-server";
 import {
   getListingCategory,

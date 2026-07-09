@@ -24,6 +24,14 @@ export const PUMP_TYPE_OPTIONS = MARKETPLACE_DEVICE_TYPE_OPTIONS.filter(
 
 export type EquipmentListingKind = "sell" | "wanted";
 
+export function listingKindFromUrlParam(
+  value: string | undefined,
+): EquipmentListingKind | null {
+  if (value === "ostopyynto") return "wanted";
+  if (value === "myynti") return "sell";
+  return null;
+}
+
 export type ListingFormInput = {
   listing_kind: EquipmentListingKind;
   product_category: ListingProductCategory;

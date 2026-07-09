@@ -60,11 +60,3 @@ function KindChip({
     </Link>
   );
 }
-
-export function listingKindFromUrlParam(
-  value: string | undefined,
-): EquipmentListingKind | null {
-  if (value === "ostopyynto") return "wanted";
-  if (value === "myynti") return "sell";
-  return null;
-}
