@@ -34,17 +34,17 @@ cards:
       style:
         hui-grid-card$:
           power-gauge-card$: >
-            .title { font-size: 13px !important; font-weight: 700 !important; }
-            .subtitle { font-size: 8px !important; font-weight: 600 !important; }
-            .value { font-size: 24px !important; font-weight: 700 !important; }
-            .unit-inline { font-size: 11px !important; font-weight: 600 !important; }
-            .label-now { font-size: 7px !important; font-weight: 700 !important; }
-            .unit { font-size: 8px !important; font-weight: 600 !important; }
-            .status { font-size: 8px !important; font-weight: 600 !important; }
+            .title { font-size: 10px !important; font-weight: 700 !important; }
+            .subtitle { font-size: 7px !important; font-weight: 600 !important; }
+            .value { font-size: 15px !important; font-weight: 700 !important; }
+            .unit-inline { font-size: 8px !important; font-weight: 600 !important; }
+            .label-now { font-size: 6px !important; font-weight: 700 !important; }
+            .unit { font-size: 7px !important; font-weight: 600 !important; }
+            .status { font-size: 7px !important; font-weight: 600 !important; }
             .status b { font-weight: 700 !important; }
-            .panel { padding: 10px 8px 8px !important; }
-            .stage { margin: 2px 0 !important; }
-            .gauge { max-width: 220px !important; }
+            .panel { padding: 6px 4px 4px !important; }
+            .stage { margin: 0 !important; }
+            .gauge { max-width: 140px !important; }
         .: >
           ha-card { background: none !important; box-shadow: none !important; border: none !important; }
     card:
