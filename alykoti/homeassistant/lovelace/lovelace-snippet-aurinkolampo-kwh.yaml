@@ -1,0 +1,37 @@
+# Lisää nämä chipit olemassa olevaan mushroom-chips-card -riviin
+# (heti sensor.aurinkolampo_teho_kw -chipin jälkeen):
+#
+#   - type: template
+#     icon: mdi:solar-power
+#     content: >-
+#       Tänään {{ states('sensor.aurinkolampo_tuotto_tanaan') | float(0) | round(1) }} kWh
+#     tap_action:
+#       action: more-info
+#       entity: sensor.aurinkolampo_tuotto_tanaan
+#   - type: template
+#     icon: mdi:calendar-clock
+#     content: >-
+#       Eilen {{ states('sensor.aurinkolampo_tuotto_eilen') | float(0) | round(1) }} kWh
+#     tap_action:
+#       action: more-info
+#       entity: sensor.aurinkolampo_tuotto_eilen
+#   - type: template
+#     icon: mdi:calendar-week
+#     content: >-
+#       Vko {{ states('sensor.aurinkolampo_tuotto_viikko') | float(0) | round(1) }} kWh
+#     tap_action:
+#       action: more-info
+#       entity: sensor.aurinkolampo_tuotto_viikko
+#
+# Vaihtoehtoinen yhteenvetokortti (lisää gauge-rivin alle tai chip-rivin yläpuolelle):
+
+type: custom:mushroom-template-card
+layout: horizontal
+fill_container: true
+primary: "☀️ Aurinkolämpö"
+secondary: "{{ states('sensor.aurinkolampo_tuotto_teksti') }}"
+icon: mdi:solar-power-variant
+icon_color: amber
+tap_action:
+  action: more-info
+  entity: sensor.aurinkolampo_tuotto_tanaan

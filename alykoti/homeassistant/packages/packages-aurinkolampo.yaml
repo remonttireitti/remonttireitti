@@ -1,0 +1,66 @@
+# packages-aurinkolampo.yaml
+# Aurinkolämmön energiaseuranta (kWh) sensor.aurinkolampo_teho_kw → integraatio → päivämittari.
+#
+# Entityt:
+#   sensor.aurinkolampo_teho_kw          — hetkellinen teho (kW), olemassa oleva
+#   sensor.aurinkolampo_energia          — kumulatiivinen energia (kWh)
+#   sensor.aurinkolampo_paivittain       — tämän päivän tuotto (kWh), nollautuu keskiyöllä
+#   sensor.aurinkolampo_tuotto_tanaan    — alias näyttöä varten
+#   sensor.aurinkolampo_tuotto_eilen     — eilisen tuotto (kWh)
+#   sensor.aurinkolampo_tuotto_viikko    — kuluvan viikon tuotto (kWh)
+#
+# Lovelace: lovelace-snippet-aurinkolampo-kwh.yaml
+
+sensor:
+  - platform: integration
+    source: sensor.aurinkolampo_teho_kw
+    name: Aurinkolampo energia
+    unique_id: aurinkolampo_energia
+    unit_time: h
+    unit_prefix: k
+    round: 3
+    method: left
+
+utility_meter:
+  aurinkolampo_paivittain:
+    name: Aurinkolampo päivittäin
+    source: sensor.aurinkolampo_energia
+    cycle: daily
+    net_consumption: false
+  aurinkolampo_viikottain:
+    name: Aurinkolampo viikottain
+    source: sensor.aurinkolampo_energia
+    cycle: weekly
+    net_consumption: false
+
+template:
+  - sensor:
+      - name: Aurinkolampo tuotto tänään
+        unique_id: aurinkolampo_tuotto_tanaan
+        unit_of_measurement: "kWh"
+        device_class: energy
+        state_class: total_increasing
+        icon: mdi:solar-power
+        state: "{{ states('sensor.aurinkolampo_paivittain') | float(0) | round(2) }}"
+      - name: Aurinkolampo tuotto eilen
+        unique_id: aurinkolampo_tuotto_eilen
+        unit_of_measurement: "kWh"
+        device_class: energy
+        icon: mdi:history
+        state: >-
+          {{ state_attr('sensor.aurinkolampo_paivittain', 'last_period') | float(0) | round(2) }}
+      - name: Aurinkolampo tuotto viikko
+        unique_id: aurinkolampo_tuotto_viikko
+        unit_of_measurement: "kWh"
+        device_class: energy
+        icon: mdi:calendar-week
+        state: "{{ states('sensor.aurinkolampo_viikottain') | float(0) | round(2) }}"
+      - name: Aurinkolampo tuotto teksti
+        unique_id: aurinkolampo_tuotto_teksti
+        icon: mdi:solar-power-variant
+        state: >-
+          {% set t = states('sensor.aurinkolampo_tuotto_tanaan') | float(0) %}
+          {% set e = states('sensor.aurinkolampo_tuotto_eilen') | float(0) %}
+          {% set w = states('sensor.aurinkolampo_tuotto_viikko') | float(0) %}
+          {% set p = states('sensor.aurinkolampo_teho_kw') | float(0) %}
+          Nyt {{ p | round(2) }} kW · tänään {{ t | round(1) }} kWh · eilen {{ e | round(1) }} kWh · vko {{ w | round(1) }} kWh
