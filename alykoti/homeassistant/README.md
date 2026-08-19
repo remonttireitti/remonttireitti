@@ -7,7 +7,15 @@ Kopioi tiedostot Home Assistantin levylle. GitHubissa oleva tiedosto ei ole HA:s
 Kopioi:
 
 - `packages/packages-aurinkolampo.yaml`
-- `packages/packages-keittio_ilp.yaml` (jos käytössä)
+- `packages/packages-keittio_ilp.yaml`
+- `packages/packages-energia-vertailu.yaml`
+
+Raakaosoitteet (tallenna HA:han suoraan):
+
+- https://raw.githubusercontent.com/remonttireitti/remonttireitti/cursor/keittio-ilp-ovi-hysteresis-cc5d/alykoti/homeassistant/packages/packages-keittio_ilp.yaml
+- https://raw.githubusercontent.com/remonttireitti/remonttireitti/cursor/keittio-ilp-ovi-hysteresis-cc5d/alykoti/homeassistant/packages/packages-energia-vertailu.yaml
+- https://raw.githubusercontent.com/remonttireitti/remonttireitti/cursor/keittio-ilp-ovi-hysteresis-cc5d/alykoti/homeassistant/lovelace/lovelace-energia.yaml
+- https://raw.githubusercontent.com/remonttireitti/remonttireitti/cursor/keittio-ilp-ovi-hysteresis-cc5d/alykoti/homeassistant/lovelace/lovelace-lammitys.yaml
 
 `configuration.yaml` tarvitsee:
 
