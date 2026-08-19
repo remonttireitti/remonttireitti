@@ -29,6 +29,21 @@ utility_meter:
     net_consumption: false
 
 template:
+  - sensor:
+      - name: Energia kokonaisteho W
+        unique_id: energia_kokonaisteho_w
+        unit_of_measurement: "W"
+        device_class: power
+        state_class: measurement
+        icon: mdi:flash
+        state: >
+          {{ states('sensor.l1_vaihe_power') | float(0)
+           + states('sensor.l2_vaihe_power') | float(0)
+           + states('sensor.l3_vaihe_power') | float(0) }}
+        availability: >
+          {{ has_value('sensor.l1_vaihe_power')
+             or has_value('sensor.l2_vaihe_power')
+             or has_value('sensor.l3_vaihe_power') }}
   - trigger:
       - platform: time_pattern
         minutes: "/5"
