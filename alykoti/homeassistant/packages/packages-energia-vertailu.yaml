@@ -1,7 +1,7 @@
 # packages-energia-vertailu.yaml
 # KOKO tiedosto → config/packages/packages-energia-vertailu.yaml
 #
-# Lähde: sensor.energia_kokonaisteho_w (W)
+# Lähteet: sensor.l1_vaihe_power + l2 + l3 → sensor.energia_kokonaisteho_w
 # Lovelace: lovelace-energia.yaml
 #
 # Jos HA:ssa on JO samannimiset energia_vs_* / energia_vertailu_* / energia_kulutusarvio
@@ -28,22 +28,9 @@ utility_meter:
     cycle: daily
     net_consumption: false
 
+# Kokonaisteho on omassa tiedostossa packages-energia-kokonaisteho.yaml
+
 template:
-  - sensor:
-      - name: Energia kokonaisteho W
-        unique_id: energia_kokonaisteho_w
-        unit_of_measurement: "W"
-        device_class: power
-        state_class: measurement
-        icon: mdi:flash
-        state: >
-          {{ states('sensor.l1_vaihe_power') | float(0)
-           + states('sensor.l2_vaihe_power') | float(0)
-           + states('sensor.l3_vaihe_power') | float(0) }}
-        availability: >
-          {{ has_value('sensor.l1_vaihe_power')
-             or has_value('sensor.l2_vaihe_power')
-             or has_value('sensor.l3_vaihe_power') }}
   - trigger:
       - platform: time_pattern
         minutes: "/5"
