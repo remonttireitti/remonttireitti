@@ -1,23 +1,23 @@
 # packages-keittio_ilp.yaml
-# Keittiön ilmalämpöpumppu.
+# Keittiön ilmalämpöpumppu — KOKO tiedosto, kopioi config/packages/
 #
-# Entityt:
-#   climate.keittio_ilp
-#   binary_sensor.terassi_ovi_contact  (on = auki, off = kiinni)
-#   sensor.ulkolampotila_met_no
-#   sensor.energi_data_service
-#   sensor.hetkellinen_kustannus_30min_keski_arvo
+# climate.keittio_ilp:
+#   hvac_modes: off, auto, cool, dry, heat, fan_only
+#   min_temp: 16 / max_temp: 30
+#   fan_modes: auto, quiet, low, medium, high
+#   swing_modes: up_down_auto, highest, middle, normal, lowest, 3d_auto
+#   swing_horizontal_modes: left_right_auto, left_left, left_center,
+#     center_center, center_right, right_right, left_right, right_left, 3d_auto
 #
-# Automaatin säännöt:
-#   - Terassi ovi auki → pois
-#   - Jäähdytyskausi (ulko ≥ 20 °C) → jäähdytys JÄÄ PÄÄLLE (ei off)
-#   - Lämmityskausi (ulko ≤ 16 °C) → lämmitys JÄÄ PÄÄLLE (ei off)
-#   - 16–20 °C: säilytä kausi
-#   - Lämmitys ↔ jäähdytys: vähintään 4 h viive (säädettävä 3–5 h)
-#   - Lähellä asetusta → puhallus low; kaukana → high
-#   - Jäähdytys: puhallus katon rajaan; lämmitys: lattian rajaan
-#   - Suuri poikkeama → tehostettu asetus (lämmitys korkeammaksi / jäähdytys alemmas)
-#   - climate-komentoja ei lähetetä jos tila on jo oikein (estää kompressorin pätkimisen)
+# Logiikka:
+#   - Ovi auki → off
+#   - Jäähdytyskausi (ulko ≥ 20 °C) → cool JÄÄ PÄÄLLE, swing highest (katto)
+#   - Lämmityskausi (ulko ≤ 16 °C) → heat JÄÄ PÄÄLLE, swing lowest (lattia)
+#   - 16–20 °C: kausi ei vaihdu
+#   - Lämmitys ↔ jäähdytys: 4 h viive (input_number.keittio_ilp_kausi_viive)
+#   - Lähellä asetusta → fan quiet; kaukana → high
+#   - Suuri poikkeama → tehostettu asetus
+#   - Komentoja vain kun arvo oikeasti muuttuu (ei kompressorin pätkimistä)
 
 input_select:
   keittio_ilp_tila:
@@ -46,8 +46,8 @@ input_select:
 input_number:
   keittio_ilp_lampo:
     name: Keittiö ILP lämpö (ulko ≤ 20 °C)
-    min: 18
-    max: 28
+    min: 16
+    max: 30
     step: 0.5
     mode: slider
     unit_of_measurement: "°C"
@@ -55,7 +55,7 @@ input_number:
     initial: 22
   keittio_ilp_jaahdytys:
     name: Keittiö ILP jäähdytys (ulko > 20 °C)
-    min: 18
+    min: 16
     max: 30
     step: 0.5
     mode: slider
@@ -148,6 +148,78 @@ template:
           {{ [[MIN_TEMP, target] | max, MAX_TEMP] | min | round(1) }}
 
 script:
+  keittio_ilp_aseta:
+    alias: Keittiö ILP aseta (vain muuttuneet arvot)
+    mode: queued
+    max: 2
+    fields:
+      hvac:
+        selector:
+          text:
+      temperature:
+        selector:
+          number:
+      fan:
+        selector:
+          text:
+      swing:
+        selector:
+          text:
+      status:
+        selector:
+          text:
+    sequence:
+      - variables:
+          hvac_now: "{{ states('climate.keittio_ilp') }}"
+          temp_now: "{{ state_attr('climate.keittio_ilp', 'temperature') | float(0) }}"
+          fan_now: "{{ state_attr('climate.keittio_ilp', 'fan_mode') }}"
+          swing_now: "{{ state_attr('climate.keittio_ilp', 'swing_mode') }}"
+          hvac_want: "{{ hvac }}"
+          temp_want: "{{ temperature | float(24) }}"
+          fan_want: "{{ fan }}"
+          swing_want: "{{ swing }}"
+      - if:
+          - condition: template
+            value_template: "{{ hvac_now != hvac_want }}"
+        then:
+          - action: climate.set_hvac_mode
+            target:
+              entity_id: climate.keittio_ilp
+            data:
+              hvac_mode: "{{ hvac_want }}"
+      - if:
+          - condition: template
+            value_template: "{{ hvac_want != 'off' and (temp_now | float(0) - temp_want | float(0)) | abs >= 0.4 }}"
+        then:
+          - action: climate.set_temperature
+            target:
+              entity_id: climate.keittio_ilp
+            data:
+              temperature: "{{ temp_want }}"
+      - if:
+          - condition: template
+            value_template: "{{ hvac_want != 'off' and fan_now != fan_want }}"
+        then:
+          - action: climate.set_fan_mode
+            target:
+              entity_id: climate.keittio_ilp
+            data:
+              fan_mode: "{{ fan_want }}"
+      - if:
+          - condition: template
+            value_template: "{{ hvac_want != 'off' and swing_now != swing_want }}"
+        then:
+          - action: climate.set_swing_mode
+            target:
+              entity_id: climate.keittio_ilp
+            data:
+              swing_mode: "{{ swing_want }}"
+      - action: input_text.set_value
+        target:
+          entity_id: input_text.keittio_ilp
+        data:
+          value: "{{ status }}"
+
   keittio_ilp_paivita:
     alias: Keittiö ILP päivitä
     mode: single
@@ -156,130 +228,59 @@ script:
           outdoor: "{{ states('sensor.ulkolampotila_met_no') | float(0) }}"
           indoor: "{{ state_attr('climate.keittio_ilp', 'current_temperature') | float(0) }}"
           ovi_auki: "{{ is_state('binary_sensor.terassi_ovi_contact', 'on') }}"
-          hvac_now: "{{ states('climate.keittio_ilp') }}"
-          temp_now: "{{ state_attr('climate.keittio_ilp', 'temperature') | float(0) }}"
-          fan_now: "{{ state_attr('climate.keittio_ilp', 'fan_mode') }}"
-          swing_now: "{{ state_attr('climate.keittio_ilp', 'swing_mode') }}"
-          target_curve: "{{ states('sensor.keittio_ilp_tavoite') | float(22) }}"
-          target_heat_user: "{{ states('input_number.keittio_ilp_lampo') | float(22) }}"
           target_cool: "{{ states('input_number.keittio_ilp_jaahdytys') | float(24) }}"
-          target_heat: "{{ [[18, (states('sensor.keittio_ilp_tavoite') | float(22)) + (states('input_number.keittio_ilp_lampo') | float(22) - 22)] | max, 28] | min | round(1) }}"
-          kausi_nyt: "{{ states('input_select.keittio_ilp_kausi') }}"
-          kausi_haluttu: >
+          target_heat: "{{ [[16, (states('sensor.keittio_ilp_tavoite') | float(22)) + (states('input_number.keittio_ilp_lampo') | float(22) - 22)] | max, 30] | min | round(1) }}"
+          kausi_nyt: "{{ states('input_select.keittio_ilp_kausi') | trim }}"
+          kausi_haluttu: >-
             {% set o = states('sensor.ulkolampotila_met_no') | float(0) %}
-            {% set cur = states('input_select.keittio_ilp_kausi') %}
-            {% if o >= 20 %}Jäähdytys
-            {% elif o <= 16 %}Lämmitys
-            {% else %}{{ cur }}{% endif %}
-          lukitus_ok: >
+            {% set cur = states('input_select.keittio_ilp_kausi') | trim %}
+            {{ 'Jäähdytys' if o >= 20 else ('Lämmitys' if o <= 16 else cur) }}
+          lukitus_ok: >-
             {% set last = as_timestamp(states('input_datetime.keittio_ilp_kausi_vaihto'), 0) %}
             {% set h = states('input_number.keittio_ilp_kausi_viive') | float(4) %}
             {{ last | float(0) == 0 or (now().timestamp() - last | float(0)) >= (h * 3600) }}
-          kausi: >
-            {% set cur = states('input_select.keittio_ilp_kausi') %}
-            {% set o = states('sensor.ulkolampotila_met_no') | float(0) %}
-            {% set wanted = 'Jäähdytys' if o >= 20 else ('Lämmitys' if o <= 16 else cur) %}
-            {% set last = as_timestamp(states('input_datetime.keittio_ilp_kausi_vaihto'), 0) %}
-            {% set h = states('input_number.keittio_ilp_kausi_viive') | float(4) %}
-            {% set ok = last | float(0) == 0 or (now().timestamp() - last | float(0)) >= (h * 3600) %}
-            {{ wanted if wanted == cur or ok else cur }}
+          kausi: "{{ kausi_haluttu if (kausi_haluttu == kausi_nyt or lukitus_ok | bool) else kausi_nyt }}"
           jaahdytys: "{{ (kausi | trim) == 'Jäähdytys' }}"
-          poikkeama: >
-            {% set i = state_attr('climate.keittio_ilp', 'current_temperature') | float(0) %}
-            {% set o = states('sensor.ulkolampotila_met_no') | float(0) %}
-            {% set cur = states('input_select.keittio_ilp_kausi') %}
-            {% set last = as_timestamp(states('input_datetime.keittio_ilp_kausi_vaihto'), 0) %}
-            {% set h = states('input_number.keittio_ilp_kausi_viive') | float(4) %}
-            {% set ok = last | float(0) == 0 or (now().timestamp() - last | float(0)) >= (h * 3600) %}
-            {% set wanted = 'Jäähdytys' if o >= 20 else ('Lämmitys' if o <= 16 else cur) %}
-            {% set kausi = wanted if wanted == cur or ok else cur %}
-            {% set heat = [[18, (states('sensor.keittio_ilp_tavoite') | float(22)) + (states('input_number.keittio_ilp_lampo') | float(22) - 22)] | max, 28] | min %}
-            {% set cool = states('input_number.keittio_ilp_jaahdytys') | float(24) %}
-            {{ (i - cool) if kausi == 'Jäähdytys' else (heat - i) }}
-          send_temp: >
-            {% set i = state_attr('climate.keittio_ilp', 'current_temperature') | float(0) %}
-            {% set o = states('sensor.ulkolampotila_met_no') | float(0) %}
-            {% set cur = states('input_select.keittio_ilp_kausi') %}
-            {% set last = as_timestamp(states('input_datetime.keittio_ilp_kausi_vaihto'), 0) %}
-            {% set h = states('input_number.keittio_ilp_kausi_viive') | float(4) %}
-            {% set ok = last | float(0) == 0 or (now().timestamp() - last | float(0)) >= (h * 3600) %}
-            {% set wanted = 'Jäähdytys' if o >= 20 else ('Lämmitys' if o <= 16 else cur) %}
-            {% set kausi = wanted if wanted == cur or ok else cur %}
-            {% set heat = [[18, (states('sensor.keittio_ilp_tavoite') | float(22)) + (states('input_number.keittio_ilp_lampo') | float(22) - 22)] | max, 28] | min %}
-            {% set cool = states('input_number.keittio_ilp_jaahdytys') | float(24) %}
-            {% if kausi == 'Jäähdytys' %}
-              {% set gap = i - cool %}
-              {% set t = cool - 2 if gap >= 2 else (cool - 1 if gap >= 1 else cool) %}
-              {{ [[18, t] | max, 30] | min | round(1) }}
+          gap: >-
+            {% if (kausi | trim) == 'Jäähdytys' %}
+              {{ indoor | float(0) - target_cool | float(0) }}
             {% else %}
-              {% set gap = heat - i %}
-              {% set t = heat + 2 if gap >= 2 else (heat + 1 if gap >= 1 else heat) %}
-              {{ [[18, t] | max, 28] | min | round(1) }}
+              {{ target_heat | float(0) - indoor | float(0) }}
             {% endif %}
-          fan: >
-            {% set i = state_attr('climate.keittio_ilp', 'current_temperature') | float(0) %}
-            {% set o = states('sensor.ulkolampotila_met_no') | float(0) %}
-            {% set cur = states('input_select.keittio_ilp_kausi') %}
-            {% set last = as_timestamp(states('input_datetime.keittio_ilp_kausi_vaihto'), 0) %}
-            {% set h = states('input_number.keittio_ilp_kausi_viive') | float(4) %}
-            {% set ok = last | float(0) == 0 or (now().timestamp() - last | float(0)) >= (h * 3600) %}
-            {% set wanted = 'Jäähdytys' if o >= 20 else ('Lämmitys' if o <= 16 else cur) %}
-            {% set kausi = wanted if wanted == cur or ok else cur %}
-            {% set heat = [[18, (states('sensor.keittio_ilp_tavoite') | float(22)) + (states('input_number.keittio_ilp_lampo') | float(22) - 22)] | max, 28] | min %}
-            {% set cool = states('input_number.keittio_ilp_jaahdytys') | float(24) %}
-            {% set gap = (i - cool) if kausi == 'Jäähdytys' else (heat - i) %}
-            {% set want = 'low' if gap <= 0.6 else ('high' if gap >= 1.5 else 'medium') %}
-            {% set modes = state_attr('climate.keittio_ilp', 'fan_modes') or [] %}
-            {% set low = ['Quiet', 'quiet', 'Silent', 'silent', 'Low', 'low', '1', 'Level 1'] %}
-            {% set mid = ['Medium', 'medium', 'Mid', 'mid', '3', 'Level 3', 'Auto', 'auto'] %}
-            {% set high = ['High', 'high', 'Powerful', 'powerful', '5', 'Level 5'] %}
-            {% set cands = low if want == 'low' else (high if want == 'high' else mid) %}
-            {% set ns = namespace(found=want) %}
-            {% for c in cands %}
-              {% if c in modes %}{% set ns.found = c %}{% break %}{% endif %}
-            {% endfor %}
-            {{ ns.found }}
-          swing: >
-            {% set o = states('sensor.ulkolampotila_met_no') | float(0) %}
-            {% set cur = states('input_select.keittio_ilp_kausi') %}
-            {% set last = as_timestamp(states('input_datetime.keittio_ilp_kausi_vaihto'), 0) %}
-            {% set h = states('input_number.keittio_ilp_kausi_viive') | float(4) %}
-            {% set ok = last | float(0) == 0 or (now().timestamp() - last | float(0)) >= (h * 3600) %}
-            {% set wanted = 'Jäähdytys' if o >= 20 else ('Lämmitys' if o <= 16 else cur) %}
-            {% set kausi = wanted if wanted == cur or ok else cur %}
-            {% set modes = state_attr('climate.keittio_ilp', 'swing_modes') or [] %}
-            {% set cool = ['1', 'Position 1', 'Highest', 'highest', 'fixedTop', 'Up', 'up', 'Top', 'top', 'Vertical Highest', 'Fixed Highest'] %}
-            {% set heat = ['5', 'Position 5', 'Lowest', 'lowest', 'fixedBottom', 'Down', 'down', 'Bottom', 'bottom', 'Vertical Lowest', 'Fixed Lowest'] %}
-            {% set cands = cool if kausi == 'Jäähdytys' else heat %}
-            {% set ns = namespace(found=cands[0]) %}
-            {% for c in cands %}
-              {% if c in modes %}{% set ns.found = c %}{% break %}{% endif %}
-            {% endfor %}
-            {{ ns.found }}
+          send_temp: >-
+            {% set g = gap | float(0) %}
+            {% if (kausi | trim) == 'Jäähdytys' %}
+              {% set t = target_cool | float(24) %}
+              {% set out = t - 2 if g >= 2 else (t - 1 if g >= 1 else t) %}
+              {{ [[16, out] | max, 30] | min | round(1) }}
+            {% else %}
+              {% set t = target_heat | float(22) %}
+              {% set out = t + 2 if g >= 2 else (t + 1 if g >= 1 else t) %}
+              {{ [[16, out] | max, 30] | min | round(1) }}
+            {% endif %}
+          fan: "{{ 'quiet' if gap | float(0) <= 0.6 else ('high' if gap | float(0) >= 1.5 else 'low') }}"
+          swing: "{{ 'highest' if (kausi | trim) == 'Jäähdytys' else 'lowest' }}"
           hvac_want: "{{ 'cool' if (kausi | trim) == 'Jäähdytys' else 'heat' }}"
+          status: >-
+            {% set suunta = 'katto' if (kausi | trim) == 'Jäähdytys' else 'lattia' %}
+            {% set lukko = '' if lukitus_ok | bool else ' · kausilukko' %}
+            {{ kausi | trim }} {{ send_temp }} °C · {{ fan }} · {{ suunta }} · sisä {{ indoor | round(1) }} °C · ulko {{ outdoor | round(1) }} °C{{ lukko }}
       - choose:
           - conditions:
               - condition: template
                 value_template: "{{ ovi_auki | bool }}"
             sequence:
-              - if:
-                  - condition: template
-                    value_template: "{{ hvac_now != 'off' }}"
-                then:
-                  - action: climate.set_hvac_mode
-                    target:
-                      entity_id: climate.keittio_ilp
-                    data:
-                      hvac_mode: "off"
-              - action: input_text.set_value
-                target:
-                  entity_id: input_text.keittio_ilp
+              - action: script.keittio_ilp_aseta
                 data:
-                  value: "Pois — terassi ovi auki (ulko {{ outdoor | round(1) }} °C, sisä {{ indoor | round(1) }} °C)"
+                  hvac: "off"
+                  temperature: 24
+                  fan: quiet
+                  swing: normal
+                  status: "Pois — terassi ovi auki (ulko {{ outdoor | round(1) }} °C, sisä {{ indoor | round(1) }} °C)"
         default:
           - if:
               - condition: template
-                value_template: "{{ (kausi | trim) != (kausi_nyt | trim) }}"
+                value_template: "{{ (kausi | trim) != kausi_nyt }}"
             then:
               - action: input_select.select_option
                 target:
@@ -291,52 +292,13 @@ script:
                   entity_id: input_datetime.keittio_ilp_kausi_vaihto
                 data:
                   datetime: "{{ now().strftime('%Y-%m-%d %H:%M:%S') }}"
-          - if:
-              - condition: template
-                value_template: "{{ hvac_now != hvac_want }}"
-            then:
-              - action: climate.set_hvac_mode
-                target:
-                  entity_id: climate.keittio_ilp
-                data:
-                  hvac_mode: "{{ hvac_want }}"
-          - if:
-              - condition: template
-                value_template: "{{ (temp_now | float(0) - send_temp | float(0)) | abs >= 0.4 }}"
-            then:
-              - action: climate.set_temperature
-                target:
-                  entity_id: climate.keittio_ilp
-                data:
-                  temperature: "{{ send_temp }}"
-          - if:
-              - condition: template
-                value_template: "{{ (fan_now | default('') | lower) != (fan | default('') | lower) }}"
-            then:
-              - action: climate.set_fan_mode
-                target:
-                  entity_id: climate.keittio_ilp
-                data:
-                  fan_mode: "{{ fan }}"
-                continue_on_error: true
-          - if:
-              - condition: template
-                value_template: "{{ (swing_now | default('') | string | lower) != (swing | default('') | string | lower) }}"
-            then:
-              - action: climate.set_swing_mode
-                target:
-                  entity_id: climate.keittio_ilp
-                data:
-                  swing_mode: "{{ swing }}"
-                continue_on_error: true
-          - action: input_text.set_value
-            target:
-              entity_id: input_text.keittio_ilp
+          - action: script.keittio_ilp_aseta
             data:
-              value: >
-                {% set suunta = 'katto' if (kausi | trim) == 'Jäähdytys' else 'lattia' %}
-                {% set lukko = '' if lukitus_ok | bool else ' · kausilukko' %}
-                {{ (kausi | trim) }} {{ send_temp }} °C · puhallus {{ fan }} · {{ suunta }} · sisä {{ indoor | round(1) }} °C · ulko {{ outdoor | round(1) }} °C{{ lukko }}
+              hvac: "{{ hvac_want }}"
+              temperature: "{{ send_temp }}"
+              fan: "{{ fan }}"
+              swing: "{{ swing }}"
+              status: "{{ status }}"
 
   keittio_ilp_automaatti:
     alias: Keittiö ILP automaatti käynnistä
@@ -347,9 +309,7 @@ script:
           entity_id: input_select.keittio_ilp_tila
         data:
           option: Automaatti
-      - action: script.turn_on
-        target:
-          entity_id: script.keittio_ilp_paivita
+      - action: script.keittio_ilp_paivita
 
   keittio_ilp_pois:
     alias: Keittiö ILP pois
@@ -360,16 +320,13 @@ script:
           entity_id: input_select.keittio_ilp_tila
         data:
           option: Pois
-      - action: climate.set_hvac_mode
-        target:
-          entity_id: climate.keittio_ilp
+      - action: script.keittio_ilp_aseta
         data:
-          hvac_mode: "off"
-      - action: input_text.set_value
-        target:
-          entity_id: input_text.keittio_ilp
-        data:
-          value: Pois — laite sammutettu
+          hvac: "off"
+          temperature: 24
+          fan: quiet
+          swing: normal
+          status: Pois — laite sammutettu
 
   keittio_ilp_manuaali:
     alias: Keittiö ILP manuaali ajo
@@ -379,92 +336,48 @@ script:
           indoor: "{{ state_attr('climate.keittio_ilp', 'current_temperature') | float(0) }}"
           target_heat: "{{ states('input_number.keittio_ilp_lampo') | float(22) }}"
           target_cool: "{{ states('input_number.keittio_ilp_jaahdytys') | float(24) }}"
-          mode: "{{ states('input_select.keittio_ilp_manuaali_tila') }}"
+          jaahdytys: "{{ is_state('input_select.keittio_ilp_manuaali_tila', 'Jäähdytys') }}"
           ovi_auki: "{{ is_state('binary_sensor.terassi_ovi_contact', 'on') }}"
-          jaahdytys: "{{ states('input_select.keittio_ilp_manuaali_tila') == 'Jäähdytys' }}"
-          gap: >
+          gap: >-
             {% set i = state_attr('climate.keittio_ilp', 'current_temperature') | float(0) %}
             {% if is_state('input_select.keittio_ilp_manuaali_tila', 'Jäähdytys') %}
               {{ i - states('input_number.keittio_ilp_jaahdytys') | float(24) }}
             {% else %}
               {{ states('input_number.keittio_ilp_lampo') | float(22) - i }}
             {% endif %}
-          fan: "{{ 'low' if gap | float(0) <= 0.6 else ('high' if gap | float(0) >= 1.5 else 'medium') }}"
-          swing: "{{ '1' if jaahdytys else '5' }}"
+          fan: "{{ 'quiet' if gap | float(0) <= 0.6 else ('high' if gap | float(0) >= 1.5 else 'low') }}"
+          swing: "{{ 'highest' if jaahdytys | bool else 'lowest' }}"
       - choose:
           - conditions:
               - condition: template
                 value_template: "{{ ovi_auki | bool }}"
             sequence:
-              - action: climate.set_hvac_mode
-                target:
-                  entity_id: climate.keittio_ilp
+              - action: script.keittio_ilp_aseta
                 data:
-                  hvac_mode: "off"
-              - action: input_text.set_value
-                target:
-                  entity_id: input_text.keittio_ilp
-                data:
-                  value: "Manuaali estetty — terassi ovi auki"
+                  hvac: "off"
+                  temperature: 24
+                  fan: quiet
+                  swing: normal
+                  status: Manuaali estetty — terassi ovi auki
           - conditions:
               - condition: template
                 value_template: "{{ jaahdytys | bool }}"
             sequence:
-              - action: climate.set_hvac_mode
-                target:
-                  entity_id: climate.keittio_ilp
+              - action: script.keittio_ilp_aseta
                 data:
-                  hvac_mode: cool
-              - action: climate.set_temperature
-                target:
-                  entity_id: climate.keittio_ilp
-                data:
+                  hvac: cool
                   temperature: "{{ target_cool }}"
-              - action: climate.set_fan_mode
-                target:
-                  entity_id: climate.keittio_ilp
-                data:
-                  fan_mode: "{{ fan }}"
-                continue_on_error: true
-              - action: climate.set_swing_mode
-                target:
-                  entity_id: climate.keittio_ilp
-                data:
-                  swing_mode: "{{ swing }}"
-                continue_on_error: true
-              - action: input_text.set_value
-                target:
-                  entity_id: input_text.keittio_ilp
-                data:
-                  value: "Manuaali jäähdytys {{ target_cool }} °C · {{ fan }} · katto"
+                  fan: "{{ fan }}"
+                  swing: "{{ swing }}"
+                  status: "Manuaali jäähdytys {{ target_cool }} °C · {{ fan }} · katto"
         default:
-          - action: climate.set_hvac_mode
-            target:
-              entity_id: climate.keittio_ilp
+          - action: script.keittio_ilp_aseta
             data:
-              hvac_mode: heat
-          - action: climate.set_temperature
-            target:
-              entity_id: climate.keittio_ilp
-            data:
+              hvac: heat
               temperature: "{{ target_heat }}"
-          - action: climate.set_fan_mode
-            target:
-              entity_id: climate.keittio_ilp
-            data:
-              fan_mode: "{{ fan }}"
-            continue_on_error: true
-          - action: climate.set_swing_mode
-            target:
-              entity_id: climate.keittio_ilp
-            data:
-              swing_mode: "{{ swing }}"
-            continue_on_error: true
-          - action: input_text.set_value
-            target:
-              entity_id: input_text.keittio_ilp
-            data:
-              value: "Manuaali lämmitys {{ target_heat }} °C · {{ fan }} · lattia"
+              fan: "{{ fan }}"
+              swing: "{{ swing }}"
+              status: "Manuaali lämmitys {{ target_heat }} °C · {{ fan }} · lattia"
 
 automation:
   - id: keittio_ilp_tila_automaatti
@@ -475,9 +388,7 @@ automation:
         entity_id: input_select.keittio_ilp_tila
         to: Automaatti
     action:
-      - action: script.turn_on
-        target:
-          entity_id: script.keittio_ilp_paivita
+      - action: script.keittio_ilp_paivita
 
   - id: keittio_ilp_tila_pois
     alias: Keittiö ILP → pois
@@ -487,16 +398,13 @@ automation:
         entity_id: input_select.keittio_ilp_tila
         to: Pois
     action:
-      - action: climate.set_hvac_mode
-        target:
-          entity_id: climate.keittio_ilp
+      - action: script.keittio_ilp_aseta
         data:
-          hvac_mode: "off"
-      - action: input_text.set_value
-        target:
-          entity_id: input_text.keittio_ilp
-        data:
-          value: Pois — laite sammutettu
+          hvac: "off"
+          temperature: 24
+          fan: quiet
+          swing: normal
+          status: Pois — laite sammutettu
 
   - id: keittio_ilp_lampotila
     alias: Keittiö ILP lämpötila
@@ -531,16 +439,13 @@ automation:
         entity_id: binary_sensor.terassi_ovi_contact
         to: "on"
     action:
-      - action: climate.set_hvac_mode
-        target:
-          entity_id: climate.keittio_ilp
+      - action: script.keittio_ilp_aseta
         data:
-          hvac_mode: "off"
-      - action: input_text.set_value
-        target:
-          entity_id: input_text.keittio_ilp
-        data:
-          value: "Pois — terassi ovi auki"
+          hvac: "off"
+          temperature: 24
+          fan: quiet
+          swing: normal
+          status: Pois — terassi ovi auki
 
   - id: keittio_ilp_ovi_kiinni
     alias: Keittiö ILP → ovi kiinni
