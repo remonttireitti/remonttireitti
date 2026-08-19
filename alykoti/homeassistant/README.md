@@ -1,28 +1,47 @@
-# Home Assistant -paketit
+# Home Assistant -paketit ja Lovelace
 
-YAML-tiedostot kopioidaan Home Assistantin `config/packages/`-hakemistoon.
+Kopioi tiedostot Home Assistantin levylle. GitHubissa oleva tiedosto ei ole HA:ssa ennen kopiointia.
 
-## Käyttöönotto
+## 1. Paketit (`config/packages/`)
 
-1. Kopioi `packages/*.yaml` → HA:n `config/packages/`
-2. Varmista että `configuration.yaml` sisältää:
+Kopioi:
+
+- `packages/packages-aurinkolampo.yaml`
+- `packages/packages-keittio_ilp.yaml` (jos käytössä)
+
+`configuration.yaml` tarvitsee:
 
 ```yaml
 homeassistant:
   packages: !include_dir_named packages
 ```
 
-3. **Asetukset → Järjestelmä → YAML-konfiguraation lataus**
+Sitten: **Asetukset → Järjestelmä → YAML-konfiguraation lataus**
+(tai käynnistä HA uudelleen).
 
-## Tiedostot
+Aurinkolämmön kWh-luvut alkavat nollasta. Eilinen näkyy vasta ensimmäisen keskiyön jälkeen.
 
-| Tiedosto | Kuvaus |
-|----------|--------|
-| `packages/packages-keittio_ilp.yaml` | Keittiön ilmalämpöpumppu |
-| `packages/packages-aurinkolampo.yaml` | Aurinkolämmön kWh-seuranta |
-| `lovelace/lovelace-snippet-aurinkolampo-kwh.yaml` | Chipit/kortti lämmitysnäkymään |
+## 2. Lovelace
 
-## Virhe "Failed to load file / not_found"
+Avaa lämmitysnäkymän kortti → **Edit → Show code editor**.
 
-Tämä tulee jos HA:n tiedostoeditorissa yritetään avata tiedostoa jota **ei ole vielä HA:n levyllä**.
-Ratkaisu: kopioi tiedostot ensin `config/packages/`-kansioon (scp, Samba, File editor upload), **sitten** lataa YAML.
+Korvaa **koko** YAML tiedostolla:
+
+`lovelace/lovelace-lammitys.yaml`
+
+Älä liitä palasia chip-listan keskelle.
+
+## Entityt (aurinkolämpö)
+
+| Entity | Merkitys |
+|--------|----------|
+| `sensor.aurinkolampo_teho_kw` | hetkellinen kW (jo olemassa) |
+| `sensor.aurinkolampo_energia` | kumulatiivinen kWh |
+| `sensor.aurinkolampo_tuotto_tanaan` | tänään kWh |
+| `sensor.aurinkolampo_tuotto_eilen` | eilen kWh |
+| `sensor.aurinkolampo_tuotto_viikko` | kuluva viikko kWh |
+| `sensor.aurinkolampo_tuotto_kuukausi` | kuluva kuukausi kWh |
+
+## "Failed to load file / not_found"
+
+HA:n editori avasi polun jota ei ole HA:n levyllä. Kopioi tiedosto ensin `config/packages/`-kansioon.
