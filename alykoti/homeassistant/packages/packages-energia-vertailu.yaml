@@ -1,7 +1,7 @@
 # packages-energia-vertailu.yaml
 # KOKO tiedosto → config/packages/packages-energia-vertailu.yaml
 #
-# Lähteet: sensor.l1_vaihe_power + l2 + l3 → sensor.energia_kokonaisteho_w
+# Lähde: sensor.energia_vaiheiden_summa (L1+L2+L3)
 # Lovelace: lovelace-energia.yaml
 #
 # Jos HA:ssa on JO samannimiset energia_vs_* / energia_vertailu_* / energia_kulutusarvio
@@ -10,7 +10,7 @@
 
 sensor:
   - platform: integration
-    source: sensor.energia_kokonaisteho_w
+    source: sensor.energia_vaiheiden_summa
     name: Energia vertailu kwh
     unique_id: energia_vertailu_kwh
     unit_prefix: k
@@ -100,7 +100,7 @@ template:
         entity_id:
           - sensor.energia_paivittain
           - sensor.energia_tuntilukemat
-          - sensor.energia_kokonaisteho_w
+          - sensor.energia_vaiheiden_summa
           - sensor.ulkolampotila_met_no
     sensor:
       - name: Energia vs eilen pct
@@ -153,7 +153,7 @@ template:
             {% elif pct >= 15 %}Korkea
             {% else %}Normaali{% endif %}
           {% else %}
-            {% set w = states('sensor.energia_kokonaisteho_w') | float(0) %}
+            {% set w = states('sensor.energia_vaiheiden_summa') | float(0) %}
             {% if w < 2500 %}Maltillinen
             {% elif w > 5500 %}Korkea
             {% else %}Normaali{% endif %}

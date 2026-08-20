@@ -6,7 +6,9 @@ cards:
     layout: horizontal
     fill_container: true
     primary: >
-      ⚡ {{ states('sensor.energia_kokonaisteho_w') | float(0) | round(0) }} W{%
+      ⚡ {{ (states('sensor.l1_vaihe_power') | float(0) +
+      states('sensor.l2_vaihe_power') | float(0) +
+      states('sensor.l3_vaihe_power') | float(0)) | round(0) }} W{%
       if states('sensor.energia_tanaan_kustannus_eur') not in
       ['unknown','unavailable','none',''] %} · {{
       states('sensor.energia_tanaan_kustannus_eur') }} €{% endif %} · {{
@@ -25,7 +27,7 @@ cards:
       %}
     tap_action:
       action: more-info
-      entity: sensor.energia_kokonaisteho_w
+      entity: sensor.energia_vaiheiden_summa
   - type: custom:mushroom-chips-card
     alignment: center
     chips:
@@ -100,7 +102,7 @@ cards:
       square: false
       cards:
         - type: custom:power-gauge-card
-          entity: sensor.energia_kokonaisteho_w
+          entity: sensor.energia_vaiheiden_summa
           name: Kokonaisteho
           unit: W
           min: 0
