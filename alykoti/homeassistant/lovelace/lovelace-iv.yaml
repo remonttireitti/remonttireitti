@@ -1,0 +1,193 @@
+# Koko IV-kortti. Korvaa Lovelace-editorissa koko YAML.
+
+type: vertical-stack
+cards:
+  - type: custom:mod-card
+    card_mod:
+      style: |
+        ha-card {
+          border-radius: 16px;
+          border: 1px solid rgba(0, 0, 0, 0.08);
+          box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+          overflow: hidden;
+          {% set ohj = states('input_select.iv_ohjaus') %}
+          {% set sauna = is_state('input_boolean.sauna_tila', 'on') %}
+          {% if ohj == 'Pois' %}
+            background: rgba(100, 116, 139, 0.12);
+          {% elif ohj == 'Tehostus' or sauna %}
+            background: rgba(239, 68, 68, 0.14);
+          {% elif ohj == 'Manuaali' %}
+            background: rgba(59, 130, 246, 0.12);
+          {% else %}
+            background: rgba(34, 197, 94, 0.12);
+          {% endif %}
+        }
+    card:
+      type: vertical-stack
+      cards:
+        - type: custom:mushroom-template-card
+          entity: sensor.iv_tila
+          layout: horizontal
+          fill_container: true
+          primary: >
+            {% set ohj = states('input_select.iv_ohjaus') %}
+            {% set tila = states('sensor.iv_tila') %}
+            {% if ohj not in ['unknown','unavailable','none',''] %}
+              IV · {{ ohj }}
+            {% else %}
+              IV · {{ tila }}
+            {% endif %}
+          secondary: >
+            {% set tila = states('sensor.iv_tila') %}
+            {% set p = states('sensor.iv_paattaja') %}
+            {% set poisto = states('sensor.iv_poisto_prosentti') | float(0) | round(0) %}
+            {% set tulo = states('sensor.iv_tulo_prosentti') | float(0) | round(0) %}
+            {% set sauna = is_state('input_boolean.sauna_tila', 'on') %}
+            {% set rem = state_attr('timer.sauna_tila', 'remaining') %}
+            {% set teh = is_state('timer.iv_tehostus', 'active') %}
+            {% set teh_rem = state_attr('timer.iv_tehostus', 'remaining') %}
+            Poisto {{ poisto }} % · tulo {{ tulo }} %{% if sauna %} · 🧖 Sauna{% if rem %} {{ rem }}{% endif %}{% endif %}{% if teh and teh_rem %} · tehostus {{ teh_rem }}{% endif %}
+            {%- if is_state('input_select.iv_ohjaus', 'Automaatti') and p not in ['unknown','unavailable','none',''] %}
+             · nostaa {{ p }}
+            {%- elif 'Liesi' in tila %}
+             · 🍳 liesi
+            {%- endif %}
+          icon: mdi:fan
+          icon_color: >
+            {% set ohj = states('input_select.iv_ohjaus') %}
+            {% if ohj == 'Pois' %}disabled
+            {% elif ohj == 'Tehostus' %}red
+            {% elif ohj == 'Manuaali' %}blue
+            {% elif is_state('input_boolean.sauna_tila', 'on') %}orange
+            {% else %}green{% endif %}
+        - type: custom:mushroom-chips-card
+          alignment: center
+          chips:
+            - type: template
+              icon: mdi:robot-outline
+              content: Auto
+              icon_color: >-
+                {{ 'green' if is_state('input_select.iv_ohjaus', 'Automaatti') else 'grey' }}
+              tap_action:
+                action: call-service
+                service: script.iv_automaatti
+            - type: template
+              icon: mdi:gesture-tap
+              content: Käsi
+              icon_color: >-
+                {{ 'blue' if is_state('input_select.iv_ohjaus', 'Manuaali') else 'grey' }}
+              tap_action:
+                action: call-service
+                service: script.iv_manuaali
+            - type: template
+              icon: mdi:fan-plus
+              content: Tehostus
+              icon_color: >-
+                {{ 'red' if is_state('input_select.iv_ohjaus', 'Tehostus') else 'grey' }}
+              tap_action:
+                action: call-service
+                service: script.iv_tehostus
+            - type: template
+              icon: mdi:fan-off
+              content: Pois
+              icon_color: >-
+                {{ 'red' if is_state('input_select.iv_ohjaus', 'Pois') else 'grey' }}
+              tap_action:
+                action: call-service
+                service: script.iv_pois
+            - type: template
+              entity: input_boolean.sauna_tila
+              icon: mdi:hot-tub
+              content: >-
+                Sauna · {{ 'Päällä' if is_state('input_boolean.sauna_tila', 'on') else 'Pois' }}
+              icon_color: >-
+                {{ 'orange' if is_state('input_boolean.sauna_tila', 'on') else 'grey' }}
+              tap_action:
+                action: toggle
+        - type: conditional
+          conditions:
+            - entity: timer.iv_tehostus
+              state: active
+          card:
+            type: custom:mushroom-template-card
+            entity: timer.iv_tehostus
+            primary: Tehostus käynnissä
+            secondary: "{{ state_attr('timer.iv_tehostus', 'remaining') }} jäljellä"
+            icon: mdi:timer-sand
+            icon_color: red
+            layout: horizontal
+            tap_action:
+              action: call-service
+              service: script.iv_automaatti
+        - type: conditional
+          conditions:
+            - entity: input_select.iv_ohjaus
+              state: Manuaali
+          card:
+            type: vertical-stack
+            cards:
+              - type: custom:mushroom-number-card
+                entity: input_number.iv_manuaali_poisto
+                display_mode: slider
+                layout: horizontal
+                icon_color: blue
+              - type: custom:mushroom-number-card
+                entity: input_number.iv_manuaali_tulo
+                display_mode: slider
+                layout: horizontal
+                icon_color: cyan
+  - type: grid
+    columns: 2
+    square: false
+    cards:
+      - type: custom:mushroom-template-card
+        entity: sensor.iv_poisto_prosentti
+        layout: vertical
+        primary: "{{ states('sensor.iv_poisto_prosentti') | float(0) | round(0) }} %"
+        secondary: Poisto
+        icon: mdi:fan
+        icon_color: >
+          {% set v = states('sensor.iv_poisto_prosentti') | float(0) %}
+          {% if v >= 60 %}red {% elif v >= 45 %}orange {% else %}green{% endif %}
+      - type: custom:mushroom-template-card
+        entity: sensor.iv_tulo_prosentti
+        layout: vertical
+        primary: "{{ states('sensor.iv_tulo_prosentti') | float(0) | round(0) }} %"
+        secondary: Tulo
+        icon: mdi:fan-plus
+        icon_color: >
+          {% set v = states('sensor.iv_tulo_prosentti') | float(0) %}
+          {% if v >= 60 %}red {% elif v >= 45 %}orange {% else %}green{% endif %}
+  - type: custom:mushroom-chips-card
+    alignment: center
+    chips:
+      - type: template
+        icon: mdi:molecule-co2
+        content: >-
+          CO₂ {{ states('sensor.iv_co2_skaala') | float(0) | round(0) }}
+        icon_color: >
+          {% set v = states('sensor.iv_co2_skaala') | float(0) %}
+          {% if v >= 60 %}red {% elif v >= 45 %}orange {% else %}green{% endif %}
+        tap_action:
+          action: more-info
+          entity: sensor.iv_co2_skaala
+      - type: template
+        icon: mdi:air-filter
+        content: >-
+          PM2.5 {{ states('sensor.iv_pm_skaala') | float(0) | round(0) }}
+        icon_color: >
+          {% set v = states('sensor.iv_pm_skaala') | float(0) %}
+          {% if v >= 60 %}red {% elif v >= 45 %}orange {% else %}green{% endif %}
+        tap_action:
+          action: more-info
+          entity: sensor.iv_pm_skaala
+      - type: template
+        icon: mdi:water-percent
+        content: >-
+          Kosteus {{ states('sensor.iv_kosteus_bonus') | float(0) | round(0) }}
+        icon_color: >
+          {% set v = states('sensor.iv_kosteus_bonus') | float(0) %}
+          {% if v >= 20 %}red {% elif v >= 10 %}orange {% else %}green{% endif %}
+        tap_action:
+          action: more-info
+          entity: sensor.iv_kosteus_bonus
