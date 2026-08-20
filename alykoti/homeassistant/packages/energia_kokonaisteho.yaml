@@ -1,5 +1,6 @@
-# packages-energia-kokonaisteho.yaml
-# KOKO tiedosto → config/packages/packages-energia-kokonaisteho.yaml
+# energia_kokonaisteho.yaml
+# → config/packages/energia_kokonaisteho.yaml
+# Tiedostonimi ILMAN yhdysviivaa (HA slug ei salli - merkkiä).
 #
 # UUSI entiteetti (ei törmää orpoon sensor.energia_kokonaisteho_w):
 #   sensor.energia_vaiheiden_summa = L1 + L2 + L3

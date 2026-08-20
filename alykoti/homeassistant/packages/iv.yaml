@@ -1,5 +1,5 @@
-# packages-iv.yaml
-# Ilmanvaihdon käsinajo-helperit. Kopioi config/packages/
+# iv.yaml
+# → config/packages/iv.yaml
 #
 # Lovelace seuraa:
 #   input_select.iv_ohjaus

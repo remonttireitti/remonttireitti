@@ -1,4 +1,4 @@
-# packages-aurinkolampo.yaml
+# aurinkolampo.yaml
 # Kopioi tämä Home Assistantin config/packages/ -kansioon.
 #
 # Lähde: sensor.aurinkolampo_teho_kw (kW)

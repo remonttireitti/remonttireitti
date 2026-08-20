@@ -1,5 +1,6 @@
-# packages-energia-vertailu.yaml
-# KOKO tiedosto → config/packages/packages-energia-vertailu.yaml
+# energia_vertailu.yaml
+# → config/packages/energia_vertailu.yaml
+# Tiedostonimi ILMAN yhdysviivaa.
 #
 # Lähde: sensor.energia_vaiheiden_summa (L1+L2+L3)
 # Lovelace: lovelace-energia.yaml
@@ -28,7 +29,7 @@ utility_meter:
     cycle: daily
     net_consumption: false
 
-# Kokonaisteho on omassa tiedostossa packages-energia-kokonaisteho.yaml
+# Kokonaisteho on omassa tiedostossa energia_kokonaisteho.yaml
 
 template:
   - trigger:
