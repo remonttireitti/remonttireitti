@@ -353,8 +353,7 @@ automation:
   - id: iv_kasi_pito
     alias: IV käsi — pidä asetus
     initial_state: true
-    mode: queued
-    max: 1
+    mode: single
     trigger:
       - platform: time_pattern
         seconds: "/15"
