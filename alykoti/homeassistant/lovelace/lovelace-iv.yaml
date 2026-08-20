@@ -194,3 +194,9 @@ cards:
         tap_action:
           action: more-info
           entity: sensor.iv_kosteus_bonus
+  - type: entities
+    entities:
+      - entity: input_text.iv_modbus_hub
+        name: Modbus-hub (configuration.yaml → modbus name)
+      - entity: input_number.iv_modbus_slave
+        name: Modbus-slave

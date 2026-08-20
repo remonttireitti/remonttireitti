@@ -1,10 +1,23 @@
 # iv.yaml
 # → config/packages/iv.yaml  (tiedostonimi ILMAN yhdysviivaa)
 #
-# Ohjaus:
-#   input_select.iv_ohjaus: Automaatti | Manuaali | Tehostus | Pois
-#   input_boolean.iv_kasi_ajo: on kun ei automaatti (Node-RED: älä ylikirjoita)
-#   MQTT iv/ohjaus  {"ohjaus":"...","poisto":40,"tulo":35,"kasi":true}
+# Käsinajo kirjoittaa AirFiin HA:n Modbus-integraatiolla.
+# Rekisterit (holding, 0-pohjainen osoite, sama kartta kuin HA:ssa):
+#   2  = suoraohjaus 1=käsi / 0=automaatti
+#   10 = tulo %
+#   11 = poisto %
+#   12 = poissa-tila
+#   56 = sauna
+#
+# Hubin nimi = configuration.yaml → modbus: → name:
+# Muuta Developer Toolsista: input_text.iv_modbus_hub
+# Slave yleensä 1: input_number.iv_modbus_slave
+#
+# Puhallinminimi 25 % (AirFi ei ota pienempää).
+#
+# Olemassa olevat IV-automaatiot: lisää ehto
+#   input_select.iv_ohjaus == Automaatti
+# muuten ne ylikirjoittavat käden.
 
 input_select:
   iv_ohjaus:
@@ -22,10 +35,25 @@ input_boolean:
     name: IV käsinajo
     icon: mdi:gesture-tap
 
+input_text:
+  iv_modbus_hub:
+    name: IV Modbus-hub
+    initial: airfi
+    max: 40
+    icon: mdi:lan
+
 input_number:
+  iv_modbus_slave:
+    name: IV Modbus-slave
+    min: 1
+    max: 247
+    step: 1
+    mode: box
+    icon: mdi:numeric
+    initial: 1
   iv_manuaali_poisto:
     name: IV käsi poisto
-    min: 15
+    min: 25
     max: 100
     step: 5
     mode: slider
@@ -34,7 +62,7 @@ input_number:
     initial: 40
   iv_manuaali_tulo:
     name: IV käsi tulo
-    min: 15
+    min: 25
     max: 100
     step: 5
     mode: slider
@@ -61,51 +89,73 @@ script:
           number:
     sequence:
       - variables:
-          p: "{{ poisto | float(40) | round(0) }}"
-          t: "{{ tulo | float(35) | round(0) }}"
-          ohj: "{{ states('input_select.iv_ohjaus') }}"
-      - action: mqtt.publish
+          p: "{{ [25, [100, poisto | int(40)] | min] | max }}"
+          t: "{{ [25, [100, tulo | int(35)] | min] | max }}"
+          hub: "{{ states('input_text.iv_modbus_hub') | trim }}"
+          slave: "{{ states('input_number.iv_modbus_slave') | int(1) }}"
+      - action: modbus.write_register
         data:
-          topic: iv/ohjaus
-          retain: true
-          payload: >
-            {"ohjaus":"{{ ohj }}","poisto":{{ p }},"tulo":{{ t }},"kasi":{{ 'true' if is_state('input_boolean.iv_kasi_ajo', 'on') else 'false' }}}
-        continue_on_error: true
-      - action: mqtt.publish
+          hub: "{{ hub }}"
+          slave: "{{ slave | int }}"
+          address: 2
+          value: 1
+      - delay:
+          milliseconds: 200
+      - action: modbus.write_register
         data:
-          topic: homeassistant/iv/ohjaus
-          retain: true
-          payload: >
-            {"ohjaus":"{{ ohj }}","poisto":{{ p }},"tulo":{{ t }},"kasi":{{ 'true' if is_state('input_boolean.iv_kasi_ajo', 'on') else 'false' }}}
-        continue_on_error: true
-      - action: input_number.set_value
-        target:
-          entity_id: input_number.iv_poisto
+          hub: "{{ hub }}"
+          slave: "{{ slave | int }}"
+          address: 10
+          value: "{{ t | int }}"
+      - delay:
+          milliseconds: 200
+      - action: modbus.write_register
         data:
-          value: "{{ p }}"
-        continue_on_error: true
-      - action: input_number.set_value
-        target:
-          entity_id: input_number.iv_tulo
+          hub: "{{ hub }}"
+          slave: "{{ slave | int }}"
+          address: 11
+          value: "{{ p | int }}"
+
+  iv_suora_pois:
+    alias: IV palauta automaatti koneelle
+    mode: single
+    sequence:
+      - variables:
+          hub: "{{ states('input_text.iv_modbus_hub') | trim }}"
+          slave: "{{ states('input_number.iv_modbus_slave') | int(1) }}"
+      - action: modbus.write_register
         data:
-          value: "{{ t }}"
-        continue_on_error: true
-      - action: number.set_value
-        target:
-          entity_id:
-            - number.iv_poisto
-            - number.iv_poisto_prosentti
+          hub: "{{ hub }}"
+          slave: "{{ slave | int }}"
+          address: 2
+          value: 0
+      - delay:
+          milliseconds: 200
+      - action: modbus.write_register
         data:
-          value: "{{ p }}"
-        continue_on_error: true
-      - action: number.set_value
-        target:
-          entity_id:
-            - number.iv_tulo
-            - number.iv_tulo_prosentti
+          hub: "{{ hub }}"
+          slave: "{{ slave | int }}"
+          address: 12
+          value: 0
+
+  iv_sauna_kirjoita:
+    alias: IV sauna Modbus
+    mode: restart
+    fields:
+      paalle:
+        selector:
+          boolean:
+    sequence:
+      - variables:
+          hub: "{{ states('input_text.iv_modbus_hub') | trim }}"
+          slave: "{{ states('input_number.iv_modbus_slave') | int(1) }}"
+          v: "{{ 1 if paalle else 0 }}"
+      - action: modbus.write_register
         data:
-          value: "{{ t }}"
-        continue_on_error: true
+          hub: "{{ hub }}"
+          slave: "{{ slave | int }}"
+          address: 56
+          value: "{{ v | int }}"
 
   iv_automaatti:
     alias: IV automaatti
@@ -123,18 +173,7 @@ script:
         target:
           entity_id: timer.iv_tehostus
         continue_on_error: true
-      - action: mqtt.publish
-        data:
-          topic: iv/ohjaus
-          retain: true
-          payload: '{"ohjaus":"Automaatti","kasi":false}'
-        continue_on_error: true
-      - action: mqtt.publish
-        data:
-          topic: homeassistant/iv/ohjaus
-          retain: true
-          payload: '{"ohjaus":"Automaatti","kasi":false}'
-        continue_on_error: true
+      - action: script.iv_suora_pois
 
   iv_manuaali:
     alias: IV käsinajo
@@ -195,6 +234,9 @@ script:
     alias: IV pois / minimipuhallus
     mode: single
     sequence:
+      - variables:
+          hub: "{{ states('input_text.iv_modbus_hub') | trim }}"
+          slave: "{{ states('input_number.iv_modbus_slave') | int(1) }}"
       - action: input_select.select_option
         target:
           entity_id: input_select.iv_ohjaus
@@ -209,8 +251,16 @@ script:
         continue_on_error: true
       - action: script.iv_kirjoita
         data:
-          poisto: 15
-          tulo: 15
+          poisto: 25
+          tulo: 25
+      - delay:
+          milliseconds: 200
+      - action: modbus.write_register
+        data:
+          hub: "{{ hub }}"
+          slave: "{{ slave | int }}"
+          address: 12
+          value: 1
 
   iv_sauna:
     alias: IV sauna
@@ -228,12 +278,9 @@ script:
             target:
               entity_id: timer.sauna_tila
             continue_on_error: true
-          - action: mqtt.publish
+          - action: script.iv_sauna_kirjoita
             data:
-              topic: iv/ohjaus
-              retain: false
-              payload: '{"sauna":false}'
-            continue_on_error: true
+              paalle: false
         else:
           - action: input_boolean.turn_on
             target:
@@ -242,12 +289,9 @@ script:
             target:
               entity_id: timer.sauna_tila
             continue_on_error: true
-          - action: mqtt.publish
+          - action: script.iv_sauna_kirjoita
             data:
-              topic: iv/ohjaus
-              retain: false
-              payload: '{"sauna":true}'
-            continue_on_error: true
+              paalle: true
 
 automation:
   - id: iv_ohjaus_manuaali_saato
@@ -277,3 +321,41 @@ automation:
           entity_id: timer.iv_tehostus
     action:
       - action: script.iv_automaatti
+
+  - id: iv_kasi_pito
+    alias: IV käsi — pidä asetus
+    mode: restart
+    trigger:
+      - platform: time_pattern
+        seconds: "/30"
+    condition:
+      - condition: not
+        conditions:
+          - condition: state
+            entity_id: input_select.iv_ohjaus
+            state: Automaatti
+    action:
+      - choose:
+          - conditions:
+              - condition: state
+                entity_id: input_select.iv_ohjaus
+                state: Tehostus
+            sequence:
+              - action: script.iv_kirjoita
+                data:
+                  poisto: 70
+                  tulo: 70
+          - conditions:
+              - condition: state
+                entity_id: input_select.iv_ohjaus
+                state: Pois
+            sequence:
+              - action: script.iv_kirjoita
+                data:
+                  poisto: 25
+                  tulo: 25
+        default:
+          - action: script.iv_kirjoita
+            data:
+              poisto: "{{ states('input_number.iv_manuaali_poisto') | float(40) }}"
+              tulo: "{{ states('input_number.iv_manuaali_tulo') | float(35) }}"
