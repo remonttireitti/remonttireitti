@@ -1,13 +1,10 @@
 # iv.yaml
-# → config/packages/iv.yaml
+# → config/packages/iv.yaml  (tiedostonimi ILMAN yhdysviivaa)
 #
-# Lovelace seuraa:
-#   input_select.iv_ohjaus
-#   input_number.iv_manuaali_poisto / iv_manuaali_tulo
-#   timer.iv_tehostus
-#
-# Jos Node-RED/Modbus jo ohjaa konetta, kuuntele näitä samoja entiteettejä.
-# script.iv_kirjoita yrittää myös number.iv_poisto / number.iv_tulo jos ne on olemassa.
+# Ohjaus:
+#   input_select.iv_ohjaus: Automaatti | Manuaali | Tehostus | Pois
+#   input_boolean.iv_kasi_ajo: on kun ei automaatti (Node-RED: älä ylikirjoita)
+#   MQTT iv/ohjaus  {"ohjaus":"...","poisto":40,"tulo":35,"kasi":true}
 
 input_select:
   iv_ohjaus:
@@ -19,6 +16,11 @@ input_select:
       - Pois
     initial: Automaatti
     icon: mdi:fan
+
+input_boolean:
+  iv_kasi_ajo:
+    name: IV käsinajo
+    icon: mdi:gesture-tap
 
 input_number:
   iv_manuaali_poisto:
@@ -44,6 +46,7 @@ timer:
   iv_tehostus:
     name: IV tehostus
     duration: "00:30:00"
+    restore: true
 
 script:
   iv_kirjoita:
@@ -57,29 +60,51 @@ script:
         selector:
           number:
     sequence:
-      - action: number.set_value
-        target:
-          entity_id: number.iv_poisto
+      - variables:
+          p: "{{ poisto | float(40) | round(0) }}"
+          t: "{{ tulo | float(35) | round(0) }}"
+          ohj: "{{ states('input_select.iv_ohjaus') }}"
+      - action: mqtt.publish
         data:
-          value: "{{ poisto | float(40) }}"
+          topic: iv/ohjaus
+          retain: true
+          payload: >
+            {"ohjaus":"{{ ohj }}","poisto":{{ p }},"tulo":{{ t }},"kasi":{{ 'true' if is_state('input_boolean.iv_kasi_ajo', 'on') else 'false' }}}
+        continue_on_error: true
+      - action: mqtt.publish
+        data:
+          topic: homeassistant/iv/ohjaus
+          retain: true
+          payload: >
+            {"ohjaus":"{{ ohj }}","poisto":{{ p }},"tulo":{{ t }},"kasi":{{ 'true' if is_state('input_boolean.iv_kasi_ajo', 'on') else 'false' }}}
+        continue_on_error: true
+      - action: input_number.set_value
+        target:
+          entity_id: input_number.iv_poisto
+        data:
+          value: "{{ p }}"
+        continue_on_error: true
+      - action: input_number.set_value
+        target:
+          entity_id: input_number.iv_tulo
+        data:
+          value: "{{ t }}"
         continue_on_error: true
       - action: number.set_value
         target:
-          entity_id: number.iv_tulo
+          entity_id:
+            - number.iv_poisto
+            - number.iv_poisto_prosentti
         data:
-          value: "{{ tulo | float(35) }}"
+          value: "{{ p }}"
         continue_on_error: true
       - action: number.set_value
         target:
-          entity_id: number.iv_poisto_prosentti
+          entity_id:
+            - number.iv_tulo
+            - number.iv_tulo_prosentti
         data:
-          value: "{{ poisto | float(40) }}"
-        continue_on_error: true
-      - action: number.set_value
-        target:
-          entity_id: number.iv_tulo_prosentti
-        data:
-          value: "{{ tulo | float(35) }}"
+          value: "{{ t }}"
         continue_on_error: true
 
   iv_automaatti:
@@ -91,9 +116,24 @@ script:
           entity_id: input_select.iv_ohjaus
         data:
           option: Automaatti
+      - action: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.iv_kasi_ajo
       - action: timer.cancel
         target:
           entity_id: timer.iv_tehostus
+        continue_on_error: true
+      - action: mqtt.publish
+        data:
+          topic: iv/ohjaus
+          retain: true
+          payload: '{"ohjaus":"Automaatti","kasi":false}'
+        continue_on_error: true
+      - action: mqtt.publish
+        data:
+          topic: homeassistant/iv/ohjaus
+          retain: true
+          payload: '{"ohjaus":"Automaatti","kasi":false}'
         continue_on_error: true
 
   iv_manuaali:
@@ -105,6 +145,9 @@ script:
           entity_id: input_select.iv_ohjaus
         data:
           option: Manuaali
+      - action: input_boolean.turn_on
+        target:
+          entity_id: input_boolean.iv_kasi_ajo
       - action: timer.cancel
         target:
           entity_id: timer.iv_tehostus
@@ -123,6 +166,9 @@ script:
           entity_id: input_select.iv_ohjaus
         data:
           option: Tehostus
+      - action: input_boolean.turn_on
+        target:
+          entity_id: input_boolean.iv_kasi_ajo
       - action: input_number.set_value
         target:
           entity_id: input_number.iv_manuaali_poisto
@@ -138,6 +184,8 @@ script:
           entity_id: timer.iv_tehostus
         data:
           duration: "00:30:00"
+      - delay:
+          milliseconds: 200
       - action: script.iv_kirjoita
         data:
           poisto: 70
@@ -152,6 +200,9 @@ script:
           entity_id: input_select.iv_ohjaus
         data:
           option: Pois
+      - action: input_boolean.turn_on
+        target:
+          entity_id: input_boolean.iv_kasi_ajo
       - action: timer.cancel
         target:
           entity_id: timer.iv_tehostus
@@ -160,6 +211,43 @@ script:
         data:
           poisto: 15
           tulo: 15
+
+  iv_sauna:
+    alias: IV sauna
+    mode: restart
+    sequence:
+      - if:
+          - condition: state
+            entity_id: input_boolean.sauna_tila
+            state: "on"
+        then:
+          - action: input_boolean.turn_off
+            target:
+              entity_id: input_boolean.sauna_tila
+          - action: timer.cancel
+            target:
+              entity_id: timer.sauna_tila
+            continue_on_error: true
+          - action: mqtt.publish
+            data:
+              topic: iv/ohjaus
+              retain: false
+              payload: '{"sauna":false}'
+            continue_on_error: true
+        else:
+          - action: input_boolean.turn_on
+            target:
+              entity_id: input_boolean.sauna_tila
+          - action: timer.start
+            target:
+              entity_id: timer.sauna_tila
+            continue_on_error: true
+          - action: mqtt.publish
+            data:
+              topic: iv/ohjaus
+              retain: false
+              payload: '{"sauna":true}'
+            continue_on_error: true
 
 automation:
   - id: iv_ohjaus_manuaali_saato
@@ -175,11 +263,13 @@ automation:
         entity_id: input_select.iv_ohjaus
         state: Manuaali
     action:
-      - action: script.iv_manuaali
+      - action: script.iv_kirjoita
+        data:
+          poisto: "{{ states('input_number.iv_manuaali_poisto') | float(40) }}"
+          tulo: "{{ states('input_number.iv_manuaali_tulo') | float(35) }}"
 
   - id: iv_tehostus_loppu
     alias: IV tehostus päättyi
-    mode: single
     trigger:
       - platform: event
         event_type: timer.finished
