@@ -1,23 +1,18 @@
 # iv.yaml
 # → config/packages/iv.yaml  (tiedostonimi ILMAN yhdysviivaa)
 #
-# Käsinajo kirjoittaa AirFiin HA:n Modbus-integraatiolla.
-# Rekisterit (holding, 0-pohjainen osoite, sama kartta kuin HA:ssa):
-#   2  = suoraohjaus 1=käsi / 0=automaatti
-#   10 = tulo %
-#   11 = poisto %
-#   12 = poissa-tila
-#   56 = sauna
+# Käsinajo → AirFi Modbus holding:
+#   2  suoraohjaus 1=käsi / 0=automaatti
+#   3  yhdistetty % (nollataan, muuten tulo ei itsenäisty)
+#   8  vakiopaine 0=pois (päällä tulo ei noudata käskyä)
+#   10 tulo %
+#   11 poisto %
+#   12 poissa
+#   56 sauna
 #
-# Hubin nimi = configuration.yaml → modbus: → name:
-# Muuta Developer Toolsista: input_text.iv_modbus_hub
-# Slave yleensä 1: input_number.iv_modbus_slave
-#
-# Puhallinminimi 25 % (AirFi ei ota pienempää).
-#
-# Olemassa olevat IV-automaatiot: lisää ehto
-#   input_select.iv_ohjaus == Automaatti
-# muuten ne ylikirjoittavat käden.
+# Hub = configuration.yaml → modbus: → name:  (input_text.iv_modbus_hub)
+# Minimi 25 %. Poisto 100 % + tulo 35 % voi olla koneen alipaineraja
+# (~10 % ero) — silloin lukema jää esim. 90 %, se ei ole HA-vika.
 
 input_select:
   iv_ohjaus:
@@ -79,7 +74,8 @@ timer:
 script:
   iv_kirjoita:
     alias: IV kirjoita puhaltimet
-    mode: restart
+    mode: queued
+    max: 5
     fields:
       poisto:
         selector:
@@ -97,10 +93,34 @@ script:
         data:
           hub: "{{ hub }}"
           slave: "{{ slave | int }}"
+          address: 8
+          value: 0
+      - delay:
+          milliseconds: 80
+      - action: modbus.write_register
+        data:
+          hub: "{{ hub }}"
+          slave: "{{ slave | int }}"
+          address: 3
+          value: 0
+      - delay:
+          milliseconds: 80
+      - action: modbus.write_register
+        data:
+          hub: "{{ hub }}"
+          slave: "{{ slave | int }}"
+          address: 12
+          value: "{{ 1 if is_state('input_select.iv_ohjaus', 'Pois') else 0 }}"
+      - delay:
+          milliseconds: 80
+      - action: modbus.write_register
+        data:
+          hub: "{{ hub }}"
+          slave: "{{ slave | int }}"
           address: 2
           value: 1
       - delay:
-          milliseconds: 200
+          milliseconds: 80
       - action: modbus.write_register
         data:
           hub: "{{ hub }}"
@@ -108,7 +128,7 @@ script:
           address: 10
           value: "{{ t | int }}"
       - delay:
-          milliseconds: 200
+          milliseconds: 80
       - action: modbus.write_register
         data:
           hub: "{{ hub }}"
@@ -130,7 +150,7 @@ script:
           address: 2
           value: 0
       - delay:
-          milliseconds: 200
+          milliseconds: 80
       - action: modbus.write_register
         data:
           hub: "{{ hub }}"
@@ -140,7 +160,8 @@ script:
 
   iv_sauna_kirjoita:
     alias: IV sauna Modbus
-    mode: restart
+    mode: queued
+    max: 3
     fields:
       paalle:
         selector:
@@ -296,6 +317,7 @@ script:
 automation:
   - id: iv_ohjaus_manuaali_saato
     alias: IV käsi — liukusäädin
+    initial_state: true
     mode: restart
     trigger:
       - platform: state
@@ -306,7 +328,12 @@ automation:
       - condition: state
         entity_id: input_select.iv_ohjaus
         state: Manuaali
+      - condition: template
+        value_template: >
+          {{ trigger.to_state.state not in ['unknown', 'unavailable', ''] }}
     action:
+      - delay:
+          milliseconds: 400
       - action: script.iv_kirjoita
         data:
           poisto: "{{ states('input_number.iv_manuaali_poisto') | float(40) }}"
@@ -314,6 +341,7 @@ automation:
 
   - id: iv_tehostus_loppu
     alias: IV tehostus päättyi
+    initial_state: true
     trigger:
       - platform: event
         event_type: timer.finished
@@ -324,10 +352,12 @@ automation:
 
   - id: iv_kasi_pito
     alias: IV käsi — pidä asetus
-    mode: restart
+    initial_state: true
+    mode: queued
+    max: 1
     trigger:
       - platform: time_pattern
-        seconds: "/30"
+        seconds: "/15"
     condition:
       - condition: not
         conditions:

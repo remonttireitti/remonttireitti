@@ -44,7 +44,12 @@ cards:
         {% set poisto = states('sensor.iv_poisto_prosentti') | float(0) | round(0) %}
         {% set tulo = states('sensor.iv_tulo_prosentti') | float(0) | round(0) %}
         {% set sauna = is_state('input_boolean.sauna_tila', 'on') %}
+        {% set kp = states('input_number.iv_manuaali_poisto') | float(-1) | round(0) %}
+        {% set kt = states('input_number.iv_manuaali_tulo') | float(-1) | round(0) %}
         Poisto {{ poisto }} % · tulo {{ tulo }} %{% if sauna %} · 🧖 Sauna{% endif %}
+        {%- if is_state('input_select.iv_ohjaus', 'Manuaali') and (kp != poisto or kt != tulo) %}
+         · käsky {{ kp }}/{{ kt }}
+        {%- endif %}
         {%- if is_state('input_select.iv_ohjaus', 'Automaatti') and p not in ['unknown','unavailable','none',''] %}
          · nostaa {{ p }}
         {%- elif 'Liesi' in tila %}
@@ -150,7 +155,14 @@ cards:
         entity: sensor.iv_poisto_prosentti
         layout: vertical
         primary: "{{ states('sensor.iv_poisto_prosentti') | float(0) | round(0) }} %"
-        secondary: Poisto
+        secondary: >
+          {% set a = states('sensor.iv_poisto_prosentti') | float(0) | round(0) %}
+          {% set k = states('input_number.iv_manuaali_poisto') | float(-1) | round(0) %}
+          {% if is_state('input_select.iv_ohjaus', 'Manuaali') and k != a %}
+            Poisto · käsky {{ k }} %
+          {% else %}
+            Poisto
+          {% endif %}
         icon: mdi:fan
         icon_color: >
           {% set v = states('sensor.iv_poisto_prosentti') | float(0) %}
@@ -159,7 +171,14 @@ cards:
         entity: sensor.iv_tulo_prosentti
         layout: vertical
         primary: "{{ states('sensor.iv_tulo_prosentti') | float(0) | round(0) }} %"
-        secondary: Tulo
+        secondary: >
+          {% set a = states('sensor.iv_tulo_prosentti') | float(0) | round(0) %}
+          {% set k = states('input_number.iv_manuaali_tulo') | float(-1) | round(0) %}
+          {% if is_state('input_select.iv_ohjaus', 'Manuaali') and k != a %}
+            Tulo · käsky {{ k }} %
+          {% else %}
+            Tulo
+          {% endif %}
         icon: mdi:fan-plus
         icon_color: >
           {% set v = states('sensor.iv_tulo_prosentti') | float(0) %}
