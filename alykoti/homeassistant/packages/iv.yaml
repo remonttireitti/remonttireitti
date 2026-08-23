@@ -1,13 +1,13 @@
-# iv.yaml
-# → config/packages/iv.yaml  (tiedostonimi ILMAN yhdysviivaa)
+# iv.yaml — VALINNAINEN käsinajo. Tämä EI ole Modbus-yhteys.
 #
-# AirFi TCP jumittuu jos Modbusia kirjoitetaan liian tiheään.
-# Sääntö: yksi kirjoitus kerrallaan, vähintään 3 s edellisestä,
-# liukusäädin lähettää vasta kun arvo on pysynyt 3 s.
-# Älä kirjoita holding 2 = 1 (E1).
+# Yhteys on VAIN configuration.yaml → modbus: !include modbus.yaml
+# (hub name: airfi). Tähän tiedostoon EI SAA laittaa `modbus:`-avainta.
+# Toinen hub samaan 192.168.50.26:502 jumittaa HA:n asiakkaan;
+# AirFi-sovellus toimii silti, koska se käyttää omaa TCP-istuntoa.
 #
-# Nosta myös configuration.yaml:n modbus-sensorien scan_interval
-# vähintään 15 s — jatkuva luku + kirjoitus tukkii väylän.
+# Jos et tarvitse Käsi/Tehostus/Kuittaa, poista tämä tiedosto HA:sta.
+# Kirjoitus vain jos input_boolean.iv_modbus_kirjoitus = on (oletus pois).
+# Älä kirjoita holding 2 = 1 (tässä koneessa E1).
 
 input_select:
   iv_ohjaus:
@@ -21,41 +21,12 @@ input_select:
     icon: mdi:fan
 
 input_boolean:
-  iv_kasi_ajo:
-    name: IV käsinajo
-    icon: mdi:gesture-tap
   iv_modbus_kirjoitus:
     name: IV Modbus-kirjoitus
     icon: mdi:upload-network
     initial: false
 
-input_text:
-  iv_modbus_hub:
-    name: IV Modbus-hub
-    initial: airfi
-    max: 40
-    icon: mdi:lan
-  iv_virhe_entiteetti:
-    name: IV virherekisterin entiteetti
-    initial: sensor.iv_virhe
-    max: 80
-    icon: mdi:alert-circle
-
-input_datetime:
-  iv_modbus_tauko:
-    name: IV viimeisin Modbus-kirjoitus
-    has_date: true
-    has_time: true
-
 input_number:
-  iv_modbus_slave:
-    name: IV Modbus-slave
-    min: 1
-    max: 247
-    step: 1
-    mode: box
-    icon: mdi:numeric
-    initial: 1
   iv_manuaali_poisto:
     name: IV käsi poisto
     min: 25
@@ -74,20 +45,12 @@ input_number:
     unit_of_measurement: "%"
     icon: mdi:fan-plus
     initial: 35
-  iv_lahetetty_poisto:
-    name: IV viimeksi lähetetty poisto
-    min: 0
-    max: 100
-    step: 1
-    mode: box
-    initial: 0
-  iv_lahetetty_tulo:
-    name: IV viimeksi lähetetty tulo
-    min: 0
-    max: 100
-    step: 1
-    mode: box
-    initial: 0
+
+input_datetime:
+  iv_modbus_tauko:
+    name: IV viimeisin Modbus-kirjoitus
+    has_date: true
+    has_time: true
 
 timer:
   iv_tehostus:
@@ -102,63 +65,9 @@ script:
     sequence:
       - variables:
           viime: "{{ as_timestamp(states('input_datetime.iv_modbus_tauko'), 0) | float(0) }}"
-          nyt: "{{ now().timestamp() }}"
-          odota: "{{ [0, 3 - (nyt | float - viime)] | max }}"
+          odota: "{{ [0, 5 - (now().timestamp() - viime)] | max }}"
       - delay:
           seconds: "{{ odota | float(0) }}"
-
-  iv_merkkaa_kirjoitus:
-    alias: IV merkitse Modbus-kirjoitus
-    mode: single
-    sequence:
-      - action: input_datetime.set_datetime
-        target:
-          entity_id: input_datetime.iv_modbus_tauko
-        data:
-          datetime: "{{ now().strftime('%Y-%m-%d %H:%M:%S') }}"
-
-  iv_kuittaa:
-    alias: IV kuittaa E1 / hätäseis
-    mode: single
-    sequence:
-      - condition: state
-        entity_id: input_boolean.iv_modbus_kirjoitus
-        state: "on"
-      - variables:
-          hub: "{{ states('input_text.iv_modbus_hub') | trim }}"
-          slave: "{{ states('input_number.iv_modbus_slave') | int(1) }}"
-      - action: script.iv_odota_tauko
-      - action: modbus.write_register
-        data:
-          hub: "{{ hub }}"
-          slave: "{{ slave | int }}"
-          address: 1
-          value: 0
-      - delay:
-          seconds: 1
-      - action: modbus.write_register
-        data:
-          hub: "{{ hub }}"
-          slave: "{{ slave | int }}"
-          address: 2
-          value: 0
-      - delay:
-          seconds: 1
-      - action: modbus.write_register
-        data:
-          hub: "{{ hub }}"
-          slave: "{{ slave | int }}"
-          address: 12
-          value: 0
-      - action: script.iv_merkkaa_kirjoitus
-      - action: input_select.select_option
-        target:
-          entity_id: input_select.iv_ohjaus
-        data:
-          option: Automaatti
-      - action: input_boolean.turn_off
-        target:
-          entity_id: input_boolean.iv_kasi_ajo
 
   iv_kirjoita:
     alias: IV kirjoita puhaltimet
@@ -171,44 +80,61 @@ script:
         selector:
           number:
     sequence:
-      - variables:
-          p: "{{ [25, [100, poisto | int(40)] | min] | max }}"
-          t: "{{ [25, [100, tulo | int(35)] | min] | max }}"
-          hub: "{{ states('input_text.iv_modbus_hub') | trim }}"
-          slave: "{{ states('input_number.iv_modbus_slave') | int(1) }}"
       - condition: state
         entity_id: input_boolean.iv_modbus_kirjoitus
         state: "on"
       - condition: template
         value_template: >
-          {{ p | int != states('input_number.iv_lahetetty_poisto') | int(-1)
-             or t | int != states('input_number.iv_lahetetty_tulo') | int(-1) }}
+          {{ states('sensor.airfi_poistoilmapuhallin_nopeus')
+             not in ['unknown', 'unavailable', 'none', ''] }}
+      - variables:
+          p: "{{ [25, [100, poisto | int(40)] | min] | max }}"
+          t: "{{ [25, [100, tulo | int(35)] | min] | max }}"
       - action: script.iv_odota_tauko
       - action: modbus.write_register
         data:
-          hub: "{{ hub }}"
-          slave: "{{ slave | int }}"
+          hub: airfi
+          slave: 1
           address: 10
           value: "{{ t | int }}"
       - delay:
-          seconds: 1
+          seconds: 2
       - action: modbus.write_register
         data:
-          hub: "{{ hub }}"
-          slave: "{{ slave | int }}"
+          hub: airfi
+          slave: 1
           address: 11
           value: "{{ p | int }}"
-      - action: input_number.set_value
+      - action: input_datetime.set_datetime
         target:
-          entity_id: input_number.iv_lahetetty_tulo
+          entity_id: input_datetime.iv_modbus_tauko
         data:
-          value: "{{ t | int }}"
-      - action: input_number.set_value
+          datetime: "{{ now().strftime('%Y-%m-%d %H:%M:%S') }}"
+
+  iv_kuittaa:
+    alias: IV kuittaa hätäseis
+    mode: single
+    sequence:
+      - condition: state
+        entity_id: input_boolean.iv_modbus_kirjoitus
+        state: "on"
+      - action: script.iv_odota_tauko
+      - action: modbus.write_register
+        data:
+          hub: airfi
+          slave: 1
+          address: 1
+          value: 0
+      - action: input_datetime.set_datetime
         target:
-          entity_id: input_number.iv_lahetetty_poisto
+          entity_id: input_datetime.iv_modbus_tauko
         data:
-          value: "{{ p | int }}"
-      - action: script.iv_merkkaa_kirjoitus
+          datetime: "{{ now().strftime('%Y-%m-%d %H:%M:%S') }}"
+      - action: input_select.select_option
+        target:
+          entity_id: input_select.iv_ohjaus
+        data:
+          option: Automaatti
 
   iv_automaatti:
     alias: IV automaatti
@@ -219,9 +145,6 @@ script:
           entity_id: input_select.iv_ohjaus
         data:
           option: Automaatti
-      - action: input_boolean.turn_off
-        target:
-          entity_id: input_boolean.iv_kasi_ajo
       - action: timer.cancel
         target:
           entity_id: timer.iv_tehostus
@@ -236,9 +159,6 @@ script:
           entity_id: input_select.iv_ohjaus
         data:
           option: Manuaali
-      - action: input_boolean.turn_on
-        target:
-          entity_id: input_boolean.iv_kasi_ajo
       - action: timer.cancel
         target:
           entity_id: timer.iv_tehostus
@@ -257,9 +177,6 @@ script:
           entity_id: input_select.iv_ohjaus
         data:
           option: Tehostus
-      - action: input_boolean.turn_on
-        target:
-          entity_id: input_boolean.iv_kasi_ajo
       - action: input_number.set_value
         target:
           entity_id: input_number.iv_manuaali_poisto
@@ -281,7 +198,7 @@ script:
           tulo: 70
 
   iv_pois:
-    alias: IV pois / minimipuhallus
+    alias: IV pois / minimi
     mode: single
     sequence:
       - action: input_select.select_option
@@ -289,9 +206,6 @@ script:
           entity_id: input_select.iv_ohjaus
         data:
           option: Pois
-      - action: input_boolean.turn_on
-        target:
-          entity_id: input_boolean.iv_kasi_ajo
       - action: timer.cancel
         target:
           entity_id: timer.iv_tehostus
@@ -305,13 +219,11 @@ script:
     alias: IV sauna
     mode: single
     sequence:
-      - variables:
-          hub: "{{ states('input_text.iv_modbus_hub') | trim }}"
-          slave: "{{ states('input_number.iv_modbus_slave') | int(1) }}"
-          paalle: "{{ is_state('input_boolean.sauna_tila', 'off') }}"
       - condition: state
         entity_id: input_boolean.iv_modbus_kirjoitus
         state: "on"
+      - variables:
+          paalle: "{{ is_state('input_boolean.sauna_tila', 'off') }}"
       - action: script.iv_odota_tauko
       - if:
           - condition: template
@@ -320,31 +232,37 @@ script:
           - action: input_boolean.turn_on
             target:
               entity_id: input_boolean.sauna_tila
+            continue_on_error: true
           - action: timer.start
             target:
               entity_id: timer.sauna_tila
             continue_on_error: true
           - action: modbus.write_register
             data:
-              hub: "{{ hub }}"
-              slave: "{{ slave | int }}"
+              hub: airfi
+              slave: 1
               address: 56
               value: 1
         else:
           - action: input_boolean.turn_off
             target:
               entity_id: input_boolean.sauna_tila
+            continue_on_error: true
           - action: timer.cancel
             target:
               entity_id: timer.sauna_tila
             continue_on_error: true
           - action: modbus.write_register
             data:
-              hub: "{{ hub }}"
-              slave: "{{ slave | int }}"
+              hub: airfi
+              slave: 1
               address: 56
               value: 0
-      - action: script.iv_merkkaa_kirjoitus
+      - action: input_datetime.set_datetime
+        target:
+          entity_id: input_datetime.iv_modbus_tauko
+        data:
+          datetime: "{{ now().strftime('%Y-%m-%d %H:%M:%S') }}"
 
 automation:
   - id: iv_ohjaus_manuaali_saato
@@ -357,14 +275,14 @@ automation:
           - input_number.iv_manuaali_poisto
           - input_number.iv_manuaali_tulo
         for:
-          seconds: 3
+          seconds: 5
     condition:
       - condition: state
         entity_id: input_select.iv_ohjaus
         state: Manuaali
-      - condition: template
-        value_template: >
-          {{ trigger.to_state.state not in ['unknown', 'unavailable', ''] }}
+      - condition: state
+        entity_id: input_boolean.iv_modbus_kirjoitus
+        state: "on"
     action:
       - action: script.iv_kirjoita
         data:
@@ -381,119 +299,3 @@ automation:
           entity_id: timer.iv_tehostus
     action:
       - action: script.iv_automaatti
-
-template:
-  - binary_sensor:
-      - name: IV Modbus ok
-        unique_id: iv_modbus_ok
-        device_class: connectivity
-        icon: mdi:lan-connect
-        state: >
-          {{ states('sensor.iv_poisto_prosentti') not in ['unknown', 'unavailable', 'none', '']
-             and states('sensor.iv_tulo_prosentti') not in ['unknown', 'unavailable', 'none', ''] }}
-      - name: IV hälytys
-        unique_id: iv_halytys
-        device_class: problem
-        icon: mdi:alert-octagon
-        state: >
-          {% set tila = states('sensor.iv_tila') | lower %}
-          {% set ent = states('input_text.iv_virhe_entiteetti') | trim %}
-          {% set raw_s = states(ent) if ent not in ['unknown', 'unavailable', 'none', ''] else 'unknown' %}
-          {% set raw = raw_s | int(-1) if raw_s not in ['unknown', 'unavailable', 'none', ''] else -1 %}
-          {% set bin_on = [
-            'binary_sensor.iv_hataseis',
-            'binary_sensor.iv_hata_seis',
-            'binary_sensor.iv_emergency_stop',
-            'binary_sensor.airfi_emergency_stop',
-            'binary_sensor.iv_jaatymisvaara',
-            'binary_sensor.iv_konevika',
-          ] | select('is_state', 'on') | list | count %}
-          {{ raw > 0
-             or bin_on > 0
-             or 'hätä' in tila
-             or 'hata' in tila
-             or 'e1' in tila
-             or 'hälyt' in tila
-             or 'halyt' in tila
-             or 'jäätym' in tila
-             or 'jaatym' in tila
-             or 'vika' in tila }}
-  - sensor:
-      - name: IV hälytykset
-        unique_id: iv_halytykset
-        icon: mdi:alert-octagon
-        state: >
-          {% set tila = states('sensor.iv_tila') %}
-          {% set ent = states('input_text.iv_virhe_entiteetti') | trim %}
-          {% set raw_s = states(ent) if ent not in ['unknown', 'unavailable', 'none', ''] else 'unknown' %}
-          {% set raw = raw_s | int(0) if raw_s not in ['unknown', 'unavailable', 'none', ''] else 0 %}
-          {% set nimet = {
-            1: 'E0',
-            2: 'E1',
-            4: 'E2',
-            8: 'E3',
-            16: 'E4',
-            32: 'E5',
-            64: 'E6',
-            128: 'E7',
-            256: 'E8',
-            512: 'E9',
-          } %}
-          {% set ns = namespace(koodit=[]) %}
-          {% for bit, koodi in nimet.items() %}
-            {% if raw // bit % 2 == 1 %}
-              {% set ns.koodit = ns.koodit + [koodi] %}
-            {% endif %}
-          {% endfor %}
-          {% if ns.koodit | count > 0 %}
-            {{ ns.koodit | join(' · ') }}
-          {% elif is_state('binary_sensor.iv_halytys', 'on') %}
-            {{ tila if tila not in ['unknown', 'unavailable', 'none', ''] else 'Hälytys' }}
-          {% else %}
-            Ei hälytyksiä
-          {% endif %}
-        attributes:
-          selite: >
-            {% set ent = states('input_text.iv_virhe_entiteetti') | trim %}
-            {% set raw_s = states(ent) if ent not in ['unknown', 'unavailable', 'none', ''] else 'unknown' %}
-            {% set raw = raw_s | int(0) if raw_s not in ['unknown', 'unavailable', 'none', ''] else 0 %}
-            {% set sel = {
-              1: 'E0 yleishälytys',
-              2: 'E1 puhaltimien ulkopuolinen pysäytys',
-              4: 'E2 ohituspellin häiriö',
-              8: 'E3 tulopuhallin ei pyöri',
-              16: 'E4 poistopuhallin ei pyöri',
-              32: 'E5 vesipatterin jäätymissuoja',
-              64: 'E6 anturivirhe',
-              128: 'E7 huurtumissuojan painelähetin',
-              256: 'E8 tulo/poisto-lämpötilat virheellisiä',
-              512: 'E9 vakiopainesäätö',
-            } %}
-            {% set ns = namespace(out=[]) %}
-            {% for bit, teksti in sel.items() %}
-              {% if raw // bit % 2 == 1 %}
-                {% set ns.out = ns.out + [teksti] %}
-              {% endif %}
-            {% endfor %}
-            {% if is_state('binary_sensor.iv_hataseis', 'on')
-               or is_state('binary_sensor.iv_hata_seis', 'on')
-               or is_state('binary_sensor.airfi_emergency_stop', 'on') %}
-              {% set ns.out = ns.out + ['Hätäseis'] %}
-            {% endif %}
-            {% if is_state('binary_sensor.iv_jaatymisvaara', 'on') %}
-              {% set ns.out = ns.out + ['Jäätymisvaara'] %}
-            {% endif %}
-            {% if is_state('binary_sensor.iv_konevika', 'on') %}
-              {% set ns.out = ns.out + ['Konevika'] %}
-            {% endif %}
-            {% if ns.out | count > 0 %}
-              {{ ns.out | join(' · ') }}
-            {% elif is_state('binary_sensor.iv_halytys', 'on') %}
-              {{ states('sensor.iv_tila') }}
-            {% else %}
-              Kone kunnossa
-            {% endif %}
-          virherekisteri: "{{ states('input_text.iv_virhe_entiteetti') }}"
-          raaka: >
-            {% set ent = states('input_text.iv_virhe_entiteetti') | trim %}
-            {{ states(ent) if ent not in ['unknown', 'unavailable', 'none', ''] else '' }}

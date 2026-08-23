@@ -1,364 +1,190 @@
 # Koko IV-kortti. Korvaa Lovelace-editorissa koko YAML.
-# Ei entities-korttia (puuttuva helper kaataa koko kortin).
+# Vain sinun modbus.yaml:n sensorit (sensor.airfi_*).
+# Ei toista hubia. Ei sensor.iv_*-nimiä. Ei käsinajo-helpereitä.
 
 type: vertical-stack
 cards:
-  - type: custom:mod-card
-    card_mod:
-      style: |
-        ha-card {
-          border-radius: 16px 16px 0 0;
-          border: 1px solid rgba(0, 0, 0, 0.08);
-          border-bottom: none;
-          box-shadow: none;
-          overflow: hidden;
-          {% set ohj = states('input_select.iv_ohjaus') %}
-          {% set sauna = is_state('input_boolean.sauna_tila', 'on') %}
-          {% if ohj == 'Pois' %}
-            background: rgba(100, 116, 139, 0.12);
-          {% elif ohj == 'Tehostus' or sauna %}
-            background: rgba(239, 68, 68, 0.14);
-          {% elif ohj == 'Manuaali' %}
-            background: rgba(59, 130, 246, 0.12);
-          {% else %}
-            background: rgba(34, 197, 94, 0.12);
-          {% endif %}
-        }
-    card:
-      type: custom:mushroom-template-card
-      entity: sensor.iv_tila
-      layout: horizontal
-      fill_container: true
-      primary: >
-        {% set ohj = states('input_select.iv_ohjaus') %}
-        {% set tila = states('sensor.iv_tila') %}
-        {% if ohj not in ['unknown','unavailable','none',''] %}
-          IV · {{ ohj }}
-        {% elif tila not in ['unknown','unavailable','none',''] %}
-          IV · {{ tila }}
-        {% else %}
-          IV
-        {% endif %}
-      secondary: >
-        {% set tila = states('sensor.iv_tila') %}
-        {% set p = states('sensor.iv_paattaja') %}
-        {% set po = states('sensor.iv_poisto_prosentti') %}
-        {% set tu = states('sensor.iv_tulo_prosentti') %}
-        {% set sauna = is_state('input_boolean.sauna_tila', 'on') %}
-        {% if po in ['unknown','unavailable','none',''] or tu in ['unknown','unavailable','none',''] %}
-          Lukemat eivät vastaa (Modbus?)
-        {% else %}
-          Poisto {{ po | float(0) | round(0) }} % · tulo {{ tu | float(0) | round(0) }} %
-        {% endif %}
-        {%- if sauna %} · Sauna{% endif %}
-        {%- if is_state('input_select.iv_ohjaus', 'Automaatti') and p not in ['unknown','unavailable','none',''] %}
-         · nostaa {{ p }}
-        {%- endif %}
-      icon: mdi:fan
-      icon_color: >
-        {% set ohj = states('input_select.iv_ohjaus') %}
-        {% if ohj == 'Pois' %}disabled
-        {% elif ohj == 'Tehostus' %}red
-        {% elif ohj == 'Manuaali' %}blue
-        {% elif is_state('input_boolean.sauna_tila', 'on') %}orange
-        {% else %}green{% endif %}
   - type: custom:mushroom-template-card
-    entity: sensor.iv_poisto_prosentti
+    entity: sensor.airfi_poistoilmapuhallin_nopeus
     layout: horizontal
+    fill_container: true
     primary: >
-      {% set po = states('sensor.iv_poisto_prosentti') %}
+      {% set po = states('sensor.airfi_poistoilmapuhallin_nopeus') %}
       {% if po in ['unknown','unavailable','none',''] %}
-        Modbus poikki
+        AirFi · ei lukemaa
       {% else %}
-        Modbus kunnossa
+        AirFi · ok
       {% endif %}
     secondary: >
-      {% set po = states('sensor.iv_poisto_prosentti') %}
-      {% if po in ['unknown','unavailable','none',''] %}
-        1) Älä paina Käsi / Kuittaa. 2) Asetukset → Laitteet → Modbus → Käynnistä uudelleen. 3) Kun lukemat palaavat, kytke kirjoitus päälle.
-      {% elif is_state('input_boolean.iv_modbus_kirjoitus', 'on') %}
-        Kirjoitus päällä — harvoin, älä spämmää
+      {% set po = states('sensor.airfi_poistoilmapuhallin_nopeus') %}
+      {% set tu = states('sensor.airfi_tuloilmapuhallin_nopeus') %}
+      {% if po in ['unknown','unavailable','none',''] or tu in ['unknown','unavailable','none',''] %}
+        Tarkista Kehittäjätyökalut → sensor.airfi_poistoilmapuhallin_nopeus
       {% else %}
-        Kirjoitus pois — lukemat turvassa
+        Poisto {{ po | float(0) | round(0) }} % · tulo {{ tu | float(0) | round(0) }} %
       {% endif %}
-    icon: >
-      {% set po = states('sensor.iv_poisto_prosentti') %}
-      {{ 'mdi:lan-disconnect' if po in ['unknown','unavailable','none',''] else 'mdi:lan-connect' }}
+    icon: mdi:fan
     icon_color: >
-      {% set po = states('sensor.iv_poisto_prosentti') %}
-      {{ 'red' if po in ['unknown','unavailable','none',''] else 'green' }}
+      {{ 'green' if states('sensor.airfi_poistoilmapuhallin_nopeus') not in ['unknown','unavailable','none',''] else 'red' }}
     tap_action:
       action: more-info
-  - type: custom:mushroom-template-card
-    primary: >
-      {% if states('input_boolean.iv_modbus_kirjoitus') in ['unknown','unavailable','none',''] %}
-        Kirjoituskatko — lataa iv.yaml
-      {% elif is_state('input_boolean.iv_modbus_kirjoitus', 'on') %}
-        Modbus-kirjoitus päällä
-      {% else %}
-        Modbus-kirjoitus pois
-      {% endif %}
-    secondary: >
-      {% set po = states('sensor.iv_poisto_prosentti') %}
-      {% if po in ['unknown','unavailable','none',''] %}
-        Pidä pois kunnes lukemat palaavat
-      {% else %}
-        Napauta kytkeäksesi (vasta kun Modbus ok)
-      {% endif %}
-    icon: mdi:upload-network
-    icon_color: >
-      {{ 'orange' if is_state('input_boolean.iv_modbus_kirjoitus', 'on') else 'grey' }}
-    layout: horizontal
-    tap_action:
-      action: toggle
-      entity: input_boolean.iv_modbus_kirjoitus
-  - type: custom:mushroom-chips-card
-    alignment: center
-    chips:
-      - type: template
-        icon: mdi:robot-outline
-        content: Auto
-        icon_color: "{{ 'green' if is_state('input_select.iv_ohjaus', 'Automaatti') else 'grey' }}"
-        tap_action:
-          action: perform-action
-          perform_action: script.iv_automaatti
-      - type: template
-        icon: mdi:gesture-tap
-        content: Käsi
-        icon_color: "{{ 'blue' if is_state('input_select.iv_ohjaus', 'Manuaali') else 'grey' }}"
-        tap_action:
-          action: perform-action
-          perform_action: script.iv_manuaali
-      - type: template
-        icon: mdi:fan-plus
-        content: Tehostus
-        icon_color: "{{ 'red' if is_state('input_select.iv_ohjaus', 'Tehostus') else 'grey' }}"
-        tap_action:
-          action: perform-action
-          perform_action: script.iv_tehostus
-      - type: template
-        icon: mdi:fan-off
-        content: Pois
-        icon_color: "{{ 'red' if is_state('input_select.iv_ohjaus', 'Pois') else 'grey' }}"
-        tap_action:
-          action: perform-action
-          perform_action: script.iv_pois
-      - type: template
-        entity: input_boolean.sauna_tila
-        icon: mdi:hot-tub
-        content: "Sauna · {{ 'Päällä' if is_state('input_boolean.sauna_tila', 'on') else 'Pois' }}"
-        icon_color: "{{ 'orange' if is_state('input_boolean.sauna_tila', 'on') else 'grey' }}"
-        tap_action:
-          action: perform-action
-          perform_action: script.iv_sauna
-  - type: custom:mod-card
-    card_mod:
-      style: |
-        ha-card {
-          border: 1px solid rgba(0, 0, 0, 0.08);
-          border-top: none;
-          box-shadow: none;
-          {% set tila = states('sensor.iv_tila') | lower %}
-          {% set haly = is_state('binary_sensor.iv_halytys', 'on')
-            or 'hätä' in tila or 'hata' in tila or 'e1' in tila
-            or 'hälyt' in tila or 'vika' in tila or 'jäätym' in tila %}
-          {% if haly %}
-            background: rgba(239, 68, 68, 0.16);
-          {% else %}
-            background: rgba(34, 197, 94, 0.08);
-          {% endif %}
-        }
-    card:
-      type: custom:mushroom-template-card
-      entity: sensor.iv_tila
-      layout: horizontal
-      fill_container: true
-      primary: >
-        {% set tila = states('sensor.iv_tila') | lower %}
-        {% set koodit = states('sensor.iv_halytykset') %}
-        {% set haly = is_state('binary_sensor.iv_halytys', 'on')
-          or 'hätä' in tila or 'hata' in tila or 'e1' in tila
-          or 'hälyt' in tila or 'vika' in tila or 'jäätym' in tila %}
-        {% if haly and koodit not in ['unknown','unavailable','none','','Ei hälytyksiä'] %}
-          Hälytys · {{ koodit }}
-        {% elif haly %}
-          Hälytys · {{ states('sensor.iv_tila') }}
-        {% else %}
-          Ei hälytyksiä
-        {% endif %}
-      secondary: >
-        {% set sel = state_attr('sensor.iv_halytykset', 'selite') %}
-        {% set tila = states('sensor.iv_tila') %}
-        {% if sel not in [none, 'unknown', 'unavailable', ''] %}
-          {{ sel }}
-        {% elif tila not in ['unknown','unavailable','none',''] %}
-          Koneen tila: {{ tila }}
-        {% else %}
-          Tila ei saatavilla
-        {% endif %}
-      icon: >
-        {% set tila = states('sensor.iv_tila') | lower %}
-        {% set haly = is_state('binary_sensor.iv_halytys', 'on')
-          or 'hätä' in tila or 'e1' in tila or 'hälyt' in tila or 'vika' in tila %}
-        {{ 'mdi:alert-octagon' if haly else 'mdi:check-circle' }}
-      icon_color: >
-        {% set tila = states('sensor.iv_tila') | lower %}
-        {% set haly = is_state('binary_sensor.iv_halytys', 'on')
-          or 'hätä' in tila or 'e1' in tila or 'hälyt' in tila or 'vika' in tila %}
-        {{ 'red' if haly else 'green' }}
-      tap_action:
-        action: more-info
-  - type: custom:mushroom-template-card
-    entity: script.iv_kuittaa
-    primary: Kuittaa hälytys
-    secondary: >
-      {% if states('script.iv_kuittaa') in ['unknown','unavailable','none',''] %}
-        script.iv_kuittaa puuttuu — lataa iv.yaml
-      {% else %}
-        Nollaa hätäseis / E1 (odota 3 s, älä spämmää)
-      {% endif %}
-    icon: mdi:alert-decagram-outline
-    icon_color: red
-    layout: horizontal
-    tap_action:
-      action: perform-action
-      perform_action: script.iv_kuittaa
-  - type: conditional
-    conditions:
-      - condition: state
-        entity: timer.iv_tehostus
-        state: active
-    card:
-      type: custom:mushroom-entity-card
-      entity: timer.iv_tehostus
-      name: Tehostus jäljellä
-      icon: mdi:timer-sand
-      icon_color: red
-      layout: horizontal
-      tap_action:
-        action: perform-action
-        perform_action: script.iv_automaatti
-  - type: conditional
-    conditions:
-      - condition: state
-        entity: timer.sauna_tila
-        state: active
-    card:
-      type: custom:mushroom-entity-card
-      entity: timer.sauna_tila
-      name: Sauna jäljellä
-      icon: mdi:timer-sand
-      icon_color: orange
-      layout: horizontal
-  - type: conditional
-    conditions:
-      - condition: state
-        entity: input_select.iv_ohjaus
-        state: Manuaali
-    card:
-      type: vertical-stack
-      cards:
-        - type: custom:mushroom-number-card
-          entity: input_number.iv_manuaali_poisto
-          display_mode: slider
-          layout: horizontal
-          icon_color: blue
-        - type: custom:mushroom-number-card
-          entity: input_number.iv_manuaali_tulo
-          display_mode: slider
-          layout: horizontal
-          icon_color: cyan
-        - type: custom:mushroom-template-card
-          primary: Lähetys koneelle 3 s kuluttua säätöstä
-          secondary: Liian tiheä Modbus jumittaa yhteyden
-          icon: mdi:timer-sand
-          icon_color: grey
-          layout: horizontal
-          tap_action:
-            action: none
   - type: grid
     columns: 2
     square: false
     cards:
       - type: custom:mushroom-template-card
-        entity: sensor.iv_poisto_prosentti
+        entity: sensor.airfi_poistoilmapuhallin_nopeus
         layout: vertical
         primary: >
-          {% set s = states('sensor.iv_poisto_prosentti') %}
+          {% set s = states('sensor.airfi_poistoilmapuhallin_nopeus') %}
           {% if s in ['unknown','unavailable','none',''] %}—{% else %}{{ s | float(0) | round(0) }} %{% endif %}
         secondary: Poisto
         icon: mdi:fan
-        icon_color: >
-          {% set s = states('sensor.iv_poisto_prosentti') %}
-          {% if s in ['unknown','unavailable','none',''] %}disabled
-          {% else %}
-            {% set v = s | float(0) %}
-            {% if v >= 60 %}red{% elif v >= 45 %}orange{% else %}green{% endif %}
-          {% endif %}
+        icon_color: green
         tap_action:
           action: more-info
       - type: custom:mushroom-template-card
-        entity: sensor.iv_tulo_prosentti
+        entity: sensor.airfi_tuloilmapuhallin_nopeus
         layout: vertical
         primary: >
-          {% set s = states('sensor.iv_tulo_prosentti') %}
+          {% set s = states('sensor.airfi_tuloilmapuhallin_nopeus') %}
           {% if s in ['unknown','unavailable','none',''] %}—{% else %}{{ s | float(0) | round(0) }} %{% endif %}
         secondary: Tulo
         icon: mdi:fan-plus
-        icon_color: >
-          {% set s = states('sensor.iv_tulo_prosentti') %}
-          {% if s in ['unknown','unavailable','none',''] %}disabled
-          {% else %}
-            {% set v = s | float(0) %}
-            {% if v >= 60 %}red{% elif v >= 45 %}orange{% else %}green{% endif %}
-          {% endif %}
+        icon_color: green
+        tap_action:
+          action: more-info
+      - type: custom:mushroom-template-card
+        entity: sensor.airfi_t5_tuloilma
+        layout: vertical
+        primary: >
+          {% set s = states('sensor.airfi_t5_tuloilma') %}
+          {% if s in ['unknown','unavailable','none',''] %}—{% else %}{{ s }} °C{% endif %}
+        secondary: T5 tulo
+        icon: mdi:thermometer
+        icon_color: orange
+        tap_action:
+          action: more-info
+      - type: custom:mushroom-template-card
+        entity: sensor.airfi_t3_poistoilma
+        layout: vertical
+        primary: >
+          {% set s = states('sensor.airfi_t3_poistoilma') %}
+          {% if s in ['unknown','unavailable','none',''] %}—{% else %}{{ s }} °C{% endif %}
+        secondary: T3 poisto
+        icon: mdi:thermometer
+        icon_color: orange
         tap_action:
           action: more-info
   - type: custom:mushroom-chips-card
     alignment: center
     chips:
       - type: template
-        icon: mdi:molecule-co2
+        icon: mdi:thermometer
         content: >
-          {% set s = states('sensor.iv_co2_skaala') %}
-          {% if s in ['unknown','unavailable','none',''] %}CO₂ —{% else %}CO₂ {{ s | float(0) | round(0) }}{% endif %}
-        icon_color: >
-          {% set s = states('sensor.iv_co2_skaala') %}
-          {% if s in ['unknown','unavailable','none',''] %}disabled
-          {% else %}
-            {% set v = s | float(0) %}
-            {% if v >= 60 %}red{% elif v >= 45 %}orange{% else %}green{% endif %}
-          {% endif %}
+          {% set s = states('sensor.airfi_t1_ulkoilma') %}
+          {% if s in ['unknown','unavailable','none',''] %}T1 —{% else %}T1 {{ s }} °C{% endif %}
         tap_action:
           action: more-info
-          entity: sensor.iv_co2_skaala
+          entity: sensor.airfi_t1_ulkoilma
       - type: template
-        icon: mdi:air-filter
+        icon: mdi:thermometer
         content: >
-          {% set s = states('sensor.iv_pm_skaala') %}
-          {% if s in ['unknown','unavailable','none',''] %}PM2.5 —{% else %}PM2.5 {{ s | float(0) | round(0) }}{% endif %}
-        icon_color: >
-          {% set s = states('sensor.iv_pm_skaala') %}
-          {% if s in ['unknown','unavailable','none',''] %}disabled
-          {% else %}
-            {% set v = s | float(0) %}
-            {% if v >= 60 %}red{% elif v >= 45 %}orange{% else %}green{% endif %}
-          {% endif %}
+          {% set s = states('sensor.airfi_t2_lto_jalkeen') %}
+          {% if s in ['unknown','unavailable','none',''] %}T2 —{% else %}T2 {{ s }} °C{% endif %}
         tap_action:
           action: more-info
-          entity: sensor.iv_pm_skaala
+          entity: sensor.airfi_t2_lto_jalkeen
+      - type: template
+        icon: mdi:thermometer
+        content: >
+          {% set s = states('sensor.airfi_t4_jateilma') %}
+          {% if s in ['unknown','unavailable','none',''] %}T4 —{% else %}T4 {{ s }} °C{% endif %}
+        tap_action:
+          action: more-info
+          entity: sensor.airfi_t4_jateilma
       - type: template
         icon: mdi:water-percent
         content: >
-          {% set s = states('sensor.iv_kosteus_bonus') %}
-          {% if s in ['unknown','unavailable','none',''] %}Kosteus —{% else %}Kosteus {{ s | float(0) | round(0) }}{% endif %}
-        icon_color: >
-          {% set s = states('sensor.iv_kosteus_bonus') %}
-          {% if s in ['unknown','unavailable','none',''] %}disabled
-          {% else %}
-            {% set v = s | float(0) %}
-            {% if v >= 20 %}red{% elif v >= 10 %}orange{% else %}green{% endif %}
-          {% endif %}
+          {% set s = states('sensor.airfi_kosteus_rh') %}
+          {% if s in ['unknown','unavailable','none',''] %}RH —{% else %}RH {{ s | float(0) | round(0) }} %{% endif %}
         tap_action:
           action: more-info
-          entity: sensor.iv_kosteus_bonus
+          entity: sensor.airfi_kosteus_rh
+  - type: custom:mushroom-template-card
+    entity: sensor.airfi_hataseis_tila
+    layout: horizontal
+    primary: >
+      {% set h = states('sensor.airfi_hataseis_tila') %}
+      {% set v = states('sensor.airfi_vikatila') %}
+      {% if h in ['unknown','unavailable','none',''] and v in ['unknown','unavailable','none',''] %}
+        Hälytyslukemia ei ole
+      {% elif h | int(0) > 0 or v | int(0) > 0 %}
+        Hälytys · hätäseis {{ h }} · vika {{ v }}
+      {% else %}
+        Ei hälytyksiä
+      {% endif %}
+    secondary: >
+      Nopeustaso {{ states('sensor.airfi_nopeustaso') }}
+      · AUX2 {{ states('sensor.airfi_aux2') }}
+      · sauna {{ states('sensor.airfi_saunatila') }}
+    icon: >
+      {% set h = states('sensor.airfi_hataseis_tila') | int(0) %}
+      {% set v = states('sensor.airfi_vikatila') | int(0) %}
+      {{ 'mdi:alert-octagon' if h > 0 or v > 0 else 'mdi:check-circle' }}
+    icon_color: >
+      {% set h = states('sensor.airfi_hataseis_tila') | int(0) %}
+      {% set v = states('sensor.airfi_vikatila') | int(0) %}
+      {{ 'red' if h > 0 or v > 0 else 'green' }}
+    tap_action:
+      action: more-info
+  - type: entities
+    title: AirFi (modbus.yaml)
+    state_color: true
+    entities:
+      - entity: sensor.airfi_t1_ulkoilma
+        name: T1 ulkoilma
+      - entity: sensor.airfi_t2_lto_jalkeen
+        name: T2 LTO jälkeen
+      - entity: sensor.airfi_t3_poistoilma
+        name: T3 poistoilma
+      - entity: sensor.airfi_t4_jateilma
+        name: T4 jäteilma
+      - entity: sensor.airfi_t5_tuloilma
+        name: T5 tuloilma
+      - entity: sensor.airfi_poistoilmapuhallin_nopeus
+        name: Poistoilmapuhallin
+      - entity: sensor.airfi_tuloilmapuhallin_nopeus
+        name: Tuloilmapuhallin
+      - entity: sensor.airfi_tuloilmamaara
+        name: Tuloilmamäärä
+      - entity: sensor.airfi_poistoilmamaara
+        name: Poistoilmamäärä
+      - entity: sensor.airfi_kosteus_rh
+        name: Kosteus RH
+      - entity: sensor.airfi_nopeustaso
+        name: Nopeustaso
+      - entity: sensor.airfi_lampotila_asetus_luku
+        name: Lämpötila-asetus
+      - entity: sensor.airfi_hataseis_tila
+        name: Hätäseis
+      - entity: sensor.airfi_vikatila
+        name: Vikatila
+      - entity: sensor.airfi_aux2
+        name: AUX2 (LTO)
+      - entity: sensor.airfi_liesipellin_tila
+        name: Liesipelti
+      - entity: sensor.airfi_takkatila
+        name: Takkatila
+      - entity: sensor.airfi_takkatila_asetus
+        name: Takkatila asetus
+      - entity: sensor.airfi_saunatila
+        name: Saunatila
+      - entity: sensor.airfi_kotona_poissa
+        name: Kotona / poissa
+      - entity: sensor.airfi_ohituksen_asetuslampotila
+        name: Ohituksen asetuslämpötila
+      - entity: sensor.airfi_ohituksen_ulkoilmaraja
+        name: Ohituksen ulkoilmaraja
+      - entity: sensor.airfi_ohituksen_viive
+        name: Ohituksen viive
