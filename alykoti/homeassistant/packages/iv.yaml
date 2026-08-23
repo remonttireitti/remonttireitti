@@ -327,12 +327,6 @@ script:
           entity_id: input_select.iv_ohjaus
         data:
           option: Automaatti
-      - action: timer.cancel
-        target:
-          entity_id: timer.iv_tehostus
-        continue_on_error: true
-      - action: script.iv_auto_anturit_kytke
-      - action: script.iv_auto_aja
 
   iv_manuaali:
     alias: IV käsinajo
@@ -343,14 +337,6 @@ script:
           entity_id: input_select.iv_ohjaus
         data:
           option: Manuaali
-      - action: timer.cancel
-        target:
-          entity_id: timer.iv_tehostus
-        continue_on_error: true
-      - action: script.iv_kirjoita
-        data:
-          poisto: "{{ states('input_number.iv_manuaali_poisto') | float(40) }}"
-          tulo: "{{ states('input_number.iv_manuaali_tulo') | float(35) }}"
 
   iv_tehostus:
     alias: IV tehostus 30 min
@@ -361,25 +347,6 @@ script:
           entity_id: input_select.iv_ohjaus
         data:
           option: Tehostus
-      - action: input_number.set_value
-        target:
-          entity_id: input_number.iv_manuaali_poisto
-        data:
-          value: 70
-      - action: input_number.set_value
-        target:
-          entity_id: input_number.iv_manuaali_tulo
-        data:
-          value: 70
-      - action: timer.start
-        target:
-          entity_id: timer.iv_tehostus
-        data:
-          duration: "00:30:00"
-      - action: script.iv_kirjoita
-        data:
-          poisto: 70
-          tulo: 70
 
   iv_pois:
     alias: IV pois / minimi
@@ -390,14 +357,6 @@ script:
           entity_id: input_select.iv_ohjaus
         data:
           option: Pois
-      - action: timer.cancel
-        target:
-          entity_id: timer.iv_tehostus
-        continue_on_error: true
-      - action: script.iv_kirjoita
-        data:
-          poisto: 25
-          tulo: 25
 
   iv_sauna:
     alias: IV sauna
@@ -505,6 +464,79 @@ automation:
           poisto: "{{ states('input_number.iv_manuaali_poisto') | float(40) }}"
           tulo: "{{ states('input_number.iv_manuaali_tulo') | float(35) }}"
 
+  - id: iv_ohjaus_vaihto
+    alias: IV ohjaus vaihto
+    initial_state: true
+    mode: restart
+    trigger:
+      - platform: state
+        entity_id: input_select.iv_ohjaus
+    action:
+      - choose:
+          - conditions:
+              - condition: state
+                entity_id: input_select.iv_ohjaus
+                state: Automaatti
+            sequence:
+              - action: timer.cancel
+                target:
+                  entity_id: timer.iv_tehostus
+                continue_on_error: true
+              - action: script.iv_auto_anturit_kytke
+                continue_on_error: true
+              - action: script.iv_auto_aja
+                continue_on_error: true
+          - conditions:
+              - condition: state
+                entity_id: input_select.iv_ohjaus
+                state: Manuaali
+            sequence:
+              - action: timer.cancel
+                target:
+                  entity_id: timer.iv_tehostus
+                continue_on_error: true
+              - action: script.iv_kirjoita
+                data:
+                  poisto: "{{ states('input_number.iv_manuaali_poisto') | float(40) }}"
+                  tulo: "{{ states('input_number.iv_manuaali_tulo') | float(35) }}"
+          - conditions:
+              - condition: state
+                entity_id: input_select.iv_ohjaus
+                state: Tehostus
+            sequence:
+              - action: input_number.set_value
+                target:
+                  entity_id: input_number.iv_manuaali_poisto
+                data:
+                  value: 70
+              - action: input_number.set_value
+                target:
+                  entity_id: input_number.iv_manuaali_tulo
+                data:
+                  value: 70
+              - action: timer.start
+                target:
+                  entity_id: timer.iv_tehostus
+                data:
+                  duration: "00:30:00"
+              - action: script.iv_kirjoita
+                data:
+                  poisto: 70
+                  tulo: 70
+          - conditions:
+              - condition: state
+                entity_id: input_select.iv_ohjaus
+                state: Pois
+            sequence:
+              - action: timer.cancel
+                target:
+                  entity_id: timer.iv_tehostus
+                continue_on_error: true
+              - action: script.iv_kirjoita
+                data:
+                  poisto: 25
+                  tulo: 25
+
   - id: iv_tehostus_loppu
     alias: IV tehostus päättyi
     initial_state: true
@@ -514,7 +546,11 @@ automation:
         event_data:
           entity_id: timer.iv_tehostus
     action:
-      - action: script.iv_automaatti
+      - action: input_select.select_option
+        target:
+          entity_id: input_select.iv_ohjaus
+        data:
+          option: Automaatti
 
   - id: iv_auto_anturit_kytkin
     alias: IV auto anturit kytkin
