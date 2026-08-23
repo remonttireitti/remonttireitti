@@ -35,6 +35,10 @@ input_boolean:
     name: IV Modbus-kirjoitus
     icon: mdi:upload-network
     initial: true
+  iv_sauna:
+    name: IV sauna
+    icon: mdi:hot-tub
+    initial: false
 
 input_number:
   iv_manuaali_poisto:
@@ -83,6 +87,10 @@ timer:
   iv_tehostus:
     name: IV tehostus
     duration: "00:30:00"
+    restore: true
+  iv_sauna:
+    name: IV sauna
+    duration: "02:00:00"
     restore: true
 
 template:
@@ -398,12 +406,18 @@ script:
     mode: single
     sequence:
       - variables:
-          paalle: "{{ is_state('input_boolean.sauna_tila', 'off') }}"
+          paalle: "{{ is_state('input_boolean.iv_sauna', 'off') and states('sensor.airfi_saunatila') | int(0) == 0 }}"
       - service: script.iv_odota_tauko
       - if:
           - condition: template
             value_template: "{{ paalle }}"
         then:
+          - service: input_boolean.turn_on
+            target:
+              entity_id: input_boolean.iv_sauna
+          - service: timer.start
+            target:
+              entity_id: timer.iv_sauna
           - service: input_boolean.turn_on
             target:
               entity_id: input_boolean.sauna_tila
@@ -417,6 +431,12 @@ script:
               osoite: 56
               arvo: 1
         else:
+          - service: input_boolean.turn_off
+            target:
+              entity_id: input_boolean.iv_sauna
+          - service: timer.cancel
+            target:
+              entity_id: timer.iv_sauna
           - service: input_boolean.turn_off
             target:
               entity_id: input_boolean.sauna_tila
@@ -586,6 +606,27 @@ automation:
           entity_id: input_select.iv_ohjaus
         data:
           option: Automaatti
+
+  - id: iv_sauna_loppu
+    alias: IV sauna päättyi
+    initial_state: true
+    trigger:
+      - platform: event
+        event_type: timer.finished
+        event_data:
+          entity_id: timer.iv_sauna
+    action:
+      - service: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.iv_sauna
+      - service: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.sauna_tila
+        continue_on_error: true
+      - service: script.iv_kirjoita_sana
+        data:
+          osoite: 56
+          arvo: 0
 
   - id: iv_kaynnistys_vakiopaine
     alias: IV kaynnistys vakiopaine
