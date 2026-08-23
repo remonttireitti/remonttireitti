@@ -83,12 +83,12 @@ input_text:
     icon: mdi:lightbulb
   iv_sauna_nappi_lisaa:
     name: IV sauna nappi lisää
-    initial: climate.suihku_h_t
+    initial: sensor.aqara_termostaatti_action
     max: 128
     icon: mdi:plus
   iv_sauna_nappi_lopeta:
     name: IV sauna nappi lopeta
-    initial: climate.suihku_h_t
+    initial: sensor.aqara_termostaatti_action
     max: 128
     icon: mdi:stop
 
@@ -740,76 +740,51 @@ automation:
     action:
       - service: script.iv_sauna_lopeta
 
-  - id: iv_sauna_ht_termostaatti
-    alias: IV sauna suihku H&T termostaatti
+  - id: iv_sauna_aqara_nappi
+    alias: IV sauna Aqara termostaatti
     initial_state: true
     mode: queued
     max: 4
     trigger:
       - platform: state
         entity_id:
-          - climate.suihku_h_t
-          - climate.suihku_ht
-          - climate.suihku_termostaatti
-          - climate.suihkun_h_t
-        attribute: temperature
+          - sensor.aqara_termostaatti_action
+          - sensor.aqara_termostaatti_toiminto
+          - event.aqara_termostaatti_action
+      - platform: mqtt
+        topic: zigbee2mqtt/Aqara termostaatti
+      - platform: mqtt
+        topic: zigbee2mqtt/aqara_termostaatti
     condition:
       - condition: template
         value_template: >
-          {{ trigger.from_state is not none and trigger.to_state is not none
-             and trigger.to_state.attributes.get('temperature') is not none
-             and trigger.from_state.attributes.get('temperature') is not none }}
+          {% set s = trigger.to_state.state | default('', true) | lower if trigger.to_state is defined else '' %}
+          {% set ev = trigger.to_state.attributes.get('event', '') | lower if trigger.to_state is defined else '' %}
+          {% set ac = trigger.to_state.attributes.get('action', '') | lower if trigger.to_state is defined else '' %}
+          {% set mq = trigger.payload_json.action | default('', true) | lower if trigger.payload_json is defined else '' %}
+          {{ s in ['single_plus', 'single_minus']
+             or ev in ['single_plus', 'single_minus']
+             or ac in ['single_plus', 'single_minus']
+             or mq in ['single_plus', 'single_minus'] }}
     action:
+      - variables:
+          nappi: >
+            {% set s = trigger.to_state.state | default('', true) | lower if trigger.to_state is defined else '' %}
+            {% set ev = trigger.to_state.attributes.get('event', '') | lower if trigger.to_state is defined else '' %}
+            {% set ac = trigger.to_state.attributes.get('action', '') | lower if trigger.to_state is defined else '' %}
+            {% set mq = trigger.payload_json.action | default('', true) | lower if trigger.payload_json is defined else '' %}
+            {{ s if s in ['single_plus', 'single_minus'] else (ev if ev in ['single_plus', 'single_minus'] else (ac if ac in ['single_plus', 'single_minus'] else mq)) }}
       - choose:
           - conditions:
               - condition: template
-                value_template: "{{ trigger.to_state.attributes.temperature | float(0) > trigger.from_state.attributes.temperature | float(0) }}"
+                value_template: "{{ nappi == 'single_plus' }}"
             sequence:
               - service: script.iv_sauna_lisaa
           - conditions:
               - condition: template
-                value_template: "{{ trigger.to_state.attributes.temperature | float(0) < trigger.from_state.attributes.temperature | float(0) }}"
+                value_template: "{{ nappi == 'single_minus' }}"
             sequence:
               - service: script.iv_sauna_lopeta
-
-  - id: iv_sauna_ht_nappi
-    alias: IV sauna suihku H&T nappi
-    initial_state: true
-    mode: queued
-    max: 4
-    trigger:
-      - platform: state
-        entity_id:
-          - event.suihku_h_t
-          - event.suihku_ht
-          - event.suihku_h_t_button
-          - sensor.suihku_h_t_action
-          - button.suihku_h_t
-          - button.suihku_termostaatti
-      - platform: template
-        id: lisaa
-        value_template: "{{ states(states('input_text.iv_sauna_nappi_lisaa') | trim) }}"
-      - platform: template
-        id: lopeta
-        value_template: "{{ states(states('input_text.iv_sauna_nappi_lopeta') | trim) }}"
-    condition:
-      - condition: template
-        value_template: >
-          {% set e = trigger.entity_id if trigger.entity_id is defined else '' %}
-          {% set lisaa = states('input_text.iv_sauna_nappi_lisaa') | trim %}
-          {% set lopeta = states('input_text.iv_sauna_nappi_lopeta') | trim %}
-          {{ e[:8] != 'climate.' and (trigger.id in ['lisaa', 'lopeta'] or true) }}
-    action:
-      - choose:
-          - conditions:
-              - condition: template
-                value_template: >
-                  {{ trigger.id == 'lopeta'
-                     or (trigger.to_state is defined and trigger.to_state.state | lower in ['off', 'down', 'double', 'hold', 'long', 'left', 'minus']) }}
-            sequence:
-              - service: script.iv_sauna_lopeta
-        default:
-          - service: script.iv_sauna_lisaa
 
   - id: iv_kaynnistys_vakiopaine
     alias: IV kaynnistys vakiopaine
