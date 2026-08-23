@@ -19,14 +19,14 @@ input_select:
   iv_auto_anturit:
     name: IV automaatin anturit
     options:
-      - "CO2, kosteus ja PM"
-      - "CO2 ja PM"
-      - "Kosteus ja PM"
-      - "Kosteus ja CO2"
-      - "Vain CO2"
-      - "Vain PM"
-      - "Vain kosteus"
-    initial: "CO2, kosteus ja PM"
+      - Kaikki kolme
+      - CO2 ja PM
+      - Kosteus ja PM
+      - Kosteus ja CO2
+      - Vain CO2
+      - Vain PM
+      - Vain kosteus
+    initial: Kaikki kolme
     icon: mdi:tune-variant
 
 input_boolean:
@@ -357,7 +357,7 @@ script:
       - variables:
           valittu: >
             {% set m = {
-              'CO2, kosteus ja PM': 'automation.iv_auto_co2_kosteus_pm',
+              'Kaikki kolme': 'automation.iv_auto_co2_kosteus_pm',
               'CO2 ja PM': 'automation.iv_auto_co2_pm',
               'Kosteus ja PM': 'automation.iv_auto_kosteus_pm',
               'Kosteus ja CO2': 'automation.iv_auto_kosteus_co2',
@@ -384,7 +384,7 @@ script:
 
 automation:
   - id: iv_ohjaus_manuaali_saato
-    alias: IV käsi — liukusäädin
+    alias: IV kasi liukusaadin
     initial_state: true
     mode: restart
     trigger:
@@ -528,7 +528,7 @@ automation:
         state: Automaatti
       - condition: state
         entity_id: input_select.iv_auto_anturit
-        state: "CO2, kosteus ja PM"
+        state: Kaikki kolme
     action:
       - action: script.iv_auto_aja
 
