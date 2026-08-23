@@ -20,6 +20,7 @@ utility_meter:
     unique_id: energia_paivittain
     source: sensor.energia_vertailu_kwh
     cycle: daily
+    offset: "00:00:00"
     net_consumption: false
 
 template:

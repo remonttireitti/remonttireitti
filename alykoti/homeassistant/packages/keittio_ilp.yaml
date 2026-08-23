@@ -79,7 +79,7 @@ input_datetime:
     has_time: true
 
 input_text:
-  keittio_ilp:
+  keittio_ilp_status:
     name: Keittiö ILP tila
     max: 255
     initial: Käynnistyy
@@ -216,7 +216,7 @@ script:
               swing_mode: "{{ swing_want }}"
       - action: input_text.set_value
         target:
-          entity_id: input_text.keittio_ilp
+          entity_id: input_text.keittio_ilp_status
         data:
           value: "{{ status }}"
 

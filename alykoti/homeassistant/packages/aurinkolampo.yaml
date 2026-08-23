@@ -29,18 +29,21 @@ utility_meter:
     unique_id: aurinkolampo_paivittain
     source: sensor.aurinkolampo_energia
     cycle: daily
+    offset: "00:00:00"
     net_consumption: false
   aurinkolampo_viikottain:
     name: Aurinkolampo viikottain
     unique_id: aurinkolampo_viikottain
     source: sensor.aurinkolampo_energia
     cycle: weekly
+    offset: "00:00:00"
     net_consumption: false
   aurinkolampo_kuukausittain:
     name: Aurinkolampo kuukausittain
     unique_id: aurinkolampo_kuukausittain
     source: sensor.aurinkolampo_energia
     cycle: monthly
+    offset: "00:00:00"
     net_consumption: false
 
 template:

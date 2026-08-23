@@ -163,7 +163,7 @@ cards:
     chips:
       - type: template
         icon: mdi:flash
-        content: Spot {{ states('sensor.energi_data_service') | round(1) }} c
+        content: "Spot {{ states('sensor.energi_data_service') | float(0) | round(1) }} c"
       - type: template
         icon: mdi:compare
         content: >-
