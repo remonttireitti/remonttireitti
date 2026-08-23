@@ -3,7 +3,8 @@
 #
 # Tämä on AINOA Modbus-hubi. Älä lisää toista hubia
 # (älä laita `modbus:`-avainta packages/iv.yaml:ään).
-# Jos tämä tiedosto on jo HA:ssa, älä korvaa sitä.
+# Hubin IP/portti pidä samana. Lisää numbers-lohko — sen kautta
+# HA kirjoittaa holding 8/10/11 (FC6), muuten nopeus ei muutu.
 
 - name: airfi
   type: tcp
@@ -75,7 +76,7 @@
       data_type: uint16
       unit_of_measurement: "%"
       precision: 0
-      scan_interval: 30
+      scan_interval: 5
 
     - name: "Airfi Tuloilmapuhallin Nopeus"
       address: 12
@@ -84,7 +85,7 @@
       data_type: uint16
       unit_of_measurement: "%"
       precision: 0
-      scan_interval: 30
+      scan_interval: 5
 
     # --- Ilmamäärät ---
     - name: "Airfi Tuloilmamaara"
@@ -227,3 +228,72 @@
       data_type: uint16
       precision: 0
       scan_interval: 120
+
+    - name: "Airfi Vakiopaine luku"
+      address: 8
+      slave: 1
+      input_type: holding
+      data_type: uint16
+      precision: 0
+      scan_interval: 15
+
+    - name: "Airfi Tulo asetus luku"
+      address: 10
+      slave: 1
+      input_type: holding
+      data_type: uint16
+      unit_of_measurement: "%"
+      precision: 0
+      scan_interval: 15
+
+    - name: "Airfi Poisto asetus luku"
+      address: 11
+      slave: 1
+      input_type: holding
+      data_type: uint16
+      unit_of_measurement: "%"
+      precision: 0
+      scan_interval: 15
+
+  # Kirjoitus FC6 — sama polku kuin Yellow/web (h8, h10, h11).
+  numbers:
+    - name: "Airfi Vakiopaine"
+      unique_id: airfi_vakiopaine
+      address: 8
+      slave: 1
+      data_type: uint16
+      min_value: 0
+      max_value: 1
+      step: 1
+      scale: 1
+      precision: 0
+      write_type: holding
+      scan_interval: 15
+
+    - name: "Airfi Tuloilmapuhallin Asetus"
+      unique_id: airfi_tuloilmapuhallin_asetus
+      address: 10
+      slave: 1
+      data_type: uint16
+      unit_of_measurement: "%"
+      min_value: 25
+      max_value: 100
+      step: 5
+      scale: 1
+      precision: 0
+      write_type: holding
+      scan_interval: 15
+
+    - name: "Airfi Poistoilmapuhallin Asetus"
+      unique_id: airfi_poistoilmapuhallin_asetus
+      address: 11
+      slave: 1
+      data_type: uint16
+      unit_of_measurement: "%"
+      min_value: 25
+      max_value: 100
+      step: 5
+      scale: 1
+      precision: 0
+      write_type: holding
+      scan_interval: 15

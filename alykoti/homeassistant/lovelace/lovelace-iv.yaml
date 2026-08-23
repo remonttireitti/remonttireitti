@@ -9,7 +9,7 @@ cards:
         content: "{{ states('input_select.iv_ohjaus') }}"
         tap_action:
           action: more-info
-          entity: sensor.airfi_poistoilmapuhallin_nopeus
+          entity: input_select.iv_ohjaus
       - type: template
         icon: mdi:fan
         content: "P {{ states('sensor.airfi_poistoilmapuhallin_nopeus') }} %"
@@ -22,22 +22,28 @@ cards:
         tap_action:
           action: more-info
           entity: sensor.airfi_tuloilmapuhallin_nopeus
-      - type: template
-        icon: mdi:check-bold
-        icon_color: orange
-        content: Aseta
-        tap_action:
-          action: call-service
-          service: script.iv_kirjoita
   - type: entities
     show_header_toggle: false
     entities:
+      - entity: input_select.iv_ohjaus
+        name: Tila
       - entity: input_select.iv_auto_anturit
         name: Auto
       - entity: input_number.iv_manuaali_poisto
         name: Poisto
       - entity: input_number.iv_manuaali_tulo
         name: Tulo
+      - entity: script.iv_kirjoita
+        name: Aseta nopeudet
+        icon: mdi:check-bold
+  - type: button
+    name: Aseta nopeudet nyt
+    icon: mdi:fan
+    tap_action:
+      action: call-service
+      service: script.turn_on
+      service_data:
+        entity_id: script.iv_kirjoita
   - type: custom:mushroom-chips-card
     alignment: center
     chips:
@@ -53,40 +59,36 @@ cards:
         content: Auto
         tap_action:
           action: call-service
-          service: input_select.select_option
+          service: script.turn_on
           service_data:
-            entity_id: input_select.iv_ohjaus
-            option: Automaatti
+            entity_id: script.iv_automaatti
       - type: template
         icon: mdi:gesture-tap
         icon_color: "{{ 'blue' if is_state('input_select.iv_ohjaus', 'Manuaali') else 'grey' }}"
         content: Käsi
         tap_action:
           action: call-service
-          service: input_select.select_option
+          service: script.turn_on
           service_data:
-            entity_id: input_select.iv_ohjaus
-            option: Manuaali
+            entity_id: script.iv_manuaali
       - type: template
         icon: mdi:fan-plus
         icon_color: "{{ 'red' if is_state('input_select.iv_ohjaus', 'Tehostus') else 'grey' }}"
         content: Teho
         tap_action:
           action: call-service
-          service: input_select.select_option
+          service: script.turn_on
           service_data:
-            entity_id: input_select.iv_ohjaus
-            option: Tehostus
+            entity_id: script.iv_tehostus
       - type: template
         icon: mdi:fan-off
         icon_color: "{{ 'red' if is_state('input_select.iv_ohjaus', 'Pois') else 'grey' }}"
         content: Pois
         tap_action:
           action: call-service
-          service: input_select.select_option
+          service: script.turn_on
           service_data:
-            entity_id: input_select.iv_ohjaus
-            option: Pois
+            entity_id: script.iv_pois
   - type: custom:mushroom-chips-card
     alignment: center
     chips:
@@ -103,9 +105,6 @@ cards:
         content: Kuittaa
         tap_action:
           action: call-service
-          service: modbus.write_register
+          service: script.turn_on
           service_data:
-            hub: airfi
-            slave: 1
-            address: 1
-            value: 0
+            entity_id: script.iv_kuittaa

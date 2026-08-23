@@ -11,16 +11,16 @@ Yhdysviiva `-` on kielletty. Käytä vain `a-z`, `0-9` ja `_`.
 | `aurinkolampo.yaml` | Aurinkolämpö kWh |
 | `energia_kokonaisteho.yaml` | L1+L2+L3 |
 | `energia_vertailu.yaml` | Vertailu kWh |
-| `iv.yaml` | IV käsi + auto (CO2/kosteus/PM). **Ei** `modbus:`-hubia. Kirjoitus oletuksena pois. |
-| `modbus.yaml` | Ainoa AirFi-hubi (`name: airfi`). Pidä live-tiedosto jos se jo toimii. |
+| `iv.yaml` | IV käsi + auto. **Ei** `modbus:`-hubia. Korvaa koko tiedosto, älä yhdistä. |
+| `modbus.yaml` | Ainoa AirFi-hubi (`name: airfi`). Pidä sama IP. Tarvitsee `numbers:`-lohkon (h8/h10/h11) tai nopeus ei muutu. |
 
 **Poista HA:sta vanhat** `energia-kokonaisteho.yaml` ja `energia-vertailu.yaml` (yhdysviiva).
 
 AirFi-yhteys on **vain** `configuration.yaml` → `modbus: !include modbus.yaml`.
 Jos `packages/iv.yaml` sisältää `modbus:`-avaimen, poista se ja käynnistä HA uudelleen.
-Lovelace `lovelace-iv.yaml` on käyttöpääte: tila, P/T %, auto-tavoite,
-anturivalinta, CO2/RH/PM, Auto/Käsi/Teho/Pois. Liukusäätimet vain Käsi-tilassa,
-hälytys vain kun hätäseis/vika > 0.
+Lovelace `lovelace-iv.yaml` on käyttöpääte: tila, P/T %, anturivalinta,
+liukusäätimet, **Aseta nopeudet** (script.iv_kirjoita), Auto/Käsi/Teho/Pois.
+Korvaa koko kortti. Käynnistä HA uudelleen Modbus-muutoksen jälkeen.
 
 ```yaml
 homeassistant:

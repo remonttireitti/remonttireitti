@@ -3,7 +3,8 @@
 # Yhteys on VAIN configuration.yaml → modbus: !include modbus.yaml
 # (hub name: airfi). Tähän tiedostoon EI SAA laittaa `modbus:`-avainta.
 #
-# TCP-kirjoitus: holding 2 = 0, holding 8 = 1, sitten 10/11.
+# TCP-kirjoitus (testattu Yellow/web): h8=0, h1=0, h2=0, h12=0, h3=0,
+# sitten h8=1, odota 1s, sitten h10=tulo % ja h11=poisto %.
 # Älä kirjoita holding 2 = 1 (tässä koneessa E1).
 
 input_select:
@@ -26,7 +27,7 @@ input_select:
       - Vain CO2
       - Vain PM
       - Vain kosteus
-    initial: Kaikki kolme
+    initial: Vain kosteus
     icon: mdi:tune-variant
 
 input_boolean:
@@ -130,16 +131,22 @@ template:
         unit_of_measurement: "%"
         availability: |
           {% set m = states('input_select.iv_auto_anturit') %}
+          {% set use_c = m in ['Kaikki kolme', 'CO2 ja PM', 'Kosteus ja CO2', 'Vain CO2'] %}
+          {% set use_k = m in ['Kaikki kolme', 'Kosteus ja PM', 'Kosteus ja CO2', 'Vain kosteus'] %}
+          {% set use_p = m in ['Kaikki kolme', 'CO2 ja PM', 'Kosteus ja PM', 'Vain PM'] %}
           {% set ok_c = states('sensor.iv_auto_co2_tavoite') not in ['unknown', 'unavailable', 'none', ''] %}
           {% set ok_k = states('sensor.iv_auto_kosteus_tavoite') not in ['unknown', 'unavailable', 'none', ''] %}
           {% set ok_p = states('sensor.iv_auto_pm_tavoite') not in ['unknown', 'unavailable', 'none', ''] %}
-          {{ ('CO2' in m and ok_c) or ('kosteus' in m and ok_k) or ('PM' in m and ok_p) }}
+          {{ (use_c and ok_c) or (use_k and ok_k) or (use_p and ok_p) }}
         state: |
           {% set m = states('input_select.iv_auto_anturit') %}
+          {% set use_c = m in ['Kaikki kolme', 'CO2 ja PM', 'Kosteus ja CO2', 'Vain CO2'] %}
+          {% set use_k = m in ['Kaikki kolme', 'Kosteus ja PM', 'Kosteus ja CO2', 'Vain kosteus'] %}
+          {% set use_p = m in ['Kaikki kolme', 'CO2 ja PM', 'Kosteus ja PM', 'Vain PM'] %}
           {% set c = states('sensor.iv_auto_co2_tavoite') | float(-1) %}
           {% set k = states('sensor.iv_auto_kosteus_tavoite') | float(-1) %}
           {% set p = states('sensor.iv_auto_pm_tavoite') | float(-1) %}
-          {% set arvot = ([c] if 'CO2' in m and c >= 0 else []) + ([k] if 'kosteus' in m and k >= 0 else []) + ([p] if 'PM' in m and p >= 0 else []) %}
+          {% set arvot = ([c] if use_c and c >= 0 else []) + ([k] if use_k and k >= 0 else []) + ([p] if use_p and p >= 0 else []) %}
           {{ [25, [100, arvot | max] | min] | max | int if arvot | count > 0 else none }}
 
       - name: IV auto lahde
@@ -148,11 +155,14 @@ template:
           {{ states('sensor.iv_auto_tavoite') not in ['unknown', 'unavailable', 'none', ''] }}
         state: |
           {% set m = states('input_select.iv_auto_anturit') %}
+          {% set use_c = m in ['Kaikki kolme', 'CO2 ja PM', 'Kosteus ja CO2', 'Vain CO2'] %}
+          {% set use_k = m in ['Kaikki kolme', 'Kosteus ja PM', 'Kosteus ja CO2', 'Vain kosteus'] %}
+          {% set use_p = m in ['Kaikki kolme', 'CO2 ja PM', 'Kosteus ja PM', 'Vain PM'] %}
           {% set t = states('sensor.iv_auto_tavoite') | float(0) %}
           {% set c = states('sensor.iv_auto_co2_tavoite') | float(-1) %}
           {% set k = states('sensor.iv_auto_kosteus_tavoite') | float(-1) %}
           {% set p = states('sensor.iv_auto_pm_tavoite') | float(-1) %}
-          {% set nimet = (['CO2'] if 'CO2' in m and c == t else []) + (['kosteus'] if 'kosteus' in m and k == t else []) + (['PM'] if 'PM' in m and p == t else []) %}
+          {% set nimet = (['CO2'] if use_c and c == t else []) + (['kosteus'] if use_k and k == t else []) + (['PM'] if use_p and p == t else []) %}
           {{ nimet | join(' + ') if nimet | count > 0 else '—' }}
 
 script:
@@ -162,13 +172,34 @@ script:
     sequence:
       - variables:
           viime: "{{ as_timestamp(states('input_datetime.iv_modbus_tauko'), 0) | float(0) }}"
-          odota: "{{ [0, 5 - (now().timestamp() - viime)] | max }}"
+          odota: "{{ [0, 2 - (now().timestamp() - viime)] | max }}"
       - delay:
           seconds: "{{ odota | float(0) }}"
 
+  iv_kirjoita_sana:
+    alias: IV kirjoita yksi holding
+    mode: queued
+    max: 8
+    fields:
+      osoite:
+        selector:
+          number:
+      arvo:
+        selector:
+          number:
+    sequence:
+      - service: modbus.write_register
+        data:
+          hub: airfi
+          slave: 1
+          address: "{{ osoite | int }}"
+          value: "{{ arvo | int }}"
+        continue_on_error: true
+
   iv_kirjoita:
     alias: IV kirjoita puhaltimet
-    mode: single
+    mode: queued
+    max: 3
     fields:
       poisto:
         selector:
@@ -178,48 +209,94 @@ script:
           number:
     sequence:
       - variables:
-          p: "{{ [25, [100, (poisto | default(states('input_number.iv_manuaali_poisto'), true) | int(40))] | min] | max }}"
-          t: "{{ [25, [100, (tulo | default(states('input_number.iv_manuaali_tulo'), true) | int(35))] | min] | max }}"
-      - action: script.iv_odota_tauko
-      - action: modbus.write_register
+          p: "{{ [25, [100, (poisto | default(states('input_number.iv_manuaali_poisto'), true) | int(40))] | min] | max | int }}"
+          t: "{{ [25, [100, (tulo | default(states('input_number.iv_manuaali_tulo'), true) | int(35))] | min] | max | int }}"
+      - service: script.iv_odota_tauko
+      - service: script.iv_kirjoita_sana
         data:
-          hub: airfi
-          slave: 1
-          address: 2
-          value: 0
+          osoite: 8
+          arvo: 0
       - delay:
-          milliseconds: 400
-      - action: modbus.write_register
+          milliseconds: 200
+      - service: script.iv_kirjoita_sana
         data:
-          hub: airfi
-          slave: 1
-          address: 8
-          value: 1
+          osoite: 1
+          arvo: 0
+      - delay:
+          milliseconds: 200
+      - service: script.iv_kirjoita_sana
+        data:
+          osoite: 2
+          arvo: 0
+      - delay:
+          milliseconds: 200
+      - service: script.iv_kirjoita_sana
+        data:
+          osoite: 12
+          arvo: 0
+      - delay:
+          milliseconds: 200
+      - service: script.iv_kirjoita_sana
+        data:
+          osoite: 3
+          arvo: 0
+      - delay:
+          milliseconds: 200
+      - service: script.iv_kirjoita_sana
+        data:
+          osoite: 8
+          arvo: 1
       - delay:
           seconds: 1
-      - action: modbus.write_register
+      - service: script.iv_kirjoita_sana
         data:
-          hub: airfi
-          slave: 1
-          address: 10
-          value: "{{ t | int }}"
+          osoite: 10
+          arvo: "{{ t | int }}"
       - delay:
-          milliseconds: 400
-      - action: modbus.write_register
+          milliseconds: 200
+      - service: script.iv_kirjoita_sana
         data:
-          hub: airfi
-          slave: 1
-          address: 11
+          osoite: 11
+          arvo: "{{ p | int }}"
+      - service: number.set_value
+        target:
+          entity_id: number.airfi_vakiopaine
+        data:
+          value: 1
+        continue_on_error: true
+      - service: number.set_value
+        target:
+          entity_id: number.airfi_tuloilmapuhallin_asetus
+        data:
+          value: "{{ t | int }}"
+        continue_on_error: true
+      - service: number.set_value
+        target:
+          entity_id: number.airfi_poistoilmapuhallin_asetus
+        data:
           value: "{{ p | int }}"
-      - action: input_datetime.set_datetime
+        continue_on_error: true
+      - service: input_datetime.set_datetime
         target:
           entity_id: input_datetime.iv_modbus_tauko
         data:
           datetime: "{{ now().strftime('%Y-%m-%d %H:%M:%S') }}"
+      - delay:
+          seconds: 2
+      - service: homeassistant.update_entity
+        target:
+          entity_id:
+            - sensor.airfi_poistoilmapuhallin_nopeus
+            - sensor.airfi_tuloilmapuhallin_nopeus
+            - sensor.airfi_vakiopaine_luku
+            - sensor.airfi_tulo_asetus_luku
+            - sensor.airfi_poisto_asetus_luku
+        continue_on_error: true
 
   iv_auto_aja:
     alias: IV auto kirjoita tavoite
-    mode: single
+    mode: queued
+    max: 2
     sequence:
       - condition: state
         entity_id: input_select.iv_ohjaus
@@ -232,28 +309,45 @@ script:
           nyt_p: "{{ states('sensor.airfi_poistoilmapuhallin_nopeus') | float(0) }}"
       - condition: template
         value_template: "{{ (nyt_p | float - tavoite | float) | abs >= 5 }}"
-      - action: script.iv_kirjoita
+      - service: script.iv_kirjoita
         data:
-          poisto: "{{ tavoite }}"
-          tulo: "{{ tavoite }}"
+          poisto: "{{ tavoite | int }}"
+          tulo: "{{ tavoite | int }}"
 
   iv_kuittaa:
     alias: IV kuittaa hätäseis
-    mode: single
+    mode: queued
+    max: 2
     sequence:
-      - action: script.iv_odota_tauko
-      - action: modbus.write_register
+      - service: script.iv_odota_tauko
+      - service: script.iv_kirjoita_sana
         data:
-          hub: airfi
-          slave: 1
-          address: 1
-          value: 0
-      - action: input_datetime.set_datetime
+          osoite: 8
+          arvo: 0
+      - delay:
+          milliseconds: 200
+      - service: script.iv_kirjoita_sana
+        data:
+          osoite: 1
+          arvo: 0
+      - delay:
+          milliseconds: 200
+      - service: script.iv_kirjoita_sana
+        data:
+          osoite: 2
+          arvo: 0
+      - delay:
+          milliseconds: 200
+      - service: script.iv_kirjoita_sana
+        data:
+          osoite: 12
+          arvo: 0
+      - service: input_datetime.set_datetime
         target:
           entity_id: input_datetime.iv_modbus_tauko
         data:
           datetime: "{{ now().strftime('%Y-%m-%d %H:%M:%S') }}"
-      - action: input_select.select_option
+      - service: input_select.select_option
         target:
           entity_id: input_select.iv_ohjaus
         data:
@@ -263,7 +357,7 @@ script:
     alias: IV automaatti
     mode: single
     sequence:
-      - action: input_select.select_option
+      - service: input_select.select_option
         target:
           entity_id: input_select.iv_ohjaus
         data:
@@ -273,7 +367,7 @@ script:
     alias: IV käsinajo
     mode: single
     sequence:
-      - action: input_select.select_option
+      - service: input_select.select_option
         target:
           entity_id: input_select.iv_ohjaus
         data:
@@ -283,7 +377,7 @@ script:
     alias: IV tehostus 30 min
     mode: single
     sequence:
-      - action: input_select.select_option
+      - service: input_select.select_option
         target:
           entity_id: input_select.iv_ohjaus
         data:
@@ -293,7 +387,7 @@ script:
     alias: IV pois / minimi
     mode: single
     sequence:
-      - action: input_select.select_option
+      - service: input_select.select_option
         target:
           entity_id: input_select.iv_ohjaus
         data:
@@ -305,41 +399,37 @@ script:
     sequence:
       - variables:
           paalle: "{{ is_state('input_boolean.sauna_tila', 'off') }}"
-      - action: script.iv_odota_tauko
+      - service: script.iv_odota_tauko
       - if:
           - condition: template
             value_template: "{{ paalle }}"
         then:
-          - action: input_boolean.turn_on
+          - service: input_boolean.turn_on
             target:
               entity_id: input_boolean.sauna_tila
             continue_on_error: true
-          - action: timer.start
+          - service: timer.start
             target:
               entity_id: timer.sauna_tila
             continue_on_error: true
-          - action: modbus.write_register
+          - service: script.iv_kirjoita_sana
             data:
-              hub: airfi
-              slave: 1
-              address: 56
-              value: 1
+              osoite: 56
+              arvo: 1
         else:
-          - action: input_boolean.turn_off
+          - service: input_boolean.turn_off
             target:
               entity_id: input_boolean.sauna_tila
             continue_on_error: true
-          - action: timer.cancel
+          - service: timer.cancel
             target:
               entity_id: timer.sauna_tila
             continue_on_error: true
-          - action: modbus.write_register
+          - service: script.iv_kirjoita_sana
             data:
-              hub: airfi
-              slave: 1
-              address: 56
-              value: 0
-      - action: input_datetime.set_datetime
+              osoite: 56
+              arvo: 0
+      - service: input_datetime.set_datetime
         target:
           entity_id: input_datetime.iv_modbus_tauko
         data:
@@ -360,8 +450,8 @@ script:
               'Vain PM': 'automation.iv_auto_vain_pm',
               'Vain kosteus': 'automation.iv_auto_vain_kosteus'
             } %}
-            {{ m.get(states('input_select.iv_auto_anturit'), 'automation.iv_auto_co2_kosteus_pm') }}
-      - action: automation.turn_off
+            {{ m.get(states('input_select.iv_auto_anturit'), 'automation.iv_auto_vain_kosteus') }}
+      - service: automation.turn_off
         target:
           entity_id:
             - automation.iv_auto_co2_kosteus_pm
@@ -372,7 +462,7 @@ script:
             - automation.iv_auto_vain_pm
             - automation.iv_auto_vain_kosteus
         continue_on_error: true
-      - action: automation.turn_on
+      - service: automation.turn_on
         target:
           entity_id: "{{ valittu }}"
         continue_on_error: true
@@ -388,14 +478,23 @@ automation:
           - input_number.iv_manuaali_poisto
           - input_number.iv_manuaali_tulo
         for:
-          seconds: 5
+          seconds: 1
+      - platform: state
+        entity_id:
+          - number.airfi_poistoilmapuhallin_asetus
+          - number.airfi_tuloilmapuhallin_asetus
+        for:
+          seconds: 1
+    condition:
+      - condition: template
+        value_template: "{{ trigger.to_state.context.user_id is not none }}"
     action:
-      - action: input_select.select_option
+      - service: input_select.select_option
         target:
           entity_id: input_select.iv_ohjaus
         data:
           option: Manuaali
-      - action: script.iv_kirjoita
+      - service: script.iv_kirjoita
         data:
           poisto: "{{ states('input_number.iv_manuaali_poisto') | float(40) }}"
           tulo: "{{ states('input_number.iv_manuaali_tulo') | float(35) }}"
@@ -414,24 +513,24 @@ automation:
                 entity_id: input_select.iv_ohjaus
                 state: Automaatti
             sequence:
-              - action: timer.cancel
+              - service: timer.cancel
                 target:
                   entity_id: timer.iv_tehostus
                 continue_on_error: true
-              - action: script.iv_auto_anturit_kytke
+              - service: script.iv_auto_anturit_kytke
                 continue_on_error: true
-              - action: script.iv_auto_aja
+              - service: script.iv_auto_aja
                 continue_on_error: true
           - conditions:
               - condition: state
                 entity_id: input_select.iv_ohjaus
                 state: Manuaali
             sequence:
-              - action: timer.cancel
+              - service: timer.cancel
                 target:
                   entity_id: timer.iv_tehostus
                 continue_on_error: true
-              - action: script.iv_kirjoita
+              - service: script.iv_kirjoita
                 data:
                   poisto: "{{ states('input_number.iv_manuaali_poisto') | float(40) }}"
                   tulo: "{{ states('input_number.iv_manuaali_tulo') | float(35) }}"
@@ -440,22 +539,22 @@ automation:
                 entity_id: input_select.iv_ohjaus
                 state: Tehostus
             sequence:
-              - action: input_number.set_value
+              - service: input_number.set_value
                 target:
                   entity_id: input_number.iv_manuaali_poisto
                 data:
                   value: 70
-              - action: input_number.set_value
+              - service: input_number.set_value
                 target:
                   entity_id: input_number.iv_manuaali_tulo
                 data:
                   value: 70
-              - action: timer.start
+              - service: timer.start
                 target:
                   entity_id: timer.iv_tehostus
                 data:
                   duration: "00:30:00"
-              - action: script.iv_kirjoita
+              - service: script.iv_kirjoita
                 data:
                   poisto: 70
                   tulo: 70
@@ -464,11 +563,11 @@ automation:
                 entity_id: input_select.iv_ohjaus
                 state: Pois
             sequence:
-              - action: timer.cancel
+              - service: timer.cancel
                 target:
                   entity_id: timer.iv_tehostus
                 continue_on_error: true
-              - action: script.iv_kirjoita
+              - service: script.iv_kirjoita
                 data:
                   poisto: 25
                   tulo: 25
@@ -482,11 +581,37 @@ automation:
         event_data:
           entity_id: timer.iv_tehostus
     action:
-      - action: input_select.select_option
+      - service: input_select.select_option
         target:
           entity_id: input_select.iv_ohjaus
         data:
           option: Automaatti
+
+  - id: iv_kaynnistys_vakiopaine
+    alias: IV kaynnistys vakiopaine
+    initial_state: true
+    trigger:
+      - platform: homeassistant
+        event: start
+      - platform: time_pattern
+        minutes: "/10"
+    action:
+      - service: script.iv_kirjoita_sana
+        data:
+          osoite: 2
+          arvo: 0
+      - delay:
+          milliseconds: 200
+      - service: script.iv_kirjoita_sana
+        data:
+          osoite: 8
+          arvo: 1
+      - service: number.set_value
+        target:
+          entity_id: number.airfi_vakiopaine
+        data:
+          value: 1
+        continue_on_error: true
 
   - id: iv_auto_anturit_kytkin
     alias: IV auto anturit kytkin
@@ -498,15 +623,15 @@ automation:
       - platform: state
         entity_id: input_select.iv_auto_anturit
     action:
-      - action: script.iv_auto_anturit_kytke
+      - service: script.iv_auto_anturit_kytke
       - condition: state
         entity_id: input_select.iv_ohjaus
         state: Automaatti
-      - action: script.iv_auto_aja
+      - service: script.iv_auto_aja
 
   - id: iv_auto_co2_kosteus_pm
     alias: IV auto co2 kosteus pm
-    initial_state: true
+    initial_state: false
     mode: single
     trigger:
       - platform: state
@@ -523,7 +648,7 @@ automation:
         entity_id: input_select.iv_auto_anturit
         state: Kaikki kolme
     action:
-      - action: script.iv_auto_aja
+      - service: script.iv_auto_aja
 
   - id: iv_auto_co2_pm
     alias: IV auto co2 pm
@@ -544,7 +669,7 @@ automation:
         entity_id: input_select.iv_auto_anturit
         state: "CO2 ja PM"
     action:
-      - action: script.iv_auto_aja
+      - service: script.iv_auto_aja
 
   - id: iv_auto_kosteus_pm
     alias: IV auto kosteus pm
@@ -565,7 +690,7 @@ automation:
         entity_id: input_select.iv_auto_anturit
         state: "Kosteus ja PM"
     action:
-      - action: script.iv_auto_aja
+      - service: script.iv_auto_aja
 
   - id: iv_auto_kosteus_co2
     alias: IV auto kosteus co2
@@ -586,7 +711,7 @@ automation:
         entity_id: input_select.iv_auto_anturit
         state: "Kosteus ja CO2"
     action:
-      - action: script.iv_auto_aja
+      - service: script.iv_auto_aja
 
   - id: iv_auto_vain_co2
     alias: IV auto vain co2
@@ -607,7 +732,7 @@ automation:
         entity_id: input_select.iv_auto_anturit
         state: "Vain CO2"
     action:
-      - action: script.iv_auto_aja
+      - service: script.iv_auto_aja
 
   - id: iv_auto_vain_pm
     alias: IV auto vain pm
@@ -628,11 +753,11 @@ automation:
         entity_id: input_select.iv_auto_anturit
         state: "Vain PM"
     action:
-      - action: script.iv_auto_aja
+      - service: script.iv_auto_aja
 
   - id: iv_auto_vain_kosteus
     alias: IV auto vain kosteus
-    initial_state: false
+    initial_state: true
     mode: single
     trigger:
       - platform: state
@@ -649,4 +774,4 @@ automation:
         entity_id: input_select.iv_auto_anturit
         state: "Vain kosteus"
     action:
-      - action: script.iv_auto_aja
+      - service: script.iv_auto_aja
