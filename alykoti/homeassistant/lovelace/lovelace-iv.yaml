@@ -100,6 +100,51 @@ cards:
   - type: custom:mushroom-chips-card
     alignment: center
     chips:
+      - type: entity
+        entity: timer.iv_tehostus
+        icon: mdi:fan-plus
+        content_info: state
+      - type: template
+        icon: mdi:plus
+        icon_color: red
+        content: "+15 teho"
+        tap_action:
+          action: call-service
+          service: script.turn_on
+          service_data:
+            entity_id: script.iv_tehostus_lisaa
+      - type: template
+        icon: mdi:stop
+        content: Lopeta
+        tap_action:
+          action: call-service
+          service: script.turn_on
+          service_data:
+            entity_id: script.iv_tehostus_lopeta
+      - type: entity
+        entity: timer.iv_sauna
+        icon: mdi:hot-tub
+        content_info: state
+      - type: template
+        icon: mdi:plus
+        icon_color: orange
+        content: "+15 sauna"
+        tap_action:
+          action: call-service
+          service: script.turn_on
+          service_data:
+            entity_id: script.iv_sauna_lisaa
+      - type: template
+        icon: mdi:stop
+        content: Lopeta
+        tap_action:
+          action: call-service
+          service: script.turn_on
+          service_data:
+            entity_id: script.iv_sauna_lopeta
+  - type: custom:mushroom-chips-card
+    alignment: center
+    chips:
       - type: template
         icon: mdi:water-percent
         content: "RH {{ states('sensor.airfi_kosteus_rh') }}"

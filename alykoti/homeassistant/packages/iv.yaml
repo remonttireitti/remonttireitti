@@ -76,6 +76,21 @@ input_text:
     initial: sensor.iv_pm_skaala
     max: 128
     icon: mdi:air-filter
+  iv_sauna_valo:
+    name: IV sauna valo
+    initial: switch.sauna_valokytkin_eteisessa
+    max: 128
+    icon: mdi:lightbulb
+  iv_sauna_nappi_lisaa:
+    name: IV sauna nappi lisää
+    initial: climate.suihku_h_t
+    max: 128
+    icon: mdi:plus
+  iv_sauna_nappi_lopeta:
+    name: IV sauna nappi lopeta
+    initial: climate.suihku_h_t
+    max: 128
+    icon: mdi:stop
 
 input_datetime:
   iv_modbus_tauko:
@@ -86,11 +101,11 @@ input_datetime:
 timer:
   iv_tehostus:
     name: IV tehostus
-    duration: "00:30:00"
+    duration: "00:15:00"
     restore: true
   iv_sauna:
     name: IV sauna
-    duration: "02:00:00"
+    duration: "00:15:00"
     restore: true
 
 template:
@@ -382,14 +397,49 @@ script:
           option: Manuaali
 
   iv_tehostus:
-    alias: IV tehostus 30 min
+    alias: IV tehostus 15 min
     mode: single
     sequence:
+      - service: script.iv_tehostus_lisaa
+
+  iv_tehostus_lisaa:
+    alias: IV tehostus +15 min
+    mode: queued
+    max: 3
+    sequence:
+      - if:
+          - condition: state
+            entity_id: input_select.iv_ohjaus
+            state: Tehostus
+          - condition: state
+            entity_id: timer.iv_tehostus
+            state: active
+        then:
+          - service: timer.change
+            target:
+              entity_id: timer.iv_tehostus
+            data:
+              duration: "00:15:00"
+        else:
+          - service: input_select.select_option
+            target:
+              entity_id: input_select.iv_ohjaus
+            data:
+              option: Tehostus
+
+  iv_tehostus_lopeta:
+    alias: IV tehostus lopeta
+    mode: single
+    sequence:
+      - service: timer.cancel
+        target:
+          entity_id: timer.iv_tehostus
+        continue_on_error: true
       - service: input_select.select_option
         target:
           entity_id: input_select.iv_ohjaus
         data:
-          option: Tehostus
+          option: Automaatti
 
   iv_pois:
     alias: IV pois / minimi
@@ -401,23 +451,75 @@ script:
         data:
           option: Pois
 
+  iv_sauna_valo_aseta:
+    alias: IV sauna valo
+    mode: queued
+    max: 4
+    fields:
+      paalle:
+        selector:
+          boolean:
+    sequence:
+      - variables:
+          valo: "{{ states('input_text.iv_sauna_valo') | trim }}"
+      - if:
+          - condition: template
+            value_template: "{{ paalle | bool }}"
+        then:
+          - service: homeassistant.turn_on
+            target:
+              entity_id: switch.sauna_valokytkin_eteisessa
+            continue_on_error: true
+          - service: homeassistant.turn_on
+            target:
+              entity_id: "{{ valo }}"
+            continue_on_error: true
+        else:
+          - service: homeassistant.turn_off
+            target:
+              entity_id: switch.sauna_valokytkin_eteisessa
+            continue_on_error: true
+          - service: homeassistant.turn_off
+            target:
+              entity_id: "{{ valo }}"
+            continue_on_error: true
+
   iv_sauna:
     alias: IV sauna
     mode: single
     sequence:
-      - variables:
-          paalle: "{{ is_state('input_boolean.iv_sauna', 'off') and states('sensor.airfi_saunatila') | int(0) == 0 }}"
-      - service: script.iv_odota_tauko
+      - service: script.iv_sauna_lisaa
+
+  iv_sauna_lisaa:
+    alias: IV sauna +15 min
+    mode: queued
+    max: 3
+    sequence:
       - if:
-          - condition: template
-            value_template: "{{ paalle }}"
+          - condition: state
+            entity_id: timer.iv_sauna
+            state: active
         then:
+          - service: timer.change
+            target:
+              entity_id: timer.iv_sauna
+            data:
+              duration: "00:15:00"
+          - service: timer.change
+            target:
+              entity_id: timer.sauna_tila
+            data:
+              duration: "00:15:00"
+            continue_on_error: true
+        else:
           - service: input_boolean.turn_on
             target:
               entity_id: input_boolean.iv_sauna
           - service: timer.start
             target:
               entity_id: timer.iv_sauna
+            data:
+              duration: "00:15:00"
           - service: input_boolean.turn_on
             target:
               entity_id: input_boolean.sauna_tila
@@ -425,30 +527,50 @@ script:
           - service: timer.start
             target:
               entity_id: timer.sauna_tila
+            data:
+              duration: "00:15:00"
             continue_on_error: true
+          - service: script.iv_odota_tauko
           - service: script.iv_kirjoita_sana
             data:
               osoite: 56
               arvo: 1
-        else:
-          - service: input_boolean.turn_off
+          - service: input_datetime.set_datetime
             target:
-              entity_id: input_boolean.iv_sauna
-          - service: timer.cancel
-            target:
-              entity_id: timer.iv_sauna
-          - service: input_boolean.turn_off
-            target:
-              entity_id: input_boolean.sauna_tila
-            continue_on_error: true
-          - service: timer.cancel
-            target:
-              entity_id: timer.sauna_tila
-            continue_on_error: true
-          - service: script.iv_kirjoita_sana
+              entity_id: input_datetime.iv_modbus_tauko
             data:
-              osoite: 56
-              arvo: 0
+              datetime: "{{ now().strftime('%Y-%m-%d %H:%M:%S') }}"
+      - service: script.iv_sauna_valo_aseta
+        data:
+          paalle: true
+
+  iv_sauna_lopeta:
+    alias: IV sauna lopeta
+    mode: single
+    sequence:
+      - service: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.iv_sauna
+      - service: timer.cancel
+        target:
+          entity_id: timer.iv_sauna
+        continue_on_error: true
+      - service: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.sauna_tila
+        continue_on_error: true
+      - service: timer.cancel
+        target:
+          entity_id: timer.sauna_tila
+        continue_on_error: true
+      - service: script.iv_sauna_valo_aseta
+        data:
+          paalle: false
+      - service: script.iv_odota_tauko
+      - service: script.iv_kirjoita_sana
+        data:
+          osoite: 56
+          arvo: 0
       - service: input_datetime.set_datetime
         target:
           entity_id: input_datetime.iv_modbus_tauko
@@ -573,7 +695,7 @@ automation:
                 target:
                   entity_id: timer.iv_tehostus
                 data:
-                  duration: "00:30:00"
+                  duration: "00:15:00"
               - service: script.iv_kirjoita
                 data:
                   poisto: 70
@@ -616,17 +738,78 @@ automation:
         event_data:
           entity_id: timer.iv_sauna
     action:
-      - service: input_boolean.turn_off
-        target:
-          entity_id: input_boolean.iv_sauna
-      - service: input_boolean.turn_off
-        target:
-          entity_id: input_boolean.sauna_tila
-        continue_on_error: true
-      - service: script.iv_kirjoita_sana
-        data:
-          osoite: 56
-          arvo: 0
+      - service: script.iv_sauna_lopeta
+
+  - id: iv_sauna_ht_termostaatti
+    alias: IV sauna suihku H&T termostaatti
+    initial_state: true
+    mode: queued
+    max: 4
+    trigger:
+      - platform: state
+        entity_id:
+          - climate.suihku_h_t
+          - climate.suihku_ht
+          - climate.suihku_termostaatti
+          - climate.suihkun_h_t
+        attribute: temperature
+    condition:
+      - condition: template
+        value_template: >
+          {{ trigger.from_state is not none and trigger.to_state is not none
+             and trigger.to_state.attributes.get('temperature') is not none
+             and trigger.from_state.attributes.get('temperature') is not none }}
+    action:
+      - choose:
+          - conditions:
+              - condition: template
+                value_template: "{{ trigger.to_state.attributes.temperature | float(0) > trigger.from_state.attributes.temperature | float(0) }}"
+            sequence:
+              - service: script.iv_sauna_lisaa
+          - conditions:
+              - condition: template
+                value_template: "{{ trigger.to_state.attributes.temperature | float(0) < trigger.from_state.attributes.temperature | float(0) }}"
+            sequence:
+              - service: script.iv_sauna_lopeta
+
+  - id: iv_sauna_ht_nappi
+    alias: IV sauna suihku H&T nappi
+    initial_state: true
+    mode: queued
+    max: 4
+    trigger:
+      - platform: state
+        entity_id:
+          - event.suihku_h_t
+          - event.suihku_ht
+          - event.suihku_h_t_button
+          - sensor.suihku_h_t_action
+          - button.suihku_h_t
+          - button.suihku_termostaatti
+      - platform: template
+        id: lisaa
+        value_template: "{{ states(states('input_text.iv_sauna_nappi_lisaa') | trim) }}"
+      - platform: template
+        id: lopeta
+        value_template: "{{ states(states('input_text.iv_sauna_nappi_lopeta') | trim) }}"
+    condition:
+      - condition: template
+        value_template: >
+          {% set e = trigger.entity_id if trigger.entity_id is defined else '' %}
+          {% set lisaa = states('input_text.iv_sauna_nappi_lisaa') | trim %}
+          {% set lopeta = states('input_text.iv_sauna_nappi_lopeta') | trim %}
+          {{ e[:8] != 'climate.' and (trigger.id in ['lisaa', 'lopeta'] or true) }}
+    action:
+      - choose:
+          - conditions:
+              - condition: template
+                value_template: >
+                  {{ trigger.id == 'lopeta'
+                     or (trigger.to_state is defined and trigger.to_state.state | lower in ['off', 'down', 'double', 'hold', 'long', 'left', 'minus']) }}
+            sequence:
+              - service: script.iv_sauna_lopeta
+        default:
+          - service: script.iv_sauna_lisaa
 
   - id: iv_kaynnistys_vakiopaine
     alias: IV kaynnistys vakiopaine
