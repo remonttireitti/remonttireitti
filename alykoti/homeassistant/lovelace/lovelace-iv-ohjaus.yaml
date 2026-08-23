@@ -1,8 +1,26 @@
-# Valinnainen käsinajo. Liitä vasta kun lukemat näkyvät
-# ja packages/iv.yaml on ladattu. Älä lisää toista Modbus-hubia.
+# Valinnainen ohjauskortti jos et liitä koko lovelace-iv.yaml:ää.
+# Vaatii packages/iv.yaml.
 
 type: vertical-stack
 cards:
+  - type: custom:mushroom-select-card
+    entity: input_select.iv_auto_anturit
+    name: Automaatin anturit
+    icon: mdi:tune-variant
+    layout: horizontal
+  - type: custom:mushroom-template-card
+    entity: sensor.iv_auto_tavoite
+    layout: horizontal
+    primary: >
+      {% set t = states('sensor.iv_auto_tavoite') %}
+      {% if t in ['unknown','unavailable','none',''] %}
+        Auto-tavoite ei valmis
+      {% else %}
+        Auto-tavoite {{ t | int }} % · {{ states('sensor.iv_auto_lahde') }}
+      {% endif %}
+    secondary: "{{ states('input_select.iv_auto_anturit') }}"
+    icon: mdi:target
+    icon_color: green
   - type: custom:mushroom-template-card
     primary: >
       {% if is_state('input_boolean.iv_modbus_kirjoitus', 'on') %}

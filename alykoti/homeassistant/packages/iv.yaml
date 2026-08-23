@@ -1,11 +1,8 @@
-# iv.yaml — VALINNAINEN käsinajo. Tämä EI ole Modbus-yhteys.
+# iv.yaml — käsinajo + automaatti (CO2 / kosteus / PM).
 #
 # Yhteys on VAIN configuration.yaml → modbus: !include modbus.yaml
 # (hub name: airfi). Tähän tiedostoon EI SAA laittaa `modbus:`-avainta.
-# Toinen hub samaan 192.168.50.26:502 jumittaa HA:n asiakkaan;
-# AirFi-sovellus toimii silti, koska se käyttää omaa TCP-istuntoa.
 #
-# Jos et tarvitse Käsi/Tehostus/Kuittaa, poista tämä tiedosto HA:sta.
 # Kirjoitus vain jos input_boolean.iv_modbus_kirjoitus = on (oletus pois).
 # Älä kirjoita holding 2 = 1 (tässä koneessa E1).
 
@@ -19,6 +16,18 @@ input_select:
       - Pois
     initial: Automaatti
     icon: mdi:fan
+  iv_auto_anturit:
+    name: IV automaatin anturit
+    options:
+      - CO2, kosteus ja PM
+      - CO2 ja PM
+      - Kosteus ja PM
+      - Kosteus ja CO2
+      - Vain CO2
+      - Vain PM
+      - Vain kosteus
+    initial: CO2, kosteus ja PM
+    icon: mdi:tune-variant
 
 input_boolean:
   iv_modbus_kirjoitus:
@@ -46,6 +55,23 @@ input_number:
     icon: mdi:fan-plus
     initial: 35
 
+input_text:
+  iv_co2_entiteetti:
+    name: IV CO2-entiteetti
+    initial: sensor.iv_co2_skaala
+    max: 128
+    icon: mdi:molecule-co2
+  iv_kosteus_entiteetti:
+    name: IV kosteus-entiteetti
+    initial: sensor.airfi_kosteus_rh
+    max: 128
+    icon: mdi:water-percent
+  iv_pm_entiteetti:
+    name: IV PM-entiteetti
+    initial: sensor.iv_pm_skaala
+    max: 128
+    icon: mdi:air-filter
+
 input_datetime:
   iv_modbus_tauko:
     name: IV viimeisin Modbus-kirjoitus
@@ -57,6 +83,134 @@ timer:
     name: IV tehostus
     duration: "00:30:00"
     restore: true
+
+template:
+  - sensor:
+      - name: IV auto CO2 tavoite
+        unique_id: iv_auto_co2_tavoite
+        unit_of_measurement: "%"
+        availability: >
+          {% set e = states('input_text.iv_co2_entiteetti') | trim %}
+          {{ e not in ['unknown', 'unavailable', 'none', '']
+             and states(e) not in ['unknown', 'unavailable', 'none', ''] }}
+        state: >
+          {% set e = states('input_text.iv_co2_entiteetti') | trim %}
+          {% set s = states(e) | float(0) %}
+          {% set ns = namespace(raw=35) %}
+          {% if 'skaala' in e %}
+            {% set ns.raw = s %}
+          {% elif s <= 800 %}
+            {% set ns.raw = 35 %}
+          {% elif s <= 1000 %}
+            {% set ns.raw = 35 + (s - 800) / 200 * 15 %}
+          {% elif s <= 1200 %}
+            {% set ns.raw = 50 + (s - 1000) / 200 * 20 %}
+          {% else %}
+            {% set ns.raw = 70 + [1, (s - 1200) / 400] | min * 20 %}
+          {% endif %}
+          {{ [25, [100, ((ns.raw / 5) | round(0) * 5)] | min] | max | int }}
+
+      - name: IV auto kosteus tavoite
+        unique_id: iv_auto_kosteus_tavoite
+        unit_of_measurement: "%"
+        availability: >
+          {% set e = states('input_text.iv_kosteus_entiteetti') | trim %}
+          {{ e not in ['unknown', 'unavailable', 'none', '']
+             and states(e) not in ['unknown', 'unavailable', 'none', ''] }}
+        state: >
+          {% set e = states('input_text.iv_kosteus_entiteetti') | trim %}
+          {% set s = states(e) | float(0) %}
+          {% set ns = namespace(raw=35) %}
+          {% if 'skaala' in e or 'bonus' in e %}
+            {% set ns.raw = s %}
+          {% elif s <= 55 %}
+            {% set ns.raw = 35 %}
+          {% elif s <= 65 %}
+            {% set ns.raw = 35 + (s - 55) / 10 * 15 %}
+          {% elif s <= 75 %}
+            {% set ns.raw = 50 + (s - 65) / 10 * 20 %}
+          {% else %}
+            {% set ns.raw = 70 + [1, (s - 75) / 15] | min * 20 %}
+          {% endif %}
+          {{ [25, [100, ((ns.raw / 5) | round(0) * 5)] | min] | max | int }}
+
+      - name: IV auto PM tavoite
+        unique_id: iv_auto_pm_tavoite
+        unit_of_measurement: "%"
+        availability: >
+          {% set e = states('input_text.iv_pm_entiteetti') | trim %}
+          {{ e not in ['unknown', 'unavailable', 'none', '']
+             and states(e) not in ['unknown', 'unavailable', 'none', ''] }}
+        state: >
+          {% set e = states('input_text.iv_pm_entiteetti') | trim %}
+          {% set s = states(e) | float(0) %}
+          {% set ns = namespace(raw=35) %}
+          {% if 'skaala' in e %}
+            {% set ns.raw = s %}
+          {% elif s <= 12 %}
+            {% set ns.raw = 35 %}
+          {% elif s <= 25 %}
+            {% set ns.raw = 35 + (s - 12) / 13 * 15 %}
+          {% elif s <= 50 %}
+            {% set ns.raw = 50 + (s - 25) / 25 * 20 %}
+          {% else %}
+            {% set ns.raw = 70 + [1, (s - 50) / 50] | min * 20 %}
+          {% endif %}
+          {{ [25, [100, ((ns.raw / 5) | round(0) * 5)] | min] | max | int }}
+
+      - name: IV auto tavoite
+        unique_id: iv_auto_tavoite
+        unit_of_measurement: "%"
+        availability: >
+          {% set m = states('input_select.iv_auto_anturit') %}
+          {% set ok_c = states('sensor.iv_auto_co2_tavoite') not in ['unknown', 'unavailable', 'none', ''] %}
+          {% set ok_k = states('sensor.iv_auto_kosteus_tavoite') not in ['unknown', 'unavailable', 'none', ''] %}
+          {% set ok_p = states('sensor.iv_auto_pm_tavoite') not in ['unknown', 'unavailable', 'none', ''] %}
+          {{ ('CO2' in m and ok_c) or ('kosteus' in m and ok_k) or ('PM' in m and ok_p) }}
+        state: >
+          {% set m = states('input_select.iv_auto_anturit') %}
+          {% set ns = namespace(arvot=[]) %}
+          {% if 'CO2' in m %}
+            {% set c = states('sensor.iv_auto_co2_tavoite') %}
+            {% if c not in ['unknown', 'unavailable', 'none', ''] %}
+              {% set ns.arvot = ns.arvot + [c | float] %}
+            {% endif %}
+          {% endif %}
+          {% if 'kosteus' in m %}
+            {% set k = states('sensor.iv_auto_kosteus_tavoite') %}
+            {% if k not in ['unknown', 'unavailable', 'none', ''] %}
+              {% set ns.arvot = ns.arvot + [k | float] %}
+            {% endif %}
+          {% endif %}
+          {% if 'PM' in m %}
+            {% set p = states('sensor.iv_auto_pm_tavoite') %}
+            {% if p not in ['unknown', 'unavailable', 'none', ''] %}
+              {% set ns.arvot = ns.arvot + [p | float] %}
+            {% endif %}
+          {% endif %}
+          {{ [25, [100, ns.arvot | max] | min] | max | int }}
+
+      - name: IV auto lahde
+        unique_id: iv_auto_lahde
+        availability: >
+          {{ states('sensor.iv_auto_tavoite') not in ['unknown', 'unavailable', 'none', ''] }}
+        state: >
+          {% set m = states('input_select.iv_auto_anturit') %}
+          {% set t = states('sensor.iv_auto_tavoite') | float(0) %}
+          {% set ns = namespace(nimet=[]) %}
+          {% if 'CO2' in m and states('sensor.iv_auto_co2_tavoite') not in ['unknown', 'unavailable', 'none', '']
+              and states('sensor.iv_auto_co2_tavoite') | float(0) == t %}
+            {% set ns.nimet = ns.nimet + ['CO2'] %}
+          {% endif %}
+          {% if 'kosteus' in m and states('sensor.iv_auto_kosteus_tavoite') not in ['unknown', 'unavailable', 'none', '']
+              and states('sensor.iv_auto_kosteus_tavoite') | float(0) == t %}
+            {% set ns.nimet = ns.nimet + ['kosteus'] %}
+          {% endif %}
+          {% if 'PM' in m and states('sensor.iv_auto_pm_tavoite') not in ['unknown', 'unavailable', 'none', '']
+              and states('sensor.iv_auto_pm_tavoite') | float(0) == t %}
+            {% set ns.nimet = ns.nimet + ['PM'] %}
+          {% endif %}
+          {{ ns.nimet | join(' + ') if ns.nimet | count > 0 else '—' }}
 
 script:
   iv_odota_tauko:
@@ -111,6 +265,34 @@ script:
         data:
           datetime: "{{ now().strftime('%Y-%m-%d %H:%M:%S') }}"
 
+  iv_auto_aja:
+    alias: IV auto kirjoita tavoite
+    mode: single
+    sequence:
+      - condition: state
+        entity_id: input_select.iv_ohjaus
+        state: Automaatti
+      - condition: state
+        entity_id: input_boolean.iv_modbus_kirjoitus
+        state: "on"
+      - condition: template
+        value_template: >
+          {{ states('sensor.iv_auto_tavoite') not in ['unknown', 'unavailable', 'none', '']
+             and states('sensor.airfi_poistoilmapuhallin_nopeus')
+               not in ['unknown', 'unavailable', 'none', ''] }}
+      - variables:
+          tavoite: "{{ states('sensor.iv_auto_tavoite') | int(35) }}"
+          nyt_p: "{{ states('sensor.airfi_poistoilmapuhallin_nopeus') | float(0) }}"
+          nyt_t: "{{ states('sensor.airfi_tuloilmapuhallin_nopeus') | float(0) }}"
+      - condition: template
+        value_template: >
+          {{ (nyt_p | float - tavoite | float) | abs >= 5
+             or (nyt_t | float - tavoite | float) | abs >= 5 }}
+      - action: script.iv_kirjoita
+        data:
+          poisto: "{{ tavoite }}"
+          tulo: "{{ tavoite }}"
+
   iv_kuittaa:
     alias: IV kuittaa hätäseis
     mode: single
@@ -149,6 +331,8 @@ script:
         target:
           entity_id: timer.iv_tehostus
         continue_on_error: true
+      - action: script.iv_auto_anturit_kytke
+      - action: script.iv_auto_aja
 
   iv_manuaali:
     alias: IV käsinajo
@@ -264,6 +448,38 @@ script:
         data:
           datetime: "{{ now().strftime('%Y-%m-%d %H:%M:%S') }}"
 
+  iv_auto_anturit_kytke:
+    alias: IV auto anturit kytke
+    mode: restart
+    sequence:
+      - variables:
+          valittu: >
+            {% set m = {
+              'CO2, kosteus ja PM': 'automation.iv_auto_co2_kosteus_pm',
+              'CO2 ja PM': 'automation.iv_auto_co2_pm',
+              'Kosteus ja PM': 'automation.iv_auto_kosteus_pm',
+              'Kosteus ja CO2': 'automation.iv_auto_kosteus_co2',
+              'Vain CO2': 'automation.iv_auto_vain_co2',
+              'Vain PM': 'automation.iv_auto_vain_pm',
+              'Vain kosteus': 'automation.iv_auto_vain_kosteus'
+            } %}
+            {{ m.get(states('input_select.iv_auto_anturit'), 'automation.iv_auto_co2_kosteus_pm') }}
+      - action: automation.turn_off
+        target:
+          entity_id:
+            - automation.iv_auto_co2_kosteus_pm
+            - automation.iv_auto_co2_pm
+            - automation.iv_auto_kosteus_pm
+            - automation.iv_auto_kosteus_co2
+            - automation.iv_auto_vain_co2
+            - automation.iv_auto_vain_pm
+            - automation.iv_auto_vain_kosteus
+        continue_on_error: true
+      - action: automation.turn_on
+        target:
+          entity_id: "{{ valittu }}"
+        continue_on_error: true
+
 automation:
   - id: iv_ohjaus_manuaali_saato
     alias: IV käsi — liukusäädin
@@ -299,3 +515,166 @@ automation:
           entity_id: timer.iv_tehostus
     action:
       - action: script.iv_automaatti
+
+  - id: iv_auto_anturit_kytkin
+    alias: IV auto anturit kytkin
+    initial_state: true
+    mode: restart
+    trigger:
+      - platform: homeassistant
+        event: start
+      - platform: state
+        entity_id: input_select.iv_auto_anturit
+    action:
+      - action: script.iv_auto_anturit_kytke
+      - condition: state
+        entity_id: input_select.iv_ohjaus
+        state: Automaatti
+      - action: script.iv_auto_aja
+
+  - id: iv_auto_co2_kosteus_pm
+    alias: IV auto co2 kosteus pm
+    initial_state: true
+    mode: single
+    trigger:
+      - platform: state
+        entity_id: sensor.iv_auto_tavoite
+        for:
+          seconds: 30
+      - platform: time_pattern
+        minutes: "/2"
+    condition:
+      - condition: state
+        entity_id: input_select.iv_ohjaus
+        state: Automaatti
+      - condition: state
+        entity_id: input_select.iv_auto_anturit
+        state: "CO2, kosteus ja PM"
+    action:
+      - action: script.iv_auto_aja
+
+  - id: iv_auto_co2_pm
+    alias: IV auto co2 pm
+    initial_state: false
+    mode: single
+    trigger:
+      - platform: state
+        entity_id: sensor.iv_auto_tavoite
+        for:
+          seconds: 30
+      - platform: time_pattern
+        minutes: "/2"
+    condition:
+      - condition: state
+        entity_id: input_select.iv_ohjaus
+        state: Automaatti
+      - condition: state
+        entity_id: input_select.iv_auto_anturit
+        state: "CO2 ja PM"
+    action:
+      - action: script.iv_auto_aja
+
+  - id: iv_auto_kosteus_pm
+    alias: IV auto kosteus pm
+    initial_state: false
+    mode: single
+    trigger:
+      - platform: state
+        entity_id: sensor.iv_auto_tavoite
+        for:
+          seconds: 30
+      - platform: time_pattern
+        minutes: "/2"
+    condition:
+      - condition: state
+        entity_id: input_select.iv_ohjaus
+        state: Automaatti
+      - condition: state
+        entity_id: input_select.iv_auto_anturit
+        state: "Kosteus ja PM"
+    action:
+      - action: script.iv_auto_aja
+
+  - id: iv_auto_kosteus_co2
+    alias: IV auto kosteus co2
+    initial_state: false
+    mode: single
+    trigger:
+      - platform: state
+        entity_id: sensor.iv_auto_tavoite
+        for:
+          seconds: 30
+      - platform: time_pattern
+        minutes: "/2"
+    condition:
+      - condition: state
+        entity_id: input_select.iv_ohjaus
+        state: Automaatti
+      - condition: state
+        entity_id: input_select.iv_auto_anturit
+        state: "Kosteus ja CO2"
+    action:
+      - action: script.iv_auto_aja
+
+  - id: iv_auto_vain_co2
+    alias: IV auto vain co2
+    initial_state: false
+    mode: single
+    trigger:
+      - platform: state
+        entity_id: sensor.iv_auto_tavoite
+        for:
+          seconds: 30
+      - platform: time_pattern
+        minutes: "/2"
+    condition:
+      - condition: state
+        entity_id: input_select.iv_ohjaus
+        state: Automaatti
+      - condition: state
+        entity_id: input_select.iv_auto_anturit
+        state: "Vain CO2"
+    action:
+      - action: script.iv_auto_aja
+
+  - id: iv_auto_vain_pm
+    alias: IV auto vain pm
+    initial_state: false
+    mode: single
+    trigger:
+      - platform: state
+        entity_id: sensor.iv_auto_tavoite
+        for:
+          seconds: 30
+      - platform: time_pattern
+        minutes: "/2"
+    condition:
+      - condition: state
+        entity_id: input_select.iv_ohjaus
+        state: Automaatti
+      - condition: state
+        entity_id: input_select.iv_auto_anturit
+        state: "Vain PM"
+    action:
+      - action: script.iv_auto_aja
+
+  - id: iv_auto_vain_kosteus
+    alias: IV auto vain kosteus
+    initial_state: false
+    mode: single
+    trigger:
+      - platform: state
+        entity_id: sensor.iv_auto_tavoite
+        for:
+          seconds: 30
+      - platform: time_pattern
+        minutes: "/2"
+    condition:
+      - condition: state
+        entity_id: input_select.iv_ohjaus
+        state: Automaatti
+      - condition: state
+        entity_id: input_select.iv_auto_anturit
+        state: "Vain kosteus"
+    action:
+      - action: script.iv_auto_aja
