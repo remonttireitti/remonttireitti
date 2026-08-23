@@ -18,11 +18,9 @@ Yhdysviiva `-` on kielletty. Käytä vain `a-z`, `0-9` ja `_`.
 
 AirFi-yhteys on **vain** `configuration.yaml` → `modbus: !include modbus.yaml`.
 Jos `packages/iv.yaml` sisältää `modbus:`-avaimen, poista se ja käynnistä HA uudelleen.
-Lovelace-kortti `lovelace/lovelace-iv.yaml` näyttää `sensor.airfi_*` ja
-`input_select.iv_auto_anturit` (seitsemän auto-yhdistelmää). Vain valittu
-`automation.iv_auto_*` on päällä. CO2/PM-entiteetit: `input_text.iv_co2_entiteetti`
-ja `input_text.iv_pm_entiteetti` (oletus `sensor.iv_co2_skaala` / `sensor.iv_pm_skaala`).
-Kosteus oletuksena `sensor.airfi_kosteus_rh`.
+Lovelace `lovelace-iv.yaml` on käyttöpääte: tila, P/T %, auto-tavoite,
+anturivalinta, CO2/RH/PM, Auto/Käsi/Teho/Pois. Liukusäätimet vain Käsi-tilassa,
+hälytys vain kun hätäseis/vika > 0.
 
 ```yaml
 homeassistant:
