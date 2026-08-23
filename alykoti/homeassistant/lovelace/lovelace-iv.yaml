@@ -12,13 +12,17 @@ cards:
           entity: input_select.iv_ohjaus
       - type: template
         icon: mdi:fan
-        content: "P {{ states('sensor.airfi_poistoilmapuhallin_nopeus') }} %"
+        content: >
+          {% set s = states('sensor.airfi_poistoilmapuhallin_nopeus') %}
+          {{ 'P —' if s in ['unknown', 'unavailable', 'none', ''] else 'P ' ~ (s | int) ~ ' %' }}
         tap_action:
           action: more-info
           entity: sensor.airfi_poistoilmapuhallin_nopeus
       - type: template
         icon: mdi:fan-plus
-        content: "T {{ states('sensor.airfi_tuloilmapuhallin_nopeus') }} %"
+        content: >
+          {% set s = states('sensor.airfi_tuloilmapuhallin_nopeus') %}
+          {{ 'T —' if s in ['unknown', 'unavailable', 'none', ''] else 'T ' ~ (s | int) ~ ' %' }}
         tap_action:
           action: more-info
           entity: sensor.airfi_tuloilmapuhallin_nopeus

@@ -334,48 +334,57 @@ script:
         data:
           osoite: 11
           arvo: "{{ p | int }}"
-      - service: number.set_value
-        target:
-          entity_id: number.airfi_vakiopaine
-        data:
-          value: 1
-        continue_on_error: true
-      - if:
-          - condition: template
-            value_template: "{{ t | int >= 25 }}"
-        then:
-          - service: number.set_value
-            target:
-              entity_id: number.airfi_tuloilmapuhallin_asetus
-            data:
-              value: "{{ t | int }}"
-            continue_on_error: true
-      - if:
-          - condition: template
-            value_template: "{{ p | int >= 25 }}"
-        then:
-          - service: number.set_value
-            target:
-              entity_id: number.airfi_poistoilmapuhallin_asetus
-            data:
-              value: "{{ p | int }}"
-            continue_on_error: true
       - service: input_datetime.set_datetime
         target:
           entity_id: input_datetime.iv_modbus_tauko
         data:
           datetime: "{{ now().strftime('%Y-%m-%d %H:%M:%S') }}"
+
+  iv_kirjoita_pois:
+    alias: IV sammuta kone
+    mode: queued
+    max: 2
+    sequence:
+      - service: script.iv_odota_tauko
+      - service: script.iv_kirjoita_sana
+        data:
+          osoite: 8
+          arvo: 0
       - delay:
-          seconds: 2
-      - service: homeassistant.update_entity
+          milliseconds: 200
+      - service: script.iv_kirjoita_sana
+        data:
+          osoite: 3
+          arvo: 0
+      - delay:
+          milliseconds: 200
+      - service: script.iv_kirjoita_sana
+        data:
+          osoite: 10
+          arvo: 0
+      - delay:
+          milliseconds: 200
+      - service: script.iv_kirjoita_sana
+        data:
+          osoite: 11
+          arvo: 0
+      - delay:
+          milliseconds: 200
+      - service: script.iv_kirjoita_sana
+        data:
+          osoite: 2
+          arvo: 0
+      - delay:
+          milliseconds: 200
+      - service: script.iv_kirjoita_sana
+        data:
+          osoite: 12
+          arvo: 0
+      - service: input_datetime.set_datetime
         target:
-          entity_id:
-            - sensor.airfi_poistoilmapuhallin_nopeus
-            - sensor.airfi_tuloilmapuhallin_nopeus
-            - sensor.airfi_vakiopaine_luku
-            - sensor.airfi_tulo_asetus_luku
-            - sensor.airfi_poisto_asetus_luku
-        continue_on_error: true
+          entity_id: input_datetime.iv_modbus_tauko
+        data:
+          datetime: "{{ now().strftime('%Y-%m-%d %H:%M:%S') }}"
 
   iv_auto_aja:
     alias: IV auto kirjoita tavoite
@@ -708,10 +717,7 @@ script:
             entity_id: input_select.iv_ohjaus
             state: Pois
         then:
-          - service: script.iv_kirjoita
-            data:
-              poisto: 0
-              tulo: 0
+          - service: script.iv_kirjoita_pois
         else:
           - service: script.iv_kirjoita
             data:
@@ -861,10 +867,7 @@ automation:
                 target:
                   entity_id: timer.iv_tehostus
                 continue_on_error: true
-              - service: script.iv_kirjoita
-                data:
-                  poisto: 0
-                  tulo: 0
+              - service: script.iv_kirjoita_pois
 
   - id: iv_tehostus_loppu
     alias: IV tehostus päättyi
@@ -957,6 +960,12 @@ automation:
         event: start
       - platform: time_pattern
         minutes: "/10"
+    condition:
+      - condition: not
+        conditions:
+          - condition: state
+            entity_id: input_select.iv_ohjaus
+            state: Pois
     action:
       - service: script.iv_kirjoita_sana
         data:
