@@ -394,14 +394,15 @@ automation:
           - input_number.iv_manuaali_tulo
         for:
           seconds: 5
-    condition:
-      - condition: state
-        entity_id: input_select.iv_ohjaus
-        state: Manuaali
+    action:
+      - action: input_select.select_option
+        target:
+          entity_id: input_select.iv_ohjaus
+        data:
+          option: Manuaali
       - condition: state
         entity_id: input_boolean.iv_modbus_kirjoitus
         state: "on"
-    action:
       - action: script.iv_kirjoita
         data:
           poisto: "{{ states('input_number.iv_manuaali_poisto') | float(40) }}"

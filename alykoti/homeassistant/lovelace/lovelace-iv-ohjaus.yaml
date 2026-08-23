@@ -1,5 +1,4 @@
-# IV käyttöpääte. Korvaa Lovelace-editorissa koko YAML.
-# Painikkeet vaihtavat input_select.iv_ohjaus — ei script.iv_* -kutsuja.
+# IV käyttöpääte. Korvaa koko YAML. Ei ehdollisia kortteja.
 
 type: vertical-stack
 cards:
@@ -52,37 +51,13 @@ cards:
     alignment: center
     chips:
       - type: template
-        icon: mdi:air-filter
-        icon_color: >
-          {% set t = states('sensor.iv_auto_tavoite') %}
-          {{ 'green' if t not in ['unknown','unavailable','none',''] else 'grey' }}
+        icon: mdi:water-percent
         content: >
-          {% set ns = namespace(osat=[]) %}
-          {% set ce = states('input_text.iv_co2_entiteetti') | trim %}
-          {% set ke = states('input_text.iv_kosteus_entiteetti') | trim %}
-          {% set pe = states('input_text.iv_pm_entiteetti') | trim %}
-          {% set c = states(ce) %}
-          {% set k = states(ke) if ke not in ['unknown','unavailable','none',''] else states('sensor.airfi_kosteus_rh') %}
-          {% set p = states(pe) %}
-          {% if c not in ['unknown','unavailable','none',''] %}
-            {% set ns.osat = ns.osat + ['CO₂ ' ~ (c | float(0) | round(0) | string)] %}
-          {% endif %}
-          {% if k not in ['unknown','unavailable','none',''] %}
-            {% set ns.osat = ns.osat + ['RH ' ~ (k | float(0) | round(0) | string)] %}
-          {% endif %}
-          {% if p not in ['unknown','unavailable','none',''] %}
-            {% set ns.osat = ns.osat + ['PM ' ~ (p | float(0) | round(0) | string)] %}
-          {% endif %}
-          {% set t = states('sensor.iv_auto_tavoite') %}
-          {% if t not in ['unknown','unavailable','none',''] %}
-            {% set ns.osat = ns.osat + ['→ ' ~ (t | int | string) ~ ' %'] %}
-          {% endif %}
-          {{ ns.osat | join(' · ') if ns.osat | count > 0 else 'Anturit' }}
+          {% set k = states('sensor.airfi_kosteus_rh') %}
+          {% if k in ['unknown','unavailable','none',''] %}RH —{% else %}RH {{ k | float(0) | round(0) }}{% endif %}
         tap_action:
-          action: none
-  - type: custom:mushroom-chips-card
-    alignment: center
-    chips:
+          action: more-info
+          entity: sensor.airfi_kosteus_rh
       - type: template
         icon: mdi:robot-outline
         content: Auto
@@ -90,9 +65,8 @@ cards:
         tap_action:
           action: call-service
           service: input_select.select_option
-          target:
+          service_data:
             entity_id: input_select.iv_ohjaus
-          data:
             option: Automaatti
       - type: template
         icon: mdi:gesture-tap
@@ -101,9 +75,8 @@ cards:
         tap_action:
           action: call-service
           service: input_select.select_option
-          target:
+          service_data:
             entity_id: input_select.iv_ohjaus
-          data:
             option: Manuaali
       - type: template
         icon: mdi:fan-plus
@@ -112,9 +85,8 @@ cards:
         tap_action:
           action: call-service
           service: input_select.select_option
-          target:
+          service_data:
             entity_id: input_select.iv_ohjaus
-          data:
             option: Tehostus
       - type: template
         icon: mdi:fan-off
@@ -123,74 +95,58 @@ cards:
         tap_action:
           action: call-service
           service: input_select.select_option
-          target:
+          service_data:
             entity_id: input_select.iv_ohjaus
-          data:
             option: Pois
-  - type: conditional
-    conditions:
-      - condition: state
-        entity: input_select.iv_ohjaus
-        state: Manuaali
-    card:
-      type: entities
-      show_header_toggle: false
-      entities:
-        - entity: input_number.iv_manuaali_poisto
-          name: Poisto
-        - entity: input_number.iv_manuaali_tulo
-          name: Tulo
-  - type: conditional
-    conditions:
-      - condition: state
-        entity: timer.iv_tehostus
-        state: active
-    card:
-      type: custom:mushroom-chips-card
-      alignment: center
-      chips:
-        - type: template
-          icon: mdi:timer-sand
-          icon_color: red
-          content: Tehostus
-          tap_action:
-            action: call-service
-            service: input_select.select_option
-            target:
-              entity_id: input_select.iv_ohjaus
-            data:
-              option: Automaatti
-  - type: conditional
-    conditions:
-      - condition: or
-        conditions:
-          - condition: numeric_state
-            entity: sensor.airfi_hataseis_tila
-            above: 0
-          - condition: numeric_state
-            entity: sensor.airfi_vikatila
-            above: 0
-    card:
-      type: custom:mushroom-chips-card
-      alignment: center
-      chips:
-        - type: template
-          icon: mdi:alert-octagon
-          icon_color: red
-          content: >
-            Hälytys {{ states('sensor.airfi_hataseis_tila') }}/{{ states('sensor.airfi_vikatila') }}
-          tap_action:
-            action: more-info
-            entity: sensor.airfi_hataseis_tila
-        - type: template
-          icon: mdi:alert-decagram-outline
-          icon_color: red
-          content: Kuittaa
-          tap_action:
-            action: call-service
-            service: modbus.write_register
-            data:
-              hub: airfi
-              slave: 1
-              address: 1
-              value: 0
+  - type: entities
+    show_header_toggle: false
+    entities:
+      - entity: input_number.iv_manuaali_poisto
+        name: Poisto
+      - entity: input_number.iv_manuaali_tulo
+        name: Tulo
+  - type: custom:mushroom-chips-card
+    alignment: center
+    chips:
+      - type: template
+        icon: mdi:timer-sand
+        icon_color: "{{ 'red' if is_state('timer.iv_tehostus', 'active') else 'grey' }}"
+        content: >
+          {% if is_state('timer.iv_tehostus', 'active') %}Tehostus päällä{% else %}Tehostus{% endif %}
+        tap_action:
+          action: call-service
+          service: input_select.select_option
+          service_data:
+            entity_id: input_select.iv_ohjaus
+            option: Automaatti
+      - type: template
+        icon: mdi:alert-octagon
+        icon_color: >
+          {% set h = states('sensor.airfi_hataseis_tila') | int(0) %}
+          {% set v = states('sensor.airfi_vikatila') | int(0) %}
+          {{ 'red' if h > 0 or v > 0 else 'green' }}
+        content: >
+          {% set h = states('sensor.airfi_hataseis_tila') %}
+          {% set v = states('sensor.airfi_vikatila') %}
+          {% if h in ['unknown','unavailable','none',''] and v in ['unknown','unavailable','none',''] %}
+            Hälytys —
+          {% elif h | int(0) > 0 or v | int(0) > 0 %}
+            Hälytys {{ h }}/{{ v }}
+          {% else %}
+            Ei hälytystä
+          {% endif %}
+        tap_action:
+          action: more-info
+          entity: sensor.airfi_hataseis_tila
+      - type: template
+        icon: mdi:alert-decagram-outline
+        icon_color: red
+        content: Kuittaa
+        tap_action:
+          action: call-service
+          service: modbus.write_register
+          service_data:
+            hub: airfi
+            slave: 1
+            address: 1
+            value: 0
