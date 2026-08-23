@@ -18,9 +18,8 @@ Yhdysviiva `-` on kielletty. Käytä vain `a-z`, `0-9` ja `_`.
 
 AirFi-yhteys on **vain** `configuration.yaml` → `modbus: !include modbus.yaml`.
 Jos `packages/iv.yaml` sisältää `modbus:`-avaimen, poista se ja käynnistä HA uudelleen.
-Lovelace `lovelace-iv.yaml` on käyttöpääte: tila, P/T %, anturivalinta,
-liukusäätimet, **Aseta nopeudet** (script.iv_kirjoita), Auto/Käsi/Teho/Pois.
-Korvaa koko kortti. Käynnistä HA uudelleen Modbus-muutoksen jälkeen.
+Lovelace `lovelace-iv.yaml` on käyttöpääte: P/T %, Aseta-chip,
+Auto/Käsi/Teho/Pois/Sauna. Ei isoa nappikorttia. Korvaa koko kortti.
 
 ```yaml
 homeassistant:
