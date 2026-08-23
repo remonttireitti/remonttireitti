@@ -31,6 +31,24 @@ cards:
           service: script.turn_on
           service_data:
             entity_id: script.iv_kirjoita
+  - type: custom:mushroom-template-card
+    entity: timer.iv_tehostus
+    layout: horizontal
+    primary: "Tehostus {{ states('sensor.iv_tehostus_jaljella') }}"
+    secondary: "+20 % tulo ja poisto · 15 min"
+    icon: mdi:fan-plus
+    icon_color: "{{ 'red' if is_state('timer.iv_tehostus', 'active') else 'grey' }}"
+    tap_action:
+      action: more-info
+  - type: custom:mushroom-template-card
+    entity: timer.iv_sauna
+    layout: horizontal
+    primary: "Sauna {{ states('sensor.iv_sauna_jaljella') }}"
+    secondary: "Tulo = poisto + 20 %"
+    icon: mdi:hot-tub
+    icon_color: "{{ 'orange' if is_state('timer.iv_sauna', 'active') else 'grey' }}"
+    tap_action:
+      action: more-info
   - type: custom:mushroom-select-card
     entity: input_select.iv_auto_anturit
     name: Auto
@@ -73,7 +91,7 @@ cards:
       - type: template
         icon: mdi:fan-plus
         icon_color: "{{ 'red' if is_state('input_select.iv_ohjaus', 'Tehostus') else 'grey' }}"
-        content: Teho
+        content: "{{ 'Teho ' ~ states('sensor.iv_tehostus_jaljella') if is_state('timer.iv_tehostus', 'active') else 'Teho' }}"
         tap_action:
           action: call-service
           service: script.turn_on
@@ -91,7 +109,7 @@ cards:
       - type: template
         icon: mdi:hot-tub
         icon_color: "{{ 'orange' if is_state('input_boolean.iv_sauna', 'on') or states('sensor.airfi_saunatila') | int(0) > 0 else 'grey' }}"
-        content: "{{ 'Sauna päällä' if is_state('input_boolean.iv_sauna', 'on') or states('sensor.airfi_saunatila') | int(0) > 0 else 'Sauna' }}"
+        content: "{{ 'Sauna ' ~ states('sensor.iv_sauna_jaljella') if is_state('timer.iv_sauna', 'active') else 'Sauna' }}"
         tap_action:
           action: call-service
           service: script.turn_on
@@ -100,10 +118,6 @@ cards:
   - type: custom:mushroom-chips-card
     alignment: center
     chips:
-      - type: entity
-        entity: timer.iv_tehostus
-        icon: mdi:fan-plus
-        content_info: state
       - type: template
         icon: mdi:plus
         icon_color: red
@@ -115,16 +129,12 @@ cards:
             entity_id: script.iv_tehostus_lisaa
       - type: template
         icon: mdi:stop
-        content: Lopeta
+        content: Lopeta teho
         tap_action:
           action: call-service
           service: script.turn_on
           service_data:
             entity_id: script.iv_tehostus_lopeta
-      - type: entity
-        entity: timer.iv_sauna
-        icon: mdi:hot-tub
-        content_info: state
       - type: template
         icon: mdi:plus
         icon_color: orange
@@ -136,7 +146,7 @@ cards:
             entity_id: script.iv_sauna_lisaa
       - type: template
         icon: mdi:stop
-        content: Lopeta
+        content: Lopeta sauna
         tap_action:
           action: call-service
           service: script.turn_on
