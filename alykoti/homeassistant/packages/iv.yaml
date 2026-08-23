@@ -19,14 +19,14 @@ input_select:
   iv_auto_anturit:
     name: IV automaatin anturit
     options:
-      - CO2, kosteus ja PM
-      - CO2 ja PM
-      - Kosteus ja PM
-      - Kosteus ja CO2
-      - Vain CO2
-      - Vain PM
-      - Vain kosteus
-    initial: CO2, kosteus ja PM
+      - "CO2, kosteus ja PM"
+      - "CO2 ja PM"
+      - "Kosteus ja PM"
+      - "Kosteus ja CO2"
+      - "Vain CO2"
+      - "Vain PM"
+      - "Vain kosteus"
+    initial: "CO2, kosteus ja PM"
     icon: mdi:tune-variant
 
 input_boolean:
