@@ -102,6 +102,13 @@ cards:
         tap_action:
           action: perform-action
           perform_action: script.iv_sauna
+      - type: template
+        icon: mdi:alert-decagram
+        content: Kuittaa E1
+        icon_color: red
+        tap_action:
+          action: perform-action
+          perform_action: script.iv_kuittaa
   - type: conditional
     conditions:
       - condition: state

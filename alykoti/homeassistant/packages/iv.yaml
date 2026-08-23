@@ -1,18 +1,12 @@
 # iv.yaml
 # → config/packages/iv.yaml  (tiedostonimi ILMAN yhdysviivaa)
 #
-# Käsinajo → AirFi Modbus holding:
-#   2  suoraohjaus 1=käsi / 0=automaatti
-#   3  yhdistetty % (nollataan, muuten tulo ei itsenäisty)
-#   8  vakiopaine 0=pois (päällä tulo ei noudata käskyä)
-#   10 tulo %
-#   11 poisto %
-#   12 poissa
-#   56 sauna
+# TÄMÄ KONE ON MODBUS TCP. Älä kirjoita holding 2 = 1 — se tekee E1:n.
+# Testattu polku: h2=0, h8=1, sitten h10=tulo ja h11=poisto.
 #
-# Hub = configuration.yaml → modbus: → name:  (input_text.iv_modbus_hub)
-# Minimi 25 %. Poisto 100 % + tulo 35 % voi olla koneen alipaineraja
-# (~10 % ero) — silloin lukema jää esim. 90 %, se ei ole HA-vika.
+# Lukemat: sensor.iv_poisto_prosentti / sensor.iv_tulo_prosentti
+# (input 3x00012 / 3x00013). Jos ne näyttää 0 tai jumissa → E1 päällä.
+# Paina kortista Kuittaa, sitten koneen paneelista hätäseis pois.
 
 input_select:
   iv_ohjaus:
@@ -72,6 +66,124 @@ timer:
     restore: true
 
 script:
+  iv_kuittaa:
+    alias: IV kuittaa E1 / hätäseis
+    mode: single
+    sequence:
+      - variables:
+          hub: "{{ states('input_text.iv_modbus_hub') | trim }}"
+          slave: "{{ states('input_number.iv_modbus_slave') | int(1) }}"
+      - action: modbus.write_register
+        data:
+          hub: "{{ hub }}"
+          slave: "{{ slave | int }}"
+          address: 8
+          value: 0
+      - delay:
+          milliseconds: 150
+      - action: modbus.write_register
+        data:
+          hub: "{{ hub }}"
+          slave: "{{ slave | int }}"
+          address: 1
+          value: 0
+      - delay:
+          milliseconds: 150
+      - action: modbus.write_register
+        data:
+          hub: "{{ hub }}"
+          slave: "{{ slave | int }}"
+          address: 3
+          value: 0
+      - delay:
+          milliseconds: 150
+      - action: modbus.write_register
+        data:
+          hub: "{{ hub }}"
+          slave: "{{ slave | int }}"
+          address: 10
+          value: 0
+      - delay:
+          milliseconds: 150
+      - action: modbus.write_register
+        data:
+          hub: "{{ hub }}"
+          slave: "{{ slave | int }}"
+          address: 11
+          value: 0
+      - delay:
+          milliseconds: 150
+      - action: modbus.write_register
+        data:
+          hub: "{{ hub }}"
+          slave: "{{ slave | int }}"
+          address: 2
+          value: 0
+      - delay:
+          milliseconds: 150
+      - action: modbus.write_register
+        data:
+          hub: "{{ hub }}"
+          slave: "{{ slave | int }}"
+          address: 12
+          value: 0
+      - action: input_select.select_option
+        target:
+          entity_id: input_select.iv_ohjaus
+        data:
+          option: Automaatti
+      - action: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.iv_kasi_ajo
+
+  iv_valmistele:
+    alias: IV TCP-valmistelu (ei suoraohjausta)
+    mode: single
+    sequence:
+      - variables:
+          hub: "{{ states('input_text.iv_modbus_hub') | trim }}"
+          slave: "{{ states('input_number.iv_modbus_slave') | int(1) }}"
+      - action: modbus.write_register
+        data:
+          hub: "{{ hub }}"
+          slave: "{{ slave | int }}"
+          address: 1
+          value: 0
+      - delay:
+          milliseconds: 150
+      - action: modbus.write_register
+        data:
+          hub: "{{ hub }}"
+          slave: "{{ slave | int }}"
+          address: 2
+          value: 0
+      - delay:
+          milliseconds: 150
+      - action: modbus.write_register
+        data:
+          hub: "{{ hub }}"
+          slave: "{{ slave | int }}"
+          address: 12
+          value: "{{ 1 if is_state('input_select.iv_ohjaus', 'Pois') else 0 }}"
+      - delay:
+          milliseconds: 150
+      - action: modbus.write_register
+        data:
+          hub: "{{ hub }}"
+          slave: "{{ slave | int }}"
+          address: 3
+          value: 0
+      - delay:
+          milliseconds: 150
+      - action: modbus.write_register
+        data:
+          hub: "{{ hub }}"
+          slave: "{{ slave | int }}"
+          address: 8
+          value: 1
+      - delay:
+          seconds: 1
+
   iv_kirjoita:
     alias: IV kirjoita puhaltimet
     mode: queued
@@ -93,90 +205,16 @@ script:
         data:
           hub: "{{ hub }}"
           slave: "{{ slave | int }}"
-          address: 8
-          value: 0
-      - delay:
-          milliseconds: 80
-      - action: modbus.write_register
-        data:
-          hub: "{{ hub }}"
-          slave: "{{ slave | int }}"
-          address: 3
-          value: 0
-      - delay:
-          milliseconds: 80
-      - action: modbus.write_register
-        data:
-          hub: "{{ hub }}"
-          slave: "{{ slave | int }}"
-          address: 12
-          value: "{{ 1 if is_state('input_select.iv_ohjaus', 'Pois') else 0 }}"
-      - delay:
-          milliseconds: 80
-      - action: modbus.write_register
-        data:
-          hub: "{{ hub }}"
-          slave: "{{ slave | int }}"
-          address: 2
-          value: 1
-      - delay:
-          milliseconds: 80
-      - action: modbus.write_register
-        data:
-          hub: "{{ hub }}"
-          slave: "{{ slave | int }}"
           address: 10
           value: "{{ t | int }}"
       - delay:
-          milliseconds: 80
+          milliseconds: 150
       - action: modbus.write_register
         data:
           hub: "{{ hub }}"
           slave: "{{ slave | int }}"
           address: 11
           value: "{{ p | int }}"
-
-  iv_suora_pois:
-    alias: IV palauta automaatti koneelle
-    mode: single
-    sequence:
-      - variables:
-          hub: "{{ states('input_text.iv_modbus_hub') | trim }}"
-          slave: "{{ states('input_number.iv_modbus_slave') | int(1) }}"
-      - action: modbus.write_register
-        data:
-          hub: "{{ hub }}"
-          slave: "{{ slave | int }}"
-          address: 2
-          value: 0
-      - delay:
-          milliseconds: 80
-      - action: modbus.write_register
-        data:
-          hub: "{{ hub }}"
-          slave: "{{ slave | int }}"
-          address: 12
-          value: 0
-
-  iv_sauna_kirjoita:
-    alias: IV sauna Modbus
-    mode: queued
-    max: 3
-    fields:
-      paalle:
-        selector:
-          boolean:
-    sequence:
-      - variables:
-          hub: "{{ states('input_text.iv_modbus_hub') | trim }}"
-          slave: "{{ states('input_number.iv_modbus_slave') | int(1) }}"
-          v: "{{ 1 if paalle else 0 }}"
-      - action: modbus.write_register
-        data:
-          hub: "{{ hub }}"
-          slave: "{{ slave | int }}"
-          address: 56
-          value: "{{ v | int }}"
 
   iv_automaatti:
     alias: IV automaatti
@@ -194,7 +232,23 @@ script:
         target:
           entity_id: timer.iv_tehostus
         continue_on_error: true
-      - action: script.iv_suora_pois
+      - variables:
+          hub: "{{ states('input_text.iv_modbus_hub') | trim }}"
+          slave: "{{ states('input_number.iv_modbus_slave') | int(1) }}"
+      - action: modbus.write_register
+        data:
+          hub: "{{ hub }}"
+          slave: "{{ slave | int }}"
+          address: 2
+          value: 0
+      - delay:
+          milliseconds: 150
+      - action: modbus.write_register
+        data:
+          hub: "{{ hub }}"
+          slave: "{{ slave | int }}"
+          address: 12
+          value: 0
 
   iv_manuaali:
     alias: IV käsinajo
@@ -212,6 +266,7 @@ script:
         target:
           entity_id: timer.iv_tehostus
         continue_on_error: true
+      - action: script.iv_valmistele
       - action: script.iv_kirjoita
         data:
           poisto: "{{ states('input_number.iv_manuaali_poisto') | float(40) }}"
@@ -244,8 +299,7 @@ script:
           entity_id: timer.iv_tehostus
         data:
           duration: "00:30:00"
-      - delay:
-          milliseconds: 200
+      - action: script.iv_valmistele
       - action: script.iv_kirjoita
         data:
           poisto: 70
@@ -255,9 +309,6 @@ script:
     alias: IV pois / minimipuhallus
     mode: single
     sequence:
-      - variables:
-          hub: "{{ states('input_text.iv_modbus_hub') | trim }}"
-          slave: "{{ states('input_number.iv_modbus_slave') | int(1) }}"
       - action: input_select.select_option
         target:
           entity_id: input_select.iv_ohjaus
@@ -270,23 +321,19 @@ script:
         target:
           entity_id: timer.iv_tehostus
         continue_on_error: true
+      - action: script.iv_valmistele
       - action: script.iv_kirjoita
         data:
           poisto: 25
           tulo: 25
-      - delay:
-          milliseconds: 200
-      - action: modbus.write_register
-        data:
-          hub: "{{ hub }}"
-          slave: "{{ slave | int }}"
-          address: 12
-          value: 1
 
   iv_sauna:
     alias: IV sauna
     mode: restart
     sequence:
+      - variables:
+          hub: "{{ states('input_text.iv_modbus_hub') | trim }}"
+          slave: "{{ states('input_number.iv_modbus_slave') | int(1) }}"
       - if:
           - condition: state
             entity_id: input_boolean.sauna_tila
@@ -299,9 +346,12 @@ script:
             target:
               entity_id: timer.sauna_tila
             continue_on_error: true
-          - action: script.iv_sauna_kirjoita
+          - action: modbus.write_register
             data:
-              paalle: false
+              hub: "{{ hub }}"
+              slave: "{{ slave | int }}"
+              address: 56
+              value: 0
         else:
           - action: input_boolean.turn_on
             target:
@@ -310,9 +360,12 @@ script:
             target:
               entity_id: timer.sauna_tila
             continue_on_error: true
-          - action: script.iv_sauna_kirjoita
+          - action: modbus.write_register
             data:
-              paalle: true
+              hub: "{{ hub }}"
+              slave: "{{ slave | int }}"
+              address: 56
+              value: 1
 
 automation:
   - id: iv_ohjaus_manuaali_saato
@@ -349,42 +402,3 @@ automation:
           entity_id: timer.iv_tehostus
     action:
       - action: script.iv_automaatti
-
-  - id: iv_kasi_pito
-    alias: IV käsi — pidä asetus
-    initial_state: true
-    mode: single
-    trigger:
-      - platform: time_pattern
-        seconds: "/15"
-    condition:
-      - condition: not
-        conditions:
-          - condition: state
-            entity_id: input_select.iv_ohjaus
-            state: Automaatti
-    action:
-      - choose:
-          - conditions:
-              - condition: state
-                entity_id: input_select.iv_ohjaus
-                state: Tehostus
-            sequence:
-              - action: script.iv_kirjoita
-                data:
-                  poisto: 70
-                  tulo: 70
-          - conditions:
-              - condition: state
-                entity_id: input_select.iv_ohjaus
-                state: Pois
-            sequence:
-              - action: script.iv_kirjoita
-                data:
-                  poisto: 25
-                  tulo: 25
-        default:
-          - action: script.iv_kirjoita
-            data:
-              poisto: "{{ states('input_number.iv_manuaali_poisto') | float(40) }}"
-              tulo: "{{ states('input_number.iv_manuaali_tulo') | float(35) }}"
