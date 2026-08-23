@@ -27,6 +27,14 @@ cards:
           action: more-info
           entity: sensor.airfi_tuloilmapuhallin_nopeus
       - type: template
+        icon: mdi:thermometer
+        content: >
+          {% set s = states('sensor.airfi_lampotila_asetus_luku') %}
+          {{ 'L —' if s in ['unknown', 'unavailable', 'none', ''] else (s | float(0) | round(1)) ~ ' °' }}
+        tap_action:
+          action: more-info
+          entity: sensor.airfi_lampotila_asetus_luku
+      - type: template
         icon: mdi:check-bold
         icon_color: orange
         content: Aseta
@@ -59,6 +67,18 @@ cards:
     icon: mdi:tune-variant
     layout: horizontal
     secondary_info: none
+  - type: custom:mushroom-template-card
+    entity: input_select.iv_ohjaus
+    layout: horizontal
+    primary: "{{ 'Käsi: säädä puhaltimia' if is_state('input_select.iv_ohjaus', 'Manuaali') else 'Nopeudet seuraavat tilaa' }}"
+    secondary: >
+      {% set t = states('sensor.iv_auto_tavoite') %}
+      {% set tulo = t | int(0) if t not in ['unknown', 'unavailable', 'none', ''] else 0 %}
+      Automaatti: poisto = tulo + 5 %{% if tulo > 0 %} · {{ tulo }} / {{ [100, tulo + 5] | min }} %{% endif %}
+    icon: mdi:tune
+    icon_color: "{{ 'blue' if is_state('input_select.iv_ohjaus', 'Manuaali') else 'grey' }}"
+    tap_action:
+      action: none
   - type: custom:mushroom-number-card
     entity: input_number.iv_manuaali_poisto
     name: Poisto
@@ -181,3 +201,43 @@ cards:
           service: script.turn_on
           service_data:
             entity_id: script.iv_kuittaa
+  - type: custom:mushroom-template-card
+    entity: input_number.iv_lampo_asetus
+    layout: horizontal
+    primary: "Lämpöasetus {{ states('sensor.airfi_lampotila_asetus_luku') }} °C"
+    secondary: "T1 {{ states('sensor.airfi_t1_ulkoilma') }} · T3 {{ states('sensor.airfi_t3_poistoilma') }} · T5 {{ states('sensor.airfi_t5_tuloilma') }}"
+    icon: mdi:thermometer
+    icon_color: orange
+    tap_action:
+      action: more-info
+      entity: sensor.airfi_lampotila_asetus_luku
+  - type: custom:mushroom-number-card
+    entity: input_number.iv_lampo_asetus
+    name: Lämpöasetus
+    display_mode: slider
+    layout: horizontal
+    icon_color: orange
+  - type: custom:mushroom-number-card
+    entity: input_number.iv_poissa_lampo
+    name: Poissa lämpö
+    display_mode: slider
+    layout: horizontal
+    icon_color: blue
+  - type: custom:mushroom-number-card
+    entity: input_number.iv_ohitus_asetus
+    name: Ohituksen asetus
+    display_mode: slider
+    layout: horizontal
+    icon_color: teal
+  - type: custom:mushroom-number-card
+    entity: input_number.iv_ohitus_ulko
+    name: Ohituksen ulkoraja
+    display_mode: slider
+    layout: horizontal
+    icon_color: cyan
+  - type: custom:mushroom-number-card
+    entity: input_number.iv_ohitus_viive
+    name: Ohituksen viive
+    display_mode: slider
+    layout: horizontal
+    icon_color: grey

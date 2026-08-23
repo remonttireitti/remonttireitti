@@ -68,7 +68,7 @@
       precision: 1
       scan_interval: 30
 
-    # --- Puhaltimet ---
+    # --- Puhaltimet: INPUT 11/12 = mitattu nopeus, ei asetus ---
     - name: "Airfi Poistoilmapuhallin Nopeus"
       address: 11
       slave: 1
@@ -177,6 +177,16 @@
       scan_interval: 60
 
     # --- Holding (4x) ---
+    - name: "Airfi Lämpötila-asetus holding"
+      address: 4
+      slave: 1
+      input_type: holding
+      data_type: int16
+      unit_of_measurement: "°C"
+      scale: 0.1
+      precision: 1
+      scan_interval: 60
+
     - name: "Airfi Kotona Poissa"
       address: 12
       slave: 1
@@ -211,6 +221,16 @@
       data_type: uint16
       unit_of_measurement: min
       precision: 0
+      scan_interval: 300
+
+    - name: "Airfi Poissa lämpötila"
+      address: 51
+      slave: 1
+      input_type: holding
+      data_type: int16
+      unit_of_measurement: "°C"
+      scale: 0.1
+      precision: 1
       scan_interval: 300
 
     - name: "Airfi Saunatila"
@@ -297,3 +317,73 @@
       precision: 0
       write_type: holding
       scan_interval: 15
+
+    - name: "Airfi Lämpötila-asetus"
+      unique_id: airfi_lampotila_asetus
+      address: 4
+      slave: 1
+      data_type: int16
+      unit_of_measurement: "°C"
+      min_value: 5
+      max_value: 26
+      step: 0.5
+      scale: 0.1
+      precision: 1
+      write_type: holding
+      scan_interval: 60
+
+    - name: "Airfi Ohituksen asetuslämpötila asetus"
+      unique_id: airfi_ohituksen_asetuslampotila_asetus
+      address: 46
+      slave: 1
+      data_type: uint16
+      unit_of_measurement: "°C"
+      min_value: 10
+      max_value: 30
+      step: 0.5
+      scale: 0.1
+      precision: 1
+      write_type: holding
+      scan_interval: 300
+
+    - name: "Airfi Ohituksen ulkoilmaraja asetus"
+      unique_id: airfi_ohituksen_ulkoilmaraja_asetus
+      address: 47
+      slave: 1
+      data_type: uint16
+      unit_of_measurement: "°C"
+      min_value: 0
+      max_value: 25
+      step: 1
+      scale: 1
+      precision: 0
+      write_type: holding
+      scan_interval: 300
+
+    - name: "Airfi Ohituksen viive asetus"
+      unique_id: airfi_ohituksen_viive_asetus
+      address: 48
+      slave: 1
+      data_type: uint16
+      unit_of_measurement: min
+      min_value: 0
+      max_value: 120
+      step: 1
+      scale: 1
+      precision: 0
+      write_type: holding
+      scan_interval: 300
+
+    - name: "Airfi Poissa lämpötila asetus"
+      unique_id: airfi_poissa_lampotila_asetus
+      address: 51
+      slave: 1
+      data_type: int16
+      unit_of_measurement: "°C"
+      min_value: 5
+      max_value: 26
+      step: 0.5
+      scale: 0.1
+      precision: 1
+      write_type: holding
+      scan_interval: 300
