@@ -24,6 +24,10 @@ input_boolean:
   iv_kasi_ajo:
     name: IV käsinajo
     icon: mdi:gesture-tap
+  iv_modbus_kirjoitus:
+    name: IV Modbus-kirjoitus
+    icon: mdi:upload-network
+    initial: false
 
 input_text:
   iv_modbus_hub:
@@ -117,6 +121,9 @@ script:
     alias: IV kuittaa E1 / hätäseis
     mode: single
     sequence:
+      - condition: state
+        entity_id: input_boolean.iv_modbus_kirjoitus
+        state: "on"
       - variables:
           hub: "{{ states('input_text.iv_modbus_hub') | trim }}"
           slave: "{{ states('input_number.iv_modbus_slave') | int(1) }}"
@@ -169,6 +176,9 @@ script:
           t: "{{ [25, [100, tulo | int(35)] | min] | max }}"
           hub: "{{ states('input_text.iv_modbus_hub') | trim }}"
           slave: "{{ states('input_number.iv_modbus_slave') | int(1) }}"
+      - condition: state
+        entity_id: input_boolean.iv_modbus_kirjoitus
+        state: "on"
       - condition: template
         value_template: >
           {{ p | int != states('input_number.iv_lahetetty_poisto') | int(-1)
@@ -299,6 +309,9 @@ script:
           hub: "{{ states('input_text.iv_modbus_hub') | trim }}"
           slave: "{{ states('input_number.iv_modbus_slave') | int(1) }}"
           paalle: "{{ is_state('input_boolean.sauna_tila', 'off') }}"
+      - condition: state
+        entity_id: input_boolean.iv_modbus_kirjoitus
+        state: "on"
       - action: script.iv_odota_tauko
       - if:
           - condition: template
@@ -371,6 +384,13 @@ automation:
 
 template:
   - binary_sensor:
+      - name: IV Modbus ok
+        unique_id: iv_modbus_ok
+        device_class: connectivity
+        icon: mdi:lan-connect
+        state: >
+          {{ states('sensor.iv_poisto_prosentti') not in ['unknown', 'unavailable', 'none', '']
+             and states('sensor.iv_tulo_prosentti') not in ['unknown', 'unavailable', 'none', ''] }}
       - name: IV hälytys
         unique_id: iv_halytys
         device_class: problem

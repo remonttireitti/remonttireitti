@@ -11,7 +11,7 @@ Yhdysviiva `-` on kielletty. Käytä vain `a-z`, `0-9` ja `_`.
 | `aurinkolampo.yaml` | Aurinkolämpö kWh |
 | `energia_kokonaisteho.yaml` | L1+L2+L3 |
 | `energia_vertailu.yaml` | Vertailu kWh |
-| `iv.yaml` | IV käsinajo (harva Modbus-kirjoitus, ei E1) |
+| `iv.yaml` | IV käsinajo. Kirjoitus oletuksena pois (`input_boolean.iv_modbus_kirjoitus`). |
 
 **Poista HA:sta vanhat** `energia-kokonaisteho.yaml` ja `energia-vertailu.yaml` (yhdysviiva).
 

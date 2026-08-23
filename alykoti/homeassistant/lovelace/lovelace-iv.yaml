@@ -62,6 +62,56 @@ cards:
         {% elif ohj == 'Manuaali' %}blue
         {% elif is_state('input_boolean.sauna_tila', 'on') %}orange
         {% else %}green{% endif %}
+  - type: custom:mushroom-template-card
+    entity: sensor.iv_poisto_prosentti
+    layout: horizontal
+    primary: >
+      {% set po = states('sensor.iv_poisto_prosentti') %}
+      {% if po in ['unknown','unavailable','none',''] %}
+        Modbus poikki
+      {% else %}
+        Modbus kunnossa
+      {% endif %}
+    secondary: >
+      {% set po = states('sensor.iv_poisto_prosentti') %}
+      {% if po in ['unknown','unavailable','none',''] %}
+        1) Älä paina Käsi / Kuittaa. 2) Asetukset → Laitteet → Modbus → Käynnistä uudelleen. 3) Kun lukemat palaavat, kytke kirjoitus päälle.
+      {% elif is_state('input_boolean.iv_modbus_kirjoitus', 'on') %}
+        Kirjoitus päällä — harvoin, älä spämmää
+      {% else %}
+        Kirjoitus pois — lukemat turvassa
+      {% endif %}
+    icon: >
+      {% set po = states('sensor.iv_poisto_prosentti') %}
+      {{ 'mdi:lan-disconnect' if po in ['unknown','unavailable','none',''] else 'mdi:lan-connect' }}
+    icon_color: >
+      {% set po = states('sensor.iv_poisto_prosentti') %}
+      {{ 'red' if po in ['unknown','unavailable','none',''] else 'green' }}
+    tap_action:
+      action: more-info
+  - type: custom:mushroom-template-card
+    primary: >
+      {% if states('input_boolean.iv_modbus_kirjoitus') in ['unknown','unavailable','none',''] %}
+        Kirjoituskatko — lataa iv.yaml
+      {% elif is_state('input_boolean.iv_modbus_kirjoitus', 'on') %}
+        Modbus-kirjoitus päällä
+      {% else %}
+        Modbus-kirjoitus pois
+      {% endif %}
+    secondary: >
+      {% set po = states('sensor.iv_poisto_prosentti') %}
+      {% if po in ['unknown','unavailable','none',''] %}
+        Pidä pois kunnes lukemat palaavat
+      {% else %}
+        Napauta kytkeäksesi (vasta kun Modbus ok)
+      {% endif %}
+    icon: mdi:upload-network
+    icon_color: >
+      {{ 'orange' if is_state('input_boolean.iv_modbus_kirjoitus', 'on') else 'grey' }}
+    layout: horizontal
+    tap_action:
+      action: toggle
+      entity: input_boolean.iv_modbus_kirjoitus
   - type: custom:mushroom-chips-card
     alignment: center
     chips:
