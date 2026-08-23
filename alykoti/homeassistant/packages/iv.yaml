@@ -39,6 +39,10 @@ input_boolean:
     name: IV sauna
     icon: mdi:hot-tub
     initial: false
+  iv_ohita_vaihto:
+    name: IV ohita ohjausvaihto
+    icon: mdi:debug-step-over
+    initial: false
 
 input_number:
   iv_manuaali_poisto:
@@ -459,11 +463,61 @@ script:
     sequence:
       - service: script.iv_tehostus_lisaa
 
+  iv_ajastin_plus15:
+    alias: IV ajastin +15 min
+    mode: queued
+    max: 6
+    fields:
+      ajastin:
+        selector:
+          entity:
+            domain: timer
+    sequence:
+      - variables:
+          e: "{{ ajastin }}"
+          fin: "{{ state_attr(e, 'finishes_at') }}"
+          left: "{{ [0, as_timestamp(fin, now().timestamp()) - now().timestamp()] | max if is_state(e, 'active') else 0 }}"
+          sek: "{{ (left | float(0) + 900) | int }}"
+          dur: "{{ '%02d:%02d:%02d' | format((sek // 3600) | int, ((sek % 3600) // 60) | int, (sek % 60) | int) }}"
+      - service: timer.start
+        target:
+          entity_id: "{{ e }}"
+        data:
+          duration: "{{ dur }}"
+
+  iv_tehostus_peru_hiljaa:
+    alias: IV tehostus pois ilman kirjoitusta
+    mode: single
+    sequence:
+      - service: timer.cancel
+        target:
+          entity_id: timer.iv_tehostus
+        continue_on_error: true
+      - service: input_boolean.turn_on
+        target:
+          entity_id: input_boolean.iv_ohita_vaihto
+      - service: input_select.select_option
+        target:
+          entity_id: input_select.iv_ohjaus
+        data:
+          option: Automaatti
+
   iv_tehostus_lisaa:
     alias: IV tehostus +15 min
     mode: queued
     max: 3
     sequence:
+      - if:
+          - condition: or
+            conditions:
+              - condition: state
+                entity_id: timer.iv_sauna
+                state: active
+              - condition: state
+                entity_id: input_boolean.iv_sauna
+                state: "on"
+        then:
+          - service: script.iv_sauna_lopeta
       - if:
           - condition: state
             entity_id: input_select.iv_ohjaus
@@ -472,11 +526,9 @@ script:
             entity_id: timer.iv_tehostus
             state: active
         then:
-          - service: timer.change
-            target:
-              entity_id: timer.iv_tehostus
+          - service: script.iv_ajastin_plus15
             data:
-              duration: "00:15:00"
+              ajastin: timer.iv_tehostus
         else:
           - service: input_select.select_option
             target:
@@ -550,23 +602,30 @@ script:
   iv_sauna_lisaa:
     alias: IV sauna +15 min
     mode: queued
-    max: 3
+    max: 5
     sequence:
+      - if:
+          - condition: or
+            conditions:
+              - condition: state
+                entity_id: input_select.iv_ohjaus
+                state: Tehostus
+              - condition: state
+                entity_id: timer.iv_tehostus
+                state: active
+        then:
+          - service: script.iv_tehostus_peru_hiljaa
       - if:
           - condition: state
             entity_id: timer.iv_sauna
             state: active
         then:
-          - service: timer.change
-            target:
-              entity_id: timer.iv_sauna
+          - service: script.iv_ajastin_plus15
             data:
-              duration: "00:15:00"
-          - service: timer.change
-            target:
-              entity_id: timer.sauna_tila
+              ajastin: timer.iv_sauna
+          - service: script.iv_ajastin_plus15
             data:
-              duration: "00:15:00"
+              ajastin: timer.sauna_tila
             continue_on_error: true
         else:
           - variables:
@@ -614,6 +673,9 @@ script:
       - service: script.iv_sauna_valo_aseta
         data:
           paalle: true
+      - service: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.iv_ohita_vaihto
 
   iv_sauna_lopeta:
     alias: IV sauna lopeta
@@ -727,6 +789,10 @@ automation:
     trigger:
       - platform: state
         entity_id: input_select.iv_ohjaus
+    condition:
+      - condition: state
+        entity_id: input_boolean.iv_ohita_vaihto
+        state: "off"
     action:
       - choose:
           - conditions:
@@ -829,37 +895,48 @@ automation:
   - id: iv_sauna_aqara_nappi
     alias: IV sauna Aqara termostaatti
     initial_state: true
-    mode: queued
-    max: 4
+    mode: single
     trigger:
       - platform: state
         entity_id:
           - sensor.aqara_termostaatti_action
           - sensor.aqara_termostaatti_toiminto
           - event.aqara_termostaatti_action
+          - event.aqara_termostaatti
       - platform: mqtt
         topic: zigbee2mqtt/Aqara termostaatti
       - platform: mqtt
+        topic: zigbee2mqtt/Aqara termostaatti/action
+      - platform: mqtt
         topic: zigbee2mqtt/aqara_termostaatti
+      - platform: mqtt
+        topic: zigbee2mqtt/aqara_termostaatti/action
+      - platform: mqtt
+        topic: zigbee2mqtt/Aqara Termostaatti
+      - platform: mqtt
+        topic: zigbee2mqtt/Aqara Termostaatti/action
     condition:
       - condition: template
         value_template: >
           {% set s = trigger.to_state.state | default('', true) | lower if trigger.to_state is defined else '' %}
           {% set ev = trigger.to_state.attributes.get('event', '') | lower if trigger.to_state is defined else '' %}
           {% set ac = trigger.to_state.attributes.get('action', '') | lower if trigger.to_state is defined else '' %}
-          {% set mq = trigger.payload_json.action | default('', true) | lower if trigger.payload_json is defined else '' %}
+          {% set mqj = trigger.payload_json.action | default('', true) | lower if trigger.payload_json is defined else '' %}
+          {% set mqp = trigger.payload | default('', true) | lower if trigger.payload is defined else '' %}
           {{ s in ['single_plus', 'single_minus']
              or ev in ['single_plus', 'single_minus']
              or ac in ['single_plus', 'single_minus']
-             or mq in ['single_plus', 'single_minus'] }}
+             or mqj in ['single_plus', 'single_minus']
+             or mqp in ['single_plus', 'single_minus'] }}
     action:
       - variables:
           nappi: >
             {% set s = trigger.to_state.state | default('', true) | lower if trigger.to_state is defined else '' %}
             {% set ev = trigger.to_state.attributes.get('event', '') | lower if trigger.to_state is defined else '' %}
             {% set ac = trigger.to_state.attributes.get('action', '') | lower if trigger.to_state is defined else '' %}
-            {% set mq = trigger.payload_json.action | default('', true) | lower if trigger.payload_json is defined else '' %}
-            {{ s if s in ['single_plus', 'single_minus'] else (ev if ev in ['single_plus', 'single_minus'] else (ac if ac in ['single_plus', 'single_minus'] else mq)) }}
+            {% set mqj = trigger.payload_json.action | default('', true) | lower if trigger.payload_json is defined else '' %}
+            {% set mqp = trigger.payload | default('', true) | lower if trigger.payload is defined else '' %}
+            {{ s if s in ['single_plus', 'single_minus'] else (ev if ev in ['single_plus', 'single_minus'] else (ac if ac in ['single_plus', 'single_minus'] else (mqj if mqj in ['single_plus', 'single_minus'] else mqp))) }}
       - choose:
           - conditions:
               - condition: template
