@@ -23,12 +23,12 @@ cards:
           action: more-info
           entity: sensor.airfi_tuloilmapuhallin_nopeus
       - type: template
-        icon: mdi:upload-network
-        icon_color: "{{ 'orange' if is_state('input_boolean.iv_modbus_kirjoitus', 'on') else 'grey' }}"
-        content: "{{ 'Kirjoitus' if is_state('input_boolean.iv_modbus_kirjoitus', 'on') else 'Luku' }}"
+        icon: mdi:check-bold
+        icon_color: orange
+        content: Aseta
         tap_action:
-          action: toggle
-          entity: input_boolean.iv_modbus_kirjoitus
+          action: call-service
+          service: script.iv_kirjoita
   - type: entities
     show_header_toggle: false
     entities:
@@ -93,7 +93,7 @@ cards:
       - type: template
         icon: mdi:alert-octagon
         icon_color: "{{ 'red' if states('sensor.airfi_hataseis_tila') | int(0) > 0 or states('sensor.airfi_vikatila') | int(0) > 0 else 'green' }}"
-        content: "Haly {{ states('sensor.airfi_hataseis_tila') }}/{{ states('sensor.airfi_vikatila') }}"
+        content: "Hälytys {{ states('sensor.airfi_hataseis_tila') }}/{{ states('sensor.airfi_vikatila') }}"
         tap_action:
           action: more-info
           entity: sensor.airfi_hataseis_tila

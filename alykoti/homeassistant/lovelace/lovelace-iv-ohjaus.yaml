@@ -23,12 +23,12 @@ cards:
           action: more-info
           entity: sensor.airfi_tuloilmapuhallin_nopeus
       - type: template
-        icon: mdi:upload-network
-        icon_color: "{{ 'orange' if is_state('input_boolean.iv_modbus_kirjoitus', 'on') else 'grey' }}"
-        content: "{{ 'Kirjoitus' if is_state('input_boolean.iv_modbus_kirjoitus', 'on') else 'Luku' }}"
+        icon: mdi:check-bold
+        icon_color: orange
+        content: Aseta
         tap_action:
-          action: toggle
-          entity: input_boolean.iv_modbus_kirjoitus
+          action: call-service
+          service: script.iv_kirjoita
   - type: entities
     show_header_toggle: false
     entities:

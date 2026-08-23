@@ -3,7 +3,7 @@
 # Yhteys on VAIN configuration.yaml → modbus: !include modbus.yaml
 # (hub name: airfi). Tähän tiedostoon EI SAA laittaa `modbus:`-avainta.
 #
-# Kirjoitus vain jos input_boolean.iv_modbus_kirjoitus = on (oletus pois).
+# TCP-kirjoitus: holding 2 = 0, holding 8 = 1, sitten 10/11.
 # Älä kirjoita holding 2 = 1 (tässä koneessa E1).
 
 input_select:
@@ -33,7 +33,7 @@ input_boolean:
   iv_modbus_kirjoitus:
     name: IV Modbus-kirjoitus
     icon: mdi:upload-network
-    initial: false
+    initial: true
 
 input_number:
   iv_manuaali_poisto:
@@ -177,17 +177,26 @@ script:
         selector:
           number:
     sequence:
-      - condition: state
-        entity_id: input_boolean.iv_modbus_kirjoitus
-        state: "on"
-      - condition: template
-        value_template: >
-          {{ states('sensor.airfi_poistoilmapuhallin_nopeus')
-             not in ['unknown', 'unavailable', 'none', ''] }}
       - variables:
-          p: "{{ [25, [100, poisto | int(40)] | min] | max }}"
-          t: "{{ [25, [100, tulo | int(35)] | min] | max }}"
+          p: "{{ [25, [100, (poisto | default(states('input_number.iv_manuaali_poisto'), true) | int(40))] | min] | max }}"
+          t: "{{ [25, [100, (tulo | default(states('input_number.iv_manuaali_tulo'), true) | int(35))] | min] | max }}"
       - action: script.iv_odota_tauko
+      - action: modbus.write_register
+        data:
+          hub: airfi
+          slave: 1
+          address: 2
+          value: 0
+      - delay:
+          milliseconds: 400
+      - action: modbus.write_register
+        data:
+          hub: airfi
+          slave: 1
+          address: 8
+          value: 1
+      - delay:
+          seconds: 1
       - action: modbus.write_register
         data:
           hub: airfi
@@ -195,7 +204,7 @@ script:
           address: 10
           value: "{{ t | int }}"
       - delay:
-          seconds: 2
+          milliseconds: 400
       - action: modbus.write_register
         data:
           hub: airfi
@@ -215,22 +224,14 @@ script:
       - condition: state
         entity_id: input_select.iv_ohjaus
         state: Automaatti
-      - condition: state
-        entity_id: input_boolean.iv_modbus_kirjoitus
-        state: "on"
-      - condition: template
-        value_template: >
-          {{ states('sensor.iv_auto_tavoite') not in ['unknown', 'unavailable', 'none', '']
-             and states('sensor.airfi_poistoilmapuhallin_nopeus')
-               not in ['unknown', 'unavailable', 'none', ''] }}
       - variables:
-          tavoite: "{{ states('sensor.iv_auto_tavoite') | int(35) }}"
+          rh: "{{ states('sensor.airfi_kosteus_rh') | float(50) }}"
+          rh_pct: "{{ 35 if rh | float(50) <= 55 else (50 if rh | float(50) <= 65 else (70 if rh | float(50) <= 75 else 90)) }}"
+          auto: "{{ states('sensor.iv_auto_tavoite') }}"
+          tavoite: "{{ auto | int(rh_pct) if auto not in ['unknown', 'unavailable', 'none', ''] else rh_pct | int }}"
           nyt_p: "{{ states('sensor.airfi_poistoilmapuhallin_nopeus') | float(0) }}"
-          nyt_t: "{{ states('sensor.airfi_tuloilmapuhallin_nopeus') | float(0) }}"
       - condition: template
-        value_template: >
-          {{ (nyt_p | float - tavoite | float) | abs >= 5
-             or (nyt_t | float - tavoite | float) | abs >= 5 }}
+        value_template: "{{ (nyt_p | float - tavoite | float) | abs >= 5 }}"
       - action: script.iv_kirjoita
         data:
           poisto: "{{ tavoite }}"
@@ -240,9 +241,6 @@ script:
     alias: IV kuittaa hätäseis
     mode: single
     sequence:
-      - condition: state
-        entity_id: input_boolean.iv_modbus_kirjoitus
-        state: "on"
       - action: script.iv_odota_tauko
       - action: modbus.write_register
         data:
@@ -305,9 +303,6 @@ script:
     alias: IV sauna
     mode: single
     sequence:
-      - condition: state
-        entity_id: input_boolean.iv_modbus_kirjoitus
-        state: "on"
       - variables:
           paalle: "{{ is_state('input_boolean.sauna_tila', 'off') }}"
       - action: script.iv_odota_tauko
@@ -400,9 +395,6 @@ automation:
           entity_id: input_select.iv_ohjaus
         data:
           option: Manuaali
-      - condition: state
-        entity_id: input_boolean.iv_modbus_kirjoitus
-        state: "on"
       - action: script.iv_kirjoita
         data:
           poisto: "{{ states('input_number.iv_manuaali_poisto') | float(40) }}"
