@@ -89,128 +89,71 @@ template:
       - name: IV auto CO2 tavoite
         unique_id: iv_auto_co2_tavoite
         unit_of_measurement: "%"
-        availability: >
+        availability: |
           {% set e = states('input_text.iv_co2_entiteetti') | trim %}
           {{ e not in ['unknown', 'unavailable', 'none', '']
              and states(e) not in ['unknown', 'unavailable', 'none', ''] }}
-        state: >
+        state: |
           {% set e = states('input_text.iv_co2_entiteetti') | trim %}
           {% set s = states(e) | float(0) %}
-          {% set ns = namespace(raw=35) %}
-          {% if 'skaala' in e %}
-            {% set ns.raw = s %}
-          {% elif s <= 800 %}
-            {% set ns.raw = 35 %}
-          {% elif s <= 1000 %}
-            {% set ns.raw = 35 + (s - 800) / 200 * 15 %}
-          {% elif s <= 1200 %}
-            {% set ns.raw = 50 + (s - 1000) / 200 * 20 %}
-          {% else %}
-            {% set ns.raw = 70 + [1, (s - 1200) / 400] | min * 20 %}
-          {% endif %}
-          {{ [25, [100, ((ns.raw / 5) | round(0) * 5)] | min] | max | int }}
+          {% set raw = s if 'skaala' in e else (35 if s <= 800 else (35 + (s - 800) / 200 * 15 if s <= 1000 else (50 + (s - 1000) / 200 * 20 if s <= 1200 else 70 + ([1, (s - 1200) / 400] | min) * 20))) %}
+          {{ [25, [100, ((raw / 5) | round(0) * 5)] | min] | max | int }}
 
       - name: IV auto kosteus tavoite
         unique_id: iv_auto_kosteus_tavoite
         unit_of_measurement: "%"
-        availability: >
+        availability: |
           {% set e = states('input_text.iv_kosteus_entiteetti') | trim %}
           {{ e not in ['unknown', 'unavailable', 'none', '']
              and states(e) not in ['unknown', 'unavailable', 'none', ''] }}
-        state: >
+        state: |
           {% set e = states('input_text.iv_kosteus_entiteetti') | trim %}
           {% set s = states(e) | float(0) %}
-          {% set ns = namespace(raw=35) %}
-          {% if 'skaala' in e or 'bonus' in e %}
-            {% set ns.raw = s %}
-          {% elif s <= 55 %}
-            {% set ns.raw = 35 %}
-          {% elif s <= 65 %}
-            {% set ns.raw = 35 + (s - 55) / 10 * 15 %}
-          {% elif s <= 75 %}
-            {% set ns.raw = 50 + (s - 65) / 10 * 20 %}
-          {% else %}
-            {% set ns.raw = 70 + [1, (s - 75) / 15] | min * 20 %}
-          {% endif %}
-          {{ [25, [100, ((ns.raw / 5) | round(0) * 5)] | min] | max | int }}
+          {% set raw = s if ('skaala' in e or 'bonus' in e) else (35 if s <= 55 else (35 + (s - 55) / 10 * 15 if s <= 65 else (50 + (s - 65) / 10 * 20 if s <= 75 else 70 + ([1, (s - 75) / 15] | min) * 20))) %}
+          {{ [25, [100, ((raw / 5) | round(0) * 5)] | min] | max | int }}
 
       - name: IV auto PM tavoite
         unique_id: iv_auto_pm_tavoite
         unit_of_measurement: "%"
-        availability: >
+        availability: |
           {% set e = states('input_text.iv_pm_entiteetti') | trim %}
           {{ e not in ['unknown', 'unavailable', 'none', '']
              and states(e) not in ['unknown', 'unavailable', 'none', ''] }}
-        state: >
+        state: |
           {% set e = states('input_text.iv_pm_entiteetti') | trim %}
           {% set s = states(e) | float(0) %}
-          {% set ns = namespace(raw=35) %}
-          {% if 'skaala' in e %}
-            {% set ns.raw = s %}
-          {% elif s <= 12 %}
-            {% set ns.raw = 35 %}
-          {% elif s <= 25 %}
-            {% set ns.raw = 35 + (s - 12) / 13 * 15 %}
-          {% elif s <= 50 %}
-            {% set ns.raw = 50 + (s - 25) / 25 * 20 %}
-          {% else %}
-            {% set ns.raw = 70 + [1, (s - 50) / 50] | min * 20 %}
-          {% endif %}
-          {{ [25, [100, ((ns.raw / 5) | round(0) * 5)] | min] | max | int }}
+          {% set raw = s if 'skaala' in e else (35 if s <= 12 else (35 + (s - 12) / 13 * 15 if s <= 25 else (50 + (s - 25) / 25 * 20 if s <= 50 else 70 + ([1, (s - 50) / 50] | min) * 20))) %}
+          {{ [25, [100, ((raw / 5) | round(0) * 5)] | min] | max | int }}
 
       - name: IV auto tavoite
         unique_id: iv_auto_tavoite
         unit_of_measurement: "%"
-        availability: >
+        availability: |
           {% set m = states('input_select.iv_auto_anturit') %}
           {% set ok_c = states('sensor.iv_auto_co2_tavoite') not in ['unknown', 'unavailable', 'none', ''] %}
           {% set ok_k = states('sensor.iv_auto_kosteus_tavoite') not in ['unknown', 'unavailable', 'none', ''] %}
           {% set ok_p = states('sensor.iv_auto_pm_tavoite') not in ['unknown', 'unavailable', 'none', ''] %}
           {{ ('CO2' in m and ok_c) or ('kosteus' in m and ok_k) or ('PM' in m and ok_p) }}
-        state: >
+        state: |
           {% set m = states('input_select.iv_auto_anturit') %}
-          {% set ns = namespace(arvot=[]) %}
-          {% if 'CO2' in m %}
-            {% set c = states('sensor.iv_auto_co2_tavoite') %}
-            {% if c not in ['unknown', 'unavailable', 'none', ''] %}
-              {% set ns.arvot = ns.arvot + [c | float] %}
-            {% endif %}
-          {% endif %}
-          {% if 'kosteus' in m %}
-            {% set k = states('sensor.iv_auto_kosteus_tavoite') %}
-            {% if k not in ['unknown', 'unavailable', 'none', ''] %}
-              {% set ns.arvot = ns.arvot + [k | float] %}
-            {% endif %}
-          {% endif %}
-          {% if 'PM' in m %}
-            {% set p = states('sensor.iv_auto_pm_tavoite') %}
-            {% if p not in ['unknown', 'unavailable', 'none', ''] %}
-              {% set ns.arvot = ns.arvot + [p | float] %}
-            {% endif %}
-          {% endif %}
-          {{ [25, [100, ns.arvot | max] | min] | max | int }}
+          {% set c = states('sensor.iv_auto_co2_tavoite') | float(-1) %}
+          {% set k = states('sensor.iv_auto_kosteus_tavoite') | float(-1) %}
+          {% set p = states('sensor.iv_auto_pm_tavoite') | float(-1) %}
+          {% set arvot = ([c] if 'CO2' in m and c >= 0 else []) + ([k] if 'kosteus' in m and k >= 0 else []) + ([p] if 'PM' in m and p >= 0 else []) %}
+          {{ [25, [100, arvot | max] | min] | max | int if arvot | count > 0 else none }}
 
       - name: IV auto lahde
         unique_id: iv_auto_lahde
-        availability: >
+        availability: |
           {{ states('sensor.iv_auto_tavoite') not in ['unknown', 'unavailable', 'none', ''] }}
-        state: >
+        state: |
           {% set m = states('input_select.iv_auto_anturit') %}
           {% set t = states('sensor.iv_auto_tavoite') | float(0) %}
-          {% set ns = namespace(nimet=[]) %}
-          {% if 'CO2' in m and states('sensor.iv_auto_co2_tavoite') not in ['unknown', 'unavailable', 'none', '']
-              and states('sensor.iv_auto_co2_tavoite') | float(0) == t %}
-            {% set ns.nimet = ns.nimet + ['CO2'] %}
-          {% endif %}
-          {% if 'kosteus' in m and states('sensor.iv_auto_kosteus_tavoite') not in ['unknown', 'unavailable', 'none', '']
-              and states('sensor.iv_auto_kosteus_tavoite') | float(0) == t %}
-            {% set ns.nimet = ns.nimet + ['kosteus'] %}
-          {% endif %}
-          {% if 'PM' in m and states('sensor.iv_auto_pm_tavoite') not in ['unknown', 'unavailable', 'none', '']
-              and states('sensor.iv_auto_pm_tavoite') | float(0) == t %}
-            {% set ns.nimet = ns.nimet + ['PM'] %}
-          {% endif %}
-          {{ ns.nimet | join(' + ') if ns.nimet | count > 0 else '—' }}
+          {% set c = states('sensor.iv_auto_co2_tavoite') | float(-1) %}
+          {% set k = states('sensor.iv_auto_kosteus_tavoite') | float(-1) %}
+          {% set p = states('sensor.iv_auto_pm_tavoite') | float(-1) %}
+          {% set nimet = (['CO2'] if 'CO2' in m and c == t else []) + (['kosteus'] if 'kosteus' in m and k == t else []) + (['PM'] if 'PM' in m and p == t else []) %}
+          {{ nimet | join(' + ') if nimet | count > 0 else '—' }}
 
 script:
   iv_odota_tauko:
