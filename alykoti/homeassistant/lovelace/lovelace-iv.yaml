@@ -102,13 +102,53 @@ cards:
         tap_action:
           action: perform-action
           perform_action: script.iv_sauna
-      - type: template
-        icon: mdi:alert-decagram
-        content: Kuittaa E1
-        icon_color: red
-        tap_action:
-          action: perform-action
-          perform_action: script.iv_kuittaa
+  - type: custom:mod-card
+    card_mod:
+      style: |
+        ha-card {
+          border: 1px solid rgba(0, 0, 0, 0.08);
+          border-top: none;
+          box-shadow: none;
+          {% if is_state('binary_sensor.iv_halytys', 'on') %}
+            background: rgba(239, 68, 68, 0.16);
+          {% else %}
+            background: rgba(34, 197, 94, 0.08);
+          {% endif %}
+        }
+    card:
+      type: custom:mushroom-template-card
+      entity: sensor.iv_halytykset
+      layout: horizontal
+      fill_container: true
+      primary: >
+        {% if is_state('binary_sensor.iv_halytys', 'on') %}
+          Hälytys · {{ states('sensor.iv_halytykset') }}
+        {% else %}
+          Ei hälytyksiä
+        {% endif %}
+      secondary: >
+        {{ state_attr('sensor.iv_halytykset', 'selite') }}
+        {%- set tila = states('sensor.iv_tila') %}
+        {%- if tila not in ['unknown', 'unavailable', 'none', ''] %}
+         · tila {{ tila }}
+        {%- endif %}
+      icon: >
+        {{ 'mdi:alert-octagon' if is_state('binary_sensor.iv_halytys', 'on') else 'mdi:check-circle' }}
+      icon_color: >
+        {{ 'red' if is_state('binary_sensor.iv_halytys', 'on') else 'green' }}
+      tap_action:
+        action: more-info
+  - type: custom:mushroom-template-card
+    primary: Kuittaa hälytys
+    secondary: Nollaa hätäseis / E1 koneelta (odota 3 s)
+    icon: mdi:alert-decagram-outline
+    icon_color: red
+    layout: horizontal
+    tap_action:
+      action: perform-action
+      perform_action: script.iv_kuittaa
+    hold_action:
+      action: more-info
   - type: conditional
     conditions:
       - condition: state
@@ -234,3 +274,5 @@ cards:
         name: Modbus-hub (configuration.yaml → modbus name)
       - entity: input_number.iv_modbus_slave
         name: Modbus-slave
+      - entity: input_text.iv_virhe_entiteetti
+        name: Virherekisterin entiteetti (esim. sensor.iv_virhe)

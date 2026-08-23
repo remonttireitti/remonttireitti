@@ -31,6 +31,11 @@ input_text:
     initial: airfi
     max: 40
     icon: mdi:lan
+  iv_virhe_entiteetti:
+    name: IV virherekisterin entiteetti
+    initial: sensor.iv_virhe
+    max: 80
+    icon: mdi:alert-circle
 
 input_datetime:
   iv_modbus_tauko:
@@ -363,3 +368,112 @@ automation:
           entity_id: timer.iv_tehostus
     action:
       - action: script.iv_automaatti
+
+template:
+  - binary_sensor:
+      - name: IV hälytys
+        unique_id: iv_halytys
+        device_class: problem
+        icon: mdi:alert-octagon
+        state: >
+          {% set tila = states('sensor.iv_tila') | lower %}
+          {% set ent = states('input_text.iv_virhe_entiteetti') | trim %}
+          {% set raw_s = states(ent) if ent not in ['unknown', 'unavailable', 'none', ''] else 'unknown' %}
+          {% set raw = raw_s | int(-1) if raw_s not in ['unknown', 'unavailable', 'none', ''] else -1 %}
+          {% set bin_on = [
+            'binary_sensor.iv_hataseis',
+            'binary_sensor.iv_hata_seis',
+            'binary_sensor.iv_emergency_stop',
+            'binary_sensor.airfi_emergency_stop',
+            'binary_sensor.iv_jaatymisvaara',
+            'binary_sensor.iv_konevika',
+          ] | select('is_state', 'on') | list | count %}
+          {{ raw > 0
+             or bin_on > 0
+             or 'hätä' in tila
+             or 'hata' in tila
+             or 'e1' in tila
+             or 'hälyt' in tila
+             or 'halyt' in tila
+             or 'jäätym' in tila
+             or 'jaatym' in tila
+             or 'vika' in tila }}
+  - sensor:
+      - name: IV hälytykset
+        unique_id: iv_halytykset
+        icon: mdi:alert-octagon
+        state: >
+          {% set tila = states('sensor.iv_tila') %}
+          {% set ent = states('input_text.iv_virhe_entiteetti') | trim %}
+          {% set raw_s = states(ent) if ent not in ['unknown', 'unavailable', 'none', ''] else 'unknown' %}
+          {% set raw = raw_s | int(0) if raw_s not in ['unknown', 'unavailable', 'none', ''] else 0 %}
+          {% set nimet = {
+            1: 'E0',
+            2: 'E1',
+            4: 'E2',
+            8: 'E3',
+            16: 'E4',
+            32: 'E5',
+            64: 'E6',
+            128: 'E7',
+            256: 'E8',
+            512: 'E9',
+          } %}
+          {% set ns = namespace(koodit=[]) %}
+          {% for bit, koodi in nimet.items() %}
+            {% if raw // bit % 2 == 1 %}
+              {% set ns.koodit = ns.koodit + [koodi] %}
+            {% endif %}
+          {% endfor %}
+          {% if ns.koodit | count > 0 %}
+            {{ ns.koodit | join(' · ') }}
+          {% elif is_state('binary_sensor.iv_halytys', 'on') %}
+            {{ tila if tila not in ['unknown', 'unavailable', 'none', ''] else 'Hälytys' }}
+          {% else %}
+            Ei hälytyksiä
+          {% endif %}
+        attributes:
+          selite: >
+            {% set ent = states('input_text.iv_virhe_entiteetti') | trim %}
+            {% set raw_s = states(ent) if ent not in ['unknown', 'unavailable', 'none', ''] else 'unknown' %}
+            {% set raw = raw_s | int(0) if raw_s not in ['unknown', 'unavailable', 'none', ''] else 0 %}
+            {% set sel = {
+              1: 'E0 yleishälytys',
+              2: 'E1 puhaltimien ulkopuolinen pysäytys',
+              4: 'E2 ohituspellin häiriö',
+              8: 'E3 tulopuhallin ei pyöri',
+              16: 'E4 poistopuhallin ei pyöri',
+              32: 'E5 vesipatterin jäätymissuoja',
+              64: 'E6 anturivirhe',
+              128: 'E7 huurtumissuojan painelähetin',
+              256: 'E8 tulo/poisto-lämpötilat virheellisiä',
+              512: 'E9 vakiopainesäätö',
+            } %}
+            {% set ns = namespace(out=[]) %}
+            {% for bit, teksti in sel.items() %}
+              {% if raw // bit % 2 == 1 %}
+                {% set ns.out = ns.out + [teksti] %}
+              {% endif %}
+            {% endfor %}
+            {% if is_state('binary_sensor.iv_hataseis', 'on')
+               or is_state('binary_sensor.iv_hata_seis', 'on')
+               or is_state('binary_sensor.airfi_emergency_stop', 'on') %}
+              {% set ns.out = ns.out + ['Hätäseis'] %}
+            {% endif %}
+            {% if is_state('binary_sensor.iv_jaatymisvaara', 'on') %}
+              {% set ns.out = ns.out + ['Jäätymisvaara'] %}
+            {% endif %}
+            {% if is_state('binary_sensor.iv_konevika', 'on') %}
+              {% set ns.out = ns.out + ['Konevika'] %}
+            {% endif %}
+            {% if ns.out | count > 0 %}
+              {{ ns.out | join(' · ') }}
+            {% elif is_state('binary_sensor.iv_halytys', 'on') %}
+              {{ states('sensor.iv_tila') }}
+            {% else %}
+              Kone kunnossa
+            {% endif %}
+          virherekisteri: "{{ states('input_text.iv_virhe_entiteetti') }}"
+          raaka: >
+            {% set ent = states('input_text.iv_virhe_entiteetti') | trim %}
+            {{ states(ent) if ent not in ['unknown', 'unavailable', 'none', ''] else '' }}
