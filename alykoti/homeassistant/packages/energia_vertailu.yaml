@@ -85,6 +85,7 @@ template:
       - name: Energia vs eilen pct
         unique_id: energia_vs_eilen_pct
         unit_of_measurement: "%"
+        state_class: measurement
         icon: mdi:compare-horizontal
         state: |
           {% set h = now().hour %}
@@ -102,6 +103,7 @@ template:
       - name: Energia vs odotettu pct
         unique_id: energia_vs_odotettu_pct
         unit_of_measurement: "%"
+        state_class: measurement
         icon: mdi:weather-partly-cloudy
         state: |
           {% set h = now().hour %}
