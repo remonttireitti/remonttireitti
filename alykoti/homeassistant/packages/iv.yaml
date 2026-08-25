@@ -8,6 +8,10 @@
 # Älä kirjoita holding 2 = 1 (tässä koneessa E1).
 #
 # Automaatti: tulo = tavoite, poisto = tavoite + 5 % (max 100).
+# Nopeuspäivitys kirjoittaa VAIN h10/h11 (ei h8=0). Täysi jakso vain kun
+# vakiopaine ei ole päällä tai hätäseis on aktiivinen.
+# Auto: hystereesi 5 %, max ±5–15 %/kirjoitus, vähintään 5 min väli.
+# Älä vertaa mitattuun P/T:hen — kirjoitusdippi aiheuttaisi heilunnan.
 # Käsi-liukujat seuraavat mitattua P/T muissa tiloissa; säätö vain Käsi.
 # Pois = holding 1 (hätäseis) = 1. Ei nopeus 0 %. Kuittaa / Auto / Käsi nollaa h1.
 
@@ -128,11 +132,27 @@ input_number:
     mode: box
     unit_of_measurement: "%"
     initial: 35
+  iv_kirjoitettu_poisto:
+    name: IV viimeksi kirjoitettu poisto
+    min: 0
+    max: 100
+    step: 1
+    mode: box
+    unit_of_measurement: "%"
+    initial: 40
+  iv_kirjoitettu_tulo:
+    name: IV viimeksi kirjoitettu tulo
+    min: 0
+    max: 100
+    step: 1
+    mode: box
+    unit_of_measurement: "%"
+    initial: 40
 
 input_text:
   iv_co2_entiteetti:
     name: IV CO2-entiteetti
-    initial: sensor.iv_co2_skaala
+    initial: sensor.olohuone_ilmanlaatu_anturi_hiilidioksidi
     max: 128
     icon: mdi:molecule-co2
   iv_kosteus_entiteetti:
@@ -184,12 +204,33 @@ template:
         unit_of_measurement: "%"
         availability: |
           {% set e = states('input_text.iv_co2_entiteetti') | trim %}
-          {{ e not in ['unknown', 'unavailable', 'none', '']
-             and states(e) not in ['unknown', 'unavailable', 'none', ''] }}
+          {% set a1 = e %}
+          {% set a2 = 'sensor.olohuone_ilmanlaatu_anturi_hiilidioksidi' %}
+          {% set a3 = 'sensor.olohuone_ilmanlaatu_hiilidioksidi' %}
+          {% set a4 = 'sensor.olohuone_ilmanlaatu_anturi_co2' %}
+          {{ (a1 not in ['unknown', 'unavailable', 'none', ''] and states(a1) not in ['unknown', 'unavailable', 'none', ''])
+             or states(a2) not in ['unknown', 'unavailable', 'none', '']
+             or states(a3) not in ['unknown', 'unavailable', 'none', '']
+             or states(a4) not in ['unknown', 'unavailable', 'none', ''] }}
         state: |
           {% set e = states('input_text.iv_co2_entiteetti') | trim %}
-          {% set s = states(e) | float(0) %}
-          {% set raw = s if 'skaala' in e else (35 if s <= 800 else (35 + (s - 800) / 200 * 15 if s <= 1000 else (50 + (s - 1000) / 200 * 20 if s <= 1200 else 70 + ([1, (s - 1200) / 400] | min) * 20))) %}
+          {% set alts = [e, 'sensor.olohuone_ilmanlaatu_anturi_hiilidioksidi', 'sensor.olohuone_ilmanlaatu_hiilidioksidi', 'sensor.olohuone_ilmanlaatu_anturi_co2'] %}
+          {% set src = namespace(e='') %}
+          {% for a in alts if src.e == '' and a not in ['', 'unknown', 'none'] and states(a) not in ['unknown', 'unavailable', 'none', ''] %}
+            {% set src.e = a %}
+          {% endfor %}
+          {% set s = states(src.e) | float(0) if src.e else 0 %}
+          {% if 'skaala' in src.e %}
+            {% set raw = s %}
+          {% elif s <= 700 %}
+            {% set raw = 35 %}
+          {% elif s <= 900 %}
+            {% set raw = 35 + (s - 700) / 200 * 15 %}
+          {% elif s <= 1100 %}
+            {% set raw = 50 + (s - 900) / 200 * 20 %}
+          {% else %}
+            {% set raw = 70 + ([1, (s - 1100) / 400] | min) * 20 %}
+          {% endif %}
           {{ [25, [100, ((raw / 5) | round(0) * 5)] | min] | max | int }}
 
       - name: IV auto kosteus tavoite
@@ -332,6 +373,9 @@ script:
       tulo:
         selector:
           number:
+      koko:
+        selector:
+          boolean:
     sequence:
       - condition: not
         conditions:
@@ -341,43 +385,48 @@ script:
       - variables:
           p: "{{ [0, [100, (poisto | default(states('input_number.iv_manuaali_poisto'), true) | int(40))] | min] | max | int }}"
           t: "{{ [0, [100, (tulo | default(states('input_number.iv_manuaali_tulo'), true) | int(35))] | min] | max | int }}"
+          koko_nyt: "{{ 1 if ((koko | string | lower) in ['true', 'on', '1', 'yes'] or states('sensor.airfi_hataseis_tila') | int(0) > 0 or states('sensor.airfi_vakiopaine_luku') | int(0) != 1) else 0 }}"
       - service: script.iv_odota_tauko
-      - service: script.iv_kirjoita_sana
-        data:
-          osoite: 8
-          arvo: 0
-      - delay:
-          milliseconds: 200
-      - service: script.iv_kirjoita_sana
-        data:
-          osoite: 1
-          arvo: 0
-      - delay:
-          milliseconds: 200
-      - service: script.iv_kirjoita_sana
-        data:
-          osoite: 2
-          arvo: 0
-      - delay:
-          milliseconds: 200
-      - service: script.iv_kirjoita_sana
-        data:
-          osoite: 12
-          arvo: 0
-      - delay:
-          milliseconds: 200
-      - service: script.iv_kirjoita_sana
-        data:
-          osoite: 3
-          arvo: 0
-      - delay:
-          milliseconds: 200
-      - service: script.iv_kirjoita_sana
-        data:
-          osoite: 8
-          arvo: 1
-      - delay:
-          seconds: 1
+      - if:
+          - condition: template
+            value_template: "{{ koko_nyt | int(0) == 1 }}"
+        then:
+          - service: script.iv_kirjoita_sana
+            data:
+              osoite: 8
+              arvo: 0
+          - delay:
+              milliseconds: 200
+          - service: script.iv_kirjoita_sana
+            data:
+              osoite: 1
+              arvo: 0
+          - delay:
+              milliseconds: 200
+          - service: script.iv_kirjoita_sana
+            data:
+              osoite: 2
+              arvo: 0
+          - delay:
+              milliseconds: 200
+          - service: script.iv_kirjoita_sana
+            data:
+              osoite: 12
+              arvo: 0
+          - delay:
+              milliseconds: 200
+          - service: script.iv_kirjoita_sana
+            data:
+              osoite: 3
+              arvo: 0
+          - delay:
+              milliseconds: 200
+          - service: script.iv_kirjoita_sana
+            data:
+              osoite: 8
+              arvo: 1
+          - delay:
+              seconds: 1
       - service: script.iv_kirjoita_sana
         data:
           osoite: 10
@@ -388,6 +437,16 @@ script:
         data:
           osoite: 11
           arvo: "{{ p | int }}"
+      - service: input_number.set_value
+        target:
+          entity_id: input_number.iv_kirjoitettu_tulo
+        data:
+          value: "{{ t | int }}"
+      - service: input_number.set_value
+        target:
+          entity_id: input_number.iv_kirjoitettu_poisto
+        data:
+          value: "{{ p | int }}"
       - service: input_datetime.set_datetime
         target:
           entity_id: input_datetime.iv_modbus_tauko
@@ -452,6 +511,19 @@ script:
       - condition: state
         entity_id: input_select.iv_ohjaus
         state: Automaatti
+      - condition: state
+        entity_id: input_boolean.iv_sauna
+        state: "off"
+      - condition: not
+        conditions:
+          - condition: state
+            entity_id: timer.iv_sauna
+            state: active
+      - condition: not
+        conditions:
+          - condition: state
+            entity_id: timer.iv_tehostus
+            state: active
       - variables:
           rh: "{{ states('sensor.airfi_kosteus_rh') | float(50) }}"
           rh_pct: "{{ 35 if rh | float(50) <= 55 else (50 if rh | float(50) <= 65 else (70 if rh | float(50) <= 75 else 90)) }}"
@@ -459,15 +531,33 @@ script:
           tavoite: "{{ auto | int(rh_pct) if auto not in ['unknown', 'unavailable', 'none', ''] else rh_pct | int }}"
           tulo_t: "{{ [25, [100, tavoite | int] | min] | max | int }}"
           poisto_t: "{{ [25, [100, (tulo_t | int) + 5] | min] | max | int }}"
-          nyt_p: "{{ states('sensor.airfi_poistoilmapuhallin_nopeus') | float(0) }}"
-          nyt_t: "{{ states('sensor.airfi_tuloilmapuhallin_nopeus') | float(0) }}"
-          seis: "{{ states('sensor.airfi_hataseis_tila') | int(0) > 0 }}"
+          last_t: "{{ states('input_number.iv_kirjoitettu_tulo') | float(40) }}"
+          last_p: "{{ states('input_number.iv_kirjoitettu_poisto') | float(40) }}"
+          seis: "{{ states('sensor.airfi_hataseis_tila') | int(0) }}"
+          viime: "{{ as_timestamp(states('input_datetime.iv_modbus_tauko'), 0) | float(0) }}"
+          liian_heti: "{{ 1 if viime | float(0) > 0 and (now().timestamp() - viime | float(0)) < 300 else 0 }}"
+          ero_t: "{{ (tulo_t | float - last_t | float) }}"
+          tulo_w: >-
+            {% set d = ero_t | float(0) %}
+            {% set last = last_t | float(40) %}
+            {% set tgt = tulo_t | float(40) %}
+            {% if (d | abs) <= 5 %}
+              {{ tgt | int }}
+            {% elif (d | abs) > 20 %}
+              {{ [25, [100, last + (15 if d > 0 else -15)] | min] | max | int }}
+            {% elif (d | abs) > 10 %}
+              {{ [25, [100, last + (10 if d > 0 else -10)] | min] | max | int }}
+            {% else %}
+              {{ [25, [100, last + (5 if d > 0 else -5)] | min] | max | int }}
+            {% endif %}
+          poisto_w: "{{ [25, [100, (tulo_w | int) + 5] | min] | max | int }}"
       - condition: template
-        value_template: "{{ pako | default(false) | bool or seis | bool or (nyt_p | float - poisto_t | float) | abs >= 5 or (nyt_t | float - tulo_t | float) | abs >= 5 }}"
+        value_template: "{{ pako | default(false) | bool or (seis | int(0) > 0) or ((liian_heti | int(0) == 0) and ((tulo_t | float - last_t | float) | abs >= 5 or (poisto_t | float - last_p | float) | abs >= 5)) }}"
       - service: script.iv_kirjoita
         data:
-          poisto: "{{ poisto_t | int }}"
-          tulo: "{{ tulo_t | int }}"
+          poisto: "{{ (poisto_t | int) if (pako | default(false) | bool or (seis | int(0) > 0)) else (poisto_w | int) }}"
+          tulo: "{{ (tulo_t | int) if (pako | default(false) | bool or (seis | int(0) > 0)) else (tulo_w | int) }}"
+          koko: "{{ 1 if (pako | default(false) | bool or (seis | int(0) > 0)) else 0 }}"
 
   iv_kuittaa:
     alias: IV kuittaa hätäseis
@@ -1096,9 +1186,9 @@ automation:
       - platform: state
         entity_id: sensor.iv_auto_tavoite
         for:
-          seconds: 30
+          minutes: 5
       - platform: time_pattern
-        minutes: "/2"
+        minutes: "/5"
     condition:
       - condition: state
         entity_id: input_select.iv_ohjaus
@@ -1117,9 +1207,9 @@ automation:
       - platform: state
         entity_id: sensor.iv_auto_tavoite
         for:
-          seconds: 30
+          minutes: 5
       - platform: time_pattern
-        minutes: "/2"
+        minutes: "/5"
     condition:
       - condition: state
         entity_id: input_select.iv_ohjaus
@@ -1138,9 +1228,9 @@ automation:
       - platform: state
         entity_id: sensor.iv_auto_tavoite
         for:
-          seconds: 30
+          minutes: 5
       - platform: time_pattern
-        minutes: "/2"
+        minutes: "/5"
     condition:
       - condition: state
         entity_id: input_select.iv_ohjaus
@@ -1159,9 +1249,9 @@ automation:
       - platform: state
         entity_id: sensor.iv_auto_tavoite
         for:
-          seconds: 30
+          minutes: 5
       - platform: time_pattern
-        minutes: "/2"
+        minutes: "/5"
     condition:
       - condition: state
         entity_id: input_select.iv_ohjaus
@@ -1180,9 +1270,9 @@ automation:
       - platform: state
         entity_id: sensor.iv_auto_tavoite
         for:
-          seconds: 30
+          minutes: 5
       - platform: time_pattern
-        minutes: "/2"
+        minutes: "/5"
     condition:
       - condition: state
         entity_id: input_select.iv_ohjaus
@@ -1201,9 +1291,9 @@ automation:
       - platform: state
         entity_id: sensor.iv_auto_tavoite
         for:
-          seconds: 30
+          minutes: 5
       - platform: time_pattern
-        minutes: "/2"
+        minutes: "/5"
     condition:
       - condition: state
         entity_id: input_select.iv_ohjaus
@@ -1222,9 +1312,9 @@ automation:
       - platform: state
         entity_id: sensor.iv_auto_tavoite
         for:
-          seconds: 30
+          minutes: 5
       - platform: time_pattern
-        minutes: "/2"
+        minutes: "/5"
     condition:
       - condition: state
         entity_id: input_select.iv_ohjaus
