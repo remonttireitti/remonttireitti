@@ -61,6 +61,19 @@ export const STATIC_SEO_PAGES: SeoPageDef[] = [
     priority: 0.8,
   },
   {
+    path: "/tarjouspyynnot",
+    title: "Avoimet tarjouspyynnöt",
+    description:
+      "Selaa avoimia remontti- ja palvelupyyntöjä ilman kirjautumista. Urakoitsijat näkevät täydet tiedot ja voivat jättää tarjouksen ilmaiseksi.",
+    keywords: mergeKeywords(SITE_KEYWORDS, CONTRACTOR_KEYWORDS, [
+      "avoimet työt",
+      "tarjouspyynnöt",
+      "remonttityöt",
+    ]),
+    changeFrequency: "daily",
+    priority: 0.85,
+  },
+  {
     path: "/markkinapaikka",
     title: "Remonttitori — laitteet ja tarvikkeet",
     description:

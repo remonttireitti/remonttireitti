@@ -8,7 +8,11 @@ import {
 } from "@/lib/platform-fee";
 import { platformFeeBetaPromoTitle } from "@/lib/platform-fee-beta";
 
-const CATEGORIES: PlatformFeeCategory[] = ["ilp", "large", "maintenance"];
+const CATEGORIES: PlatformFeeCategory[] = [
+  "maintenance",
+  "standard",
+  "large",
+];
 
 export function PlatformFeeTable({ className = "" }: { className?: string }) {
   const betaTitle = platformFeeBetaPromoTitle();

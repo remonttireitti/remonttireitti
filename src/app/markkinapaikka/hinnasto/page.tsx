@@ -58,8 +58,8 @@ export default async function MarketplacePricingPage() {
             Tarjouskilpailun välityspalkkio (urakoitsija)
           </h2>
           <p className="mt-2 text-sm text-stone-600">
-            Maksat vain, kun asiakas hyväksyy tarjouksesi. Summa riippuu
-            pumpputyypistä ja siitä, montako tarjousta pyyntöön on kertynyt
+            Maksat vain, kun asiakas hyväksyy tarjouksesi. Summa riippuu työn
+            tyypistä ja siitä, montako tarjousta pyyntöön on kertynyt
             hyväksyntähetkellä.
           </p>
           <PlatformFeeTable className="mt-4" />

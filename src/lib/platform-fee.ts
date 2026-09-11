@@ -4,6 +4,8 @@
  * ALV lisätään erikseen B2B-laskulle (kevyt yrittäjä / ALV-rekisteröity myyjä).
  */
 
+import { SERVICE_JOB_SLUGS } from "@/constants/service-jobs";
+
 export const PLATFORM_FEE_VAT_RATE = 25.5;
 
 export const PLATFORM_FEE_DUE_DAYS = 7;
@@ -15,35 +17,54 @@ export const B2B_PRICE_VAT_NOTE =
 /** @deprecated Käytä computePlatformFeeCents — vanha kiinteä oletus vain taaksepäin yhteensopivuuteen. */
 export const PLATFORM_FEE_CENTS = 9900;
 
-/** Provisioluokat: ilp = ilmalämpö, large = vesi-ilma / maalämpö, maintenance = huolto/korjaus. */
-export type PlatformFeeCategory = "ilp" | "large" | "maintenance";
+/** Provisioluokat tyypin mukaan. */
+export type PlatformFeeCategory = "standard" | "large" | "maintenance";
 
 /** Provisio sentteinä: [1–3 tarjoajaa, 4–6 tarjoajaa, 7+ tarjoajaa]. */
 export const PLATFORM_FEE_TIERS_CENTS: Record<
   PlatformFeeCategory,
   readonly [number, number, number]
 > = {
-  ilp: [2000, 2500, 3000],
+  standard: [2000, 2500, 3000],
   large: [4000, 5000, 6000],
   maintenance: [800, 1000, 1200],
 };
 
 export const PLATFORM_FEE_CATEGORY_LABELS: Record<PlatformFeeCategory, string> =
   {
-    ilp: "Ilmalämpöpumppu (asennus)",
-    large: "Vesi-ilmalämpö / maalämpö (asennus)",
-    maintenance: "Huolto tai korjaus",
+    standard: "Remontti tai asennus",
+    large: "Laaja remontti tai iso asennus",
+    maintenance: "Huolto, korjaus tai palvelu",
   };
 
+/** @deprecated Käytä PlatformFeeCategory.standard */
+export type LegacyPlatformFeeCategory = "ilp";
+
+const MAINTENANCE_JOB_SLUGS = new Set([
+  "lampopumppu-huolto",
+  "lampopumppu-korjaus",
+  "ilmanvaihto-puhdistus",
+  ...SERVICE_JOB_SLUGS,
+]);
+
+const LARGE_JOB_SLUGS = new Set([
+  "maalampopumppu",
+  "ilmavesilampopumppu",
+  "lammitys-vaihto",
+  "keittio",
+  "kylpyhuone",
+  "wc-remontti",
+  "sauna",
+  "perustus",
+  "julkisivu-rapaus",
+  "julkisivu-verhous",
+  "vesivahinko",
+]);
+
 export function platformFeeCategoryFromJobSlug(slug: string): PlatformFeeCategory {
-  if (slug === "ilmalampopumppu") return "ilp";
-  if (slug === "ilmavesilampopumppu" || slug === "maalampopumppu") {
-    return "large";
-  }
-  if (slug === "lampopumppu-huolto" || slug === "lampopumppu-korjaus") {
-    return "maintenance";
-  }
-  return "ilp";
+  if (MAINTENANCE_JOB_SLUGS.has(slug)) return "maintenance";
+  if (LARGE_JOB_SLUGS.has(slug)) return "large";
+  return "standard";
 }
 
 /**

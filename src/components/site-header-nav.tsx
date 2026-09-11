@@ -104,6 +104,7 @@ export function SiteHeaderNav({
           </>
         ) : (
           <>
+            <NavItem href="/tarjouspyynnot">Tarjouspyynnöt</NavItem>
             <NavItem href="/urakoitsijaksi">Urakoitsijalle</NavItem>
             <NavItem href="/kirjaudu">Kirjaudu</NavItem>
           </>
