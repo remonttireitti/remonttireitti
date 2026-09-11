@@ -19,6 +19,14 @@
 # Aurinko samassa piirissä: jos kenno lämmittää, suurempi hystereesi;
 # jos aurinkoteho ≥ raja, sekoituspumppu pois (ei kilpaile kennon kanssa).
 #
+# Läpivirtausvastus 4 kW (switch.pannuhuone_lapivirtausvastus):
+# suoraan lattian menoputkeen — ylikuumenemisvaara. EI pakko päälle.
+# Päällä vain kun: KV liian kylmä sekoitukseen (< kv_pumppu_paalle),
+# lattia tarvitsee lämpöä (meno < tavoite), kiertopumppu päällä ≥ 4 min,
+# ja jokin lattia oikeasti lämmittää. Aina pulssi (alku 15 s / 30 s pois),
+# ei jatkuvaa päälle. Teho ei riitä → nosta päällä-aikaa; meno nousee → vähennä.
+# Lattiatarve pois → vastus heti pois, kiertopumppu jää jäähdyttämään viiveen.
+#
 # Olo+keittiö vs ILP:
 #   Spot ≥ lammitys_hinta_lattia_raja (oletus 5 snt/kWh) → ILP lämmittää,
 #   olo+keittiö lattia tausta-asetukseen (lammitys_lattia_tausta_olokeittio).
@@ -76,6 +84,13 @@ input_select:
       - Pakko päälle
     initial: Automaatti
     icon: mdi:solar-power
+  lammitys_vastus:
+    name: Läpivirtausvastus
+    options:
+      - Automaatti
+      - Pois
+    initial: Automaatti
+    icon: mdi:heating-coil
 
 input_number:
   lammitys_korotus_olohuone_keittio:
@@ -384,6 +399,78 @@ input_number:
     unit_of_measurement: "°C"
     icon: mdi:delta
     initial: 0
+  lammitys_vastus_paalla_min:
+    name: Vastus pulssi min
+    min: 10
+    max: 30
+    step: 5
+    mode: slider
+    unit_of_measurement: s
+    icon: mdi:timer-outline
+    initial: 15
+  lammitys_vastus_paalla_max:
+    name: Vastus pulssi max
+    min: 20
+    max: 60
+    step: 5
+    mode: slider
+    unit_of_measurement: s
+    icon: mdi:timer
+    initial: 45
+  lammitys_vastus_paalla_nyt:
+    name: Vastus pulssi nyt
+    min: 10
+    max: 60
+    step: 5
+    mode: box
+    unit_of_measurement: s
+    icon: mdi:timer-play
+    initial: 15
+  lammitys_vastus_pois_s:
+    name: Vastus tauko
+    min: 20
+    max: 90
+    step: 5
+    mode: slider
+    unit_of_measurement: s
+    icon: mdi:timer-sand
+    initial: 30
+  lammitys_vastus_pumppu_min:
+    name: Vastus kierto min
+    min: 2
+    max: 10
+    step: 1
+    mode: slider
+    unit_of_measurement: min
+    icon: mdi:pump
+    initial: 4
+  lammitys_ll_pumppu_viive_s:
+    name: LL pumppu poisviive
+    min: 30
+    max: 300
+    step: 10
+    mode: slider
+    unit_of_measurement: s
+    icon: mdi:timer-sand
+    initial: 120
+  lammitys_vastus_max_nousu:
+    name: Vastus max nousu / pulssi
+    min: 0.5
+    max: 4
+    step: 0.1
+    mode: slider
+    unit_of_measurement: "°C"
+    icon: mdi:thermometer-chevron-up
+    initial: 1.5
+  lammitys_vastus_meno_ennen:
+    name: Vastus meno ennen pulssia
+    min: 0
+    max: 90
+    step: 0.1
+    mode: box
+    unit_of_measurement: "°C"
+    icon: mdi:thermometer
+    initial: 0
 
 input_text:
   lammitys_sekoituspumppu:
@@ -424,6 +511,18 @@ timer:
   lammitys_sekoitus_odota:
     name: Sekoituspumppu odotus
     duration: "00:01:30"
+    icon: mdi:timer-sand
+  lammitys_vastus_pulssi:
+    name: Läpivirtausvastus pulssi
+    duration: "00:00:15"
+    icon: mdi:timer-outline
+  lammitys_vastus_odota:
+    name: Läpivirtausvastus tauko
+    duration: "00:00:30"
+    icon: mdi:timer-sand
+  lammitys_ll_pumppu_viive:
+    name: LL pumppu poisviive
+    duration: "00:02:00"
     icon: mdi:timer-sand
 
 script:
@@ -656,6 +755,129 @@ script:
           entity_id: timer.lammitys_sekoitus_odota
         data:
           duration: "{{ states('input_number.lammitys_sekoitus_odota_s') | int(90) }}"
+
+  lammitys_vastus_pois:
+    alias: Lämmitys vastus pois
+    description: Sisäinen. Vastus heti pois, pulssit nollaan. Älä aja käsin.
+    mode: restart
+    sequence:
+      - action: switch.turn_off
+        target:
+          entity_id: switch.pannuhuone_lapivirtausvastus
+        continue_on_error: true
+      - action: timer.cancel
+        target:
+          entity_id:
+            - timer.lammitys_vastus_pulssi
+            - timer.lammitys_vastus_odota
+        continue_on_error: true
+      - action: input_number.set_value
+        target:
+          entity_id: input_number.lammitys_vastus_paalla_nyt
+        data:
+          value: "{{ states('input_number.lammitys_vastus_paalla_min') | float(15) }}"
+
+  lammitys_vastus_pulssi_alku:
+    alias: Lämmitys vastus pulssi alku
+    description: Sisäinen. Maltillinen pulssi. Älä aja käsin.
+    mode: restart
+    sequence:
+      - condition: state
+        entity_id: binary_sensor.lammitys_vastus_sallittu
+        state: "on"
+      - condition: state
+        entity_id: switch.sonoff_4_ch_pro_2_tasmota2
+        state: "on"
+      - action: timer.cancel
+        target:
+          entity_id: timer.lammitys_vastus_odota
+        continue_on_error: true
+      - action: input_number.set_value
+        target:
+          entity_id: input_number.lammitys_vastus_meno_ennen
+        data:
+          value: "{{ states('sensor.vilp_ohjaus_lampotilat_air_temperature_10') | float(0) | round(1) }}"
+      - variables:
+          paalla: >
+            {% set n = states('input_number.lammitys_vastus_paalla_nyt') | int(15) %}
+            {% set lo = states('input_number.lammitys_vastus_paalla_min') | int(15) %}
+            {% set hi = states('input_number.lammitys_vastus_paalla_max') | int(45) %}
+            {{ [[n, lo] | max, hi] | min }}
+      - action: timer.start
+        target:
+          entity_id: timer.lammitys_vastus_pulssi
+        data:
+          duration: "{{ paalla | int(15) }}"
+      - action: switch.turn_on
+        target:
+          entity_id: switch.pannuhuone_lapivirtausvastus
+        continue_on_error: true
+
+  lammitys_vastus_pulssi_loppu:
+    alias: Lämmitys vastus pulssi loppu
+    description: Sisäinen. Vastus pois, säädä pulssia, tauko. Älä aja käsin.
+    mode: restart
+    sequence:
+      - action: switch.turn_off
+        target:
+          entity_id: switch.pannuhuone_lapivirtausvastus
+        continue_on_error: true
+      - action: timer.cancel
+        target:
+          entity_id: timer.lammitys_vastus_pulssi
+        continue_on_error: true
+      - variables:
+          meno: "{{ states('sensor.vilp_ohjaus_lampotilat_air_temperature_10') | float(0) }}"
+          ennen: "{{ states('input_number.lammitys_vastus_meno_ennen') | float(0) }}"
+          delta: "{{ (meno | float(0)) - (ennen | float(0)) }}"
+          tavoite: "{{ states('sensor.lammitys_sekoitus_kaytto') | float(35) }}"
+          hyst: "{{ states('input_number.lammitys_menovesi_hystereesi') | float(1) }}"
+          max_nousu: "{{ states('input_number.lammitys_vastus_max_nousu') | float(1.5) }}"
+          lo: "{{ states('input_number.lammitys_vastus_paalla_min') | int(15) }}"
+          hi: "{{ states('input_number.lammitys_vastus_paalla_max') | int(45) }}"
+          nyt: "{{ states('input_number.lammitys_vastus_paalla_nyt') | int(15) }}"
+          seuraava: >
+            {% set d = delta | float(0) %}
+            {% set err = (tavoite | float(35)) - (meno | float(0)) %}
+            {% set n = nyt | int(15) %}
+            {% set lo = lo | int(15) %}
+            {% set hi = hi | int(45) %}
+            {% if d >= (max_nousu | float(1.5)) %}
+              {% set n = n - 10 %}
+            {% elif err <= (hyst | float(1)) %}
+              {% set n = lo %}
+            {% elif d >= 0.3 %}
+              {% set n = n - 5 %}
+            {% elif d <= 0.05 %}
+              {% set n = n + 5 %}
+            {% endif %}
+            {{ [[n, lo] | max, hi] | min }}
+      - action: input_number.set_value
+        target:
+          entity_id: input_number.lammitys_vastus_paalla_nyt
+        data:
+          value: "{{ seuraava | int(15) }}"
+      - choose:
+          - conditions:
+              - condition: state
+                entity_id: binary_sensor.lammitys_vastus_sallittu
+                state: "on"
+            sequence:
+              - action: timer.start
+                target:
+                  entity_id: timer.lammitys_vastus_odota
+                data:
+                  duration: "{{ states('input_number.lammitys_vastus_pois_s') | int(30) }}"
+        default:
+          - action: timer.cancel
+            target:
+              entity_id: timer.lammitys_vastus_odota
+            continue_on_error: true
+          - action: input_number.set_value
+            target:
+              entity_id: input_number.lammitys_vastus_paalla_nyt
+            data:
+              value: "{{ states('input_number.lammitys_vastus_paalla_min') | float(15) }}"
 
 template:
   - sensor:
@@ -1348,6 +1570,105 @@ template:
             {% set pump_e = 'switch.sonoff_4_ch_pro_2_tasmota4' %}
           {% endif %}
           {{ is_state(pump_e, 'on') if pump_e not in ['unknown', 'unavailable', 'none', ''] else false }}
+      - name: Lammitys ll tarve
+        unique_id: lammitys_ll_tarve
+        icon: mdi:radiator
+        device_class: heat
+        state: >
+          {{ is_state('switch.eteisen_lattialammitys', 'on')
+             or is_state('switch.nele_ja_keittio_lattialammitys_anturit', 'on')
+             or is_state('switch.olohuone_hm_lattialammitys_6', 'on')
+             or is_state('switch.makuhuone_glen_lattialammitys', 'on')
+             or is_state('switch.olohuone_hm_lattialammitys', 'on')
+             or is_state('switch.makuhuone_glen_lattialammitys_6', 'on')
+             or is_state('switch.nele_ja_keittio_lattialammitys_anturit_6', 'on')
+             or state_attr('climate.olohuone_lattialammitys', 'hvac_action') == 'heating'
+             or state_attr('climate.keittio_lattialammitys', 'hvac_action') == 'heating'
+             or state_attr('climate.hm_lattialammitys', 'hvac_action') == 'heating'
+             or state_attr('climate.makuhuone_lattialammitys', 'hvac_action') == 'heating'
+             or state_attr('climate.glen_lattialammitys', 'hvac_action') == 'heating'
+             or state_attr('climate.nele_lattialammitys', 'hvac_action') == 'heating'
+             or state_attr('climate.eteisen_lattialammitys', 'hvac_action') == 'heating' }}
+  - trigger:
+      - platform: time_pattern
+        seconds: "/10"
+      - platform: homeassistant
+        event: start
+      - platform: state
+        entity_id:
+          - switch.sonoff_4_ch_pro_2_tasmota2
+          - switch.pannuhuone_lapivirtausvastus
+          - binary_sensor.lammitys_ll_tarve
+          - input_select.lammitys_vastus
+          - sensor.vilp_ohjaus_lampotilat_air_temperature_8
+          - sensor.vilp_ohjaus_lampotilat_air_temperature_10
+          - sensor.lammitys_sekoitus_kaytto
+          - input_number.lammitys_kv_pumppu_paalle
+          - input_number.lammitys_menovesi_hystereesi
+          - input_number.lammitys_kayra_meno_max
+          - input_number.lammitys_vastus_pumppu_min
+          - input_number.lammitys_vastus_paalla_nyt
+          - timer.lammitys_vastus_pulssi
+          - timer.lammitys_vastus_odota
+          - timer.lammitys_ll_pumppu_viive
+    binary_sensor:
+      - name: Lammitys ll pumppu valmis
+        unique_id: lammitys_ll_pumppu_valmis
+        icon: mdi:pump
+        device_class: running
+        state: >
+          {% set e = states.switch.sonoff_4_ch_pro_2_tasmota2 %}
+          {% set min_s = (states('input_number.lammitys_vastus_pumppu_min') | float(4)) * 60 %}
+          {{ is_state('switch.sonoff_4_ch_pro_2_tasmota2', 'on')
+             and e is not none
+             and (as_timestamp(now()) - as_timestamp(e.last_changed)) >= min_s }}
+      - name: Lammitys vastus sallittu
+        unique_id: lammitys_vastus_sallittu
+        icon: mdi:heating-coil
+        state: >
+          {% set kv = states('sensor.vilp_ohjaus_lampotilat_air_temperature_8') | float(none) %}
+          {% set meno_s = states('sensor.vilp_ohjaus_lampotilat_air_temperature_10') %}
+          {% set meno = meno_s | float(none) if meno_s not in ['unknown', 'unavailable', 'none', ''] else none %}
+          {% set tavoite = states('sensor.lammitys_sekoitus_kaytto') | float(35) %}
+          {% set hyst = states('input_number.lammitys_menovesi_hystereesi') | float(1) %}
+          {% set kv_on = states('input_number.lammitys_kv_pumppu_paalle') | float(58) %}
+          {% set katto = states('input_number.lammitys_kayra_meno_max') | float(48) %}
+          {% set e = states.switch.sonoff_4_ch_pro_2_tasmota2 %}
+          {% set min_s = (states('input_number.lammitys_vastus_pumppu_min') | float(4)) * 60 %}
+          {% set kierto_ok = is_state('switch.sonoff_4_ch_pro_2_tasmota2', 'on') and e is not none and (as_timestamp(now()) - as_timestamp(e.last_changed)) >= min_s %}
+          {{ is_state('input_select.lammitys_vastus', 'Automaatti')
+             and is_state('binary_sensor.lammitys_ll_tarve', 'on')
+             and kierto_ok
+             and kv is not none and kv < kv_on
+             and meno is not none
+             and meno < (tavoite - hyst)
+             and meno < (katto - 0.5) }}
+    sensor:
+      - name: Lammitys vastus teksti
+        unique_id: lammitys_vastus_teksti
+        icon: mdi:heating-coil
+        state: >
+          {% set kv = states('sensor.vilp_ohjaus_lampotilat_air_temperature_8') | float(none) %}
+          {% set meno = states('sensor.vilp_ohjaus_lampotilat_air_temperature_10') | float(none) %}
+          {% set tavoite = states('sensor.lammitys_sekoitus_kaytto') | float(none) %}
+          {% set kv_on = states('input_number.lammitys_kv_pumppu_paalle') | float(58) %}
+          {% set nyt = states('input_number.lammitys_vastus_paalla_nyt') | int(15) %}
+          {% set pois = states('input_number.lammitys_vastus_pois_s') | int(30) %}
+          {% set min_m = states('input_number.lammitys_vastus_pumppu_min') | int(4) %}
+          {% set e = states.switch.sonoff_4_ch_pro_2_tasmota2 %}
+          {% set kierto_s = (as_timestamp(now()) - as_timestamp(e.last_changed)) | int(0) if e is not none and is_state('switch.sonoff_4_ch_pro_2_tasmota2', 'on') else 0 %}
+          {% if is_state('input_select.lammitys_vastus', 'Pois') %}Pois
+          {% elif is_state('switch.pannuhuone_lapivirtausvastus', 'on') %}Pulssi {{ nyt }} s · meno {{ meno | round(1) if meno is not none else '?' }} °C
+          {% elif is_state('timer.lammitys_vastus_odota', 'active') %}Tauko {{ pois }} s · seuraava {{ nyt }} s · meno {{ meno | round(1) if meno is not none else '?' }} °C
+          {% elif not is_state('binary_sensor.lammitys_ll_tarve', 'on') %}Ei lattiatarvetta — vastus pois
+          {% elif not is_state('switch.sonoff_4_ch_pro_2_tasmota2', 'on') %}Kierto pois — vastus kielletty
+          {% elif not is_state('binary_sensor.lammitys_ll_pumppu_valmis', 'on') %}Odottaa kiertoa {{ [min_m * 60 - kierto_s, 0] | max }} s (min {{ min_m }} min)
+          {% elif kv is none %}Ei käyttövesidataa — vastus pois
+          {% elif kv >= kv_on %}KV {{ kv | round(1) }} °C riittää — sekoitus hoitaa, vastus pois
+          {% elif meno is none %}Ei menovesidataa — vastus pois
+          {% elif tavoite is not none and meno >= tavoite - (states('input_number.lammitys_menovesi_hystereesi') | float(1)) %}Menovesi {{ meno | round(1) }} °C riittää
+          {% else %}Valmis pulssittamaan {{ nyt }}/{{ pois }} s · meno {{ meno | round(1) }} → {{ tavoite | round(1) if tavoite is not none else '?' }} °C
+          {% endif %}
 automation:
   - id: lammitys_olohuone_keittio
     alias: Lämmitys olohuone ja keittiö
@@ -1843,10 +2164,18 @@ automation:
 
   - id: lammitys_pumppu
     alias: Lattialämmityspumppu päälle/pois
-    mode: single
+    mode: restart
     trigger:
       - platform: time_pattern
         minutes: "/1"
+      - platform: state
+        entity_id: binary_sensor.lammitys_ll_tarve
+      - platform: state
+        entity_id:
+          - switch.pannuhuone_lapivirtausvastus
+          - timer.lammitys_ll_pumppu_viive
+          - timer.lammitys_vastus_pulssi
+          - timer.lammitys_vastus_odota
       - platform: state
         entity_id:
           - switch.eteisen_lattialammitys
@@ -1868,28 +2197,190 @@ automation:
         attribute: hvac_action
     action:
       - variables:
-          joku_paalla: >
-            {{ is_state('switch.eteisen_lattialammitys', 'on')
-               or is_state('switch.nele_ja_keittio_lattialammitys_anturit', 'on')
-               or is_state('switch.olohuone_hm_lattialammitys_6', 'on')
-               or is_state('switch.makuhuone_glen_lattialammitys', 'on')
-               or is_state('switch.olohuone_hm_lattialammitys', 'on')
-               or is_state('switch.makuhuone_glen_lattialammitys_6', 'on')
-               or is_state('switch.nele_ja_keittio_lattialammitys_anturit_6', 'on')
-               or state_attr('climate.olohuone_lattialammitys', 'hvac_action') == 'heating'
-               or state_attr('climate.keittio_lattialammitys', 'hvac_action') == 'heating'
-               or state_attr('climate.hm_lattialammitys', 'hvac_action') == 'heating'
-               or state_attr('climate.makuhuone_lattialammitys', 'hvac_action') == 'heating'
-               or state_attr('climate.glen_lattialammitys', 'hvac_action') == 'heating'
-               or state_attr('climate.nele_lattialammitys', 'hvac_action') == 'heating'
-               or state_attr('climate.eteisen_lattialammitys', 'hvac_action') == 'heating' }}
+          tarve: "{{ is_state('binary_sensor.lammitys_ll_tarve', 'on') }}"
+          vastus_kaytossa: >
+            {{ is_state('switch.pannuhuone_lapivirtausvastus', 'on')
+               or is_state('timer.lammitys_vastus_pulssi', 'active')
+               or is_state('timer.lammitys_vastus_odota', 'active') }}
       - choose:
-          - conditions: "{{ joku_paalla }}"
+          - conditions: "{{ tarve }}"
             sequence:
+              - action: timer.cancel
+                target:
+                  entity_id: timer.lammitys_ll_pumppu_viive
+                continue_on_error: true
               - action: switch.turn_on
                 target:
                   entity_id: switch.sonoff_4_ch_pro_2_tasmota2
         default:
+          - action: script.lammitys_vastus_pois
+          - choose:
+              - conditions: "{{ vastus_kaytossa or is_state('timer.lammitys_ll_pumppu_viive', 'active') }}"
+                sequence:
+                  - action: switch.turn_on
+                    target:
+                      entity_id: switch.sonoff_4_ch_pro_2_tasmota2
+                  - if:
+                      - condition: state
+                        entity_id: timer.lammitys_ll_pumppu_viive
+                        state: idle
+                    then:
+                      - action: timer.start
+                        target:
+                          entity_id: timer.lammitys_ll_pumppu_viive
+                        data:
+                          duration: "{{ states('input_number.lammitys_ll_pumppu_viive_s') | int(120) }}"
+            default:
+              - action: switch.turn_off
+                target:
+                  entity_id: switch.sonoff_4_ch_pro_2_tasmota2
+
+  - id: lammitys_ll_pumppu_viive_loppu
+    alias: Lattialämmityspumppu poisviive loppu
+    mode: single
+    trigger:
+      - platform: state
+        entity_id: timer.lammitys_ll_pumppu_viive
+        from: active
+        to: idle
+    action:
+      - if:
+          - condition: state
+            entity_id: binary_sensor.lammitys_ll_tarve
+            state: "off"
+        then:
+          - action: script.lammitys_vastus_pois
           - action: switch.turn_off
             target:
               entity_id: switch.sonoff_4_ch_pro_2_tasmota2
+
+  - id: lammitys_vastus_hata
+    alias: Lämmitys vastus hätäpois
+    mode: restart
+    trigger:
+      - platform: time_pattern
+        seconds: "/10"
+      - platform: homeassistant
+        event: start
+      - platform: state
+        entity_id: switch.sonoff_4_ch_pro_2_tasmota2
+        to: "off"
+      - platform: state
+        entity_id:
+          - switch.pannuhuone_lapivirtausvastus
+          - binary_sensor.lammitys_ll_tarve
+          - binary_sensor.lammitys_vastus_sallittu
+          - sensor.vilp_ohjaus_lampotilat_air_temperature_10
+          - input_select.lammitys_vastus
+    action:
+      - variables:
+          vastus_on: "{{ 1 if is_state('switch.pannuhuone_lapivirtausvastus', 'on') else 0 }}"
+          pulssi: "{{ 1 if is_state('timer.lammitys_vastus_pulssi', 'active') else 0 }}"
+          odottaa: "{{ 1 if is_state('timer.lammitys_vastus_odota', 'active') else 0 }}"
+          kielletty: >
+            {{ 1 if is_state('input_select.lammitys_vastus', 'Pois')
+               or not is_state('switch.sonoff_4_ch_pro_2_tasmota2', 'on')
+               or not is_state('binary_sensor.lammitys_ll_tarve', 'on')
+               or (states('sensor.vilp_ohjaus_lampotilat_air_temperature_10') | float(0) >= (states('input_number.lammitys_kayra_meno_max') | float(48)))
+               or (is_state('timer.lammitys_vastus_pulssi', 'active')
+                   and (((states('sensor.vilp_ohjaus_lampotilat_air_temperature_10') | float(0)) - (states('input_number.lammitys_vastus_meno_ennen') | float(0))) >= (states('input_number.lammitys_vastus_max_nousu') | float(1.5))))
+               else 0 }}
+          jumissa: >
+            {% set e = states.switch.pannuhuone_lapivirtausvastus %}
+            {{ 1 if is_state('switch.pannuhuone_lapivirtausvastus', 'on')
+               and not is_state('timer.lammitys_vastus_pulssi', 'active')
+               and not is_state('timer.lammitys_vastus_odota', 'active')
+               and e is not none
+               and (as_timestamp(now()) - as_timestamp(e.last_changed)) > 8
+               else 0 }}
+      - choose:
+          - conditions: "{{ trigger.platform == 'homeassistant' }}"
+            sequence:
+              - action: script.lammitys_vastus_pois
+          - conditions: "{{ (vastus_on | int(0) == 1) and ((kielletty | int(0) == 1) or (jumissa | int(0) == 1)) }}"
+            sequence:
+              - action: script.lammitys_vastus_pois
+          - conditions: "{{ (pulssi | int(0) == 1) and not is_state('binary_sensor.lammitys_vastus_sallittu', 'on') }}"
+            sequence:
+              - action: script.lammitys_vastus_pois
+
+  - id: lammitys_vastus
+    alias: Lämmitys läpivirtausvastus pulssi
+    mode: queued
+    max: 8
+    trigger:
+      - platform: time_pattern
+        seconds: "/15"
+      - platform: homeassistant
+        event: start
+      - platform: state
+        entity_id: timer.lammitys_vastus_pulssi
+        from: active
+        to: idle
+        id: pulssi_loppu
+      - platform: state
+        entity_id: timer.lammitys_vastus_odota
+        from: active
+        to: idle
+        id: odota_loppu
+      - platform: state
+        entity_id:
+          - binary_sensor.lammitys_vastus_sallittu
+          - switch.sonoff_4_ch_pro_2_tasmota2
+          - binary_sensor.lammitys_ll_tarve
+          - input_select.lammitys_vastus
+    action:
+      - variables:
+          sallittu: "{{ 1 if is_state('binary_sensor.lammitys_vastus_sallittu', 'on') else 0 }}"
+          pulssi: "{{ 1 if is_state('timer.lammitys_vastus_pulssi', 'active') else 0 }}"
+          odottaa: "{{ 1 if is_state('timer.lammitys_vastus_odota', 'active') else 0 }}"
+      - choose:
+          - conditions:
+              - condition: template
+                value_template: "{{ trigger.platform == 'homeassistant' }}"
+            sequence:
+              - action: script.lammitys_vastus_pois
+          - conditions:
+              - condition: template
+                value_template: "{{ sallittu | int(0) == 0 }}"
+            sequence:
+              - action: script.lammitys_vastus_pois
+          - conditions:
+              - condition: template
+                value_template: "{{ trigger.id == 'pulssi_loppu' }}"
+            sequence:
+              - action: script.lammitys_vastus_pulssi_loppu
+          - conditions:
+              - condition: template
+                value_template: "{{ trigger.id == 'odota_loppu' }}"
+            sequence:
+              - if:
+                  - condition: template
+                    value_template: "{{ sallittu | int(0) == 1 }}"
+                then:
+                  - action: script.lammitys_vastus_pulssi_alku
+                else:
+                  - action: script.lammitys_vastus_pois
+          - conditions:
+              - condition: template
+                value_template: "{{ odottaa | int(0) == 1 }}"
+            sequence:
+              - action: switch.turn_off
+                target:
+                  entity_id: switch.pannuhuone_lapivirtausvastus
+                continue_on_error: true
+          - conditions:
+              - condition: template
+                value_template: "{{ pulssi | int(0) == 1 }}"
+            sequence:
+              - action: switch.turn_on
+                target:
+                  entity_id: switch.pannuhuone_lapivirtausvastus
+                continue_on_error: true
+          - conditions:
+              - condition: template
+                value_template: "{{ sallittu | int(0) == 1 }}"
+            sequence:
+              - action: script.lammitys_vastus_pulssi_alku
+        default:
+          - action: script.lammitys_vastus_pois

@@ -388,6 +388,57 @@ cards:
               entity: input_number.lammitys_kv_viime_lasku
               icon: mdi:delta
               content_info: state
+            - type: template
+              icon: mdi:heating-coil
+              icon_color: >
+                {% if is_state('switch.pannuhuone_lapivirtausvastus', 'on') %}red
+                {% elif is_state('timer.lammitys_vastus_odota', 'active') %}orange
+                {% elif is_state('timer.lammitys_ll_pumppu_viive', 'active') %}blue
+                {% elif is_state('binary_sensor.lammitys_vastus_sallittu', 'on') %}green
+                {% else %}grey{% endif %}
+              content: "{{ states('sensor.lammitys_vastus_teksti') }}"
+              tap_action:
+                action: more-info
+                entity: switch.pannuhuone_lapivirtausvastus
+              hold_action:
+                action: more-info
+                entity: input_select.lammitys_vastus
+            - type: entity
+              entity: input_select.lammitys_vastus
+              icon: mdi:cog
+              content_info: state
+            - type: entity
+              entity: switch.pannuhuone_lapivirtausvastus
+              icon: mdi:heating-coil
+              content_info: name
+            - type: entity
+              entity: input_number.lammitys_vastus_paalla_nyt
+              icon: mdi:timer-play
+              content_info: state
+            - type: entity
+              entity: input_number.lammitys_vastus_paalla_min
+              icon: mdi:timer-outline
+              content_info: state
+            - type: entity
+              entity: input_number.lammitys_vastus_paalla_max
+              icon: mdi:timer
+              content_info: state
+            - type: entity
+              entity: input_number.lammitys_vastus_pois_s
+              icon: mdi:timer-sand
+              content_info: state
+            - type: entity
+              entity: input_number.lammitys_vastus_pumppu_min
+              icon: mdi:pump
+              content_info: state
+            - type: entity
+              entity: input_number.lammitys_ll_pumppu_viive_s
+              icon: mdi:timer-sand
+              content_info: state
+            - type: entity
+              entity: input_number.lammitys_vastus_max_nousu
+              icon: mdi:thermometer-chevron-up
+              content_info: state
   - type: custom:mod-card
     card_mod:
       style: |
