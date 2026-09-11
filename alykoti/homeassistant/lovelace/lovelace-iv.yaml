@@ -1,12 +1,31 @@
+# Kopioi TÄMÄ koko tiedosto Lovelace-kortin YAML-editoriin (korvaa koko kortti).
+# Asetukset chipeissä — napauta, more-info avaa säädön.
+
 type: vertical-stack
 cards:
   - type: custom:mushroom-chips-card
     alignment: justify
+    card_mod:
+      style: |
+        ha-card {
+          padding: 2px 4px 0 !important;
+          background: none !important;
+          border: none !important;
+          box-shadow: none !important;
+        }
     chips:
       - type: template
         icon: mdi:fan
-        icon_color: "{{ 'orange' if is_state('input_boolean.iv_sauna', 'on') or states('sensor.airfi_saunatila') | int(0) > 0 else ('blue' if is_state('input_select.iv_ohjaus', 'Manuaali') else ('red' if is_state('input_select.iv_ohjaus', 'Tehostus') else ('disabled' if is_state('input_select.iv_ohjaus', 'Pois') else 'green'))) }}"
-        content: "{{ 'Sauna' if is_state('input_boolean.iv_sauna', 'on') or states('sensor.airfi_saunatila') | int(0) > 0 else states('input_select.iv_ohjaus') }}"
+        icon_color: >-
+          {{ 'orange' if is_state('input_boolean.iv_sauna', 'on') or
+          states('sensor.airfi_saunatila') | int(0) > 0 else ('blue' if
+          is_state('input_select.iv_ohjaus', 'Manuaali') else ('red' if
+          is_state('input_select.iv_ohjaus', 'Tehostus') else ('disabled' if
+          is_state('input_select.iv_ohjaus', 'Pois') else 'green'))) }}
+        content: >-
+          {{ 'Sauna' if is_state('input_boolean.iv_sauna', 'on') or
+          states('sensor.airfi_saunatila') | int(0) > 0 else
+          states('input_select.iv_ohjaus') }}
         tap_action:
           action: more-info
           entity: input_select.iv_ohjaus
@@ -35,6 +54,24 @@ cards:
           action: more-info
           entity: sensor.airfi_lampotila_asetus_luku
       - type: template
+        icon: mdi:thermometer
+        content: "T1 {{ states('sensor.airfi_t1_ulkoilma') }}"
+        tap_action:
+          action: more-info
+          entity: sensor.airfi_t1_ulkoilma
+      - type: template
+        icon: mdi:thermometer
+        content: "T3 {{ states('sensor.airfi_t3_poistoilma') }}"
+        tap_action:
+          action: more-info
+          entity: sensor.airfi_t3_poistoilma
+      - type: template
+        icon: mdi:thermometer
+        content: "T5 {{ states('sensor.airfi_t5_tuloilma') }}"
+        tap_action:
+          action: more-info
+          entity: sensor.airfi_t5_tuloilma
+      - type: template
         icon: mdi:check-bold
         icon_color: orange
         content: Aseta
@@ -43,56 +80,16 @@ cards:
           service: script.turn_on
           service_data:
             entity_id: script.iv_kirjoita
-  - type: custom:mushroom-template-card
-    entity: timer.iv_tehostus
-    layout: horizontal
-    primary: "Tehostus {{ states('sensor.iv_tehostus_jaljella') }}"
-    secondary: "+20 % tulo ja poisto · 15 min"
-    icon: mdi:fan-plus
-    icon_color: "{{ 'red' if is_state('timer.iv_tehostus', 'active') else 'grey' }}"
-    tap_action:
-      action: more-info
-  - type: custom:mushroom-template-card
-    entity: timer.iv_sauna
-    layout: horizontal
-    primary: "Sauna {{ states('sensor.iv_sauna_jaljella') }}"
-    secondary: "Tulo = poisto + 20 %"
-    icon: mdi:hot-tub
-    icon_color: "{{ 'orange' if is_state('timer.iv_sauna', 'active') else 'grey' }}"
-    tap_action:
-      action: more-info
-  - type: custom:mushroom-select-card
-    entity: input_select.iv_auto_anturit
-    name: Auto
-    icon: mdi:tune-variant
-    layout: horizontal
-    secondary_info: none
-  - type: custom:mushroom-template-card
-    entity: input_select.iv_ohjaus
-    layout: horizontal
-    primary: "{{ 'Käsi: säädä puhaltimia' if is_state('input_select.iv_ohjaus', 'Manuaali') else 'Nopeudet seuraavat tilaa' }}"
-    secondary: >
-      {% set t = states('sensor.iv_auto_tavoite') %}
-      {% set tulo = t | int(0) if t not in ['unknown', 'unavailable', 'none', ''] else 0 %}
-      Automaatti: poisto = tulo + 5 %{% if tulo > 0 %} · {{ tulo }} / {{ [100, tulo + 5] | min }} %{% endif %}
-    icon: mdi:tune
-    icon_color: "{{ 'blue' if is_state('input_select.iv_ohjaus', 'Manuaali') else 'grey' }}"
-    tap_action:
-      action: none
-  - type: custom:mushroom-number-card
-    entity: input_number.iv_manuaali_poisto
-    name: Poisto
-    display_mode: slider
-    layout: horizontal
-    icon_color: blue
-  - type: custom:mushroom-number-card
-    entity: input_number.iv_manuaali_tulo
-    name: Tulo
-    display_mode: slider
-    layout: horizontal
-    icon_color: cyan
   - type: custom:mushroom-chips-card
     alignment: center
+    card_mod:
+      style: |
+        ha-card {
+          padding: 0 4px !important;
+          background: none !important;
+          border: none !important;
+          box-shadow: none !important;
+        }
     chips:
       - type: template
         icon: mdi:robot-outline
@@ -122,6 +119,23 @@ cards:
           service_data:
             entity_id: script.iv_tehostus
       - type: template
+        icon: mdi:plus
+        icon_color: red
+        content: "+15"
+        tap_action:
+          action: call-service
+          service: script.turn_on
+          service_data:
+            entity_id: script.iv_tehostus_lisaa
+      - type: template
+        icon: mdi:stop
+        content: Lopeta
+        tap_action:
+          action: call-service
+          service: script.turn_on
+          service_data:
+            entity_id: script.iv_tehostus_lopeta
+      - type: template
         icon: mdi:fan-off
         icon_color: "{{ 'red' if is_state('input_select.iv_ohjaus', 'Pois') else 'grey' }}"
         content: Pois
@@ -139,30 +153,10 @@ cards:
           service: script.turn_on
           service_data:
             entity_id: script.iv_sauna
-  - type: custom:mushroom-chips-card
-    alignment: center
-    chips:
-      - type: template
-        icon: mdi:plus
-        icon_color: red
-        content: "+15 teho"
-        tap_action:
-          action: call-service
-          service: script.turn_on
-          service_data:
-            entity_id: script.iv_tehostus_lisaa
-      - type: template
-        icon: mdi:stop
-        content: Lopeta teho
-        tap_action:
-          action: call-service
-          service: script.turn_on
-          service_data:
-            entity_id: script.iv_tehostus_lopeta
       - type: template
         icon: mdi:plus
         icon_color: orange
-        content: "+15 sauna"
+        content: "+15"
         tap_action:
           action: call-service
           service: script.turn_on
@@ -170,7 +164,7 @@ cards:
             entity_id: script.iv_sauna_lisaa
       - type: template
         icon: mdi:stop
-        content: Lopeta sauna
+        content: Lopeta
         tap_action:
           action: call-service
           service: script.turn_on
@@ -178,6 +172,14 @@ cards:
             entity_id: script.iv_sauna_lopeta
   - type: custom:mushroom-chips-card
     alignment: center
+    card_mod:
+      style: |
+        ha-card {
+          padding: 0 4px 4px !important;
+          background: none !important;
+          border: none !important;
+          box-shadow: none !important;
+        }
     chips:
       - type: template
         icon: mdi:water-percent
@@ -213,43 +215,52 @@ cards:
           service: script.turn_on
           service_data:
             entity_id: script.iv_kuittaa
-  - type: custom:mushroom-template-card
-    entity: input_number.iv_lampo_asetus
-    layout: horizontal
-    primary: "Lämpöasetus {{ states('sensor.airfi_lampotila_asetus_luku') }} °C"
-    secondary: "T1 {{ states('sensor.airfi_t1_ulkoilma') }} · T3 {{ states('sensor.airfi_t3_poistoilma') }} · T5 {{ states('sensor.airfi_t5_tuloilma') }}"
-    icon: mdi:thermometer
-    icon_color: orange
-    tap_action:
-      action: more-info
-      entity: sensor.airfi_lampotila_asetus_luku
-  - type: custom:mushroom-number-card
-    entity: input_number.iv_lampo_asetus
-    name: Lämpöasetus
-    display_mode: slider
-    layout: horizontal
-    icon_color: orange
-  - type: custom:mushroom-number-card
-    entity: input_number.iv_poissa_lampo
-    name: Poissa lämpö
-    display_mode: slider
-    layout: horizontal
-    icon_color: blue
-  - type: custom:mushroom-number-card
-    entity: input_number.iv_ohitus_asetus
-    name: Ohituksen asetus
-    display_mode: slider
-    layout: horizontal
-    icon_color: teal
-  - type: custom:mushroom-number-card
-    entity: input_number.iv_ohitus_ulko
-    name: Ohituksen ulkoraja
-    display_mode: slider
-    layout: horizontal
-    icon_color: cyan
-  - type: custom:mushroom-number-card
-    entity: input_number.iv_ohitus_viive
-    name: Ohituksen viive
-    display_mode: slider
-    layout: horizontal
-    icon_color: grey
+      - type: entity
+        entity: input_select.iv_auto_anturit
+        icon: mdi:tune-variant
+        content_info: state
+      - type: entity
+        entity: input_number.iv_lampo_asetus
+        icon: mdi:thermometer
+        content_info: state
+      - type: entity
+        entity: input_number.iv_poissa_lampo
+        icon: mdi:home-export-outline
+        content_info: state
+      - type: entity
+        entity: input_number.iv_ohitus_asetus
+        icon: mdi:swap-horizontal
+        content_info: state
+      - type: entity
+        entity: input_number.iv_ohitus_ulko
+        icon: mdi:thermometer-low
+        content_info: state
+      - type: entity
+        entity: input_number.iv_ohitus_viive
+        icon: mdi:timer-sand
+        content_info: state
+  - type: conditional
+    conditions:
+      - condition: state
+        entity: input_select.iv_ohjaus
+        state: Manuaali
+    card:
+      type: custom:mushroom-chips-card
+      alignment: center
+      card_mod:
+        style: |
+          ha-card {
+            padding: 0 4px 6px !important;
+            background: none !important;
+            border: none !important;
+            box-shadow: none !important;
+          }
+      chips:
+        - type: entity
+          entity: input_number.iv_manuaali_poisto
+          icon: mdi:fan
+          content_info: state
+        - type: entity
+          entity: input_number.iv_manuaali_tulo
+          icon: mdi:fan-plus
+          content_info: state
