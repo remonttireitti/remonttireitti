@@ -49,7 +49,76 @@ cards:
     entity: input_number.lammitys_menovesi_hystereesi
     name: Menovesi hystereesi
     display_mode: slider
+    layout: horizontal
     icon: mdi:thermometer-chevron-down
+  - type: custom:mushroom-template-card
+    layout: horizontal
+    fill_container: true
+    primary: Menovesi asetukset
+    secondary: "Käyrä ulkolämmöstä · halpa nostaa {{ states('input_number.lammitys_hinta_nosto_max') }}° · kallis rajoittaa {{ states('input_number.lammitys_hinta_rajoitus_max') }}° · ennakko {{ states('input_number.lammitys_hinta_ennakko_h') | int(6) }} h ({{ states('sensor.lammitys_hinta_ennakko') }} c)"
+    icon: mdi:tune
+    icon_color: blue
+    tap_action:
+      action: more-info
+      entity: sensor.lammitys_sekoitus_kaytto
+  - type: grid
+    columns: 2
+    square: false
+    cards:
+      - type: custom:mushroom-number-card
+        entity: input_number.lammitys_kayra_ulko_vih
+        name: Ulko lämmin
+        display_mode: slider
+        layout: horizontal
+      - type: custom:mushroom-number-card
+        entity: input_number.lammitys_kayra_ulko_kylma
+        name: Ulko kylmä
+        display_mode: slider
+        layout: horizontal
+      - type: custom:mushroom-number-card
+        entity: input_number.lammitys_kayra_meno_min
+        name: Meno min
+        display_mode: slider
+        layout: horizontal
+      - type: custom:mushroom-number-card
+        entity: input_number.lammitys_kayra_meno_max
+        name: Meno max
+        display_mode: slider
+        layout: horizontal
+      - type: custom:mushroom-number-card
+        entity: input_number.lammitys_hinta_halpa
+        name: Halpa
+        display_mode: slider
+        layout: horizontal
+      - type: custom:mushroom-number-card
+        entity: input_number.lammitys_hinta_kallis
+        name: Kallis
+        display_mode: slider
+        layout: horizontal
+      - type: custom:mushroom-number-card
+        entity: input_number.lammitys_hinta_nosto_max
+        name: Halpa nosto
+        display_mode: slider
+        layout: horizontal
+      - type: custom:mushroom-number-card
+        entity: input_number.lammitys_hinta_rajoitus_max
+        name: Kallis rajoitus
+        display_mode: slider
+        layout: horizontal
+      - type: custom:mushroom-number-card
+        entity: input_number.lammitys_hinta_ennakko_h
+        name: Ennakko
+        display_mode: slider
+        layout: horizontal
+      - type: custom:mushroom-template-card
+        entity: sensor.lammitys_hinta_ennakko
+        primary: "Ennakko {{ states('sensor.lammitys_hinta_ennakko') }} c/kWh"
+        secondary: "Nyt {{ states('sensor.energi_data_service') | float(0) | round(1) }} c · huomenna {{ 'kyllä' if state_attr('sensor.energi_data_service', 'tomorrow_valid') else 'ei vielä' }}"
+        icon: mdi:chart-timeline-variant
+        icon_color: "{{ 'green' if (states('sensor.energi_data_service') | float(99)) <= (states('sensor.lammitys_hinta_ennakko') | float(0)) else 'orange' }}"
+        tap_action:
+          action: more-info
+          entity: sensor.energi_data_service
   - type: custom:mod-card
     card_mod:
       style:
@@ -185,6 +254,12 @@ cards:
       - type: template
         icon: mdi:flash
         content: "Spot {{ states('sensor.energi_data_service') | float(0) | round(1) }} c"
+      - type: template
+        icon: mdi:chart-timeline-variant
+        content: "Ennakko {{ states('sensor.lammitys_hinta_ennakko') }} c / {{ states('input_number.lammitys_hinta_ennakko_h') | int(6) }}h"
+        tap_action:
+          action: more-info
+          entity: sensor.lammitys_hinta_ennakko
       - type: template
         icon: mdi:compare
         content: >-

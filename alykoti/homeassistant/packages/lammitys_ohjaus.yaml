@@ -7,7 +7,10 @@
 #
 # Menovesi: sensor.vilp_ohjaus_lampotilat_air_temperature_10 (LL meno)
 # Paluu:    sensor.vilp_ohjaus_lampotilat_air_temperature_9
-# Tavoite:  sensor.lammitys_sekoitus_kaytto (ulkolämpö + hinta, 35–48 °C)
+# Tavoite:  sensor.lammitys_sekoitus_kaytto
+#   ulkolämpökäyrä (asetukset) + spot nyt + ennakko (raw_today/raw_tomorrow).
+#   Halpa → nosto, kallis → rajoitus. Ennakko: jos seuraavat tunnit kalliimpia,
+#   lämmitetään nyt enemmän; jos halvempaa tulossa, pidetään maltti.
 # Sekoituspumppu: input_text.lammitys_sekoituspumppu
 #   (oletus switch.sonoff_4_ch_pro_2 = 4CH kanava 1).
 # Pumppu päälle kun LL-kierto käy, KV > 55 °C, varaaja > 25 °C,
@@ -193,6 +196,87 @@ input_number:
     unit_of_measurement: "°C"
     icon: mdi:thermometer-chevron-down
     initial: 1
+  lammitys_kayra_ulko_vih:
+    name: Lämmitys käyrä ulko lämmin
+    min: 0
+    max: 25
+    step: 1
+    mode: slider
+    unit_of_measurement: "°C"
+    icon: mdi:weather-sunny
+    initial: 18
+  lammitys_kayra_ulko_kylma:
+    name: Lämmitys käyrä ulko kylmä
+    min: -35
+    max: 0
+    step: 1
+    mode: slider
+    unit_of_measurement: "°C"
+    icon: mdi:snowflake
+    initial: -25
+  lammitys_kayra_meno_min:
+    name: Lämmitys käyrä meno min
+    min: 30
+    max: 45
+    step: 0.5
+    mode: slider
+    unit_of_measurement: "°C"
+    icon: mdi:thermometer-low
+    initial: 35
+  lammitys_kayra_meno_max:
+    name: Lämmitys käyrä meno max
+    min: 38
+    max: 55
+    step: 0.5
+    mode: slider
+    unit_of_measurement: "°C"
+    icon: mdi:thermometer-high
+    initial: 48
+  lammitys_hinta_halpa:
+    name: Lämmitys hinta halpa
+    min: 0
+    max: 20
+    step: 0.5
+    mode: slider
+    unit_of_measurement: c/kWh
+    icon: mdi:currency-eur
+    initial: 5
+  lammitys_hinta_kallis:
+    name: Lämmitys hinta kallis
+    min: 10
+    max: 80
+    step: 1
+    mode: slider
+    unit_of_measurement: c/kWh
+    icon: mdi:currency-eur-off
+    initial: 50
+  lammitys_hinta_nosto_max:
+    name: Lämmitys hinta nosto max
+    min: 0
+    max: 6
+    step: 0.5
+    mode: slider
+    unit_of_measurement: "°C"
+    icon: mdi:thermometer-chevron-up
+    initial: 2
+  lammitys_hinta_rajoitus_max:
+    name: Lämmitys hinta rajoitus max
+    min: 0
+    max: 12
+    step: 0.5
+    mode: slider
+    unit_of_measurement: "°C"
+    icon: mdi:thermometer-chevron-down
+    initial: 8
+  lammitys_hinta_ennakko_h:
+    name: Lämmitys hinta ennakko
+    min: 1
+    max: 24
+    step: 1
+    mode: slider
+    unit_of_measurement: h
+    icon: mdi:clock-outline
+    initial: 6
 
 input_text:
   lammitys_sekoituspumppu:
@@ -366,8 +450,8 @@ script:
         required: true
         selector:
           number:
-            min: 35
-            max: 48
+            min: 30
+            max: 55
             step: 0.5
     sequence:
       - choose:
@@ -856,7 +940,63 @@ template:
           - switch.sonoff_4_ch_pro_2
           - input_text.lammitys_sekoituspumppu
           - input_number.lammitys_menovesi_hystereesi
+          - input_number.lammitys_kayra_ulko_vih
+          - input_number.lammitys_kayra_ulko_kylma
+          - input_number.lammitys_kayra_meno_min
+          - input_number.lammitys_kayra_meno_max
+          - input_number.lammitys_hinta_halpa
+          - input_number.lammitys_hinta_kallis
+          - input_number.lammitys_hinta_nosto_max
+          - input_number.lammitys_hinta_rajoitus_max
+          - input_number.lammitys_hinta_ennakko_h
     sensor:
+      - name: Lammitys hinta ennakko
+        unique_id: lammitys_hinta_ennakko
+        unit_of_measurement: c/kWh
+        icon: mdi:chart-timeline-variant
+        state: >
+          {% set look = states('input_number.lammitys_hinta_ennakko_h') | int(6) %}
+          {% set ns = namespace(sum=0.0, n=0) %}
+          {% for attr in ['raw_today', 'raw_tomorrow'] %}
+            {% set rows = state_attr('sensor.energi_data_service', attr) %}
+            {% if rows %}
+              {% for item in rows %}
+                {% set ts = item.hour if item.hour is defined else none %}
+                {% set pr = item.price if item.price is defined else none %}
+                {% if ts is not none and pr is not none %}
+                  {% set start = as_datetime(ts) %}
+                  {% if start is not none and start >= now() - timedelta(minutes=15) and start < now() + timedelta(hours=look) %}
+                    {% set ns.sum = ns.sum + (pr | float(0)) %}
+                    {% set ns.n = ns.n + 1 %}
+                  {% endif %}
+                {% endif %}
+              {% endfor %}
+            {% endif %}
+          {% endfor %}
+          {% if ns.n == 0 %}{{ states('sensor.energi_data_service') | float(0) | round(1) }}
+          {% else %}{{ (ns.sum / ns.n) | round(1) }}{% endif %}
+        attributes:
+          tunteja: "{{ states('input_number.lammitys_hinta_ennakko_h') }}"
+          naytteet: >
+            {% set look = states('input_number.lammitys_hinta_ennakko_h') | int(6) %}
+            {% set ns = namespace(n=0) %}
+            {% for attr in ['raw_today', 'raw_tomorrow'] %}
+              {% set rows = state_attr('sensor.energi_data_service', attr) %}
+              {% if rows %}
+                {% for item in rows %}
+                  {% set ts = item.hour if item.hour is defined else none %}
+                  {% set pr = item.price if item.price is defined else none %}
+                  {% if ts is not none and pr is not none %}
+                    {% set start = as_datetime(ts) %}
+                    {% if start is not none and start >= now() - timedelta(minutes=15) and start < now() + timedelta(hours=look) %}
+                      {% set ns.n = ns.n + 1 %}
+                    {% endif %}
+                  {% endif %}
+                {% endfor %}
+              {% endif %}
+            {% endfor %}
+            {{ ns.n }}
+          tomorrow_valid: "{{ state_attr('sensor.energi_data_service', 'tomorrow_valid') }}"
       - name: Lammitys sekoitus kayra
         unique_id: lammitys_sekoitus_kayra
         unit_of_measurement: "°C"
@@ -864,25 +1004,52 @@ template:
         icon: mdi:chart-bell-curve
         state: >
           {% set outdoor = states('sensor.ulkolampotila_met_no') | float(0) %}
-          {% set out_w = 18 %}
-          {% set out_c = -25 %}
-          {% set t_w = 35 %}
-          {% set t_c = 48 %}
-          {% if outdoor >= out_w %}{{ t_w | round(1) }}
+          {% set out_w = states('input_number.lammitys_kayra_ulko_vih') | float(18) %}
+          {% set out_c = states('input_number.lammitys_kayra_ulko_kylma') | float(-25) %}
+          {% set t_w = states('input_number.lammitys_kayra_meno_min') | float(35) %}
+          {% set t_c = states('input_number.lammitys_kayra_meno_max') | float(48) %}
+          {% set span = out_w - out_c %}
+          {% if span | abs < 0.1 %}{{ t_w | round(1) }}
+          {% elif outdoor >= out_w %}{{ t_w | round(1) }}
           {% elif outdoor <= out_c %}{{ t_c | round(1) }}
-          {% else %}{{ (t_w + (t_c - t_w) * (out_w - outdoor) / (out_w - out_c)) | round(1) }}{% endif %}
+          {% else %}{{ (t_w + (t_c - t_w) * (out_w - outdoor) / span) | round(1) }}{% endif %}
       - name: Lammitys sekoitus hinta korjaus
         unique_id: lammitys_sekoitus_hinta_korjaus
         unit_of_measurement: "°C"
         icon: mdi:flash
         state: >
-          {% set price = states('sensor.energi_data_service') | float(0) %}
-          {% set p_lo = 5 %}
-          {% set p_hi = 50 %}
-          {% set adj_max = 8 %}
-          {% if price <= p_lo %}0
-          {% elif price >= p_hi %}{{ (-adj_max) | round(1) }}
-          {% else %}{{ (-adj_max * (price - p_lo) / (p_hi - p_lo)) | round(1) }}{% endif %}
+          {% set price_now = states('sensor.energi_data_service') | float(0) %}
+          {% set look = states('input_number.lammitys_hinta_ennakko_h') | int(6) %}
+          {% set ns = namespace(sum=0.0, n=0) %}
+          {% for attr in ['raw_today', 'raw_tomorrow'] %}
+            {% set rows = state_attr('sensor.energi_data_service', attr) %}
+            {% if rows %}
+              {% for item in rows %}
+                {% set ts = item.hour if item.hour is defined else none %}
+                {% set pr = item.price if item.price is defined else none %}
+                {% if ts is not none and pr is not none %}
+                  {% set start = as_datetime(ts) %}
+                  {% if start is not none and start >= now() - timedelta(minutes=15) and start < now() + timedelta(hours=look) %}
+                    {% set ns.sum = ns.sum + (pr | float(0)) %}
+                    {% set ns.n = ns.n + 1 %}
+                  {% endif %}
+                {% endif %}
+              {% endfor %}
+            {% endif %}
+          {% endfor %}
+          {% set avg_ahead = (ns.sum / ns.n) if ns.n > 0 else price_now %}
+          {% set price_eff = price_now + 0.5 * (price_now - avg_ahead) %}
+          {% set p_lo = states('input_number.lammitys_hinta_halpa') | float(5) %}
+          {% set p_hi = states('input_number.lammitys_hinta_kallis') | float(50) %}
+          {% set nosto = states('input_number.lammitys_hinta_nosto_max') | float(2) %}
+          {% set rajoitus = states('input_number.lammitys_hinta_rajoitus_max') | float(8) %}
+          {% if p_hi <= p_lo %}0
+          {% elif price_eff <= p_lo %}{{ nosto | round(1) }}
+          {% elif price_eff >= p_hi %}{{ (-rajoitus) | round(1) }}
+          {% else %}
+            {% set x = (price_eff - p_lo) / (p_hi - p_lo) %}
+            {{ (nosto + (-rajoitus - nosto) * x) | round(1) }}
+          {% endif %}
       - name: Lammitys sekoitus kaytto
         unique_id: lammitys_sekoitus_kaytto
         unit_of_measurement: "°C"
@@ -890,21 +1057,48 @@ template:
         icon: mdi:valve
         state: >
           {% set outdoor = states('sensor.ulkolampotila_met_no') | float(0) %}
-          {% set out_w = 18 %}
-          {% set out_c = -25 %}
-          {% set t_w = 35 %}
-          {% set t_c = 48 %}
-          {% if outdoor >= out_w %}{% set curve = t_w %}
+          {% set out_w = states('input_number.lammitys_kayra_ulko_vih') | float(18) %}
+          {% set out_c = states('input_number.lammitys_kayra_ulko_kylma') | float(-25) %}
+          {% set t_w = states('input_number.lammitys_kayra_meno_min') | float(35) %}
+          {% set t_c = states('input_number.lammitys_kayra_meno_max') | float(48) %}
+          {% set span = out_w - out_c %}
+          {% if span | abs < 0.1 %}{% set curve = t_w %}
+          {% elif outdoor >= out_w %}{% set curve = t_w %}
           {% elif outdoor <= out_c %}{% set curve = t_c %}
-          {% else %}{% set curve = t_w + (t_c - t_w) * (out_w - outdoor) / (out_w - out_c) %}{% endif %}
-          {% set price = states('sensor.energi_data_service') | float(0) %}
-          {% set p_lo = 5 %}
-          {% set p_hi = 50 %}
-          {% set adj_max = 8 %}
-          {% if price <= p_lo %}{% set adj = 0 %}
-          {% elif price >= p_hi %}{% set adj = -adj_max %}
-          {% else %}{% set adj = -adj_max * (price - p_lo) / (p_hi - p_lo) %}{% endif %}
-          {{ [[35, curve + adj] | max, 48] | min | round(1) }}
+          {% else %}{% set curve = t_w + (t_c - t_w) * (out_w - outdoor) / span %}{% endif %}
+          {% set price_now = states('sensor.energi_data_service') | float(0) %}
+          {% set look = states('input_number.lammitys_hinta_ennakko_h') | int(6) %}
+          {% set ns = namespace(sum=0.0, n=0) %}
+          {% for attr in ['raw_today', 'raw_tomorrow'] %}
+            {% set rows = state_attr('sensor.energi_data_service', attr) %}
+            {% if rows %}
+              {% for item in rows %}
+                {% set ts = item.hour if item.hour is defined else none %}
+                {% set pr = item.price if item.price is defined else none %}
+                {% if ts is not none and pr is not none %}
+                  {% set start = as_datetime(ts) %}
+                  {% if start is not none and start >= now() - timedelta(minutes=15) and start < now() + timedelta(hours=look) %}
+                    {% set ns.sum = ns.sum + (pr | float(0)) %}
+                    {% set ns.n = ns.n + 1 %}
+                  {% endif %}
+                {% endif %}
+              {% endfor %}
+            {% endif %}
+          {% endfor %}
+          {% set avg_ahead = (ns.sum / ns.n) if ns.n > 0 else price_now %}
+          {% set price_eff = price_now + 0.5 * (price_now - avg_ahead) %}
+          {% set p_lo = states('input_number.lammitys_hinta_halpa') | float(5) %}
+          {% set p_hi = states('input_number.lammitys_hinta_kallis') | float(50) %}
+          {% set nosto = states('input_number.lammitys_hinta_nosto_max') | float(2) %}
+          {% set rajoitus = states('input_number.lammitys_hinta_rajoitus_max') | float(8) %}
+          {% if p_hi <= p_lo %}{% set adj = 0 %}
+          {% elif price_eff <= p_lo %}{% set adj = nosto %}
+          {% elif price_eff >= p_hi %}{% set adj = -rajoitus %}
+          {% else %}
+            {% set x = (price_eff - p_lo) / (p_hi - p_lo) %}
+            {% set adj = nosto + (-rajoitus - nosto) * x %}
+          {% endif %}
+          {{ [[t_w, curve + adj] | max, t_c] | min | round(1) }}
       - name: Lammitys sekoitus teksti
         unique_id: lammitys_sekoitus_teksti
         icon: mdi:valve
@@ -914,9 +1108,11 @@ template:
           {% set kayra = states('sensor.lammitys_sekoitus_kayra') | float(none) %}
           {% set adj = states('sensor.lammitys_sekoitus_hinta_korjaus') | float(0) %}
           {% set price = states('sensor.energi_data_service') | float(none) %}
+          {% set ennakko = states('sensor.lammitys_hinta_ennakko') | float(none) %}
+          {% set look = states('input_number.lammitys_hinta_ennakko_h') | int(6) %}
           {% if kv is none %}Ei käyttövesidataa
           {% elif kv <= 55 %}Pois — käyttövesi {{ kv | round(1) }} °C (raja 55 °C)
-          {% else %}Sekoitus {{ tavoite | round(1) }} °C (käyrä {{ kayra | round(1) }}°{% if adj != 0 %}, hinta {{ adj | round(1) }}° @ {{ price | round(1) }} c/kWh{% endif %}, KV {{ kv | round(1) }} °C){% endif %}
+          {% else %}Sekoitus {{ tavoite | round(1) }} °C (käyrä {{ kayra | round(1) }}°{% if adj != 0 %}, hinta {{ adj | round(1) }}° @ {{ price | round(1) }} c nyt{% if ennakko is not none %}, ennakko {{ ennakko | round(1) }} c / {{ look }} h{% endif %}{% endif %}, KV {{ kv | round(1) }} °C){% endif %}
       - name: Lammitys menovesi teksti
         unique_id: lammitys_menovesi_teksti
         icon: mdi:pipe-valve
@@ -936,7 +1132,7 @@ template:
           {% elif tank is none or tank <= 25 %}Sekoituspumppu pois — varaaja {{ tank | round(1) if tank is not none else '?' }} °C (raja 25 °C)
           {% elif not kierto %}Sekoituspumppu pois — lattialämmityskierto ei käy
           {% elif tank <= meno + 0.8 %}Sekoituspumppu pois — varaaja {{ tank | round(1) }} °C ei nosta menovettä {{ meno | round(1) }} °C
-          {% elif meno >= 48 %}Sekoituspumppu pois — menovesi {{ meno | round(1) }} °C (katto 48 °C)
+          {% elif meno >= (states('input_number.lammitys_kayra_meno_max') | float(48)) %}Sekoituspumppu pois — menovesi {{ meno | round(1) }} °C (katto {{ states('input_number.lammitys_kayra_meno_max') | float(48) | round(1) }} °C)
           {% elif pump_on %}Nostaa menovettä {{ meno | round(1) }} → {{ tavoite | round(1) }} °C{% if paluu is not none %} · paluu {{ paluu | round(1) }} °C{% endif %}
           {% elif tavoite is not none and meno >= tavoite - hyst %}Menovesi {{ meno | round(1) }} °C · tavoite {{ tavoite | round(1) }} °C — ok
           {% else %}Menovesi {{ meno | round(1) }} °C alle tavoitteen {{ tavoite | round(1) }} °C — sekoituspumppu käynnistyy
@@ -1276,6 +1472,7 @@ automation:
           - climate.lattialammitys
           - input_text.lammitys_sekoituspumppu
           - input_number.lammitys_menovesi_hystereesi
+          - input_number.lammitys_kayra_meno_max
     action:
       - variables:
           pump_e: "{{ states('input_text.lammitys_sekoituspumppu') | trim }}"
@@ -1286,6 +1483,7 @@ automation:
           kv: "{{ states('sensor.vilp_ohjaus_lampotilat_air_temperature_8') | float(0) }}"
           tavoite: "{{ states('sensor.lammitys_sekoitus_kaytto') | float(35) }}"
           hyst: "{{ states('input_number.lammitys_menovesi_hystereesi') | float(1) }}"
+          katto: "{{ states('input_number.lammitys_kayra_meno_max') | float(48) }}"
           ll_kierto: "{{ 1 if is_state('switch.sonoff_4_ch_pro_2_tasmota2', 'on') else 0 }}"
           nyt_paalla: "{{ 1 if pump_e not in ['unknown', 'unavailable', 'none', ''] and is_state(pump_e, 'on') else 0 }}"
           meno_ok: "{{ 1 if meno_s not in ['unknown', 'unavailable', 'none', ''] else 0 }}"
@@ -1295,7 +1493,7 @@ automation:
                and (tank | float(0) > 25)
                and (meno_ok | int(0) == 1)
                and (tank | float(0) > (meno | float(0) + 0.8))
-               and (meno | float(99) < 48)
+               and (meno | float(99) < (katto | float(48)))
                and (meno | float(99) < ((tavoite | float(35)) - (hyst | float(1))))
                else 0 }}
           pidetaan: >
@@ -1304,7 +1502,7 @@ automation:
                and (kv | float(0) > 55)
                and (tank | float(0) > 25)
                and (meno_ok | int(0) == 1)
-               and (meno | float(0) < 48)
+               and (meno | float(0) < (katto | float(48)))
                and (meno | float(0) < ((tavoite | float(35)) + 0.3))
                else 0 }}
       - choose:
