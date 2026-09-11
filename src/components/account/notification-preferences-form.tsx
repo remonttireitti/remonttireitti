@@ -48,7 +48,7 @@ export function NotificationPreferencesForm({
           className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900"
           role="status"
         >
-          Sähköpostilähetys ei ole käytössä palvelimella: aseta Vercelissä{" "}
+          Sähköpostilähetys ei ole käytössä palvelimella: aseta tuotannon{" "}
           <strong>RESEND_API_KEY</strong> ja vahvista lähettäjädomain Resendissä
           (<code className="text-xs">EMAIL_FROM</code>).
         </p>

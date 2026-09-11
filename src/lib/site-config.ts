@@ -1,4 +1,4 @@
-/** Julkinen yritys- ja yhteystieto (täytä tuotannon .env / Vercel). */
+/** Julkinen yritys- ja yhteystieto (täytä tuotannon build-ympäristöön). */
 
 function resolveSiteUrl(): string {
   const configured = (process.env.NEXT_PUBLIC_SITE_URL ?? "").trim().replace(/\/$/, "");
@@ -24,7 +24,7 @@ export const siteConfig = {
     "info@remonttireitti.fi",
   siteUrl: resolveSiteUrl(),
   gaId: process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID ?? "",
-  /** Google Search Console — HTML-tag -vahvistus (aseta Vercelissä). */
+  /** Google Search Console — HTML-tag -vahvistus (build-ympäristön muuttuja). */
   googleSiteVerification:
     process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION ?? "",
   /** Esim. https://www.instagram.com/remonttireitti */

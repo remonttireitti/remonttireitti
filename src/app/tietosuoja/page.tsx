@@ -98,7 +98,7 @@ export default function PrivacyPage() {
         <p>Käytämme luotettavia alihankkijoita, kuten:</p>
         <ul className="list-disc space-y-1 pl-5">
           <li>Supabase (tietokanta, autentikointi) — EU-alue</li>
-          <li>Vercel (sovelluksen hosting)</li>
+          <li>Cloudflare (sovelluksen hosting)</li>
           <li>Resend (sähköposti-ilmoitukset)</li>
           <li>Google Analytics (vain suostumuksella, ks. evästeet)</li>
         </ul>

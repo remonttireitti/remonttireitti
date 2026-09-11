@@ -1,6 +1,6 @@
 # Tuotantodeploy — Cloudflare Workers
 
-**remonttireitti.fi pyörii Cloudflare Workersissa.** Vercel-projekti on vanha eikä enää käytössä (`DEPLOYMENT_DISABLED`).
+**remonttireitti.fi pyörii Cloudflare Workersissa.** Vercel-projekti on poistettu reposta — poista vanha projekti myös Vercel-dashboardista: [REMOVE-VERCEL.md](./REMOVE-VERCEL.md).
 
 Deploy tapahtuu automaattisesti kun `main`-haaraan pushataan, tai manuaalisesti GitHub Actionsista.
 
@@ -97,4 +97,4 @@ Koodimuutokset jotka vaativat uusia tauluja/sarakkeita:
 | **Supabase** | tietokanta + käyttäjien kirjautuminen |
 | **Resend** | sähköpostit |
 | **GitHub Actions** | cron-ajot + Cloudflare-deploy |
-| **Vercel** | ❌ vanha, pois käytöstä — voit poistaa projektin Vercelistä |
+| **Vercel** | ❌ ei käytössä — poista dashboardista ([ohje](./REMOVE-VERCEL.md)) |

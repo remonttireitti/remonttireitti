@@ -57,7 +57,7 @@ export default async function AdminProjectsPage({
           >
             Pyyntöjen haku epäonnistui: {error}
             {error.includes("SERVICE_ROLE") || error.includes("API key")
-              ? " — tarkista Vercelissä SUPABASE_SERVICE_ROLE_KEY."
+              ? " — tarkista Cloudflare Worker secrets: SUPABASE_SERVICE_ROLE_KEY."
               : null}
           </p>
         )}

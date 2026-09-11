@@ -33,7 +33,7 @@ Täytä `.env.local` dashboardin API-arvoilla.
 
 Ilmoitukset lähetetään [Resend](https://resend.com)-palvelulla. Ilman avainta vain sovellusilmoitukset toimivat.
 
-**Vercel → Environment Variables:**
+**Tuotanto-ympäristömuuttujat** (GitHub Actions secrets / Cloudflare build):
 
 | Muuttuja | Esimerkki |
 |----------|-----------|
@@ -49,7 +49,7 @@ Vahvista lähettäjädomain Resendissä (DNS-tietueet). Kehityksessä Resend voi
 
 Sovellus ajetaan [Cloudflare Workers](https://developers.cloudflare.com/workers/)-alustalla `@opennextjs/cloudflare` -adapterilla.
 
-> **Huom:** Vercel ei ole enää tuotantoympäristö (projekti estetty). Deploy ja ongelmat: [docs/DEPLOY-CLOUDFLARE.md](docs/DEPLOY-CLOUDFLARE.md).
+> **Huom:** Tuotanto on Cloudflare Workers — ei Vercel. Deploy: [docs/DEPLOY-CLOUDFLARE.md](docs/DEPLOY-CLOUDFLARE.md). Vanha Vercel-projekti: [docs/REMOVE-VERCEL.md](docs/REMOVE-VERCEL.md).
 
 **Paikallinen esikatselu:**
 
@@ -76,7 +76,7 @@ Tiedostoon vain server-side avaimet (`SUPABASE_SERVICE_ROLE_KEY`, `RESEND_API_KE
 
 **Domain:** `wrangler.jsonc` reitittää `remonttireitti.fi` → worker. Vaihda domainin nameserverit Cloudflareen ja kopioi DNS-tietueet (MX, Resend DKIM, Google verification).
 
-**Cron-ajot:** Vercel-cronin korvasi GitHub Actions (`.github/workflows/cron.yml`). Aseta repoon `CRON_SECRET` (secret) ja `SITE_URL=https://remonttireitti.fi` (variable).
+**Cron-ajot:** GitHub Actions (`.github/workflows/cron.yml`). Aseta repoon `CRON_SECRET` (secret) ja `SITE_URL=https://remonttireitti.fi` (variable).
 
 ### 3. Aja tietokantamigraatio
 
