@@ -134,7 +134,8 @@ export function SiteHeaderMobileNav({
             </>
           ) : (
             <>
-              <NavChip href="/tarjouspyynnot">Tarjouspyynnöt</NavChip>
+              <NavChip href="/asiakkaalle">Asiakkaalle</NavChip>
+              <NavChip href="/tarjouspyynnot">Pyynnöt</NavChip>
               <NavChip href="/urakoitsijaksi" onNavigate={closeMore}>
                 Urakoitsijalle
               </NavChip>

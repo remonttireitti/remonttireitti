@@ -121,6 +121,9 @@ export function SiteHeaderNav({
           </>
         ) : (
           <>
+            <Link href="/asiakkaalle" className={navLinkClass(false)}>
+              <NavLinkPendingContent>Asiakkaalle</NavLinkPendingContent>
+            </Link>
             <Link href="/remontti/uusi" className={navLinkClass(false)}>
               <NavLinkPendingContent>Kilpailuta</NavLinkPendingContent>
             </Link>

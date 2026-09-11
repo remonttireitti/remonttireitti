@@ -61,6 +61,19 @@ export const STATIC_SEO_PAGES: SeoPageDef[] = [
     priority: 0.8,
   },
   {
+    path: "/asiakkaalle",
+    title: "Asiakkaalle — ilmainen kilpailutus ja kodin palvelut",
+    description:
+      "Kilpailuta remontit ja palvelut ilmaiseksi. Vertaa tarjouksia, selvitä lämpöpumpun vikat, käytä huoltokirjaa ja toria — asiakkaalle 0 €.",
+    keywords: mergeKeywords(SITE_KEYWORDS, SERVICE_KEYWORDS, [
+      "ilmainen remontti",
+      "kilpailuta ilmaiseksi",
+      "asiakkaalle ilmainen",
+    ]),
+    changeFrequency: "monthly",
+    priority: 0.9,
+  },
+  {
     path: "/tarjouspyynnot",
     title: "Avoimet tarjouspyynnöt",
     description:

@@ -12,7 +12,6 @@ export const metadata: Metadata = pageMetadata({
   keywords: seo.keywords,
 });
 import { HomeAudienceSplit } from "@/components/marketing/home-audience-split";
-import { BetaPlatformFeeBanner } from "@/components/promo/beta-platform-fee-banner";
 import { Logo } from "@/components/brand/logo";
 import { HomeDifferentiators } from "@/components/marketing/home-differentiators";
 import { HomeHowItWorks } from "@/components/marketing/home-how-it-works";
@@ -91,9 +90,6 @@ export default async function Home() {
             </ul>
             <div className="mx-auto mt-8">
               <HomeAudienceSplit />
-            </div>
-            <div className="mx-auto mt-6 max-w-xl">
-              <BetaPlatformFeeBanner />
             </div>
           </div>
         </section>
