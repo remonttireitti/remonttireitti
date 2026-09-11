@@ -1,8 +1,169 @@
-# Kopioi TÄMÄ koko tiedosto Home Assistantin Lovelace-kortin YAML-editoriin
-# (korvaa koko nykyinen kortti). Älä liitä snippettejä.
+# Kopioi TÄMÄ koko YAML Lovelace-näkymän editoriin (korvaa koko näkymä).
+# Osioilla on omat reunustetut kortit: Lämmitys ohjaus, Keittiö ILP, Aurinkolämpö, Huoneet, Sähkö, IV.
 
-type: vertical-stack
+title: Etusivu
+path: sahko-hinta
+layout:
+  height: 600
+  width: 800
 cards:
+  - type: custom:apexcharts-card
+    experimental:
+      color_threshold: true
+    apex_config:
+      responsive:
+        - breakpoint: 500
+          options:
+            chart:
+              height: 150px
+        - breakpoint: 1200
+          options:
+            chart:
+              height: 240px
+        - breakpoint: 3000
+          options:
+            chart:
+              height: 200px
+      legend:
+        show: false
+      title:
+        floating: false
+        align: center
+        style:
+          fontSize: 20px
+          fontWeight: bold
+      xaxis:
+        labels:
+          datetimeFormatter:
+            hour: HH
+      plotOptions:
+        bar:
+          columnWidth: 70%
+          barGap: 1px
+    graph_span: 2d
+    show:
+      last_updated: true
+    header:
+      title: Sähkö hinta
+      show: true
+      show_states: true
+      colorize_states: true
+    span:
+      start: day
+    now:
+      show: true
+      label: Now
+    series:
+      - entity: sensor.energi_data_service
+        yaxis_id: cents
+        type: column
+        show:
+          extremas: true
+          in_header: false
+        float_precision: 2
+        color: green
+        color_threshold:
+          - value: 0
+            color: '#00ff77'
+          - value: 4
+            color: '#8cff00'
+          - value: 8
+            color: '#c3ff00'
+          - value: 12
+            color: '#ffee00'
+          - value: 18
+            color: '#ffae00'
+          - value: 24
+            color: '#ff8000'
+          - value: 30
+            color: '#ff4400'
+          - value: 35
+            color: '#ff0019'
+        data_generator: |
+          const today = entity.attributes.raw_today || [];
+          const tomorrow = entity.attributes.raw_tomorrow || [];
+          const combined = [...today, ...tomorrow].map((entry) => {
+            const start = new Date(entry.hour).getTime();
+            return [start, entry.price];
+          });
+          return combined;
+      - entity: sensor.energi_data_service
+        name: Hinta nyt
+        yaxis_id: cents
+        float_precision: 2
+        show:
+          in_header: true
+          in_chart: false
+        unit: c/kWh
+        color: black
+      - entity: sensor.energi_data_service
+        attribute: today_min
+        name: Halvin hinta tänään
+        yaxis_id: cents
+        float_precision: 2
+        show:
+          in_header: true
+          in_chart: false
+        unit: c/kWh
+        data_generator: |
+          return [[null, entity.attributes.today_min.price]];
+        color: green
+      - entity: sensor.energi_data_service
+        attribute: today_mean
+        name: Tänään keskihinta
+        yaxis_id: cents
+        float_precision: 2
+        show:
+          in_header: true
+          in_chart: false
+        unit: c/kWh
+        color: yellow
+      - entity: sensor.energi_data_service
+        attribute: today_max
+        name: Kallein hinta tänään
+        yaxis_id: cents
+        float_precision: 2
+        show:
+          in_header: true
+          in_chart: false
+        unit: c/kWh
+        data_generator: |
+          return [[null, entity.attributes.today_max.price]];
+        color: red
+      - entity: sensor.hetkellinen_kustannus
+        name: Hetkellinen kustannus
+        yaxis_id: cost
+        type: line
+        float_precision: 2
+        group_by:
+          func: avg
+          duration: 30min
+        show:
+          in_header: true
+          in_chart: true
+        unit: c/t
+        color: blue
+        stroke_width: 0.8
+        extend_to: now
+    yaxis:
+      - id: cents
+        min: 0
+        max: auto
+        apex_config:
+          tickAmount: 8
+          forceNiceScale: true
+          title:
+            text: c/kWh
+      - id: cost
+        opposite: true
+        min: 0
+        max: 120
+        apex_config:
+          tickAmount: 8
+          forceNiceScale: true
+          title:
+            text: Kustannus (c/t)
+  - type: vertical-stack
   - type: conditional
     conditions:
       - condition: state
@@ -1523,3 +1684,515 @@ cards:
                           'on') else 'grey' }}
                         tap_action:
                           action: toggle
+  - type: custom:mod-card
+    card_mod:
+      style: |
+        ha-card {
+          border-radius: 16px;
+          border: 1px solid rgba(0, 0, 0, 0.16);
+          box-shadow: none;
+          overflow: hidden;
+          --stack-card-margin: 2px;
+          margin: 6px 0;
+          --ha-card-border-width: 0;
+        }
+    card:
+      type: vertical-stack
+      cards:
+        - type: custom:mushroom-template-card
+          layout: horizontal
+          fill_container: false
+          primary: Sähkö ohjaus
+          icon: mdi:flash
+          icon_color: blue
+          tap_action:
+            action: none
+          card_mod:
+            style: |
+              ha-card {
+                padding: 4px 8px 0 !important;
+                background: none !important;
+                border: none !important;
+                box-shadow: none !important;
+              }
+        - type: custom:mushroom-template-card
+          layout: horizontal
+          fill_container: false
+          primary: >
+            {% set w = states('sensor.energia_vaiheiden_summa') | float(0) %}
+            {% if w == 0 %}
+              {% set w = states('sensor.l1_vaihe_power') | float(0)
+                       + states('sensor.l2_vaihe_power') | float(0)
+                       + states('sensor.l3_vaihe_power') | float(0) %}
+            {% endif %}
+            {% set c = states('sensor.energia_tanaan_kustannus_eur') %}
+            {% set a = states('sensor.energia_kulutusarvio') %}
+            ⚡ {{ w | round(0) }} W{% if c not in ['unknown','unavailable','none','']
+            %} · {{ c }} €{% endif %} · {{ a }}
+          secondary: "{{ states('sensor.energia_vertailu_teksti') }}"
+          icon: mdi:flash
+          icon_color: >
+            {% set a = states('sensor.energia_kulutusarvio') %}
+            {% if a == 'Maltillinen' %}green
+            {% elif a == 'Korkea' %}red
+            {% elif a == 'Normaali' %}amber
+            {% else %}disabled{% endif %}
+          tap_action:
+            action: more-info
+            entity: sensor.energia_paivittain
+          card_mod:
+            style: |
+              ha-card {
+                padding: 4px 8px 0 !important;
+              }
+        - type: custom:mushroom-chips-card
+          alignment: center
+          card_mod:
+            style: |
+              ha-card {
+                padding: 0 4px 4px !important;
+                background: none !important;
+                border: none !important;
+                box-shadow: none !important;
+              }
+          chips:
+            - type: template
+              icon: mdi:trending-down
+              content: Maltillinen
+              icon_color: >
+                {{ 'green' if is_state('sensor.energia_kulutusarvio', 'Maltillinen') else 'disabled' }}
+              tap_action:
+                action: more-info
+                entity: sensor.energia_vs_eilen_pct
+            - type: template
+              icon: mdi:approximately-equal
+              content: Normaali
+              icon_color: >
+                {{ 'amber' if is_state('sensor.energia_kulutusarvio', 'Normaali') else 'disabled' }}
+              tap_action:
+                action: more-info
+                entity: sensor.energia_vs_eilen_pct
+            - type: template
+              icon: mdi:trending-up
+              content: Korkea
+              icon_color: >
+                {{ 'red' if is_state('sensor.energia_kulutusarvio', 'Korkea') else 'disabled' }}
+              tap_action:
+                action: more-info
+                entity: sensor.energia_vs_eilen_pct
+            - type: entity
+              entity: sensor.energia_eilen_samaan_aikaan
+              icon: mdi:calendar-clock
+              content_info: state
+        - type: custom:mod-card
+          card_mod:
+            style:
+              hui-grid-card$:
+                power-gauge-card$: >
+                  .title { font-size: 10px !important; font-weight: 700 !important; }
+                  .subtitle { font-size: 7px !important; font-weight: 600 !important; }
+                  .value { font-size: 15px !important; font-weight: 700 !important; }
+                  .unit-inline { font-size: 8px !important; font-weight: 600 !important; }
+                  .label-now { font-size: 6px !important; font-weight: 700 !important; }
+                  .unit { font-size: 7px !important; font-weight: 600 !important; }
+                  .status { font-size: 7px !important; font-weight: 600 !important; }
+                  .panel { padding: 6px 4px 4px !important; }
+                  .stage { margin: 0 !important; }
+                  .gauge { max-width: 160px !important; }
+              .: >
+                ha-card { background: none !important; box-shadow: none !important; border: none !important; }
+          card:
+            type: grid
+            columns: 4
+            square: false
+            cards:
+              - type: custom:power-gauge-card
+                entity: sensor.energia_vaiheiden_summa
+                name: Kokonaisteho
+                unit: W
+                min: 0
+                max: 12000
+                normal: 1800
+                warning: 5400
+                critical: 9600
+                rolling_numbers: false
+                background: transparent
+              - type: custom:power-gauge-card
+                entity: sensor.l1_vaihe_power
+                name: L1
+                unit: W
+                min: 0
+                max: 4000
+                normal: 600
+                warning: 1800
+                critical: 3200
+                rolling_numbers: false
+                background: transparent
+              - type: custom:power-gauge-card
+                entity: sensor.l2_vaihe_power
+                name: L2
+                unit: W
+                min: 0
+                max: 4000
+                normal: 600
+                warning: 1800
+                critical: 3200
+                rolling_numbers: false
+                background: transparent
+              - type: custom:power-gauge-card
+                entity: sensor.l3_vaihe_power
+                name: L3
+                unit: W
+                min: 0
+                max: 4000
+                normal: 600
+                warning: 1800
+                critical: 3200
+                rolling_numbers: false
+                background: transparent
+  - type: custom:mod-card
+    card_mod:
+      style: |
+        ha-card {
+          border-radius: 16px;
+          border: 1px solid rgba(0, 0, 0, 0.16);
+          box-shadow: none;
+          overflow: hidden;
+          --stack-card-margin: 2px;
+          margin: 6px 0;
+          --ha-card-border-width: 0;
+        }
+    card:
+      type: vertical-stack
+      cards:
+        - type: custom:mushroom-template-card
+          layout: horizontal
+          fill_container: false
+          primary: IV ohjaus
+          icon: mdi:fan
+          icon_color: blue
+          tap_action:
+            action: none
+          card_mod:
+            style: |
+              ha-card {
+                padding: 4px 8px 0 !important;
+                background: none !important;
+                border: none !important;
+                box-shadow: none !important;
+              }
+        - type: custom:mushroom-chips-card
+          alignment: justify
+          card_mod:
+            style: |
+              ha-card {
+                padding: 2px 4px 0 !important;
+                background: none !important;
+                border: none !important;
+                box-shadow: none !important;
+              }
+          chips:
+            - type: template
+              icon: mdi:fan
+              icon_color: >-
+                {{ 'orange' if is_state('input_boolean.iv_sauna', 'on') or
+                states('sensor.airfi_saunatila') | int(0) > 0 else ('blue' if
+                is_state('input_select.iv_ohjaus', 'Manuaali') else ('red' if
+                is_state('input_select.iv_ohjaus', 'Tehostus') else ('disabled' if
+                is_state('input_select.iv_ohjaus', 'Pois') else 'green'))) }}
+              content: >-
+                {{ 'Sauna' if is_state('input_boolean.iv_sauna', 'on') or
+                states('sensor.airfi_saunatila') | int(0) > 0 else
+                states('input_select.iv_ohjaus') }}
+              tap_action:
+                action: more-info
+                entity: input_select.iv_ohjaus
+            - type: template
+              icon: mdi:fan
+              content: >
+                {% set s = states('sensor.airfi_poistoilmapuhallin_nopeus') %}
+                {{ 'P —' if s in ['unknown', 'unavailable', 'none', ''] else 'P ' ~ (s | int) ~ ' %' }}
+              tap_action:
+                action: more-info
+                entity: sensor.airfi_poistoilmapuhallin_nopeus
+            - type: template
+              icon: mdi:fan-plus
+              content: >
+                {% set s = states('sensor.airfi_tuloilmapuhallin_nopeus') %}
+                {{ 'T —' if s in ['unknown', 'unavailable', 'none', ''] else 'T ' ~ (s | int) ~ ' %' }}
+              tap_action:
+                action: more-info
+                entity: sensor.airfi_tuloilmapuhallin_nopeus
+            - type: template
+              icon: mdi:thermometer
+              content: >
+                {% set s = states('sensor.airfi_lampotila_asetus_luku') %}
+                {{ 'L —' if s in ['unknown', 'unavailable', 'none', ''] else (s | float(0) | round(1)) ~ ' °' }}
+              tap_action:
+                action: more-info
+                entity: sensor.airfi_lampotila_asetus_luku
+            - type: template
+              icon: mdi:thermometer
+              content: "T1 {{ states('sensor.airfi_t1_ulkoilma') }}"
+              tap_action:
+                action: more-info
+                entity: sensor.airfi_t1_ulkoilma
+            - type: template
+              icon: mdi:thermometer
+              content: "T3 {{ states('sensor.airfi_t3_poistoilma') }}"
+              tap_action:
+                action: more-info
+                entity: sensor.airfi_t3_poistoilma
+            - type: template
+              icon: mdi:thermometer
+              content: "T5 {{ states('sensor.airfi_t5_tuloilma') }}"
+              tap_action:
+                action: more-info
+                entity: sensor.airfi_t5_tuloilma
+            - type: template
+              icon: mdi:check-bold
+              icon_color: orange
+              content: Aseta
+              tap_action:
+                action: call-service
+                service: script.turn_on
+                service_data:
+                  entity_id: script.iv_kirjoita
+        - type: custom:mushroom-chips-card
+          alignment: center
+          card_mod:
+            style: |
+              ha-card {
+                padding: 0 4px !important;
+                background: none !important;
+                border: none !important;
+                box-shadow: none !important;
+              }
+          chips:
+            - type: template
+              icon: mdi:robot-outline
+              icon_color: "{{ 'green' if is_state('input_select.iv_ohjaus', 'Automaatti') else 'grey' }}"
+              content: Auto
+              tap_action:
+                action: call-service
+                service: script.turn_on
+                service_data:
+                  entity_id: script.iv_automaatti
+            - type: template
+              icon: mdi:gesture-tap
+              icon_color: "{{ 'blue' if is_state('input_select.iv_ohjaus', 'Manuaali') else 'grey' }}"
+              content: Käsi
+              tap_action:
+                action: call-service
+                service: script.turn_on
+                service_data:
+                  entity_id: script.iv_manuaali
+            - type: template
+              icon: mdi:fan-plus
+              icon_color: "{{ 'red' if is_state('input_select.iv_ohjaus', 'Tehostus') else 'grey' }}"
+              content: "{{ 'Teho ' ~ states('sensor.iv_tehostus_jaljella') if is_state('timer.iv_tehostus', 'active') else 'Teho' }}"
+              tap_action:
+                action: call-service
+                service: script.turn_on
+                service_data:
+                  entity_id: script.iv_tehostus
+            - type: template
+              icon: mdi:plus
+              icon_color: red
+              content: "+15"
+              tap_action:
+                action: call-service
+                service: script.turn_on
+                service_data:
+                  entity_id: script.iv_tehostus_lisaa
+            - type: template
+              icon: mdi:stop
+              content: Lopeta
+              tap_action:
+                action: call-service
+                service: script.turn_on
+                service_data:
+                  entity_id: script.iv_tehostus_lopeta
+            - type: template
+              icon: mdi:fan-off
+              icon_color: "{{ 'red' if is_state('input_select.iv_ohjaus', 'Pois') else 'grey' }}"
+              content: Pois
+              tap_action:
+                action: call-service
+                service: script.turn_on
+                service_data:
+                  entity_id: script.iv_pois
+            - type: template
+              icon: mdi:hot-tub
+              icon_color: "{{ 'orange' if is_state('input_boolean.iv_sauna', 'on') or states('sensor.airfi_saunatila') | int(0) > 0 else 'grey' }}"
+              content: "{{ 'Sauna ' ~ states('sensor.iv_sauna_jaljella') if is_state('timer.iv_sauna', 'active') else 'Sauna' }}"
+              tap_action:
+                action: call-service
+                service: script.turn_on
+                service_data:
+                  entity_id: script.iv_sauna
+            - type: template
+              icon: mdi:plus
+              icon_color: orange
+              content: "+15"
+              tap_action:
+                action: call-service
+                service: script.turn_on
+                service_data:
+                  entity_id: script.iv_sauna_lisaa
+            - type: template
+              icon: mdi:stop
+              content: Lopeta
+              tap_action:
+                action: call-service
+                service: script.turn_on
+                service_data:
+                  entity_id: script.iv_sauna_lopeta
+        - type: custom:mushroom-chips-card
+          alignment: center
+          card_mod:
+            style: |
+              ha-card {
+                padding: 0 4px 4px !important;
+                background: none !important;
+                border: none !important;
+                box-shadow: none !important;
+              }
+          chips:
+            - type: template
+              icon: mdi:water-percent
+              content: "RH {{ states('sensor.airfi_kosteus_rh') }}"
+              tap_action:
+                action: more-info
+                entity: sensor.airfi_kosteus_rh
+            - type: template
+              icon: mdi:molecule-co2
+              content: >
+                {% set e = states('input_text.iv_co2_entiteetti') | trim %}
+                {% set c = states(e) if e not in ['unknown', 'unavailable', 'none', ''] else '' %}
+                {% if c in ['unknown', 'unavailable', 'none', ''] %}
+                  {% set c = states('sensor.olohuone_ilmanlaatu_anturi_hiilidioksidi') %}
+                {% endif %}
+                {{ 'CO2 —' if c in ['unknown', 'unavailable', 'none', ''] else 'CO2 ' ~ (c | int) }}
+              tap_action:
+                action: more-info
+                entity: sensor.olohuone_ilmanlaatu_anturi_hiilidioksidi
+            - type: template
+              icon: mdi:alert-octagon
+              icon_color: "{{ 'red' if states('sensor.airfi_hataseis_tila') | int(0) > 0 or states('sensor.airfi_vikatila') | int(0) > 0 else 'green' }}"
+              content: "Hälytys {{ states('sensor.airfi_hataseis_tila') }}/{{ states('sensor.airfi_vikatila') }}"
+              tap_action:
+                action: more-info
+                entity: sensor.airfi_hataseis_tila
+            - type: template
+              icon: mdi:alert-decagram-outline
+              icon_color: red
+              content: Kuittaa
+              tap_action:
+                action: call-service
+                service: script.turn_on
+                service_data:
+                  entity_id: script.iv_kuittaa
+            - type: entity
+              entity: input_select.iv_auto_anturit
+              icon: mdi:tune-variant
+              content_info: state
+            - type: entity
+              entity: input_number.iv_lampo_asetus
+              icon: mdi:thermometer
+              content_info: state
+            - type: entity
+              entity: input_number.iv_poissa_lampo
+              icon: mdi:home-export-outline
+              content_info: state
+            - type: entity
+              entity: input_number.iv_ohitus_asetus
+              icon: mdi:swap-horizontal
+              content_info: state
+            - type: entity
+              entity: input_number.iv_ohitus_ulko
+              icon: mdi:thermometer-low
+              content_info: state
+            - type: entity
+              entity: input_number.iv_ohitus_viive
+              icon: mdi:timer-sand
+              content_info: state
+        - type: conditional
+          conditions:
+            - condition: state
+              entity: input_select.iv_ohjaus
+              state: Manuaali
+          card:
+            type: custom:mushroom-chips-card
+            alignment: center
+            card_mod:
+              style: |
+                ha-card {
+                  padding: 0 4px 6px !important;
+                  background: none !important;
+                  border: none !important;
+                  box-shadow: none !important;
+                }
+            chips:
+              - type: entity
+                entity: input_number.iv_manuaali_poisto
+                icon: mdi:fan
+                content_info: state
+              - type: entity
+                entity: input_number.iv_manuaali_tulo
+                icon: mdi:fan-plus
+                content_info: state
+type: sidebar
+subview: false
+visible:
+  - user: 4b09bf8b532647a0addb874f54b75dab
+theme: minimalist-desktop
+badges:
+  - type: custom:button-card
+    entity: input_text.keittio_ilp
+    name: Keittiön ILP
+    state_color: true
+    show_state: true
+    show_icon: false
+    styles:
+      card:
+        - display: |
+            [[[
+              return states['input_text.keittio_ilp'].state === "Pois päältä, lukitus päällä" ? "block" : "none";
+            ]]]
+  - type: custom:button-card
+    entity: input_text.sahkovastusten_tilatieto
+    name: Sähkö vastukset
+    state_color: true
+    show_state: true
+    show_icon: false
+    styles:
+      card:
+        - display: |
+            [[[
+              return states['input_text.sahkovastusten_tilatieto'].state === "Pois päältä, lukitus päällä" ? "block" : "none";
+            ]]]
+  - type: custom:button-card
+    entity: input_text.varaajan_sekoitus_pumppu
+    name: Sekoituspumppu
+    state_color: true
+    show_state: true
+    show_icon: false
+    styles:
+      card:
+        - display: |
+            [[[
+              return states['input_text.varaajan_sekoitus_pumppu'].state === "Pois päältä, lukitus päällä" ? "block" : "none";
+            ]]]
+  - type: custom:button-card
+    entity: input_text.autotallin_ilp_tila
+    name: Autotalli ILP
+    state_color: true
+    show_state: true
+    show_icon: false
+    styles:
+      card:
+        - display: |
+            [[[
+              return states['input_text.autotallin_ilp_tila'].state === "Pois päältä, lukitus päällä" ? "block" : "none";
+            ]]]
