@@ -26,6 +26,20 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Verify Cloudflare credentials
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
+            echo "::error::CLOUDFLARE_API_TOKEN puuttuu GitHub Secretsistä. Katso docs/DEPLOY-CLOUDFLARE.md"
+            exit 1
+          fi
+          npx wrangler whoami || {
+            echo "::error::Cloudflare-token hylätty. Luo uusi API-token (docs/DEPLOY-CLOUDFLARE.md) ja päivitä CLOUDFLARE_API_TOKEN."
+            exit 1
+          }
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
       - name: Upload worker secrets
         continue-on-error: true
         run: |

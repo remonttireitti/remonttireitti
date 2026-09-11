@@ -49,6 +49,8 @@ Vahvista lähettäjädomain Resendissä (DNS-tietueet). Kehityksessä Resend voi
 
 Sovellus ajetaan [Cloudflare Workers](https://developers.cloudflare.com/workers/)-alustalla `@opennextjs/cloudflare` -adapterilla.
 
+> **Huom:** Vercel ei ole enää tuotantoympäristö (projekti estetty). Deploy ja ongelmat: [docs/DEPLOY-CLOUDFLARE.md](docs/DEPLOY-CLOUDFLARE.md).
+
 **Paikallinen esikatselu:**
 
 ```powershell
