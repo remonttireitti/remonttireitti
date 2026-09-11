@@ -163,20 +163,6 @@ cards:
           forceNiceScale: true
           title:
             text: Kustannus (c/t)
-  - type: vertical-stack
-  - type: conditional
-    conditions:
-      - condition: state
-        entity: binary_sensor.lammitys_rajoitettu
-        state: "on"
-    card:
-      type: custom:mushroom-template-card
-      layout: horizontal
-      fill_container: true
-      primary: ⚠️ Lämmitys rajoitettu
-      secondary: "{{ states('sensor.lammitys_rajoitus_teksti') }}"
-      icon: mdi:thermometer-alert
-      icon_color: red
   - type: custom:mod-card
     card_mod:
       style: |
@@ -192,6 +178,19 @@ cards:
     card:
       type: vertical-stack
       cards:
+        - type: conditional
+          conditions:
+            - condition: state
+              entity: binary_sensor.lammitys_rajoitettu
+              state: "on"
+          card:
+            type: custom:mushroom-template-card
+            layout: horizontal
+            fill_container: true
+            primary: ⚠️ Lämmitys rajoitettu
+            secondary: "{{ states('sensor.lammitys_rajoitus_teksti') }}"
+            icon: mdi:thermometer-alert
+            icon_color: red
         - type: custom:mushroom-template-card
           layout: horizontal
           fill_container: true
