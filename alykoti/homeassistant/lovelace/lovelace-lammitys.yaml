@@ -55,7 +55,7 @@ cards:
     layout: horizontal
     fill_container: true
     primary: Menovesi asetukset
-    secondary: "Käyrä ulkolämmöstä · halpa nostaa {{ states('input_number.lammitys_hinta_nosto_max') }}° · kallis rajoittaa {{ states('input_number.lammitys_hinta_rajoitus_max') }}° · ennakko {{ states('input_number.lammitys_hinta_ennakko_h') | int(6) }} h ({{ states('sensor.lammitys_hinta_ennakko') }} c)"
+    secondary: "Käyrä ulkolämmöstä · halpa nostaa · kallis rajoittaa · ennakko {{ states('input_number.lammitys_hinta_ennakko_h') | int(6) }} h · KV suoja {{ states('input_number.lammitys_kv_pumppu_pois') }}–{{ states('input_number.lammitys_kv_pumppu_paalle') }} °C · aurinko väistää ≥ {{ states('input_number.lammitys_aurinko_teho_raja') }} kW"
     icon: mdi:tune
     icon_color: blue
     tap_action:
@@ -119,6 +119,43 @@ cards:
         tap_action:
           action: more-info
           entity: sensor.energi_data_service
+      - type: custom:mushroom-number-card
+        entity: input_number.lammitys_kv_pumppu_paalle
+        name: KV pumppu päälle
+        display_mode: slider
+        layout: horizontal
+      - type: custom:mushroom-number-card
+        entity: input_number.lammitys_kv_pumppu_pois
+        name: KV pumppu pois
+        display_mode: slider
+        layout: horizontal
+      - type: custom:mushroom-number-card
+        entity: input_number.lammitys_aurinko_varo
+        name: Aurinko varo
+        display_mode: slider
+        layout: horizontal
+      - type: custom:mushroom-number-card
+        entity: input_number.lammitys_aurinko_teho_raja
+        name: Aurinko teho raja
+        display_mode: slider
+        layout: horizontal
+      - type: custom:mushroom-template-card
+        entity: binary_sensor.lammitys_aurinko_lammittaa
+        primary: "{{ 'Aurinko lämmittää piiriä' if is_state('binary_sensor.lammitys_aurinko_lammittaa', 'on') else 'Aurinko ei lämmitä piiriä' }}"
+        secondary: "{{ states('sensor.aurinkolampo_teho_kw') }} kW · sekoituspumppu {{ 'väistää' if is_state('binary_sensor.lammitys_aurinko_lammittaa', 'on') else 'saa nostaa' }}"
+        icon: mdi:solar-power
+        icon_color: "{{ 'amber' if is_state('binary_sensor.lammitys_aurinko_lammittaa', 'on') else 'disabled' }}"
+        tap_action:
+          action: more-info
+          entity: binary_sensor.lammitys_aurinko_lammittaa
+      - type: custom:mushroom-template-card
+        primary: "KV {{ states('sensor.vilp_ohjaus_lampotilat_air_temperature_8') }} °C"
+        secondary: "Pumppu päälle ≥ {{ states('input_number.lammitys_kv_pumppu_paalle') }} °C · pois ≤ {{ states('input_number.lammitys_kv_pumppu_pois') }} °C · venttiili 55 °C"
+        icon: mdi:water-thermometer
+        icon_color: "{{ 'red' if (states('sensor.vilp_ohjaus_lampotilat_air_temperature_8') | float(99)) <= (states('input_number.lammitys_kv_pumppu_pois') | float(56)) else ('orange' if (states('sensor.vilp_ohjaus_lampotilat_air_temperature_8') | float(99)) < (states('input_number.lammitys_kv_pumppu_paalle') | float(58)) else 'green') }}"
+        tap_action:
+          action: more-info
+          entity: sensor.vilp_ohjaus_lampotilat_air_temperature_8
   - type: custom:mod-card
     card_mod:
       style:
@@ -312,6 +349,13 @@ cards:
         hold_action:
           action: more-info
           entity: input_text.lammitys_sekoituspumppu
+      - type: template
+        icon: mdi:solar-power
+        icon_color: "{{ 'amber' if is_state('binary_sensor.lammitys_aurinko_lammittaa', 'on') else 'grey' }}"
+        content: "{{ 'Aurinko lämmittää' if is_state('binary_sensor.lammitys_aurinko_lammittaa', 'on') else 'Aurinko ei lämmitä' }}"
+        tap_action:
+          action: more-info
+          entity: binary_sensor.lammitys_aurinko_lammittaa
       - type: entity
         entity: switch.sonoff_4_ch_pro_2_tasmota3
         icon: mdi:solar-power-variant
