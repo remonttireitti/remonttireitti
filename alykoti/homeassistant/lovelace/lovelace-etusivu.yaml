@@ -168,12 +168,16 @@ cards:
       style: |
         ha-card {
           border-radius: 16px;
-          border: 1px solid rgba(0, 0, 0, 0.16);
+          border: 2px solid rgba(234, 88, 12, 0.50);
+          border-left: 8px solid rgb(234, 88, 12);
+          background: rgba(234, 88, 12, 0.22);
           box-shadow: none;
           overflow: hidden;
           --stack-card-margin: 2px;
-          margin: 6px 0;
+          margin: 8px 0;
+          padding: 4px 0 6px;
           --ha-card-border-width: 0;
+          --ha-card-background: transparent;
         }
     card:
       type: vertical-stack
@@ -201,6 +205,13 @@ cards:
           tap_action:
             action: more-info
             entity: sensor.vilp_ohjaus_lampotilat_air_temperature_10
+          card_mod:
+            style: |
+              ha-card {
+                background: none !important;
+                border: none !important;
+                box-shadow: none !important;
+              }
         - type: custom:mushroom-template-card
           layout: horizontal
           fill_container: true
@@ -211,6 +222,13 @@ cards:
           tap_action:
             action: more-info
             entity: climate.lattialammitys
+          card_mod:
+            style: |
+              ha-card {
+                background: none !important;
+                border: none !important;
+                box-shadow: none !important;
+              }
         - type: custom:mod-card
           card_mod:
             style:
@@ -382,19 +400,30 @@ cards:
           --stack-card-margin: 0px;
           --mush-spacing: 4px;
           --icon-size: 32px;
+          --ha-card-background: transparent;
           {% set tila = states('input_select.keittio_ilp_tila') %}
           {% set ulko = states('sensor.ulkolampotila_met_no') | float(0) %}
           {% set action = state_attr('climate.keittio_ilp', 'hvac_action') %}
           {% if tila == 'Pois' %}
-            background: rgba(100, 116, 139, 0.14);
+            background: rgba(100, 116, 139, 0.28);
+            border: 2px solid rgba(100, 116, 139, 0.55);
+            border-left: 8px solid rgb(100, 116, 139);
           {% elif action == 'cooling' %}
-            background: rgba(59, 130, 246, 0.16);
+            background: rgba(59, 130, 246, 0.26);
+            border: 2px solid rgba(37, 99, 235, 0.55);
+            border-left: 8px solid rgb(37, 99, 235);
           {% elif action == 'heating' %}
-            background: rgba(239, 68, 68, 0.16);
+            background: rgba(239, 68, 68, 0.26);
+            border: 2px solid rgba(220, 38, 38, 0.55);
+            border-left: 8px solid rgb(220, 38, 38);
           {% elif ulko > 20 %}
-            background: rgba(148, 163, 184, 0.14);
+            background: rgba(148, 163, 184, 0.24);
+            border: 2px solid rgba(100, 116, 139, 0.50);
+            border-left: 8px solid rgb(100, 116, 139);
           {% else %}
-            background: rgba(34, 197, 94, 0.12);
+            background: rgba(34, 197, 94, 0.22);
+            border: 2px solid rgba(22, 163, 74, 0.55);
+            border-left: 8px solid rgb(22, 163, 74);
           {% endif %}
         }
     card:
@@ -576,12 +605,16 @@ cards:
       style: |
         ha-card {
           border-radius: 16px;
-          border: 1px solid rgba(0, 0, 0, 0.16);
+          border: 2px solid rgba(217, 119, 6, 0.50);
+          border-left: 8px solid rgb(217, 119, 6);
+          background: rgba(245, 158, 11, 0.24);
           box-shadow: none;
           overflow: hidden;
           --stack-card-margin: 2px;
-          margin: 6px 0;
+          margin: 8px 0;
+          padding: 4px 0 6px;
           --ha-card-border-width: 0;
+          --ha-card-background: transparent;
         }
     card:
       type: vertical-stack
@@ -596,6 +629,13 @@ cards:
           tap_action:
             action: more-info
             entity: sensor.aurinkolampo_tuotto_tanaan
+          card_mod:
+            style: |
+              ha-card {
+                background: none !important;
+                border: none !important;
+                box-shadow: none !important;
+              }
         - type: custom:mod-card
           card_mod:
             style:
@@ -719,12 +759,16 @@ cards:
       style: |
         ha-card {
           border-radius: 16px;
-          border: 1px solid rgba(0, 0, 0, 0.16);
+          border: 2px solid rgba(37, 99, 235, 0.50);
+          border-left: 8px solid rgb(37, 99, 235);
+          background: rgba(59, 130, 246, 0.16);
           box-shadow: none;
           overflow: hidden;
           --stack-card-margin: 2px;
-          margin: 6px 0;
+          margin: 8px 0;
+          padding: 4px 0 6px;
           --ha-card-border-width: 0;
+          --ha-card-background: transparent;
         }
     card:
       type: vertical-stack
@@ -738,6 +782,13 @@ cards:
           icon_color: blue
           tap_action:
             action: none
+          card_mod:
+            style: |
+              ha-card {
+                background: none !important;
+                border: none !important;
+                box-shadow: none !important;
+              }
         - type: grid
           columns: 2
           square: false
@@ -1688,12 +1739,16 @@ cards:
       style: |
         ha-card {
           border-radius: 16px;
-          border: 1px solid rgba(0, 0, 0, 0.16);
+          border: 2px solid rgba(202, 138, 4, 0.55);
+          border-left: 8px solid rgb(202, 138, 4);
+          background: rgba(250, 204, 21, 0.26);
           box-shadow: none;
           overflow: hidden;
           --stack-card-margin: 2px;
-          margin: 6px 0;
+          margin: 8px 0;
+          padding: 4px 0 6px;
           --ha-card-border-width: 0;
+          --ha-card-background: transparent;
         }
     card:
       type: vertical-stack
@@ -1854,12 +1909,16 @@ cards:
       style: |
         ha-card {
           border-radius: 16px;
-          border: 1px solid rgba(0, 0, 0, 0.16);
+          border: 2px solid rgba(8, 145, 178, 0.55);
+          border-left: 8px solid rgb(8, 145, 178);
+          background: rgba(6, 182, 212, 0.18);
           box-shadow: none;
           overflow: hidden;
           --stack-card-margin: 2px;
-          margin: 6px 0;
+          margin: 8px 0;
+          padding: 4px 0 6px;
           --ha-card-border-width: 0;
+          --ha-card-background: transparent;
         }
     card:
       type: vertical-stack

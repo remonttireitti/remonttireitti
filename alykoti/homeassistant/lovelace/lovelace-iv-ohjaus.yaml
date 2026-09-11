@@ -8,12 +8,16 @@ cards:
       style: |
         ha-card {
           border-radius: 16px;
-          border: 1px solid rgba(0, 0, 0, 0.16);
+          border: 2px solid rgba(8, 145, 178, 0.55);
+          border-left: 8px solid rgb(8, 145, 178);
+          background: rgba(6, 182, 212, 0.18);
           box-shadow: none;
           overflow: hidden;
           --stack-card-margin: 2px;
-          margin: 6px 0;
+          margin: 8px 0;
+          padding: 4px 0 6px;
           --ha-card-border-width: 0;
+          --ha-card-background: transparent;
         }
     card:
       type: vertical-stack
