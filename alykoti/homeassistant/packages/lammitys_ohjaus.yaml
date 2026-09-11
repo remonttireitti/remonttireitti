@@ -411,6 +411,7 @@ script:
 
   lammitys_aseta_termostaatti:
     alias: Lämmitys aseta termostaatti
+    description: Sisäinen. Huoneautomaatiot kutsuvat tätä. Älä aja käsin.
     mode: queued
     fields:
       climates:
@@ -476,6 +477,7 @@ script:
 
   lammitys_aseta_sekoitus:
     alias: Lämmitys aseta sekoitusventtiili
+    description: Sisäinen. Automaatio Lämmitys sekoitusventtiili kutsuu tätä. Älä aja käsin. Kirjoittaa olemassa olevaan climate.lattialammitys -laitteeseen, ei luo toista sekoitinta.
     mode: single
     fields:
       active:
@@ -514,6 +516,7 @@ script:
 
   lammitys_aseta_sekoituspumppu:
     alias: Lämmitys aseta sekoituspumppu
+    description: Sisäinen. Automaatio Lämmitys sekoituspumppu kutsuu tätä. Älä aja käsin. Ohjaa switch.sonoff_4_ch_pro_2_tasmota4.
     mode: queued
     max: 3
     fields:
