@@ -24,9 +24,9 @@ export type SeoPageDef = {
 export const STATIC_SEO_PAGES: SeoPageDef[] = [
   {
     path: "/",
-    title: "Kodin palveluiden keskus — remontit, huolto ja palvelut",
+    title: "Kilpailuta remontti ilmaiseksi — vertaa tarjouksia ja tingaa",
     description:
-      "Remontit, huolto, kunnossapito, vian selvitys ja tori samassa paikassa. Kilpailuta työt ilmaiseksi — ilman että etsit eri palvelua joka kerta.",
+      "Tarvitsetko remontille tekijän? Julkaise tarjouspyyntö ilmaiseksi, vertaa tarjouksia samassa muodossa ja tingaa vastatarjouksella. Asiakkaalle 0 €.",
     keywords: mergeKeywords(
       SITE_KEYWORDS,
       HEAT_PUMP_KEYWORDS.slice(0, 3),
@@ -53,18 +53,18 @@ export const STATIC_SEO_PAGES: SeoPageDef[] = [
   },
   {
     path: "/urakoitsijaksi",
-    title: "Urakoitsijalle — tarjouspyynnöt ja uudet työt",
+    title: "Urakoitsijalle — tuomme sopivat tarjouspyynnöt",
     description:
-      "Saat ilmoitukset sopivista tarjouspyynnöistä omalta alueeltasi, jätät tarjouksia maksutta ja maksat välityspalkkion vain hyväksytyistä diileistä.",
+      "Remonttireitti tuo valmiit tarjouspyynnöt alueeltasi suoraan eteesi. Tarjous ilmaiseksi — maksat vain voitetusta diilistä. Ensimmäiset 3 diiliä 0 €.",
     keywords: mergeKeywords(SITE_KEYWORDS, CONTRACTOR_KEYWORDS),
     changeFrequency: "monthly",
     priority: 0.8,
   },
   {
     path: "/asiakkaalle",
-    title: "Asiakkaalle — ilmainen kilpailutus ja kodin palvelut",
+    title: "Asiakkaalle — ilmainen kilpailutus remontille",
     description:
-      "Kilpailuta remontit ja palvelut ilmaiseksi. Vertaa tarjouksia, selvitä lämpöpumpun vikat, käytä huoltokirjaa ja toria — asiakkaalle 0 €.",
+      "Kilpailuta remontit ja palvelut ilmaiseksi. Vertaa tarjouksia, tingaa vastatarjouksella ja selvitä lämpöpumpun vikat — asiakkaalle 0 €.",
     keywords: mergeKeywords(SITE_KEYWORDS, SERVICE_KEYWORDS, [
       "ilmainen remontti",
       "kilpailuta ilmaiseksi",

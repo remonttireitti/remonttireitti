@@ -6,7 +6,6 @@ import { PlatformPricingSection } from "@/components/pricing/platform-pricing-se
 import { SiteHeader } from "@/components/site-header";
 import { getSessionUser, isContractor } from "@/lib/auth";
 import { brand } from "@/lib/brand-theme";
-import { marketplaceBrand } from "@/lib/marketplace-brand";
 import { pageMetadata } from "@/lib/seo";
 import { seoDefByPath } from "@/lib/seo-pages";
 
@@ -58,14 +57,14 @@ export default async function ContractorLandingPage() {
             Urakoitsijalle
           </p>
           <h1 className="mt-3 text-4xl font-bold tracking-tight sm:text-5xl">
-            Uusia remonttikeikkoja —{" "}
-            <span className="text-sky-700">maksat vain voitetusta diilistä</span>
+            Tuomme sinulle sopivat{" "}
+            <span className="text-sky-700">tarjouspyynnöt</span>
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-lg text-stone-600">
-            Remonttireitti kokoaa valmiit tarjouspyynnöt omakotitaloihin:
-            lämpöpumput, keittiöt, sähkö, LVI ja muut remontit. Ilmoitukset
-            valitsemillesi ammateille. Tarjous on maksuton — ensimmäiset 3
-            hyväksyttyä diiliä ilman välityspalkkiota.
+            Sinun ei tarvitse etsiä töitä — Remonttireitti tuo valmiit
+            tarjouspyynnöt alueeltasi suoraan eteesi: kuvat, kuvaus ja budjetti
+            mukana. Tarjous on maksuton — maksat vain voitetusta diilistä.
+            Ensimmäiset 3 hyväksyttyä diiliä ilman välityspalkkiota.
           </p>
           <div className="mx-auto mt-8 max-w-xl">
             <BetaPlatformFeeBanner showCta={!contractor} />
@@ -110,6 +109,16 @@ export default async function ContractorLandingPage() {
                   ✓
                 </span>
                 <span>
+                  <strong>Työt tulevat sinulle</strong> — ilmoitamme uusista
+                  tarjouspyynnöistä valitsemillesi ammateille ja alueelle. Ei
+                  tarvitse käydä etsimässä.
+                </span>
+              </li>
+              <li className="flex gap-2">
+                <span className="text-sky-600" aria-hidden>
+                  ✓
+                </span>
+                <span>
                   <strong>Valmiit pyynnöt</strong> — asiakas on kuvannut kohteen
                   ja liittänyt kuvat. Lämpöpumpuissa tarkempi lomake.
                 </span>
@@ -129,18 +138,9 @@ export default async function ContractorLandingPage() {
                   ✓
                 </span>
                 <span>
-                  <strong>Ilmoitukset oikeista töistä</strong> — valitset
-                  profiiliin ammatit (sähkö, putki, kirvesmies…) ja halutessasi
-                  lämpöpumput.
-                </span>
-              </li>
-              <li className="flex gap-2">
-                <span className="text-sky-600" aria-hidden>
-                  ✓
-                </span>
-                <span>
-                  <strong>{marketplaceBrand.name}</strong> erikseen — myy laitteita
-                  ja varaosia kk- tai ilmoitusmaksulla (ks. hinnasto).
+                  <strong>Maksat vain voitetusta diilistä</strong> — tarjouksen
+                  jättäminen on ilmaista. Välityspalkkio tulee vasta, kun
+                  asiakas hyväksyy tarjouksesi.
                 </span>
               </li>
             </ul>
@@ -154,17 +154,17 @@ export default async function ContractorLandingPage() {
               <Step
                 n="1"
                 title="Rekisteröidy ja valitse ammatit"
-                body="Kerro mille töille tarjoat — saat vain niihin sopivat ilmoitukset."
+                body="Kerro mille töille tarjoat ja millä alueella — tuomme sinulle vain sopivat pyynnöt."
               />
               <Step
                 n="2"
-                title="Jätä tarjous maksutta"
-                body="Avaa pyyntö, lue tiedot ja kuvat, jätä tarjous laite-, työ- ja takuutiedoilla."
+                title="Saat ilmoituksen — jätä tarjous maksutta"
+                body="Uusi tarjouspyyntö ilmoittaa sinulle. Avaa pyyntö, lue tiedot ja kuvat, jätä tarjous."
               />
               <Step
                 n="3"
-                title="Asiakas valitsee — maksat välityspalkkion"
-                body="Kun asiakas hyväksyy tarjouksesi, saat laskun. Maksun jälkeen näet yhteystiedot ja voit sopia asennuksesta."
+                title="Asiakas valitsee — maksat vain voitetusta diilistä"
+                body="Kun asiakas hyväksyy tarjouksesi, saat laskun. Maksun jälkeen näet yhteystiedot ja voit sopia työstä."
               />
             </div>
           </div>
@@ -188,8 +188,8 @@ export default async function ContractorLandingPage() {
           <div className={`${brand.containerWide} text-center`}>
             <h2 className="text-xl font-bold">Aloita tänään</h2>
             <p className="mx-auto mt-2 max-w-lg text-sm text-stone-600">
-              Rekisteröityminen on ilmainen. Ensimmäiset tarjouspyynnöt näet heti
-              profiilin täytön jälkeen.
+              Rekisteröityminen on ilmainen. Ilmoitamme uusista tarjouspyynnöistä
+              heti, kun profiilisi on valmis.
             </p>
             <div className="mt-6 flex flex-col items-center justify-center gap-3 sm:flex-row">
               {!contractor && (

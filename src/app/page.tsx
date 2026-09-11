@@ -15,25 +15,24 @@ import { HomeAudienceSplit } from "@/components/marketing/home-audience-split";
 import { Logo } from "@/components/brand/logo";
 import { HomeDifferentiators } from "@/components/marketing/home-differentiators";
 import { HomeHowItWorks } from "@/components/marketing/home-how-it-works";
+import { HomeOpenProjects } from "@/components/marketing/home-open-projects";
 import { HomeTrust } from "@/components/marketing/home-trust";
 import { ServiceCards } from "@/components/marketing/service-cards";
 import { HomeNotifications } from "@/components/notifications/home-notifications";
 import { ValuePromoPair } from "@/components/promo/value-promo-banner";
-import { ListingCardGrid } from "@/components/marketplace/listing-card-grid";
 import { SiteHeader } from "@/components/site-header";
 import { getSessionUser } from "@/lib/auth";
-import { fetchPublishedListings } from "@/lib/marketplace-listings-server";
 import {
   countUnreadNotifications,
   fetchArchivedUserNotifications,
   fetchUserNotifications,
 } from "@/lib/notifications-server";
+import { fetchPublicOpenProjects } from "@/lib/public-projects-server";
 import { brand } from "@/lib/brand-theme";
-import { marketplaceBrand } from "@/lib/marketplace-brand";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function Home() {
-  const listings = await fetchPublishedListings(6);
+  const openProjects = await fetchPublicOpenProjects(12);
   const user = await getSessionUser();
   let notifications: Awaited<ReturnType<typeof fetchUserNotifications>> = [];
   let archivedNotifications: Awaited<
@@ -64,30 +63,42 @@ export default async function Home() {
               <Logo href="/" size="lg" />
             </div>
             <p className="mb-3 text-sm font-medium uppercase tracking-widest text-sky-800">
-              Kodin palveluiden keskus
+              Ilmainen kilpailutus
             </p>
             <h1 className="text-3xl font-bold tracking-tight text-stone-900 sm:text-5xl">
-              Remontti, huolto, palvelut ja tori{" "}
-              <span className="text-sky-800">samassa paikassa</span>
+              Tarvitsetko remontille{" "}
+              <span className="text-sky-800">tekijän?</span>
             </h1>
             <p className="mx-auto mt-5 max-w-2xl text-base leading-relaxed text-stone-600 sm:text-lg">
-              Kilpailuta työt ilmaiseksi, selvitä vikat, tilaa kunnossapito tai myy
-              käytetty laite — et etsi eri palvelua joka kerta uudesta tilanteesta.
+              Julkaise tarjouspyyntö ilmaiseksi. Vertaa tarjouksia samassa
+              muodossa — ja tingaa hintaa vastatarjouksella ennen kuin valitset
+              urakoitsijan.
             </p>
             <ul className="mx-auto mt-6 flex max-w-xl flex-wrap justify-center gap-2 text-xs font-medium text-stone-700 sm:text-sm">
+              <li className="rounded-full bg-violet-50 px-3 py-1.5 shadow-sm ring-1 ring-violet-200">
+                Tingaa vastatarjouksella
+              </li>
               <li className="rounded-full bg-white/90 px-3 py-1.5 shadow-sm ring-1 ring-sky-100">
                 Vertailukelpoiset tarjoukset
-              </li>
-              <li className="rounded-full bg-white/90 px-3 py-1.5 shadow-sm ring-1 ring-sky-100">
-                Arvostelut valmiista urakoista
-              </li>
-              <li className="rounded-full bg-white/90 px-3 py-1.5 shadow-sm ring-1 ring-sky-100">
-                Huoltokirja kotiin
               </li>
               <li className="rounded-full bg-white/90 px-3 py-1.5 shadow-sm ring-1 ring-sky-100">
                 Asiakkaalle ilmainen
               </li>
             </ul>
+            <div className="mx-auto mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
+              <Link
+                href="/remontti/uusi"
+                className={`${brand.btnPrimary} ${brand.btnPrimaryBlock}`}
+              >
+                Aloita ilmainen tarjouspyyntö
+              </Link>
+              <Link
+                href="/asiakkaalle"
+                className={`${brand.btnSecondary} ${brand.btnSecondaryBlock}`}
+              >
+                Mitä saat ilmaiseksi?
+              </Link>
+            </div>
             <div className="mx-auto mt-8">
               <HomeAudienceSplit />
             </div>
@@ -104,14 +115,16 @@ export default async function Home() {
           </section>
         )}
 
+        <HomeOpenProjects projects={openProjects} />
+
         <section className="border-t border-stone-200 bg-white py-14">
           <div className={brand.containerWide}>
             <h2 className="text-center text-2xl font-bold tracking-tight">
-              Mitä täällä voi tehdä
+              Mitä voit kilpailuttaa
             </h2>
             <p className="mx-auto mt-2 max-w-xl text-center text-sm text-stone-600">
-              Valitse tilanteesi — remontti, jatkuva palvelu, vian selvitys tai
-              tori. Sama paikka koko vuoden tarpeisiin.
+              Remontti, palvelu tai huolto — sama malli: pyyntö, tarjoukset,
+              vertailu ja valinta.
             </p>
             <div className="mt-8">
               <ServiceCards />
@@ -140,54 +153,20 @@ export default async function Home() {
         <section className="border-t border-stone-200/80 bg-stone-50/50 py-14 sm:py-16">
           <div className={brand.containerWide}>
             <h2 className="text-2xl font-bold tracking-tight">
-              Miksi yksi paikka riittää?
+              Miksi Remonttireitti?
             </h2>
+            <p className="mt-2 max-w-xl text-sm text-stone-600">
+              Ei vain yhteydenottoja — vertailukelpoiset tarjoukset ja mahdollisuus
+              neuvotella hinnasta alustalla.
+            </p>
             <div className="mt-8">
               <HomeDifferentiators />
             </div>
             <p className="mt-8 text-center text-sm text-stone-700">
               <Link href="/urakoitsijaksi" className={brand.link}>
-                Urakoitsijalle: provisiot ja rekisteröityminen →
+                Urakoitsijalle: tuomme sopivat tarjouspyynnöt →
               </Link>
             </p>
-          </div>
-        </section>
-
-        <section className="border-t border-stone-200 bg-gradient-to-b from-sky-50/40 to-stone-50 py-16">
-          <div className={brand.containerWide}>
-            <div className={brand.pageHeaderRow}>
-              <div className="min-w-0">
-                <p className="text-sm font-medium uppercase tracking-wide text-sky-800">
-                  {marketplaceBrand.nameShort}
-                </p>
-                <h2 className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl">
-                  {marketplaceBrand.name}
-                </h2>
-                <p className="mt-2 max-w-xl text-stone-600">
-                  Remonttiin liittyvät laitteet, varaosat ja tarvikkeet.
-                  Yksityishenkilö ilmoittaa ilmaiseksi — yrityksille erillinen
-                  hinnasto.
-                </p>
-              </div>
-              <div className={brand.actionsStack}>
-                <Link
-                  href="/markkinapaikka/ilmoitukset"
-                  className={`${brand.btnSecondary} ${brand.btnSecondaryBlock}`}
-                >
-                  Kaikki ilmoitukset
-                </Link>
-                <Link
-                  href="/markkinapaikka/ilmoita?tyyppi=kuluttaja"
-                  className={`${brand.btnPrimary} ${brand.btnPrimaryBlock}`}
-                >
-                  Ilmoita myytävä
-                </Link>
-              </div>
-            </div>
-
-            <div className="mt-10">
-              <ListingCardGrid listings={listings} variant="list" />
-            </div>
           </div>
         </section>
       </main>

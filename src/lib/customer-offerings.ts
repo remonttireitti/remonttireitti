@@ -1,3 +1,5 @@
+import { SHOW_MARKETPLACE_IN_MARKETING } from "@/lib/marketing-focus";
+
 /** Asiakkaalle näytettävät palvelut ja ominaisuudet — markkinointikuvaukset. */
 
 export type CustomerOffering = {
@@ -125,19 +127,23 @@ export const CUSTOMER_OFFERINGS: CustomerOffering[] = [
     cta: "Katso hinta-arkisto",
     accent: "stone",
   },
-  {
-    id: "tori",
-    title: "Remonttitori",
-    tagline: "Osta ja myy remonttiin liittyvää",
-    body:
-      "Käytetyt keittiöt, kylpyhuonekalusteet, lämpöpumput, varaosat ja työkalut. Yksityishenkilölle ilmoittaminen on ilmaista.",
-    bullets: [
-      "Ei liity tarjouspyyntöön — erillinen tori",
-      "Sopii remontin lomassa tai kun myyt vanhan laitteen",
-      "Yhteystiedot näkyvät julkaisun jälkeen",
-    ],
-    href: "/markkinapaikka",
-    cta: "Selaa toria",
-    accent: "stone",
-  },
+  ...(SHOW_MARKETPLACE_IN_MARKETING
+    ? [
+        {
+          id: "tori" as const,
+          title: "Remonttitori",
+          tagline: "Osta ja myy remonttiin liittyvää",
+          body:
+            "Käytetyt keittiöt, kylpyhuonekalusteet, lämpöpumput, varaosat ja työkalut. Yksityishenkilölle ilmoittaminen on ilmaista.",
+          bullets: [
+            "Ei liity tarjouspyyntöön — erillinen tori",
+            "Sopii remontin lomassa tai kun myyt vanhan laitteen",
+            "Yhteystiedot näkyvät julkaisun jälkeen",
+          ],
+          href: "/markkinapaikka",
+          cta: "Selaa toria",
+          accent: "stone" as const,
+        },
+      ]
+    : []),
 ];

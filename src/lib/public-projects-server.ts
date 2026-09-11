@@ -27,9 +27,17 @@ function projectSummary(description: string | null, title: string): string {
   return truncateSummary(title);
 }
 
+function adminClientConfigured(): boolean {
+  return Boolean(
+    process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY,
+  );
+}
+
 export async function fetchPublicOpenProjects(
   limit = 50,
 ): Promise<PublicOpenProject[]> {
+  if (!adminClientConfigured()) return [];
+
   const admin = createAdminClient();
 
   const { data: projectsRaw, error } = await admin
@@ -101,6 +109,8 @@ export async function fetchPublicOpenProjects(
 export async function fetchPublicOpenProject(
   id: string,
 ): Promise<PublicOpenProject | null> {
+  if (!adminClientConfigured()) return null;
+
   const admin = createAdminClient();
 
   const { data: project, error } = await admin

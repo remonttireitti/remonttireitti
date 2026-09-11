@@ -17,13 +17,12 @@ export function HomeAudienceSplit() {
             Etsin tekijää
           </h2>
           <p className="mt-2 text-sm leading-relaxed text-stone-600">
-            Kilpailuta remontit ja palvelut, selvitä lämpöpumpun vikat, vertaa
-            tarjouksia, tingaa hintaa, pidä huoltokirjaa ja käytä toria — sinulle
-            0 €.
+            Kilpailuta remontit ja palvelut, vertaa tarjouksia ja tingaa
+            vastatarjouksella — sinulle 0 €.
           </p>
           <ul className="mt-3 space-y-1 text-xs text-stone-600">
             <li>✓ Remontit, piha, siivous, muutto</li>
-            <li>✓ Vian selvitys ja huolto</li>
+            <li>✓ Lämpöpumpun vian selvitys</li>
             <li>✓ Arvostelut ja hinta-arkisto</li>
           </ul>
           <span className={`mt-4 inline-block text-sm font-semibold ${brand.link}`}>
@@ -43,8 +42,8 @@ export function HomeAudienceSplit() {
               Haen uusia töitä
             </h2>
             <p className="mt-2 text-sm leading-relaxed text-stone-600">
-              Remontit, huollot ja jatkuvat palvelut — ilmoitukset valitsemillesi
-              ammateille. Kuukausitilaus tai maksu per diili.
+              Tuomme sinulle sopivat tarjouspyynnöt alueeltasi — valmiit pyynnöt
+              kuvineen. Maksat vain voitetusta diilistä.
             </p>
             <span className="mt-4 inline-block text-sm font-semibold text-orange-800 group-hover:underline">
               Lue lisää ja rekisteröidy →
@@ -80,8 +79,8 @@ export function HomeAudienceSplit() {
           ·
         </li>
         <li>
-          <Link href="/markkinapaikka" className="text-sky-700 hover:underline">
-            Remonttitori
+          <Link href="/tarjouspyynnot" className="text-sky-700 hover:underline">
+            Avoimet pyynnöt
           </Link>
         </li>
       </ul>

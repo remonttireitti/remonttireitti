@@ -59,10 +59,9 @@ export function CustomerLandingContent() {
           <span className="text-sky-800">Kaikki tämä on sinulle ilmaista.</span>
         </h1>
         <p className="mx-auto mt-4 max-w-2xl text-base leading-relaxed text-stone-600 sm:text-lg">
-          Remonttireitti on kodin palveluiden keskus: kilpailuta työt, vertaa
-          tarjouksia, selvitä laitteen vikat, pidä huoltokirjaa ja käytä toria —
-          et maksa palvelulle mitään. Maksat vain valitsemallesi urakoitsijalle
-          sovitun työn hinnan.
+          Julkaise tarjouspyyntö, vertaa tarjouksia samassa muodossa ja tingaa
+          vastatarjouksella — et maksa palvelulle mitään. Maksat vain
+          valitsemallesi urakoitsijalle sovitun työn hinnan.
         </p>
         <ul className="mx-auto mt-6 flex max-w-2xl flex-wrap justify-center gap-2">
           {CUSTOMER_FREE_HIGHLIGHTS.map((item) => (
@@ -95,8 +94,8 @@ export function CustomerLandingContent() {
           Mitä voit tehdä Remonttireitillä
         </h2>
         <p className="mt-2 max-w-2xl text-sm leading-relaxed text-stone-600">
-          Yksi tili ja yksi paikka koko kodin tarpeisiin — remontista pihaan,
-          vian selvityksestä torikauppaan.
+          Yksi tili koko kodin tarpeisiin — remontista pihaan ja lämpöpumpun
+          vian selvitykseen.
         </p>
         <div className="mt-8 grid gap-5 sm:grid-cols-2">
           {CUSTOMER_OFFERINGS.map((offering) => (

@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { signOut } from "@/app/actions/auth";
 import { NavLinkPendingContent } from "@/components/navigation/nav-link-pending";
 import { SignOutButton } from "@/components/navigation/sign-out-button";
+import { SHOW_MARKETPLACE_IN_MARKETING } from "@/lib/marketing-focus";
 import { marketplaceBrand } from "@/lib/marketplace-brand";
 
 type Props = {
@@ -113,7 +114,9 @@ export function SiteHeaderMobileNav({
           className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           aria-label="Pikavalikko"
         >
-          <NavChip href="/markkinapaikka">{marketplaceBrand.nameShort}</NavChip>
+          {SHOW_MARKETPLACE_IN_MARKETING && (
+            <NavChip href="/markkinapaikka">{marketplaceBrand.nameShort}</NavChip>
+          )}
 
           {loggedIn ? (
             <>

@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { signOut } from "@/app/actions/auth";
 import { NavLinkPendingContent } from "@/components/navigation/nav-link-pending";
 import { SignOutButton } from "@/components/navigation/sign-out-button";
+import { SHOW_MARKETPLACE_IN_MARKETING } from "@/lib/marketing-focus";
 import { marketplaceBrand } from "@/lib/marketplace-brand";
 
 type NavProps = {
@@ -85,7 +86,9 @@ export function SiteHeaderNav({
   return (
     <div className="hidden items-center gap-1 md:flex">
       <nav className="flex items-center gap-0.5">
-        <NavItem href="/markkinapaikka">{marketplaceBrand.nameShort}</NavItem>
+        {SHOW_MARKETPLACE_IN_MARKETING && (
+          <NavItem href="/markkinapaikka">{marketplaceBrand.nameShort}</NavItem>
+        )}
         {loggedIn ? (
           <>
             <NavItem href="/#ilmoitukset">
