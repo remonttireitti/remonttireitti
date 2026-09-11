@@ -12,12 +12,17 @@
 # Logiikka:
 #   - Ovi auki yli 2 min → off. Alle 2 min avaus ei sammuta.
 #   - Oven takia sammuttua: pois vähintään 5 min, vaikka ovi menisi kiinni.
-#   - Jäähdytyskausi (ulko ≥ 20 °C) → cool JÄÄ PÄÄLLE, swing highest (katto)
-#   - Lämmityskausi (ulko ≤ 16 °C) → heat JÄÄ PÄÄLLE, swing lowest (lattia)
-#   - 16–20 °C: kausi ei vaihdu
-#   - Lämmitys ↔ jäähdytys: 4 h viive (input_number.keittio_ilp_kausi_viive)
-#   - Lähellä asetusta → fan quiet; kaukana → high
-#   - Suuri poikkeama → tehostettu asetus
+#   - Automaatti EI sammuta kompressoria hinnalla: heat jää päälle, asetusarvoa
+#     liikutetaan. Pois / ovi = ainoat off-tilat.
+#   - Kallis sähkö (≥ lammitys_hinta_lattia_raja, oletus 5 snt/kWh):
+#     ILP ensisijainen lämmittäjä (lämpökäyrä + lampo-liukuri).
+#     Olo+keittiö lattia tausta-asetukseen (lammitys_ohjaus.yaml).
+#   - Halpa sähkö (< raja): lattia lämmittää, ILP heat + lepoasetus + quiet.
+#   - Jäähdytys vain kun 24 h ulkokeski ≥ keittio_ilp_jaahdytys_keski
+#     (oletus 18 °C) JA ulko ≥ 20 °C. Viileänä vuodenaikana ei coolia.
+#   - 16–20 °C: kausi ei vaihdu (jos kesä sallittu). Kausivaihto 4 h viive.
+#   - Lähellä asetusta → fan quiet; kaukana → high (lepotilassa aina quiet)
+#   - Suuri poikkeama → tehostettu asetus (ei lepotilassa)
 #   - Komentoja vain kun arvo oikeasti muuttuu (ei kompressorin pätkimistä)
 
 input_select:
@@ -46,7 +51,7 @@ input_select:
 
 input_number:
   keittio_ilp_lampo:
-    name: Keittiö ILP lämpö (ulko ≤ 20 °C)
+    name: Keittiö ILP lämpö (kallis sähkö)
     min: 16
     max: 30
     step: 0.5
@@ -55,7 +60,7 @@ input_number:
     icon: mdi:fire
     initial: 22
   keittio_ilp_jaahdytys:
-    name: Keittiö ILP jäähdytys (ulko > 20 °C)
+    name: Keittiö ILP jäähdytys (kesä)
     min: 16
     max: 30
     step: 0.5
@@ -63,6 +68,24 @@ input_number:
     unit_of_measurement: "°C"
     icon: mdi:snowflake
     initial: 24
+  keittio_ilp_lepoasetus:
+    name: Keittiö ILP lepoasetus (halpa sähkö)
+    min: 16
+    max: 22
+    step: 0.5
+    mode: slider
+    unit_of_measurement: "°C"
+    icon: mdi:sleep
+    initial: 17.5
+  keittio_ilp_jaahdytys_keski:
+    name: Keittiö ILP jäähdytys 24h keski
+    min: 12
+    max: 22
+    step: 0.5
+    mode: slider
+    unit_of_measurement: "°C"
+    icon: mdi:calendar-clock
+    initial: 18
   keittio_ilp_kausi_viive:
     name: Keittiö ILP kausivaihdon viive
     min: 3
@@ -98,6 +121,15 @@ sensor:
     max_age:
       minutes: 5
     sampling_size: 30
+  - platform: statistics
+    name: Keittio ilp ulko keski 24h
+    unique_id: keittio_ilp_ulko_keski_24h
+    entity_id: sensor.ulkolampotila_met_no
+    state_characteristic: mean
+    max_age:
+      hours: 24
+    sampling_size: 500
+    precision: 1
 
 template:
   - trigger:
@@ -151,6 +183,13 @@ template:
           {% else %}{% set adj_cost = COST_EFFECT * (1 - ((avgCost - COST_CHEAP) / (COST_EXPENSIVE - COST_CHEAP)) * 2) %}{% endif %}
           {% set target = BASE_TEMP + adj_outdoor + adj_price + adj_cost %}
           {{ [[MIN_TEMP, target] | max, MAX_TEMP] | min | round(1) }}
+  - binary_sensor:
+      - name: Keittio ilp jaahdytys sallittu
+        unique_id: keittio_ilp_jaahdytys_sallittu
+        icon: mdi:snowflake-thermometer
+        state: >
+          {% set mean = states('sensor.keittio_ilp_ulko_keski_24h') %}
+          {{ is_number(mean) and (mean | float(0)) >= (states('input_number.keittio_ilp_jaahdytys_keski') | float(18)) }}
 
 script:
   keittio_ilp_aseta:
@@ -224,6 +263,12 @@ script:
           entity_id: input_text.keittio_ilp_status
         data:
           value: "{{ status }}"
+      - continue_on_error: true
+        action: input_text.set_value
+        target:
+          entity_id: input_text.keittio_ilp
+        data:
+          value: "{{ status }}"
 
   keittio_ilp_ovi_sammuta:
     alias: Keittiö ILP ovisammutus
@@ -286,13 +331,25 @@ script:
             {% set lc = as_timestamp(states.binary_sensor.terassi_ovi_contact.last_changed, 0) | float(0) %}
             {{ is_state('binary_sensor.terassi_ovi_contact', 'on') and (ovi_pois_ts | float(0)) >= lc }}
           ovi_esto: "{{ (ovi_auki_s | int(0) >= 120) or (ovi_lukko | bool) or (ovi_tama_avaus | bool) }}"
+          cheap: >-
+            {% if states('binary_sensor.lammitys_halpa_sahko') in ['on', 'off'] %}
+              {{ is_state('binary_sensor.lammitys_halpa_sahko', 'on') }}
+            {% else %}
+              {{ (states('sensor.energi_data_service') | float(99)) < (states('input_number.lammitys_hinta_lattia_raja') | float(5)) }}
+            {% endif %}
           target_cool: "{{ states('input_number.keittio_ilp_jaahdytys') | float(24) }}"
-          target_heat: "{{ [[16, (states('sensor.keittio_ilp_tavoite') | float(22)) + (states('input_number.keittio_ilp_lampo') | float(22) - 22)] | max, 30] | min | round(1) }}"
+          heat_active: "{{ [[16, (states('sensor.keittio_ilp_tavoite') | float(22)) + (states('input_number.keittio_ilp_lampo') | float(22) - 22)] | max, 30] | min | round(1) }}"
+          heat_lepo: "{{ states('input_number.keittio_ilp_lepoasetus') | float(17.5) }}"
+          target_heat: "{{ heat_lepo | float(17.5) if cheap | bool else heat_active | float(22) }}"
           kausi_nyt: "{{ states('input_select.keittio_ilp_kausi') | trim }}"
           kausi_haluttu: >-
             {% set o = states('sensor.ulkolampotila_met_no') | float(0) %}
             {% set cur = states('input_select.keittio_ilp_kausi') | trim %}
-            {{ 'Jäähdytys' if o >= 20 else ('Lämmitys' if o <= 16 else cur) }}
+            {% set cool_ok = is_state('binary_sensor.keittio_ilp_jaahdytys_sallittu', 'on') %}
+            {% if not cool_ok %}Lämmitys
+            {% elif o >= 20 %}Jäähdytys
+            {% elif o <= 16 %}Lämmitys
+            {% else %}{{ cur }}{% endif %}
           lukitus_ok: >-
             {% set last = as_timestamp(states('input_datetime.keittio_ilp_kausi_vaihto'), 0) %}
             {% set h = states('input_number.keittio_ilp_kausi_viive') | float(4) %}
@@ -311,19 +368,30 @@ script:
               {% set t = target_cool | float(24) %}
               {% set out = t - 2 if g >= 2 else (t - 1 if g >= 1 else t) %}
               {{ [[16, out] | max, 30] | min | round(1) }}
+            {% elif cheap | bool %}
+              {{ target_heat | float(17.5) | round(1) }}
             {% else %}
               {% set t = target_heat | float(22) %}
               {% set out = t + 2 if g >= 2 else (t + 1 if g >= 1 else t) %}
               {{ [[16, out] | max, 30] | min | round(1) }}
             {% endif %}
-          fan: "{{ 'quiet' if gap | float(0) <= 0.6 else ('high' if gap | float(0) >= 1.5 else 'low') }}"
+          fan: >-
+            {% if cheap | bool and (kausi | trim) != 'Jäähdytys' %}quiet
+            {% else %}{{ 'quiet' if gap | float(0) <= 0.6 else ('high' if gap | float(0) >= 1.5 else 'low') }}{% endif %}
           swing: "{{ 'highest' if (kausi | trim) == 'Jäähdytys' else 'lowest' }}"
           hvac_want: "{{ 'cool' if (kausi | trim) == 'Jäähdytys' else 'heat' }}"
           status: >-
-            {% set suunta = 'katto' if (kausi | trim) == 'Jäähdytys' else 'lattia' %}
             {% set lukko = '' if lukitus_ok | bool else ' · kausilukko' %}
             {% set ovi = ' · ovi auki' if ovi_auki | bool else '' %}
-            {{ kausi | trim }} {{ send_temp }} °C · {{ fan }} · {{ suunta }} · sisä {{ indoor | round(1) }} °C · ulko {{ outdoor | round(1) }} °C{{ lukko }}{{ ovi }}
+            {% set price = states('sensor.energi_data_service') %}
+            {% set mean = states('sensor.keittio_ilp_ulko_keski_24h') %}
+            {% if (kausi | trim) == 'Jäähdytys' %}
+              Jäähdytys {{ send_temp }} °C · {{ fan }} · katto · 24h {{ mean }} °C · sisä {{ indoor | round(1) }} °C{{ lukko }}{{ ovi }}
+            {% elif cheap | bool %}
+              Lepo {{ send_temp }} °C · lattia lämmittää ({{ price }} snt) · quiet · sisä {{ indoor | round(1) }} °C{{ ovi }}
+            {% else %}
+              ILP lämmittää {{ send_temp }} °C · {{ price }} snt · {{ fan }} · lattia · sisä {{ indoor | round(1) }} °C{{ lukko }}{{ ovi }}
+            {% endif %}
       - choose:
           - conditions:
               - condition: template
@@ -487,8 +555,14 @@ automation:
       - platform: state
         entity_id:
           - sensor.keittio_ilp_tavoite
+          - sensor.keittio_ilp_ulko_keski_24h
+          - sensor.energi_data_service
+          - binary_sensor.lammitys_halpa_sahko
+          - binary_sensor.keittio_ilp_jaahdytys_sallittu
           - input_number.keittio_ilp_lampo
           - input_number.keittio_ilp_jaahdytys
+          - input_number.keittio_ilp_lepoasetus
+          - input_number.keittio_ilp_jaahdytys_keski
     condition:
       - condition: state
         entity_id: input_select.keittio_ilp_tila

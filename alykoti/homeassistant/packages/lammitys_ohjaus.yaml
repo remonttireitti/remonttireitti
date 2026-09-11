@@ -18,6 +18,12 @@
 # Pumppu pois kun KV ≤ pois-raja (oletus 56 °C) — ei saa vetää käyttövettä 55 °C:een.
 # Aurinko samassa piirissä: jos kenno lämmittää, suurempi hystereesi;
 # jos aurinkoteho ≥ raja, sekoituspumppu pois (ei kilpaile kennon kanssa).
+#
+# Olo+keittiö vs ILP:
+#   Spot ≥ lammitys_hinta_lattia_raja (oletus 5 snt/kWh) → ILP lämmittää,
+#   olo+keittiö lattia tausta-asetukseen (lammitys_lattia_tausta_olokeittio).
+#   Spot < raja → lattia lämmittää normaalisti, ILP lepoasetuksella (heat jää päälle).
+#   Muut huoneet aina lattialla. Korotus ohittaa taustan.
 
 input_select:
   lammitys_tila_olohuone_keittio:
@@ -315,6 +321,24 @@ input_number:
     unit_of_measurement: kW
     icon: mdi:solar-power-variant
     initial: 0.8
+  lammitys_hinta_lattia_raja:
+    name: Lattia lämmittää alle
+    min: 1
+    max: 20
+    step: 0.5
+    mode: slider
+    unit_of_measurement: c/kWh
+    icon: mdi:cash
+    initial: 5
+  lammitys_lattia_tausta_olokeittio:
+    name: Olo+keittiö lattia tausta
+    min: 16
+    max: 21
+    step: 0.5
+    mode: slider
+    unit_of_measurement: "°C"
+    icon: mdi:thermometer-minus
+    initial: 18
 
 input_text:
   lammitys_sekoituspumppu:
@@ -616,6 +640,11 @@ template:
         icon: mdi:thermometer-alert
         state: >
           {{ states('sensor.vilp_ohjaus_lampotilat_air_temperature_13') | float(99) <= 25 }}
+      - name: Lammitys halpa sahko
+        unique_id: lammitys_halpa_sahko
+        icon: mdi:cash
+        state: >
+          {{ (states('sensor.energi_data_service') | float(99)) < (states('input_number.lammitys_hinta_lattia_raja') | float(5)) }}
   - trigger:
       - platform: state
         entity_id:
@@ -1241,6 +1270,9 @@ automation:
           - sensor.lammitys_kaytto_olohuone_keittio
           - sensor.lammitys_tavoite_olohuone_keittio
           - input_number.lammitys_korotus_olohuone_keittio
+          - binary_sensor.lammitys_halpa_sahko
+          - input_number.lammitys_hinta_lattia_raja
+          - input_number.lammitys_lattia_tausta_olokeittio
     action:
       - variables:
           lampo: >
@@ -1252,6 +1284,8 @@ automation:
               {{ [base + k, 30] | min | round(1) }}
             {% elif states('sensor.vilp_ohjaus_lampotilat_air_temperature_13') | float(0) <= 25 %}17
             {% elif is_state('binary_sensor.lammitys_terassi_auki', 'on') %}17
+            {% elif not is_state('binary_sensor.lammitys_halpa_sahko', 'on') %}
+              {{ states('input_number.lammitys_lattia_tausta_olokeittio') | float(18) }}
             {% else %}{{ states('sensor.lammitys_kaytto_olohuone_keittio') | float(20) }}
             {% endif %}
       - action: script.lammitys_aseta_termostaatti
@@ -1484,7 +1518,14 @@ automation:
                 eid: "{{ repeat.item.entity }}"
                 preset: "{{ state_attr(repeat.item.entity, 'preset_mode') | default('') | lower }}"
                 ohjaus: "{{ states(repeat.item.tila) }}"
-                tavoite: "{{ states(repeat.item.kaytto) | float(20) }}"
+                tavoite: >
+                  {% if repeat.item.entity in ['climate.olohuone_lattialammitys', 'climate.keittio_lattialammitys']
+                       and not is_state('binary_sensor.lammitys_halpa_sahko', 'on')
+                       and not is_state('timer.lammitys_korotus_olohuone_keittio', 'active') %}
+                    {{ states('input_number.lammitys_lattia_tausta_olokeittio') | float(18) }}
+                  {% else %}
+                    {{ states(repeat.item.kaytto) | float(20) }}
+                  {% endif %}
                 termo: "{{ state_attr(repeat.item.entity, 'temperature') | float(99) }}"
             - if:
                 - condition: template
