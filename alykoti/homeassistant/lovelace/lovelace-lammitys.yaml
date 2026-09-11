@@ -115,8 +115,12 @@ cards:
         content_info: name
       - type: template
         icon: mdi:pump
-        icon_color: "{{ 'green' if is_state('binary_sensor.lammitys_sekoituspumppu_paalla', 'on') else 'grey' }}"
-        content: "{{ 'Sekoituspumppu' if is_state('binary_sensor.lammitys_sekoituspumppu_paalla', 'on') else 'Sekoituspumppu pois' }}"
+        icon_color: "{{ 'orange' if is_state('timer.lammitys_sekoitus_pulssi', 'active') else ('blue' if is_state('timer.lammitys_sekoitus_odota', 'active') else ('green' if is_state('binary_sensor.lammitys_sekoituspumppu_paalla', 'on') else 'grey')) }}"
+        content: >
+          {% if is_state('timer.lammitys_sekoitus_pulssi', 'active') %}Pulssi
+          {% elif is_state('timer.lammitys_sekoitus_odota', 'active') %}Odottaa KV
+          {% elif is_state('binary_sensor.lammitys_sekoituspumppu_paalla', 'on') %}Sekoituspumppu
+          {% else %}Sekoituspumppu pois{% endif %}
         tap_action:
           action: more-info
           entity: switch.sonoff_4_ch_pro_2_tasmota4
@@ -195,6 +199,22 @@ cards:
       - type: entity
         entity: input_number.lammitys_kv_pumppu_pois
         icon: mdi:water-alert
+        content_info: state
+      - type: entity
+        entity: input_number.lammitys_sekoitus_pulssi_s
+        icon: mdi:timer-outline
+        content_info: state
+      - type: entity
+        entity: input_number.lammitys_sekoitus_odota_s
+        icon: mdi:timer-sand
+        content_info: state
+      - type: entity
+        entity: input_number.lammitys_kv_pulse_max_lasku
+        icon: mdi:thermometer-chevron-down
+        content_info: state
+      - type: entity
+        entity: input_number.lammitys_kv_viime_lasku
+        icon: mdi:delta
         content_info: state
   - type: custom:mod-card
     card_mod:
