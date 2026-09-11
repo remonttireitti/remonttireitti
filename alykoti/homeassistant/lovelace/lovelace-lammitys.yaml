@@ -345,7 +345,7 @@ cards:
         content: "{{ 'Sekoituspumppu päällä' if is_state('binary_sensor.lammitys_sekoituspumppu_paalla', 'on') else 'Sekoituspumppu' }}"
         tap_action:
           action: more-info
-          entity: switch.sonoff_4_ch_pro_2
+          entity: switch.sonoff_4_ch_pro_2_tasmota4
         hold_action:
           action: more-info
           entity: input_text.lammitys_sekoituspumppu

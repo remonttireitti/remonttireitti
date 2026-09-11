@@ -12,7 +12,7 @@
 #   Halpa → nosto, kallis → rajoitus. Ennakko: jos seuraavat tunnit kalliimpia,
 #   lämmitetään nyt enemmän; jos halvempaa tulossa, pidetään maltti.
 # Sekoituspumppu: input_text.lammitys_sekoituspumppu
-#   (oletus switch.sonoff_4_ch_pro_2 = 4CH kanava 1).
+#   (switch.sonoff_4_ch_pro_2_tasmota4).
 # Pumppu päälle kun LL-kierto käy, KV ≥ päälle-raja (oletus 58 °C),
 # varaaja > 25 °C, varaaja kuumempi kuin meno, ja meno < tavoite − hystereesi.
 # Pumppu pois kun KV ≤ pois-raja (oletus 56 °C) — ei saa vetää käyttövettä 55 °C:een.
@@ -319,7 +319,7 @@ input_number:
 input_text:
   lammitys_sekoituspumppu:
     name: Lämmitys sekoituspumppu
-    initial: switch.sonoff_4_ch_pro_2
+    initial: switch.sonoff_4_ch_pro_2_tasmota4
     max: 128
     icon: mdi:pump
 
@@ -522,9 +522,9 @@ script:
           boolean:
     sequence:
       - variables:
-          pump: "{{ states('input_text.lammitys_sekoituspumppu') | trim }}"
-      - condition: template
-        value_template: "{{ pump not in ['unknown', 'unavailable', 'none', ''] }}"
+          pump: >
+            {% set c = states('input_text.lammitys_sekoituspumppu') | trim %}
+            {{ 'switch.sonoff_4_ch_pro_2_tasmota4' if c in ['unknown', 'unavailable', 'none', '', 'switch.sonoff_4_ch_pro_2'] else c }}
       - choose:
           - conditions: "{{ paalle | bool }}"
             sequence:
@@ -975,7 +975,7 @@ template:
           - sensor.vilp_ohjaus_lampotilat_air_temperature_13
           - sensor.lammitys_sekoitus_kaytto
           - switch.sonoff_4_ch_pro_2_tasmota2
-          - switch.sonoff_4_ch_pro_2
+          - switch.sonoff_4_ch_pro_2_tasmota4
           - input_text.lammitys_sekoituspumppu
           - input_number.lammitys_menovesi_hystereesi
           - input_number.lammitys_kayra_ulko_vih
@@ -1172,6 +1172,9 @@ template:
           {% set kv_off = [states('input_number.lammitys_kv_pumppu_pois') | float(56), kv_on - 0.5] | min %}
           {% set kierto = is_state('switch.sonoff_4_ch_pro_2_tasmota2', 'on') %}
           {% set pump_e = states('input_text.lammitys_sekoituspumppu') | trim %}
+          {% if pump_e in ['unknown', 'unavailable', 'none', '', 'switch.sonoff_4_ch_pro_2'] %}
+            {% set pump_e = 'switch.sonoff_4_ch_pro_2_tasmota4' %}
+          {% endif %}
           {% set pump_on = is_state(pump_e, 'on') if pump_e not in ['unknown', 'unavailable', 'none', ''] else false %}
           {% set kenno = states('sensor.nele_ja_keittio_lattialammitys_anturit_air_temperature_8') | float(0) %}
           {% set solar_p = states('sensor.aurinkolampo_teho_kw') | float(0) %}
@@ -1214,6 +1217,9 @@ template:
         device_class: running
         state: >
           {% set pump_e = states('input_text.lammitys_sekoituspumppu') | trim %}
+          {% if pump_e in ['unknown', 'unavailable', 'none', '', 'switch.sonoff_4_ch_pro_2'] %}
+            {% set pump_e = 'switch.sonoff_4_ch_pro_2_tasmota4' %}
+          {% endif %}
           {{ is_state(pump_e, 'on') if pump_e not in ['unknown', 'unavailable', 'none', ''] else false }}
 automation:
   - id: lammitys_olohuone_keittio
@@ -1535,6 +1541,7 @@ automation:
           - sensor.lammitys_sekoitus_kaytto
           - switch.sonoff_4_ch_pro_2_tasmota2
           - switch.sonoff_4_ch_pro_2_tasmota3
+          - switch.sonoff_4_ch_pro_2_tasmota4
           - climate.lattialammitys
           - input_text.lammitys_sekoituspumppu
           - input_number.lammitys_menovesi_hystereesi
@@ -1548,7 +1555,9 @@ automation:
           - binary_sensor.lammitys_aurinko_lammittaa
     action:
       - variables:
-          pump_e: "{{ states('input_text.lammitys_sekoituspumppu') | trim }}"
+          pump_e: >
+            {% set c = states('input_text.lammitys_sekoituspumppu') | trim %}
+            {{ 'switch.sonoff_4_ch_pro_2_tasmota4' if c in ['unknown', 'unavailable', 'none', '', 'switch.sonoff_4_ch_pro_2'] else c }}
           meno_s: "{{ states('sensor.vilp_ohjaus_lampotilat_air_temperature_10') }}"
           meno: "{{ meno_s | float(none) }}"
           paluu: "{{ states('sensor.vilp_ohjaus_lampotilat_air_temperature_9') | float(none) }}"
