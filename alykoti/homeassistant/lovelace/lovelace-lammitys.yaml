@@ -1,5 +1,5 @@
 # Kopioi TÄMÄ koko tiedosto Home Assistantin Lovelace-kortin YAML-editoriin
-# (korvaa koko nykyinen kortti). Älä liitä snippettejä chip-listan väliin.
+# (korvaa koko nykyinen kortti). Älä liitä snippettejä.
 
 type: vertical-stack
 cards:
@@ -16,146 +16,26 @@ cards:
       secondary: "{{ states('sensor.lammitys_rajoitus_teksti') }}"
       icon: mdi:thermometer-alert
       icon_color: red
-  - type: conditional
-    conditions:
-      - condition: state
-        entity: binary_sensor.lammitys_sekoitus_sallittu
-        state: "off"
-    card:
-      type: custom:mushroom-template-card
-      layout: horizontal
-      fill_container: true
-      primary: Sekoitus pois
-      secondary: "{{ states('sensor.lammitys_sekoitus_teksti') }}"
-      icon: mdi:valve-closed
-      icon_color: disabled
   - type: custom:mushroom-template-card
     layout: horizontal
     fill_container: true
-    primary: "Menovesi {{ states('sensor.vilp_ohjaus_lampotilat_air_temperature_10') }} °C · tavoite {{ states('sensor.lammitys_sekoitus_kaytto') }} °C"
+    primary: Lämmityspiiri
     secondary: "{{ states('sensor.lammitys_menovesi_teksti') }}"
-    icon: mdi:pipe-valve
+    icon: mdi:radiator
     icon_color: "{{ 'green' if is_state('binary_sensor.lammitys_sekoituspumppu_paalla', 'on') else ('orange' if is_state('binary_sensor.lammitys_sekoitus_sallittu', 'on') else 'disabled') }}"
     tap_action:
       action: more-info
       entity: sensor.vilp_ohjaus_lampotilat_air_temperature_10
-  - type: custom:mushroom-climate-card
-    entity: climate.lattialammitys
-    name: Sekoitusventtiili
-    collapsible_controls: true
-    tap_action:
-      action: more-info
-  - type: custom:mushroom-number-card
-    entity: input_number.lammitys_menovesi_hystereesi
-    name: Menovesi hystereesi
-    display_mode: slider
-    layout: horizontal
-    icon: mdi:thermometer-chevron-down
   - type: custom:mushroom-template-card
     layout: horizontal
     fill_container: true
-    primary: Menovesi asetukset
-    secondary: "Käyrä ulkolämmöstä · halpa nostaa · kallis rajoittaa · ennakko {{ states('input_number.lammitys_hinta_ennakko_h') | int(6) }} h · KV suoja {{ states('input_number.lammitys_kv_pumppu_pois') }}–{{ states('input_number.lammitys_kv_pumppu_paalle') }} °C · aurinko väistää ≥ {{ states('input_number.lammitys_aurinko_teho_raja') }} kW"
-    icon: mdi:tune
-    icon_color: blue
+    primary: "Meno {{ states('sensor.vilp_ohjaus_lampotilat_air_temperature_10') }}° · tavoite {{ states('sensor.lammitys_sekoitus_kaytto') }}° · paluu {{ states('sensor.vilp_ohjaus_lampotilat_air_temperature_9') }}°"
+    secondary: "{{ states('sensor.lammitys_sekoitus_teksti') }}"
+    icon: mdi:pipe-valve
+    icon_color: "{{ 'green' if is_state('binary_sensor.lammitys_sekoitus_sallittu', 'on') else 'disabled' }}"
     tap_action:
       action: more-info
-      entity: sensor.lammitys_sekoitus_kaytto
-  - type: grid
-    columns: 2
-    square: false
-    cards:
-      - type: custom:mushroom-number-card
-        entity: input_number.lammitys_kayra_ulko_vih
-        name: Ulko lämmin
-        display_mode: slider
-        layout: horizontal
-      - type: custom:mushroom-number-card
-        entity: input_number.lammitys_kayra_ulko_kylma
-        name: Ulko kylmä
-        display_mode: slider
-        layout: horizontal
-      - type: custom:mushroom-number-card
-        entity: input_number.lammitys_kayra_meno_min
-        name: Meno min
-        display_mode: slider
-        layout: horizontal
-      - type: custom:mushroom-number-card
-        entity: input_number.lammitys_kayra_meno_max
-        name: Meno max
-        display_mode: slider
-        layout: horizontal
-      - type: custom:mushroom-number-card
-        entity: input_number.lammitys_hinta_halpa
-        name: Halpa
-        display_mode: slider
-        layout: horizontal
-      - type: custom:mushroom-number-card
-        entity: input_number.lammitys_hinta_kallis
-        name: Kallis
-        display_mode: slider
-        layout: horizontal
-      - type: custom:mushroom-number-card
-        entity: input_number.lammitys_hinta_nosto_max
-        name: Halpa nosto
-        display_mode: slider
-        layout: horizontal
-      - type: custom:mushroom-number-card
-        entity: input_number.lammitys_hinta_rajoitus_max
-        name: Kallis rajoitus
-        display_mode: slider
-        layout: horizontal
-      - type: custom:mushroom-number-card
-        entity: input_number.lammitys_hinta_ennakko_h
-        name: Ennakko
-        display_mode: slider
-        layout: horizontal
-      - type: custom:mushroom-template-card
-        entity: sensor.lammitys_hinta_ennakko
-        primary: "Ennakko {{ states('sensor.lammitys_hinta_ennakko') }} c/kWh"
-        secondary: "Nyt {{ states('sensor.energi_data_service') | float(0) | round(1) }} c · huomenna {{ 'kyllä' if state_attr('sensor.energi_data_service', 'tomorrow_valid') else 'ei vielä' }}"
-        icon: mdi:chart-timeline-variant
-        icon_color: "{{ 'green' if (states('sensor.energi_data_service') | float(99)) <= (states('sensor.lammitys_hinta_ennakko') | float(0)) else 'orange' }}"
-        tap_action:
-          action: more-info
-          entity: sensor.energi_data_service
-      - type: custom:mushroom-number-card
-        entity: input_number.lammitys_kv_pumppu_paalle
-        name: KV pumppu päälle
-        display_mode: slider
-        layout: horizontal
-      - type: custom:mushroom-number-card
-        entity: input_number.lammitys_kv_pumppu_pois
-        name: KV pumppu pois
-        display_mode: slider
-        layout: horizontal
-      - type: custom:mushroom-number-card
-        entity: input_number.lammitys_aurinko_varo
-        name: Aurinko varo
-        display_mode: slider
-        layout: horizontal
-      - type: custom:mushroom-number-card
-        entity: input_number.lammitys_aurinko_teho_raja
-        name: Aurinko teho raja
-        display_mode: slider
-        layout: horizontal
-      - type: custom:mushroom-template-card
-        entity: binary_sensor.lammitys_aurinko_lammittaa
-        primary: "{{ 'Aurinko lämmittää piiriä' if is_state('binary_sensor.lammitys_aurinko_lammittaa', 'on') else 'Aurinko ei lämmitä piiriä' }}"
-        secondary: "{{ states('sensor.aurinkolampo_teho_kw') }} kW · sekoituspumppu {{ 'väistää' if is_state('binary_sensor.lammitys_aurinko_lammittaa', 'on') else 'saa nostaa' }}"
-        icon: mdi:solar-power
-        icon_color: "{{ 'amber' if is_state('binary_sensor.lammitys_aurinko_lammittaa', 'on') else 'disabled' }}"
-        tap_action:
-          action: more-info
-          entity: binary_sensor.lammitys_aurinko_lammittaa
-      - type: custom:mushroom-template-card
-        primary: "KV {{ states('sensor.vilp_ohjaus_lampotilat_air_temperature_8') }} °C"
-        secondary: "Pumppu päälle ≥ {{ states('input_number.lammitys_kv_pumppu_paalle') }} °C · pois ≤ {{ states('input_number.lammitys_kv_pumppu_pois') }} °C · venttiili 55 °C"
-        icon: mdi:water-thermometer
-        icon_color: "{{ 'red' if (states('sensor.vilp_ohjaus_lampotilat_air_temperature_8') | float(99)) <= (states('input_number.lammitys_kv_pumppu_pois') | float(56)) else ('orange' if (states('sensor.vilp_ohjaus_lampotilat_air_temperature_8') | float(99)) < (states('input_number.lammitys_kv_pumppu_paalle') | float(58)) else 'green') }}"
-        tap_action:
-          action: more-info
-          entity: sensor.vilp_ohjaus_lampotilat_air_temperature_8
+      entity: climate.lattialammitys
   - type: custom:mod-card
     card_mod:
       style:
@@ -168,20 +48,19 @@ cards:
             .label-now { font-size: 6px !important; font-weight: 700 !important; }
             .unit { font-size: 7px !important; font-weight: 600 !important; }
             .status { font-size: 7px !important; font-weight: 600 !important; }
-            .status b { font-weight: 700 !important; }
             .panel { padding: 6px 4px 4px !important; }
             .stage { margin: 0 !important; }
-            .gauge { max-width: 140px !important; }
+            .gauge { max-width: 160px !important; }
         .: >
           ha-card { background: none !important; box-shadow: none !important; border: none !important; }
     card:
       type: grid
       square: false
-      columns: 8
+      columns: 4
       cards:
         - type: custom:power-gauge-card
           entity: sensor.vilp_ohjaus_lampotilat_air_temperature_13
-          name: Lämmitysvesi
+          name: Varaaja
           unit: °C
           min: 15
           max: 60
@@ -203,6 +82,131 @@ cards:
           precision: 1
           rolling_numbers: false
           background: transparent
+        - type: custom:power-gauge-card
+          entity: sensor.vilp_ohjaus_lampotilat_air_temperature_10
+          name: LL meno
+          unit: °C
+          min: 20
+          max: 45
+          normal: 28
+          warning: 36
+          critical: 42
+          precision: 1
+          rolling_numbers: false
+          background: transparent
+        - type: custom:power-gauge-card
+          entity: sensor.vilp_ohjaus_lampotilat_air_temperature_9
+          name: LL paluu
+          unit: °C
+          min: 20
+          max: 45
+          normal: 26
+          warning: 34
+          critical: 40
+          precision: 1
+          rolling_numbers: false
+          background: transparent
+  - type: custom:mushroom-chips-card
+    alignment: center
+    chips:
+      - type: entity
+        entity: switch.sonoff_4_ch_pro_2_tasmota2
+        icon: mdi:pump
+        content_info: name
+      - type: template
+        icon: mdi:pump
+        icon_color: "{{ 'green' if is_state('binary_sensor.lammitys_sekoituspumppu_paalla', 'on') else 'grey' }}"
+        content: "{{ 'Sekoituspumppu' if is_state('binary_sensor.lammitys_sekoituspumppu_paalla', 'on') else 'Sekoituspumppu pois' }}"
+        tap_action:
+          action: more-info
+          entity: switch.sonoff_4_ch_pro_2_tasmota4
+        hold_action:
+          action: more-info
+          entity: input_text.lammitys_sekoituspumppu
+      - type: entity
+        entity: climate.lattialammitys
+        icon: mdi:valve
+        content_info: state
+      - type: entity
+        entity: input_number.lammitys_menovesi_hystereesi
+        icon: mdi:thermometer-chevron-down
+        content_info: state
+      - type: entity
+        entity: input_number.lammitys_kayra_ulko_vih
+        icon: mdi:weather-sunny
+        content_info: state
+      - type: entity
+        entity: input_number.lammitys_kayra_ulko_kylma
+        icon: mdi:snowflake
+        content_info: state
+      - type: entity
+        entity: input_number.lammitys_kayra_meno_min
+        icon: mdi:thermometer-low
+        content_info: state
+      - type: entity
+        entity: input_number.lammitys_kayra_meno_max
+        icon: mdi:thermometer-high
+        content_info: state
+      - type: entity
+        entity: input_number.lammitys_hinta_halpa
+        icon: mdi:currency-eur
+        content_info: state
+      - type: entity
+        entity: input_number.lammitys_hinta_kallis
+        icon: mdi:currency-eur-off
+        content_info: state
+      - type: entity
+        entity: input_number.lammitys_hinta_nosto_max
+        icon: mdi:thermometer-chevron-up
+        content_info: state
+      - type: entity
+        entity: input_number.lammitys_hinta_rajoitus_max
+        icon: mdi:thermometer-minus
+        content_info: state
+      - type: entity
+        entity: input_number.lammitys_hinta_ennakko_h
+        icon: mdi:clock-outline
+        content_info: state
+      - type: entity
+        entity: input_number.lammitys_kv_pumppu_paalle
+        icon: mdi:water-thermometer
+        content_info: state
+      - type: entity
+        entity: input_number.lammitys_kv_pumppu_pois
+        icon: mdi:water-alert
+        content_info: state
+  - type: custom:mushroom-template-card
+    layout: horizontal
+    fill_container: true
+    primary: Aurinkolämpö
+    secondary: "{{ states('sensor.aurinkolampo_tuotto_teksti') }}"
+    icon: mdi:solar-power-variant
+    icon_color: "{{ 'amber' if is_state('binary_sensor.lammitys_aurinko_lammittaa', 'on') else 'disabled' }}"
+    tap_action:
+      action: more-info
+      entity: sensor.aurinkolampo_tuotto_tanaan
+  - type: custom:mod-card
+    card_mod:
+      style:
+        hui-grid-card$:
+          power-gauge-card$: >
+            .title { font-size: 10px !important; font-weight: 700 !important; }
+            .subtitle { font-size: 7px !important; font-weight: 600 !important; }
+            .value { font-size: 15px !important; font-weight: 700 !important; }
+            .unit-inline { font-size: 8px !important; font-weight: 600 !important; }
+            .label-now { font-size: 6px !important; font-weight: 700 !important; }
+            .unit { font-size: 7px !important; font-weight: 600 !important; }
+            .status { font-size: 7px !important; font-weight: 600 !important; }
+            .panel { padding: 6px 4px 4px !important; }
+            .stage { margin: 0 !important; }
+            .gauge { max-width: 160px !important; }
+        .: >
+          ha-card { background: none !important; box-shadow: none !important; border: none !important; }
+    card:
+      type: grid
+      square: false
+      columns: 4
+      cards:
         - type: custom:power-gauge-card
           entity: sensor.nele_ja_keittio_lattialammitys_anturit_air_temperature_8
           name: Kenno
@@ -240,30 +244,6 @@ cards:
           rolling_numbers: false
           background: transparent
         - type: custom:power-gauge-card
-          entity: sensor.vilp_ohjaus_lampotilat_air_temperature_10
-          name: LL meno
-          unit: °C
-          min: 20
-          max: 45
-          normal: 28
-          warning: 36
-          critical: 42
-          precision: 1
-          rolling_numbers: false
-          background: transparent
-        - type: custom:power-gauge-card
-          entity: sensor.vilp_ohjaus_lampotilat_air_temperature_9
-          name: LL paluu
-          unit: °C
-          min: 20
-          max: 45
-          normal: 26
-          warning: 34
-          critical: 40
-          precision: 1
-          rolling_numbers: false
-          background: transparent
-        - type: custom:power-gauge-card
           entity: sensor.aurinkolampo_teho_kw
           name: Aur.teho
           unit: kW
@@ -275,16 +255,6 @@ cards:
           precision: 2
           rolling_numbers: false
           background: transparent
-  - type: custom:mushroom-template-card
-    layout: horizontal
-    fill_container: true
-    primary: "☀️ Aurinkolämpö"
-    secondary: "{{ states('sensor.aurinkolampo_tuotto_teksti') }}"
-    icon: mdi:solar-power-variant
-    icon_color: amber
-    tap_action:
-      action: more-info
-      entity: sensor.aurinkolampo_tuotto_tanaan
   - type: custom:mushroom-chips-card
     alignment: center
     chips:
@@ -293,7 +263,7 @@ cards:
         content: "Spot {{ states('sensor.energi_data_service') | float(0) | round(1) }} c"
       - type: template
         icon: mdi:chart-timeline-variant
-        content: "Ennakko {{ states('sensor.lammitys_hinta_ennakko') }} c / {{ states('input_number.lammitys_hinta_ennakko_h') | int(6) }}h"
+        content: "Ennakko {{ states('sensor.lammitys_hinta_ennakko') }} c"
         tap_action:
           action: more-info
           entity: sensor.lammitys_hinta_ennakko
@@ -306,12 +276,6 @@ cards:
           states('sensor.vilp_ohjaus_lampotilat_air_temperature_13') | float(0))
           | round(1) }}°
       - type: template
-        icon: mdi:solar-power-variant
-        content: Aur {{ states('sensor.aurinkolampo_teho_kw') | float(0) }} kW
-        tap_action:
-          action: more-info
-          entity: sensor.aurinkolampo_teho_kw
-      - type: template
         icon: mdi:solar-power
         content: Tänään {{ states('sensor.aurinkolampo_tuotto_tanaan') | float(0) | round(1) }} kWh
         tap_action:
@@ -323,39 +287,6 @@ cards:
         tap_action:
           action: more-info
           entity: sensor.aurinkolampo_tuotto_eilen
-      - type: template
-        icon: mdi:calendar-week
-        content: Vko {{ states('sensor.aurinkolampo_tuotto_viikko') | float(0) | round(1) }} kWh
-        tap_action:
-          action: more-info
-          entity: sensor.aurinkolampo_tuotto_viikko
-      - type: template
-        icon: mdi:calendar-month
-        content: Kk {{ states('sensor.aurinkolampo_tuotto_kuukausi') | float(0) | round(1) }} kWh
-        tap_action:
-          action: more-info
-          entity: sensor.aurinkolampo_tuotto_kuukausi
-      - type: entity
-        entity: switch.sonoff_4_ch_pro_2_tasmota2
-        icon: mdi:pump
-        content_info: name
-      - type: template
-        icon: mdi:pump
-        icon_color: "{{ 'green' if is_state('binary_sensor.lammitys_sekoituspumppu_paalla', 'on') else 'grey' }}"
-        content: "{{ 'Sekoituspumppu päällä' if is_state('binary_sensor.lammitys_sekoituspumppu_paalla', 'on') else 'Sekoituspumppu' }}"
-        tap_action:
-          action: more-info
-          entity: switch.sonoff_4_ch_pro_2_tasmota4
-        hold_action:
-          action: more-info
-          entity: input_text.lammitys_sekoituspumppu
-      - type: template
-        icon: mdi:solar-power
-        icon_color: "{{ 'amber' if is_state('binary_sensor.lammitys_aurinko_lammittaa', 'on') else 'grey' }}"
-        content: "{{ 'Aurinko lämmittää' if is_state('binary_sensor.lammitys_aurinko_lammittaa', 'on') else 'Aurinko ei lämmitä' }}"
-        tap_action:
-          action: more-info
-          entity: binary_sensor.lammitys_aurinko_lammittaa
       - type: entity
         entity: switch.sonoff_4_ch_pro_2_tasmota3
         icon: mdi:solar-power-variant
@@ -364,6 +295,23 @@ cards:
         entity: input_select.lammitys_aurinkopumppu
         icon: mdi:cog
         content_info: state
+      - type: entity
+        entity: input_number.lammitys_aurinko_varo
+        icon: mdi:solar-power
+        content_info: state
+      - type: entity
+        entity: input_number.lammitys_aurinko_teho_raja
+        icon: mdi:solar-power-variant
+        content_info: state
+  - type: custom:mushroom-template-card
+    layout: horizontal
+    fill_container: true
+    primary: Huoneet
+    secondary: Auto / pois / korotus jokaisessa ruudussa
+    icon: mdi:home-thermometer
+    icon_color: blue
+    tap_action:
+      action: none
   - type: grid
     columns: 2
     square: false
