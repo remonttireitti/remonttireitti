@@ -7,7 +7,7 @@ Yhdysviiva `-` on kielletty. Käytä vain `a-z`, `0-9` ja `_`.
 
 | Tiedosto | Huom |
 |----------|------|
-| `keittio_ilp.yaml` | Keittiö ILP |
+| `lammitys_ohjaus.yaml` | Lämmitys + menovesi / sekoituspumppu |
 | `aurinkolampo.yaml` | Aurinkolämpö kWh |
 | `energia_kokonaisteho.yaml` | L1+L2+L3 |
 | `energia_vertailu.yaml` | Vertailu kWh |

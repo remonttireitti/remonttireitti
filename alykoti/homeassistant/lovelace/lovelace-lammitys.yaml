@@ -29,6 +29,27 @@ cards:
       secondary: "{{ states('sensor.lammitys_sekoitus_teksti') }}"
       icon: mdi:valve-closed
       icon_color: disabled
+  - type: custom:mushroom-template-card
+    layout: horizontal
+    fill_container: true
+    primary: "Menovesi {{ states('sensor.vilp_ohjaus_lampotilat_air_temperature_10') }} °C · tavoite {{ states('sensor.lammitys_sekoitus_kaytto') }} °C"
+    secondary: "{{ states('sensor.lammitys_menovesi_teksti') }}"
+    icon: mdi:pipe-valve
+    icon_color: "{{ 'green' if is_state('binary_sensor.lammitys_sekoituspumppu_paalla', 'on') else ('orange' if is_state('binary_sensor.lammitys_sekoitus_sallittu', 'on') else 'disabled') }}"
+    tap_action:
+      action: more-info
+      entity: sensor.vilp_ohjaus_lampotilat_air_temperature_10
+  - type: custom:mushroom-climate-card
+    entity: climate.lattialammitys
+    name: Sekoitusventtiili
+    collapsible_controls: true
+    tap_action:
+      action: more-info
+  - type: custom:mushroom-number-card
+    entity: input_number.lammitys_menovesi_hystereesi
+    name: Menovesi hystereesi
+    display_mode: slider
+    icon: mdi:thermometer-chevron-down
   - type: custom:mod-card
     card_mod:
       style:
@@ -206,6 +227,16 @@ cards:
         entity: switch.sonoff_4_ch_pro_2_tasmota2
         icon: mdi:pump
         content_info: name
+      - type: template
+        icon: mdi:pump
+        icon_color: "{{ 'green' if is_state('binary_sensor.lammitys_sekoituspumppu_paalla', 'on') else 'grey' }}"
+        content: "{{ 'Sekoituspumppu päällä' if is_state('binary_sensor.lammitys_sekoituspumppu_paalla', 'on') else 'Sekoituspumppu' }}"
+        tap_action:
+          action: more-info
+          entity: switch.sonoff_4_ch_pro_2
+        hold_action:
+          action: more-info
+          entity: input_text.lammitys_sekoituspumppu
       - type: entity
         entity: switch.sonoff_4_ch_pro_2_tasmota3
         icon: mdi:solar-power-variant

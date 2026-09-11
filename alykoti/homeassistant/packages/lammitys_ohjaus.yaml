@@ -1,0 +1,1415 @@
+# lammitys_ohjaus.yaml
+# → config/packages/lammitys_ohjaus.yaml
+# Tiedostonimi ILMAN yhdysviivaa. EI Lovelace-kortti (älä laita type: vertical-stack).
+#
+# Huonekohtaiset termostaatit + varaajan sekoitusventtiili (climate.lattialammitys)
+# + lattialämmityspumppu (tasmota2) + sekoituspumppu (menoveden nosto).
+#
+# Menovesi: sensor.vilp_ohjaus_lampotilat_air_temperature_10 (LL meno)
+# Paluu:    sensor.vilp_ohjaus_lampotilat_air_temperature_9
+# Tavoite:  sensor.lammitys_sekoitus_kaytto (ulkolämpö + hinta, 35–48 °C)
+# Sekoituspumppu: input_text.lammitys_sekoituspumppu
+#   (oletus switch.sonoff_4_ch_pro_2 = 4CH kanava 1).
+# Pumppu päälle kun LL-kierto käy, KV > 55 °C, varaaja > 25 °C,
+# varaaja kuumempi kuin meno, ja meno < tavoite − hystereesi.
+# Pumppu pois kun meno ≥ tavoite tai kierto/KV ei salli.
+
+input_select:
+  lammitys_tila_olohuone_keittio:
+    name: Lämmitys tila olohuone keittio
+    options:
+      - Automaatti
+      - Pois
+    initial: Automaatti
+    icon: mdi:thermostat-auto
+  lammitys_tila_hm:
+    name: Lämmitys tila hm
+    options:
+      - Automaatti
+      - Pois
+    initial: Automaatti
+    icon: mdi:thermostat-auto
+  lammitys_tila_makuhuone:
+    name: Lämmitys tila makuhuone
+    options:
+      - Automaatti
+      - Pois
+    initial: Automaatti
+    icon: mdi:thermostat-auto
+  lammitys_tila_glen:
+    name: Lämmitys tila glen
+    options:
+      - Automaatti
+      - Pois
+    initial: Automaatti
+    icon: mdi:thermostat-auto
+  lammitys_tila_nele:
+    name: Lämmitys tila nele
+    options:
+      - Automaatti
+      - Pois
+    initial: Automaatti
+    icon: mdi:thermostat-auto
+  lammitys_tila_eteinen:
+    name: Lämmitys tila eteinen
+    options:
+      - Automaatti
+      - Pois
+    initial: Automaatti
+    icon: mdi:thermostat-auto
+  lammitys_aurinkopumppu:
+    name: Aurinkolämpöpumppu tila
+    options:
+      - Automaatti
+      - Pois
+      - Pakko päälle
+    initial: Automaatti
+    icon: mdi:solar-power
+
+input_number:
+  lammitys_korotus_olohuone_keittio:
+    name: Lämmitys korotus olohuone keittio
+    min: 0.5
+    max: 5
+    step: 0.5
+    mode: slider
+    unit_of_measurement: "°C"
+    icon: mdi:thermometer-chevron-up
+    initial: 1.5
+  lammitys_kesto_olohuone_keittio:
+    name: Lämmitys kesto olohuone keittio
+    min: 15
+    max: 480
+    step: 15
+    mode: slider
+    unit_of_measurement: min
+    icon: mdi:timer-outline
+    initial: 60
+  lammitys_korotus_hm:
+    name: Lämmitys korotus hm
+    min: 0.5
+    max: 5
+    step: 0.5
+    mode: slider
+    unit_of_measurement: "°C"
+    icon: mdi:thermometer-chevron-up
+    initial: 1.5
+  lammitys_kesto_hm:
+    name: Lämmitys kesto hm
+    min: 15
+    max: 480
+    step: 15
+    mode: slider
+    unit_of_measurement: min
+    icon: mdi:timer-outline
+    initial: 60
+  lammitys_korotus_makuhuone:
+    name: Lämmitys korotus makuhuone
+    min: 0.5
+    max: 5
+    step: 0.5
+    mode: slider
+    unit_of_measurement: "°C"
+    icon: mdi:thermometer-chevron-up
+    initial: 1.5
+  lammitys_kesto_makuhuone:
+    name: Lämmitys kesto makuhuone
+    min: 15
+    max: 480
+    step: 15
+    mode: slider
+    unit_of_measurement: min
+    icon: mdi:timer-outline
+    initial: 60
+  lammitys_korotus_glen:
+    name: Lämmitys korotus glen
+    min: 0.5
+    max: 5
+    step: 0.5
+    mode: slider
+    unit_of_measurement: "°C"
+    icon: mdi:thermometer-chevron-up
+    initial: 1.5
+  lammitys_kesto_glen:
+    name: Lämmitys kesto glen
+    min: 15
+    max: 480
+    step: 15
+    mode: slider
+    unit_of_measurement: min
+    icon: mdi:timer-outline
+    initial: 60
+  lammitys_korotus_nele:
+    name: Lämmitys korotus nele
+    min: 0.5
+    max: 5
+    step: 0.5
+    mode: slider
+    unit_of_measurement: "°C"
+    icon: mdi:thermometer-chevron-up
+    initial: 1.5
+  lammitys_kesto_nele:
+    name: Lämmitys kesto nele
+    min: 15
+    max: 480
+    step: 15
+    mode: slider
+    unit_of_measurement: min
+    icon: mdi:timer-outline
+    initial: 60
+  lammitys_korotus_eteinen:
+    name: Lämmitys korotus eteinen
+    min: 0.5
+    max: 5
+    step: 0.5
+    mode: slider
+    unit_of_measurement: "°C"
+    icon: mdi:thermometer-chevron-up
+    initial: 1.5
+  lammitys_kesto_eteinen:
+    name: Lämmitys kesto eteinen
+    min: 15
+    max: 480
+    step: 15
+    mode: slider
+    unit_of_measurement: min
+    icon: mdi:timer-outline
+    initial: 60
+  lammitys_aurinko_virtaus_l_s:
+    name: Aurinkolämpö virtaus
+    min: 0.1
+    max: 0.3
+    step: 0.05
+    mode: slider
+    unit_of_measurement: L/s
+    icon: mdi:hydraulic-oil-level
+    initial: 0.2
+  lammitys_menovesi_hystereesi:
+    name: Lämmitys menovesi hystereesi
+    min: 0.3
+    max: 3
+    step: 0.1
+    mode: slider
+    unit_of_measurement: "°C"
+    icon: mdi:thermometer-chevron-down
+    initial: 1
+
+input_text:
+  lammitys_sekoituspumppu:
+    name: Lämmitys sekoituspumppu
+    initial: switch.sonoff_4_ch_pro_2
+    max: 128
+    icon: mdi:pump
+
+timer:
+  lammitys_korotus_olohuone_keittio:
+    name: Lämmitys korotus olohuone keittio
+    duration: "01:00:00"
+    icon: mdi:timer-sand
+  lammitys_korotus_hm:
+    name: Lämmitys korotus hm
+    duration: "01:00:00"
+    icon: mdi:timer-sand
+  lammitys_korotus_makuhuone:
+    name: Lämmitys korotus makuhuone
+    duration: "01:00:00"
+    icon: mdi:timer-sand
+  lammitys_korotus_glen:
+    name: Lämmitys korotus glen
+    duration: "01:00:00"
+    icon: mdi:timer-sand
+  lammitys_korotus_nele:
+    name: Lämmitys korotus nele
+    duration: "01:00:00"
+    icon: mdi:timer-sand
+  lammitys_korotus_eteinen:
+    name: Lämmitys korotus eteinen
+    duration: "01:00:00"
+    icon: mdi:timer-sand
+
+script:
+  lammitys_korotus_kaynnista:
+    alias: Lämmitys korotus käynnistä
+    mode: parallel
+    fields:
+      alue:
+        description: Lämmitysalue
+        required: true
+        selector:
+          select:
+            options:
+              - olohuone_keittio
+              - hm
+              - makuhuone
+              - glen
+              - nele
+              - eteinen
+    sequence:
+      - variables:
+          zone: "{{ alue }}"
+          mins: "{{ states('input_number.lammitys_kesto_' ~ zone) | int(60) }}"
+          duration: >
+            {{ '%02d:%02d:00' | format(mins // 60, mins % 60) }}
+      - action: timer.start
+        target:
+          entity_id: "timer.lammitys_korotus_{{ zone }}"
+        data:
+          duration: "{{ duration }}"
+      - action: automation.trigger
+        target:
+          entity_id: "automation.lammitys_{{ zone }}"
+        data:
+          skip_condition: true
+
+  lammitys_korotus_lopeta:
+    alias: Lämmitys korotus lopeta
+    mode: parallel
+    fields:
+      alue:
+        description: Lämmitysalue
+        required: true
+        selector:
+          select:
+            options:
+              - olohuone_keittio
+              - hm
+              - makuhuone
+              - glen
+              - nele
+              - eteinen
+    sequence:
+      - action: timer.cancel
+        target:
+          entity_id: "timer.lammitys_korotus_{{ alue }}"
+      - action: automation.trigger
+        target:
+          entity_id: "automation.lammitys_{{ alue }}"
+        data:
+          skip_condition: true
+
+  lammitys_aseta_termostaatti:
+    alias: Lämmitys aseta termostaatti
+    mode: queued
+    fields:
+      climates:
+        description: Climate-entityt
+        required: true
+        selector:
+          entity:
+            domain: climate
+            multiple: true
+      temperature:
+        description: Tavoitelämpötila °C
+        required: true
+        selector:
+          number:
+            min: 5
+            max: 35
+            step: 0.5
+    sequence:
+      - variables:
+          climate_list: >
+            {% if climates is string %}
+              {{ [climates] }}
+            {% else %}
+              {{ climates }}
+            {% endif %}
+      - repeat:
+          for_each: "{{ climate_list }}"
+          sequence:
+            - variables:
+                eid: "{{ repeat.item }}"
+                modes: "{{ state_attr(eid, 'preset_modes') or [] }}"
+                clear_preset: >
+                  {% if 'none' in modes %}none
+                  {% elif 'None' in modes %}None
+                  {% elif 'home' in modes %}home
+                  {% elif 'comfort' in modes %}comfort
+                  {% elif 'Comfort' in modes %}Comfort
+                  {% else %}none{% endif %}
+            - action: climate.set_preset_mode
+              target:
+                entity_id: "{{ eid }}"
+              data:
+                preset_mode: "{{ clear_preset }}"
+            - delay:
+                milliseconds: 700
+            - action: climate.set_hvac_mode
+              target:
+                entity_id: "{{ eid }}"
+              data:
+                hvac_mode: heat
+            - action: climate.set_temperature
+              target:
+                entity_id: "{{ eid }}"
+              data:
+                temperature: "{{ temperature }}"
+            - delay:
+                milliseconds: 900
+            - action: climate.set_preset_mode
+              target:
+                entity_id: "{{ eid }}"
+              data:
+                preset_mode: "{{ clear_preset }}"
+
+  lammitys_aseta_sekoitus:
+    alias: Lämmitys aseta sekoitusventtiili
+    mode: single
+    fields:
+      active:
+        description: Sallitaanko lämmitys (käyttövesi > 55 °C)
+        required: true
+        selector:
+          boolean:
+      temperature:
+        description: Sekoituslämpötila °C
+        required: true
+        selector:
+          number:
+            min: 35
+            max: 48
+            step: 0.5
+    sequence:
+      - choose:
+          - conditions: "{{ active }}"
+            sequence:
+              - action: climate.set_hvac_mode
+                target:
+                  entity_id: climate.lattialammitys
+                data:
+                  hvac_mode: heat
+              - action: climate.set_temperature
+                target:
+                  entity_id: climate.lattialammitys
+                data:
+                  temperature: "{{ temperature }}"
+        default:
+          - action: climate.set_hvac_mode
+            target:
+              entity_id: climate.lattialammitys
+            data:
+              hvac_mode: "off"
+
+  lammitys_aseta_sekoituspumppu:
+    alias: Lämmitys aseta sekoituspumppu
+    mode: queued
+    max: 3
+    fields:
+      paalle:
+        selector:
+          boolean:
+    sequence:
+      - variables:
+          pump: "{{ states('input_text.lammitys_sekoituspumppu') | trim }}"
+      - condition: template
+        value_template: "{{ pump not in ['unknown', 'unavailable', 'none', ''] }}"
+      - choose:
+          - conditions: "{{ paalle | bool }}"
+            sequence:
+              - action: switch.turn_on
+                target:
+                  entity_id: "{{ pump }}"
+                continue_on_error: true
+        default:
+          - action: switch.turn_off
+            target:
+              entity_id: "{{ pump }}"
+            continue_on_error: true
+
+template:
+  - sensor:
+      - name: Lammitys rajoitus teksti
+        unique_id: lammitys_rajoitus_teksti
+        icon: mdi:thermometer-alert
+        state: >
+          {% set t = states('sensor.vilp_ohjaus_lampotilat_air_temperature_13') | float(none) %}
+          {% if t is none %}Ei lämmitysvesidataa
+          {% elif t <= 25 %}Lämmitys rajoitettu — lämmitysvesi {{ t | round(1) }} °C (raja 25 °C)
+          {% else %}Lämmitysvesi {{ t | round(1) }} °C — normaali ohjaus{% endif %}
+  - trigger:
+      - platform: state
+        entity_id:
+          - switch.sonoff_4_ch_pro_2_tasmota3
+          - sensor.vilp_ohjaus_lampotilat_air_temperature_12
+          - sensor.vilp_ohjaus_lampotilat_air_temperature_11
+          - input_number.lammitys_aurinko_virtaus_l_s
+      - platform: homeassistant
+        event: start
+    sensor:
+      - name: Aurinkolämpö lämpötilaero c
+        unique_id: aurinkolampo_lampotilaero_c
+        unit_of_measurement: °C
+        device_class: temperature
+        icon: mdi:delta
+        state: >
+          {% set meno = states('sensor.vilp_ohjaus_lampotilat_air_temperature_12') | float(none) %}
+          {% set paluu = states('sensor.vilp_ohjaus_lampotilat_air_temperature_11') | float(none) %}
+          {% if meno is none or paluu is none %}unknown
+          {% else %}{{ (meno - paluu) | abs | round(1) }}{% endif %}
+      - name: Aurinkolämpö teho kW
+        unique_id: aurinkolampo_teho_kw
+        unit_of_measurement: kW
+        device_class: power
+        state_class: measurement
+        icon: mdi:solar-power-variant
+        state: >
+          {# P = virtaus[L/s] × ρ[kg/L] × cp[kJ/kgK] × ΔT[°C]; 30 % PG ~50 °C #}
+          {% set pump = is_state('switch.sonoff_4_ch_pro_2_tasmota3', 'on') %}
+          {% set meno = states('sensor.vilp_ohjaus_lampotilat_air_temperature_12') | float(none) %}
+          {% set paluu = states('sensor.vilp_ohjaus_lampotilat_air_temperature_11') | float(none) %}
+          {% set flow = states('input_number.lammitys_aurinko_virtaus_l_s') | float(0.5) %}
+          {% if not pump or meno is none or paluu is none %}0
+          {% else %}
+            {% set delta = (meno - paluu) | abs %}
+            {% if delta < 0.15 %}0
+            {% else %}
+              {% set rho = 1.042 %}
+              {% set cp = 3.75 %}
+              {{ (flow * rho * cp * delta) | round(2) }}
+            {% endif %}
+          {% endif %}
+        attributes:
+          virtaus_l_s: "{{ states('input_number.lammitys_aurinko_virtaus_l_s') }}"
+          lampotilaero_c: "{{ states('sensor.aurinkolampo_lampotilaero_c') }}"
+          meno_c: "{{ states('sensor.vilp_ohjaus_lampotilat_air_temperature_12') }}"
+          paluu_c: "{{ states('sensor.vilp_ohjaus_lampotilat_air_temperature_11') }}"
+          neste: "Propyleeniglykoli 30 %"
+          laskenta: "P[kW] = virtaus × 1,042 kg/L × 3,75 kJ/kgK × |meno−paluu|"
+      - name: Aurinkolämpö teho teksti
+        unique_id: aurinkolampo_teho_teksti
+        icon: mdi:solar-power-variant
+        state: >
+          {% set p = states('sensor.aurinkolampo_teho_kw') | float(0) %}
+          {% set d = states('sensor.aurinkolampo_lampotilaero_c') | float(none) %}
+          {% set f = states('input_number.lammitys_aurinko_virtaus_l_s') | float(0.5) %}
+          {% if not is_state('switch.sonoff_4_ch_pro_2_tasmota3', 'on') %}Pumppu pois — teho 0 kW
+          {% elif p < 0.05 %}Pumppu päällä, lämpötilaero pieni ({{ d if d is not none else '?' }} °C) — teho ~0 kW
+          {% else %}{{ p }} kW ({{ f }} L/s, ΔT {{ d }} °C, PG 30 %){% endif %}
+  - binary_sensor:
+      - name: Lammitys rajoitettu
+        unique_id: lammitys_rajoitettu
+        icon: mdi:thermometer-alert
+        state: >
+          {{ states('sensor.vilp_ohjaus_lampotilat_air_temperature_13') | float(99) <= 25 }}
+  - trigger:
+      - platform: state
+        entity_id:
+          - binary_sensor.terassi_ovi_contact
+          - binary_sensor.hm_ikkunatunnistin_contact
+          - binary_sensor.makuhuone_ikkunatunnistin_contact
+          - binary_sensor.glen_ikkunatunnistin_contact
+          - binary_sensor.nele_ikkunatunnistin_contact
+          - binary_sensor.etuovi_current_status_of_the_door
+    binary_sensor:
+      - name: Lammitys terassi auki
+        unique_id: lammitys_terassi_auki
+        device_class: door
+        state: "{{ is_state('binary_sensor.terassi_ovi_contact', 'on') }}"
+      - name: Lammitys hm ikkuna auki
+        unique_id: lammitys_hm_ikkuna_auki
+        device_class: window
+        state: "{{ is_state('binary_sensor.hm_ikkunatunnistin_contact', 'on') }}"
+      - name: Lammitys makuhuone ikkuna auki
+        unique_id: lammitys_makuhuone_ikkuna_auki
+        device_class: window
+        state: "{{ is_state('binary_sensor.makuhuone_ikkunatunnistin_contact', 'on') }}"
+      - name: Lammitys glen ikkuna auki
+        unique_id: lammitys_glen_ikkuna_auki
+        device_class: window
+        state: "{{ is_state('binary_sensor.glen_ikkunatunnistin_contact', 'on') }}"
+      - name: Lammitys nele ikkuna auki
+        unique_id: lammitys_nele_ikkuna_auki
+        device_class: window
+        state: "{{ is_state('binary_sensor.nele_ikkunatunnistin_contact', 'on') }}"
+      - name: Lammitys eteinen ovi auki
+        unique_id: lammitys_eteinen_ovi_auki
+        device_class: door
+        state: "{{ is_state('binary_sensor.etuovi_current_status_of_the_door', 'on') }}"
+  - trigger:
+      - platform: time_pattern
+        minutes: "/3"
+      - platform: homeassistant
+        event: start
+      - platform: state
+        entity_id:
+          - sensor.ulkolampotila_met_no
+          - sensor.energi_data_service
+          - sensor.hetkellinen_kustannus_30min_keski_arvo
+    sensor:
+      - name: Lammitys tavoite olohuone keittio
+        unique_id: lammitys_tavoite_olohuone_keittio
+        unit_of_measurement: "°C"
+        device_class: temperature
+        state: >
+          {% set BASE_TEMP = 22 %}
+          {% set OUTDOOR_COLD = -20 %}
+          {% set OUTDOOR_WARM = 10 %}
+          {% set OUTDOOR_EFFECT = 5 %}
+          {% set PRICE_CHEAP = 0 %}
+          {% set PRICE_EXPENSIVE = 15 %}
+          {% set PRICE_EFFECT = 1.5 %}
+          {% set COST_CHEAP = 0 %}
+          {% set COST_EXPENSIVE = 70 %}
+          {% set COST_EFFECT = 1.5 %}
+          {% set MIN_TEMP = 20 %}
+          {% set MAX_TEMP = 22 %}
+          {% set outdoor = states('sensor.ulkolampotila_met_no') | float(0) %}
+          {% set price_now = states('sensor.energi_data_service') | float(0) %}
+          {% set avgCost = states('sensor.hetkellinen_kustannus_30min_keski_arvo') | float(0) %}
+          {% if outdoor <= OUTDOOR_COLD %}{% set adj_outdoor = OUTDOOR_EFFECT %}
+          {% elif outdoor >= OUTDOOR_WARM %}{% set adj_outdoor = -OUTDOOR_EFFECT %}
+          {% else %}{% set adj_outdoor = OUTDOOR_EFFECT * (1 - ((outdoor - OUTDOOR_COLD) / (OUTDOOR_WARM - OUTDOOR_COLD)) * 2) %}{% endif %}
+          {% if price_now <= PRICE_CHEAP %}{% set adj_price = PRICE_EFFECT %}
+          {% elif price_now >= PRICE_EXPENSIVE %}{% set adj_price = -PRICE_EFFECT %}
+          {% else %}{% set adj_price = PRICE_EFFECT * (1 - ((price_now - PRICE_CHEAP) / (PRICE_EXPENSIVE - PRICE_CHEAP)) * 2) %}{% endif %}
+          {% if avgCost <= COST_CHEAP %}{% set adj_cost = COST_EFFECT %}
+          {% elif avgCost >= COST_EXPENSIVE %}{% set adj_cost = -COST_EFFECT %}
+          {% else %}{% set adj_cost = COST_EFFECT * (1 - ((avgCost - COST_CHEAP) / (COST_EXPENSIVE - COST_CHEAP)) * 2) %}{% endif %}
+          {% set target = BASE_TEMP + adj_outdoor + adj_price + adj_cost %}
+          {{ [[MIN_TEMP, target] | max, MAX_TEMP] | min | round(1) }}
+      - name: Lammitys tavoite hm
+        unique_id: lammitys_tavoite_hm
+        unit_of_measurement: "°C"
+        device_class: temperature
+        state: >
+          {% set BASE_TEMP = 22 %}
+          {% set OUTDOOR_COLD = -20 %}
+          {% set OUTDOOR_WARM = 10 %}
+          {% set OUTDOOR_EFFECT = 5 %}
+          {% set PRICE_CHEAP = 0 %}
+          {% set PRICE_EXPENSIVE = 15 %}
+          {% set PRICE_EFFECT = 4.5 %}
+          {% set COST_CHEAP = 0 %}
+          {% set COST_EXPENSIVE = 50 %}
+          {% set COST_EFFECT = 4.5 %}
+          {% set MIN_TEMP = 17 %}
+          {% set MAX_TEMP = 20 %}
+          {% set outdoor = states('sensor.ulkolampotila_met_no') | float(0) %}
+          {% set price_now = states('sensor.energi_data_service') | float(0) %}
+          {% set avgCost = states('sensor.hetkellinen_kustannus_30min_keski_arvo') | float(0) %}
+          {% if outdoor <= OUTDOOR_COLD %}{% set adj_outdoor = OUTDOOR_EFFECT %}
+          {% elif outdoor >= OUTDOOR_WARM %}{% set adj_outdoor = -OUTDOOR_EFFECT %}
+          {% else %}{% set adj_outdoor = OUTDOOR_EFFECT * (1 - ((outdoor - OUTDOOR_COLD) / (OUTDOOR_WARM - OUTDOOR_COLD)) * 2) %}{% endif %}
+          {% if price_now <= PRICE_CHEAP %}{% set adj_price = PRICE_EFFECT %}
+          {% elif price_now >= PRICE_EXPENSIVE %}{% set adj_price = -PRICE_EFFECT %}
+          {% else %}{% set adj_price = PRICE_EFFECT * (1 - ((price_now - PRICE_CHEAP) / (PRICE_EXPENSIVE - PRICE_CHEAP)) * 2) %}{% endif %}
+          {% if avgCost <= COST_CHEAP %}{% set adj_cost = COST_EFFECT %}
+          {% elif avgCost >= COST_EXPENSIVE %}{% set adj_cost = -COST_EFFECT %}
+          {% else %}{% set adj_cost = COST_EFFECT * (1 - ((avgCost - COST_CHEAP) / (COST_EXPENSIVE - COST_CHEAP)) * 2) %}{% endif %}
+          {% set target = BASE_TEMP + adj_outdoor + adj_price + adj_cost %}
+          {{ [[MIN_TEMP, target] | max, MAX_TEMP] | min | round(1) }}
+      - name: Lammitys tavoite makuhuone
+        unique_id: lammitys_tavoite_makuhuone
+        unit_of_measurement: "°C"
+        device_class: temperature
+        state: >
+          {% set BASE_TEMP = 22 %}
+          {% set OUTDOOR_COLD = -20 %}
+          {% set OUTDOOR_WARM = 10 %}
+          {% set OUTDOOR_EFFECT = 5 %}
+          {% set PRICE_CHEAP = 0 %}
+          {% set PRICE_EXPENSIVE = 15 %}
+          {% set PRICE_EFFECT = 4.5 %}
+          {% set COST_CHEAP = 0 %}
+          {% set COST_EXPENSIVE = 50 %}
+          {% set COST_EFFECT = 4.5 %}
+          {% set MIN_TEMP = 18 %}
+          {% set MAX_TEMP = 21 %}
+          {% set outdoor = states('sensor.ulkolampotila_met_no') | float(0) %}
+          {% set price_now = states('sensor.energi_data_service') | float(0) %}
+          {% set avgCost = states('sensor.hetkellinen_kustannus_30min_keski_arvo') | float(0) %}
+          {% if outdoor <= OUTDOOR_COLD %}{% set adj_outdoor = OUTDOOR_EFFECT %}
+          {% elif outdoor >= OUTDOOR_WARM %}{% set adj_outdoor = -OUTDOOR_EFFECT %}
+          {% else %}{% set adj_outdoor = OUTDOOR_EFFECT * (1 - ((outdoor - OUTDOOR_COLD) / (OUTDOOR_WARM - OUTDOOR_COLD)) * 2) %}{% endif %}
+          {% if price_now <= PRICE_CHEAP %}{% set adj_price = PRICE_EFFECT %}
+          {% elif price_now >= PRICE_EXPENSIVE %}{% set adj_price = -PRICE_EFFECT %}
+          {% else %}{% set adj_price = PRICE_EFFECT * (1 - ((price_now - PRICE_CHEAP) / (PRICE_EXPENSIVE - PRICE_CHEAP)) * 2) %}{% endif %}
+          {% if avgCost <= COST_CHEAP %}{% set adj_cost = COST_EFFECT %}
+          {% elif avgCost >= COST_EXPENSIVE %}{% set adj_cost = -COST_EFFECT %}
+          {% else %}{% set adj_cost = COST_EFFECT * (1 - ((avgCost - COST_CHEAP) / (COST_EXPENSIVE - COST_CHEAP)) * 2) %}{% endif %}
+          {% set target = BASE_TEMP + adj_outdoor + adj_price + adj_cost %}
+          {{ [[MIN_TEMP, target] | max, MAX_TEMP] | min | round(1) }}
+      - name: Lammitys tavoite glen
+        unique_id: lammitys_tavoite_glen
+        unit_of_measurement: "°C"
+        device_class: temperature
+        state: >
+          {% set BASE_TEMP = 22 %}
+          {% set OUTDOOR_COLD = -20 %}
+          {% set OUTDOOR_WARM = 10 %}
+          {% set OUTDOOR_EFFECT = 5 %}
+          {% set PRICE_CHEAP = 0 %}
+          {% set PRICE_EXPENSIVE = 15 %}
+          {% set PRICE_EFFECT = 4.5 %}
+          {% set COST_CHEAP = 0 %}
+          {% set COST_EXPENSIVE = 50 %}
+          {% set COST_EFFECT = 4.5 %}
+          {% set MIN_TEMP = 18 %}
+          {% set MAX_TEMP = 21 %}
+          {% set outdoor = states('sensor.ulkolampotila_met_no') | float(0) %}
+          {% set price_now = states('sensor.energi_data_service') | float(0) %}
+          {% set avgCost = states('sensor.hetkellinen_kustannus_30min_keski_arvo') | float(0) %}
+          {% if outdoor <= OUTDOOR_COLD %}{% set adj_outdoor = OUTDOOR_EFFECT %}
+          {% elif outdoor >= OUTDOOR_WARM %}{% set adj_outdoor = -OUTDOOR_EFFECT %}
+          {% else %}{% set adj_outdoor = OUTDOOR_EFFECT * (1 - ((outdoor - OUTDOOR_COLD) / (OUTDOOR_WARM - OUTDOOR_COLD)) * 2) %}{% endif %}
+          {% if price_now <= PRICE_CHEAP %}{% set adj_price = PRICE_EFFECT %}
+          {% elif price_now >= PRICE_EXPENSIVE %}{% set adj_price = -PRICE_EFFECT %}
+          {% else %}{% set adj_price = PRICE_EFFECT * (1 - ((price_now - PRICE_CHEAP) / (PRICE_EXPENSIVE - PRICE_CHEAP)) * 2) %}{% endif %}
+          {% if avgCost <= COST_CHEAP %}{% set adj_cost = COST_EFFECT %}
+          {% elif avgCost >= COST_EXPENSIVE %}{% set adj_cost = -COST_EFFECT %}
+          {% else %}{% set adj_cost = COST_EFFECT * (1 - ((avgCost - COST_CHEAP) / (COST_EXPENSIVE - COST_CHEAP)) * 2) %}{% endif %}
+          {% set target = BASE_TEMP + adj_outdoor + adj_price + adj_cost %}
+          {{ [[MIN_TEMP, target] | max, MAX_TEMP] | min | round(1) }}
+      - name: Lammitys tavoite nele
+        unique_id: lammitys_tavoite_nele
+        unit_of_measurement: "°C"
+        device_class: temperature
+        state: >
+          {% set BASE_TEMP = 20 %}
+          {% set OUTDOOR_COLD = -20 %}
+          {% set OUTDOOR_WARM = 0 %}
+          {% set OUTDOOR_EFFECT = 5 %}
+          {% set PRICE_CHEAP = 0 %}
+          {% set PRICE_EXPENSIVE = 15 %}
+          {% set PRICE_EFFECT = 4.5 %}
+          {% set COST_CHEAP = 0 %}
+          {% set COST_EXPENSIVE = 50 %}
+          {% set COST_EFFECT = 4.5 %}
+          {% set MIN_TEMP = 19 %}
+          {% set MAX_TEMP = 21 %}
+          {% set outdoor = states('sensor.ulkolampotila_met_no') | float(0) %}
+          {% set price_now = states('sensor.energi_data_service') | float(0) %}
+          {% set avgCost = states('sensor.hetkellinen_kustannus_30min_keski_arvo') | float(0) %}
+          {% if outdoor <= OUTDOOR_COLD %}{% set adj_outdoor = OUTDOOR_EFFECT %}
+          {% elif outdoor >= OUTDOOR_WARM %}{% set adj_outdoor = -OUTDOOR_EFFECT %}
+          {% else %}{% set adj_outdoor = OUTDOOR_EFFECT * (1 - ((outdoor - OUTDOOR_COLD) / (OUTDOOR_WARM - OUTDOOR_COLD)) * 2) %}{% endif %}
+          {% if price_now <= PRICE_CHEAP %}{% set adj_price = PRICE_EFFECT %}
+          {% elif price_now >= PRICE_EXPENSIVE %}{% set adj_price = -PRICE_EFFECT %}
+          {% else %}{% set adj_price = PRICE_EFFECT * (1 - ((price_now - PRICE_CHEAP) / (PRICE_EXPENSIVE - PRICE_CHEAP)) * 2) %}{% endif %}
+          {% if avgCost <= COST_CHEAP %}{% set adj_cost = COST_EFFECT %}
+          {% elif avgCost >= COST_EXPENSIVE %}{% set adj_cost = -COST_EFFECT %}
+          {% else %}{% set adj_cost = COST_EFFECT * (1 - ((avgCost - COST_CHEAP) / (COST_EXPENSIVE - COST_CHEAP)) * 2) %}{% endif %}
+          {% set target = BASE_TEMP + adj_outdoor + adj_price + adj_cost %}
+          {{ [[MIN_TEMP, target] | max, MAX_TEMP] | min | round(1) }}
+      - name: Lammitys tavoite eteinen
+        unique_id: lammitys_tavoite_eteinen
+        unit_of_measurement: "°C"
+        device_class: temperature
+        state: >
+          {% set BASE_TEMP = 25 %}
+          {% set OUTDOOR_COLD = -20 %}
+          {% set OUTDOOR_WARM = 10 %}
+          {% set OUTDOOR_EFFECT = 5 %}
+          {% set PRICE_CHEAP = 0 %}
+          {% set PRICE_EXPENSIVE = 15 %}
+          {% set PRICE_EFFECT = 4.5 %}
+          {% set COST_CHEAP = 0 %}
+          {% set COST_EXPENSIVE = 50 %}
+          {% set COST_EFFECT = 4.5 %}
+          {% set MIN_TEMP = 21 %}
+          {% set MAX_TEMP = 23 %}
+          {% set outdoor = states('sensor.ulkolampotila_met_no') | float(0) %}
+          {% set price_now = states('sensor.energi_data_service') | float(0) %}
+          {% set avgCost = states('sensor.hetkellinen_kustannus_30min_keski_arvo') | float(0) %}
+          {% if outdoor <= OUTDOOR_COLD %}{% set adj_outdoor = OUTDOOR_EFFECT %}
+          {% elif outdoor >= OUTDOOR_WARM %}{% set adj_outdoor = -OUTDOOR_EFFECT %}
+          {% else %}{% set adj_outdoor = OUTDOOR_EFFECT * (1 - ((outdoor - OUTDOOR_COLD) / (OUTDOOR_WARM - OUTDOOR_COLD)) * 2) %}{% endif %}
+          {% if price_now <= PRICE_CHEAP %}{% set adj_price = PRICE_EFFECT %}
+          {% elif price_now >= PRICE_EXPENSIVE %}{% set adj_price = -PRICE_EFFECT %}
+          {% else %}{% set adj_price = PRICE_EFFECT * (1 - ((price_now - PRICE_CHEAP) / (PRICE_EXPENSIVE - PRICE_CHEAP)) * 2) %}{% endif %}
+          {% if avgCost <= COST_CHEAP %}{% set adj_cost = COST_EFFECT %}
+          {% elif avgCost >= COST_EXPENSIVE %}{% set adj_cost = -COST_EFFECT %}
+          {% else %}{% set adj_cost = COST_EFFECT * (1 - ((avgCost - COST_CHEAP) / (COST_EXPENSIVE - COST_CHEAP)) * 2) %}{% endif %}
+          {% set target = BASE_TEMP + adj_outdoor + adj_price + adj_cost %}
+          {{ [[MIN_TEMP, target] | max, MAX_TEMP] | min | round(1) }}
+  - trigger:
+      - platform: time_pattern
+        minutes: "/3"
+      - platform: homeassistant
+        event: start
+      - platform: state
+        entity_id:
+          - sensor.lammitys_tavoite_olohuone_keittio
+          - input_number.lammitys_korotus_olohuone_keittio
+          - timer.lammitys_korotus_olohuone_keittio
+          - sensor.lammitys_tavoite_hm
+          - input_number.lammitys_korotus_hm
+          - timer.lammitys_korotus_hm
+          - sensor.lammitys_tavoite_makuhuone
+          - input_number.lammitys_korotus_makuhuone
+          - timer.lammitys_korotus_makuhuone
+          - sensor.lammitys_tavoite_glen
+          - input_number.lammitys_korotus_glen
+          - timer.lammitys_korotus_glen
+          - sensor.lammitys_tavoite_nele
+          - input_number.lammitys_korotus_nele
+          - timer.lammitys_korotus_nele
+          - sensor.lammitys_tavoite_eteinen
+          - input_number.lammitys_korotus_eteinen
+          - timer.lammitys_korotus_eteinen
+    sensor:
+      - name: Lammitys kaytto olohuone keittio
+        unique_id: lammitys_kaytto_olohuone_keittio
+        unit_of_measurement: "°C"
+        device_class: temperature
+        state: >
+          {% set base_s = states('sensor.lammitys_tavoite_olohuone_keittio') %}
+          {% if base_s in ['unknown', 'unavailable', 'none', ''] %}
+            {% set base = state_attr('climate.olohuone_lattialammitys', 'temperature') | float(20) %}
+          {% else %}
+            {% set base = base_s | float(20) %}
+          {% endif %}
+          {% set korotus = states('input_number.lammitys_korotus_olohuone_keittio') | float(0) %}
+          {% if is_state('timer.lammitys_korotus_olohuone_keittio', 'active') %}
+            {{ [base + korotus, 30] | min | round(1) }}
+          {% else %}{{ base | round(1) }}{% endif %}
+      - name: Lammitys kaytto hm
+        unique_id: lammitys_kaytto_hm
+        unit_of_measurement: "°C"
+        device_class: temperature
+        state: >
+          {% set base_s = states('sensor.lammitys_tavoite_hm') %}
+          {% if base_s in ['unknown', 'unavailable', 'none', ''] %}
+            {% set base = state_attr('climate.hm_lattialammitys', 'temperature') | float(18) %}
+          {% else %}
+            {% set base = base_s | float(18) %}
+          {% endif %}
+          {% set korotus = states('input_number.lammitys_korotus_hm') | float(0) %}
+          {% if is_state('timer.lammitys_korotus_hm', 'active') %}
+            {{ [base + korotus, 30] | min | round(1) }}
+          {% else %}{{ base | round(1) }}{% endif %}
+      - name: Lammitys kaytto makuhuone
+        unique_id: lammitys_kaytto_makuhuone
+        unit_of_measurement: "°C"
+        device_class: temperature
+        state: >
+          {% set base_s = states('sensor.lammitys_tavoite_makuhuone') %}
+          {% if base_s in ['unknown', 'unavailable', 'none', ''] %}
+            {% set base = state_attr('climate.makuhuone_lattialammitys', 'temperature') | float(19) %}
+          {% else %}
+            {% set base = base_s | float(19) %}
+          {% endif %}
+          {% set korotus = states('input_number.lammitys_korotus_makuhuone') | float(0) %}
+          {% if is_state('timer.lammitys_korotus_makuhuone', 'active') %}
+            {{ [base + korotus, 30] | min | round(1) }}
+          {% else %}{{ base | round(1) }}{% endif %}
+      - name: Lammitys kaytto glen
+        unique_id: lammitys_kaytto_glen
+        unit_of_measurement: "°C"
+        device_class: temperature
+        state: >
+          {% set base_s = states('sensor.lammitys_tavoite_glen') %}
+          {% if base_s in ['unknown', 'unavailable', 'none', ''] %}
+            {% set base = state_attr('climate.glen_lattialammitys', 'temperature') | float(19) %}
+          {% else %}
+            {% set base = base_s | float(19) %}
+          {% endif %}
+          {% set korotus = states('input_number.lammitys_korotus_glen') | float(0) %}
+          {% if is_state('timer.lammitys_korotus_glen', 'active') %}
+            {{ [base + korotus, 30] | min | round(1) }}
+          {% else %}{{ base | round(1) }}{% endif %}
+      - name: Lammitys kaytto nele
+        unique_id: lammitys_kaytto_nele
+        unit_of_measurement: "°C"
+        device_class: temperature
+        state: >
+          {% set base_s = states('sensor.lammitys_tavoite_nele') %}
+          {% if base_s in ['unknown', 'unavailable', 'none', ''] %}
+            {% set base = state_attr('climate.nele_lattialammitys', 'temperature') | float(19) %}
+          {% else %}
+            {% set base = base_s | float(19) %}
+          {% endif %}
+          {% set korotus = states('input_number.lammitys_korotus_nele') | float(0) %}
+          {% if is_state('timer.lammitys_korotus_nele', 'active') %}
+            {{ [base + korotus, 30] | min | round(1) }}
+          {% else %}{{ base | round(1) }}{% endif %}
+      - name: Lammitys kaytto eteinen
+        unique_id: lammitys_kaytto_eteinen
+        unit_of_measurement: "°C"
+        device_class: temperature
+        state: >
+          {% set base_s = states('sensor.lammitys_tavoite_eteinen') %}
+          {% if base_s in ['unknown', 'unavailable', 'none', ''] %}
+            {% set base = state_attr('climate.eteisen_lattialammitys', 'temperature') | float(22) %}
+          {% else %}
+            {% set base = base_s | float(22) %}
+          {% endif %}
+          {% set korotus = states('input_number.lammitys_korotus_eteinen') | float(0) %}
+          {% if is_state('timer.lammitys_korotus_eteinen', 'active') %}
+            {{ [base + korotus, 30] | min | round(1) }}
+          {% else %}{{ base | round(1) }}{% endif %}
+  - trigger:
+      - platform: time_pattern
+        minutes: "/3"
+      - platform: homeassistant
+        event: start
+      - platform: state
+        entity_id:
+          - sensor.ulkolampotila_met_no
+          - sensor.energi_data_service
+          - sensor.vilp_ohjaus_lampotilat_air_temperature_8
+          - sensor.vilp_ohjaus_lampotilat_air_temperature_10
+          - sensor.vilp_ohjaus_lampotilat_air_temperature_9
+          - sensor.vilp_ohjaus_lampotilat_air_temperature_13
+          - sensor.lammitys_sekoitus_kaytto
+          - switch.sonoff_4_ch_pro_2_tasmota2
+          - switch.sonoff_4_ch_pro_2
+          - input_text.lammitys_sekoituspumppu
+          - input_number.lammitys_menovesi_hystereesi
+    sensor:
+      - name: Lammitys sekoitus kayra
+        unique_id: lammitys_sekoitus_kayra
+        unit_of_measurement: "°C"
+        device_class: temperature
+        icon: mdi:chart-bell-curve
+        state: >
+          {% set outdoor = states('sensor.ulkolampotila_met_no') | float(0) %}
+          {% set out_w = 18 %}
+          {% set out_c = -25 %}
+          {% set t_w = 35 %}
+          {% set t_c = 48 %}
+          {% if outdoor >= out_w %}{{ t_w | round(1) }}
+          {% elif outdoor <= out_c %}{{ t_c | round(1) }}
+          {% else %}{{ (t_w + (t_c - t_w) * (out_w - outdoor) / (out_w - out_c)) | round(1) }}{% endif %}
+      - name: Lammitys sekoitus hinta korjaus
+        unique_id: lammitys_sekoitus_hinta_korjaus
+        unit_of_measurement: "°C"
+        icon: mdi:flash
+        state: >
+          {% set price = states('sensor.energi_data_service') | float(0) %}
+          {% set p_lo = 5 %}
+          {% set p_hi = 50 %}
+          {% set adj_max = 8 %}
+          {% if price <= p_lo %}0
+          {% elif price >= p_hi %}{{ (-adj_max) | round(1) }}
+          {% else %}{{ (-adj_max * (price - p_lo) / (p_hi - p_lo)) | round(1) }}{% endif %}
+      - name: Lammitys sekoitus kaytto
+        unique_id: lammitys_sekoitus_kaytto
+        unit_of_measurement: "°C"
+        device_class: temperature
+        icon: mdi:valve
+        state: >
+          {% set outdoor = states('sensor.ulkolampotila_met_no') | float(0) %}
+          {% set out_w = 18 %}
+          {% set out_c = -25 %}
+          {% set t_w = 35 %}
+          {% set t_c = 48 %}
+          {% if outdoor >= out_w %}{% set curve = t_w %}
+          {% elif outdoor <= out_c %}{% set curve = t_c %}
+          {% else %}{% set curve = t_w + (t_c - t_w) * (out_w - outdoor) / (out_w - out_c) %}{% endif %}
+          {% set price = states('sensor.energi_data_service') | float(0) %}
+          {% set p_lo = 5 %}
+          {% set p_hi = 50 %}
+          {% set adj_max = 8 %}
+          {% if price <= p_lo %}{% set adj = 0 %}
+          {% elif price >= p_hi %}{% set adj = -adj_max %}
+          {% else %}{% set adj = -adj_max * (price - p_lo) / (p_hi - p_lo) %}{% endif %}
+          {{ [[35, curve + adj] | max, 48] | min | round(1) }}
+      - name: Lammitys sekoitus teksti
+        unique_id: lammitys_sekoitus_teksti
+        icon: mdi:valve
+        state: >
+          {% set kv = states('sensor.vilp_ohjaus_lampotilat_air_temperature_8') | float(none) %}
+          {% set tavoite = states('sensor.lammitys_sekoitus_kaytto') | float(none) %}
+          {% set kayra = states('sensor.lammitys_sekoitus_kayra') | float(none) %}
+          {% set adj = states('sensor.lammitys_sekoitus_hinta_korjaus') | float(0) %}
+          {% set price = states('sensor.energi_data_service') | float(none) %}
+          {% if kv is none %}Ei käyttövesidataa
+          {% elif kv <= 55 %}Pois — käyttövesi {{ kv | round(1) }} °C (raja 55 °C)
+          {% else %}Sekoitus {{ tavoite | round(1) }} °C (käyrä {{ kayra | round(1) }}°{% if adj != 0 %}, hinta {{ adj | round(1) }}° @ {{ price | round(1) }} c/kWh{% endif %}, KV {{ kv | round(1) }} °C){% endif %}
+      - name: Lammitys menovesi teksti
+        unique_id: lammitys_menovesi_teksti
+        icon: mdi:pipe-valve
+        state: >
+          {% set meno = states('sensor.vilp_ohjaus_lampotilat_air_temperature_10') | float(none) %}
+          {% set paluu = states('sensor.vilp_ohjaus_lampotilat_air_temperature_9') | float(none) %}
+          {% set tavoite = states('sensor.lammitys_sekoitus_kaytto') | float(none) %}
+          {% set tank = states('sensor.vilp_ohjaus_lampotilat_air_temperature_13') | float(none) %}
+          {% set kv = states('sensor.vilp_ohjaus_lampotilat_air_temperature_8') | float(none) %}
+          {% set hyst = states('input_number.lammitys_menovesi_hystereesi') | float(1) %}
+          {% set kierto = is_state('switch.sonoff_4_ch_pro_2_tasmota2', 'on') %}
+          {% set pump_e = states('input_text.lammitys_sekoituspumppu') | trim %}
+          {% set pump_on = is_state(pump_e, 'on') if pump_e not in ['unknown', 'unavailable', 'none', ''] else false %}
+          {% if meno is none %}Ei menovesidataa (LL meno)
+          {% elif kv is none %}Ei käyttövesidataa
+          {% elif kv <= 55 %}Sekoituspumppu pois — käyttövesi {{ kv | round(1) }} °C (raja 55 °C)
+          {% elif tank is none or tank <= 25 %}Sekoituspumppu pois — varaaja {{ tank | round(1) if tank is not none else '?' }} °C (raja 25 °C)
+          {% elif not kierto %}Sekoituspumppu pois — lattialämmityskierto ei käy
+          {% elif tank <= meno + 0.8 %}Sekoituspumppu pois — varaaja {{ tank | round(1) }} °C ei nosta menovettä {{ meno | round(1) }} °C
+          {% elif meno >= 48 %}Sekoituspumppu pois — menovesi {{ meno | round(1) }} °C (katto 48 °C)
+          {% elif pump_on %}Nostaa menovettä {{ meno | round(1) }} → {{ tavoite | round(1) }} °C{% if paluu is not none %} · paluu {{ paluu | round(1) }} °C{% endif %}
+          {% elif tavoite is not none and meno >= tavoite - hyst %}Menovesi {{ meno | round(1) }} °C · tavoite {{ tavoite | round(1) }} °C — ok
+          {% else %}Menovesi {{ meno | round(1) }} °C alle tavoitteen {{ tavoite | round(1) }} °C — sekoituspumppu käynnistyy
+          {% endif %}
+  - binary_sensor:
+      - name: Lammitys sekoitus sallittu
+        unique_id: lammitys_sekoitus_sallittu
+        icon: mdi:valve
+        state: >
+          {{ states('sensor.vilp_ohjaus_lampotilat_air_temperature_8') | float(0) > 55 }}
+      - name: Lammitys sekoituspumppu paalla
+        unique_id: lammitys_sekoituspumppu_paalla
+        icon: mdi:pump
+        device_class: running
+        state: >
+          {% set pump_e = states('input_text.lammitys_sekoituspumppu') | trim %}
+          {{ is_state(pump_e, 'on') if pump_e not in ['unknown', 'unavailable', 'none', ''] else false }}
+automation:
+  - id: lammitys_olohuone_keittio
+    alias: Lämmitys olohuone ja keittiö
+    mode: single
+    trigger:
+      - platform: time_pattern
+        minutes: "/3"
+      - platform: state
+        entity_id:
+          - sensor.vilp_ohjaus_lampotilat_air_temperature_13
+          - binary_sensor.terassi_ovi_contact
+          - input_select.lammitys_tila_olohuone_keittio
+          - timer.lammitys_korotus_olohuone_keittio
+          - sensor.lammitys_kaytto_olohuone_keittio
+          - sensor.lammitys_tavoite_olohuone_keittio
+          - input_number.lammitys_korotus_olohuone_keittio
+    action:
+      - variables:
+          lampo: >
+            {% if is_state('input_select.lammitys_tila_olohuone_keittio', 'Pois') %}17
+            {% elif is_state('timer.lammitys_korotus_olohuone_keittio', 'active') %}
+              {% set t = states('sensor.lammitys_tavoite_olohuone_keittio') %}
+              {% set base = t | float(20) if t not in ['unknown','unavailable','none',''] else 20 %}
+              {% set k = states('input_number.lammitys_korotus_olohuone_keittio') | float(1.5) %}
+              {{ [base + k, 30] | min | round(1) }}
+            {% elif states('sensor.vilp_ohjaus_lampotilat_air_temperature_13') | float(0) <= 25 %}17
+            {% elif is_state('binary_sensor.lammitys_terassi_auki', 'on') %}17
+            {% else %}{{ states('sensor.lammitys_kaytto_olohuone_keittio') | float(20) }}
+            {% endif %}
+      - action: script.lammitys_aseta_termostaatti
+        data:
+          climates:
+            - climate.olohuone_lattialammitys
+            - climate.keittio_lattialammitys
+          temperature: "{{ lampo }}"
+  - id: lammitys_hm
+    alias: Lämmitys HM
+    mode: single
+    trigger:
+      - platform: time_pattern
+        minutes: "/3"
+      - platform: state
+        entity_id:
+          - sensor.vilp_ohjaus_lampotilat_air_temperature_13
+          - binary_sensor.hm_ikkunatunnistin_contact
+          - input_select.lammitys_tila_hm
+          - timer.lammitys_korotus_hm
+          - sensor.lammitys_kaytto_hm
+          - sensor.lammitys_tavoite_hm
+          - input_number.lammitys_korotus_hm
+    action:
+      - variables:
+          lampo: >
+            {% if is_state('input_select.lammitys_tila_hm', 'Pois') %}17
+            {% elif is_state('timer.lammitys_korotus_hm', 'active') %}
+              {% set t = states('sensor.lammitys_tavoite_hm') %}
+              {% set base = t | float(18) if t not in ['unknown','unavailable','none',''] else 18 %}
+              {% set k = states('input_number.lammitys_korotus_hm') | float(1.5) %}
+              {{ [base + k, 30] | min | round(1) }}
+            {% elif states('sensor.vilp_ohjaus_lampotilat_air_temperature_13') | float(0) <= 25 %}17
+            {% elif is_state('binary_sensor.lammitys_hm_ikkuna_auki', 'on') %}17
+            {% else %}{{ states('sensor.lammitys_kaytto_hm') | float(18) }}
+            {% endif %}
+      - action: script.lammitys_aseta_termostaatti
+        data:
+          climates:
+            - climate.hm_lattialammitys
+          temperature: "{{ lampo }}"
+  - id: lammitys_makuhuone
+    alias: Lämmitys makuhuone
+    mode: single
+    trigger:
+      - platform: time_pattern
+        minutes: "/3"
+      - platform: state
+        entity_id:
+          - sensor.vilp_ohjaus_lampotilat_air_temperature_13
+          - binary_sensor.makuhuone_ikkunatunnistin_contact
+          - input_select.lammitys_tila_makuhuone
+          - timer.lammitys_korotus_makuhuone
+          - sensor.lammitys_kaytto_makuhuone
+          - sensor.lammitys_tavoite_makuhuone
+          - input_number.lammitys_korotus_makuhuone
+    action:
+      - variables:
+          lampo: >
+            {% if is_state('input_select.lammitys_tila_makuhuone', 'Pois') %}17
+            {% elif is_state('timer.lammitys_korotus_makuhuone', 'active') %}
+              {% set t = states('sensor.lammitys_tavoite_makuhuone') %}
+              {% set base = t | float(19) if t not in ['unknown','unavailable','none',''] else 19 %}
+              {% set k = states('input_number.lammitys_korotus_makuhuone') | float(1.5) %}
+              {{ [base + k, 30] | min | round(1) }}
+            {% elif states('sensor.vilp_ohjaus_lampotilat_air_temperature_13') | float(0) <= 25 %}17
+            {% elif is_state('binary_sensor.lammitys_makuhuone_ikkuna_auki', 'on') %}17
+            {% else %}{{ states('sensor.lammitys_kaytto_makuhuone') | float(19) }}
+            {% endif %}
+      - action: script.lammitys_aseta_termostaatti
+        data:
+          climates:
+            - climate.makuhuone_lattialammitys
+          temperature: "{{ lampo }}"
+  - id: lammitys_glen
+    alias: Lämmitys Glen
+    mode: single
+    trigger:
+      - platform: time_pattern
+        minutes: "/3"
+      - platform: state
+        entity_id:
+          - sensor.vilp_ohjaus_lampotilat_air_temperature_13
+          - binary_sensor.glen_ikkunatunnistin_contact
+          - input_select.lammitys_tila_glen
+          - timer.lammitys_korotus_glen
+          - sensor.lammitys_kaytto_glen
+          - sensor.lammitys_tavoite_glen
+          - input_number.lammitys_korotus_glen
+    action:
+      - variables:
+          lampo: >
+            {% if is_state('input_select.lammitys_tila_glen', 'Pois') %}17
+            {% elif is_state('timer.lammitys_korotus_glen', 'active') %}
+              {% set t = states('sensor.lammitys_tavoite_glen') %}
+              {% set base = t | float(19) if t not in ['unknown','unavailable','none',''] else 19 %}
+              {% set k = states('input_number.lammitys_korotus_glen') | float(1.5) %}
+              {{ [base + k, 30] | min | round(1) }}
+            {% elif states('sensor.vilp_ohjaus_lampotilat_air_temperature_13') | float(0) <= 25 %}17
+            {% elif is_state('binary_sensor.lammitys_glen_ikkuna_auki', 'on') %}19
+            {% else %}{{ states('sensor.lammitys_kaytto_glen') | float(19) }}
+            {% endif %}
+      - action: script.lammitys_aseta_termostaatti
+        data:
+          climates:
+            - climate.glen_lattialammitys
+          temperature: "{{ lampo }}"
+  - id: lammitys_nele
+    alias: Lämmitys Nele
+    mode: single
+    trigger:
+      - platform: time_pattern
+        minutes: "/3"
+      - platform: state
+        entity_id:
+          - sensor.vilp_ohjaus_lampotilat_air_temperature_13
+          - binary_sensor.nele_ikkunatunnistin_contact
+          - input_select.lammitys_tila_nele
+          - timer.lammitys_korotus_nele
+          - sensor.lammitys_kaytto_nele
+          - sensor.lammitys_tavoite_nele
+          - input_number.lammitys_korotus_nele
+          - climate.nele_lattialammitys
+    action:
+      - variables:
+          lampo: >
+            {% if is_state('input_select.lammitys_tila_nele', 'Pois') %}17
+            {% elif is_state('timer.lammitys_korotus_nele', 'active') %}
+              {% set t = states('sensor.lammitys_tavoite_nele') %}
+              {% set base = t | float(19) if t not in ['unknown','unavailable','none',''] else 19 %}
+              {% set k = states('input_number.lammitys_korotus_nele') | float(1.5) %}
+              {{ [base + k, 30] | min | round(1) }}
+            {% elif is_state('binary_sensor.lammitys_nele_ikkuna_auki', 'on') %}17
+            {% else %}{% set kaytto = states('sensor.lammitys_kaytto_nele') | float(19) %}
+              {{ [kaytto, 19] | max | round(1) }}
+            {% endif %}
+      - action: script.lammitys_aseta_termostaatti
+        data:
+          climates:
+            - climate.nele_lattialammitys
+          temperature: "{{ lampo }}"
+  - id: lammitys_eteinen
+    alias: Lämmitys eteinen
+    mode: single
+    trigger:
+      - platform: time_pattern
+        minutes: "/3"
+      - platform: state
+        entity_id:
+          - sensor.vilp_ohjaus_lampotilat_air_temperature_13
+          - binary_sensor.etuovi_current_status_of_the_door
+          - input_select.lammitys_tila_eteinen
+          - timer.lammitys_korotus_eteinen
+          - sensor.lammitys_kaytto_eteinen
+          - sensor.lammitys_tavoite_eteinen
+          - input_number.lammitys_korotus_eteinen
+    action:
+      - variables:
+          lampo: >
+            {% if is_state('input_select.lammitys_tila_eteinen', 'Pois') %}17
+            {% elif is_state('timer.lammitys_korotus_eteinen', 'active') %}
+              {% set t = states('sensor.lammitys_tavoite_eteinen') %}
+              {% set base = t | float(22) if t not in ['unknown','unavailable','none',''] else 22 %}
+              {% set k = states('input_number.lammitys_korotus_eteinen') | float(1.5) %}
+              {{ [base + k, 30] | min | round(1) }}
+            {% elif states('sensor.vilp_ohjaus_lampotilat_air_temperature_13') | float(0) <= 25 %}17
+            {% elif is_state('binary_sensor.lammitys_eteinen_ovi_auki', 'on') %}17
+            {% else %}{{ states('sensor.lammitys_kaytto_eteinen') | float(22) }}
+            {% endif %}
+      - action: script.lammitys_aseta_termostaatti
+        data:
+          climates:
+            - climate.eteisen_lattialammitys
+          temperature: "{{ lampo }}"
+
+  - id: lammitys_korjaa_away
+    alias: Lämmitys korjaa Away-esiasetus
+    mode: queued
+    trigger:
+      - platform: time_pattern
+        minutes: "/1"
+      - platform: state
+        entity_id:
+          - climate.olohuone_lattialammitys
+          - climate.keittio_lattialammitys
+          - climate.hm_lattialammitys
+          - climate.makuhuone_lattialammitys
+          - climate.glen_lattialammitys
+          - climate.nele_lattialammitys
+          - climate.eteisen_lattialammitys
+        attribute: preset_mode
+      - platform: state
+        entity_id:
+          - climate.olohuone_lattialammitys
+          - climate.keittio_lattialammitys
+          - climate.hm_lattialammitys
+          - climate.makuhuone_lattialammitys
+          - climate.glen_lattialammitys
+          - climate.nele_lattialammitys
+          - climate.eteisen_lattialammitys
+        attribute: temperature
+    action:
+      - variables:
+          zones:
+            - entity: climate.olohuone_lattialammitys
+              tila: input_select.lammitys_tila_olohuone_keittio
+              kaytto: sensor.lammitys_kaytto_olohuone_keittio
+            - entity: climate.keittio_lattialammitys
+              tila: input_select.lammitys_tila_olohuone_keittio
+              kaytto: sensor.lammitys_kaytto_olohuone_keittio
+            - entity: climate.hm_lattialammitys
+              tila: input_select.lammitys_tila_hm
+              kaytto: sensor.lammitys_kaytto_hm
+            - entity: climate.makuhuone_lattialammitys
+              tila: input_select.lammitys_tila_makuhuone
+              kaytto: sensor.lammitys_kaytto_makuhuone
+            - entity: climate.glen_lattialammitys
+              tila: input_select.lammitys_tila_glen
+              kaytto: sensor.lammitys_kaytto_glen
+            - entity: climate.nele_lattialammitys
+              tila: input_select.lammitys_tila_nele
+              kaytto: sensor.lammitys_kaytto_nele
+            - entity: climate.eteisen_lattialammitys
+              tila: input_select.lammitys_tila_eteinen
+              kaytto: sensor.lammitys_kaytto_eteinen
+      - repeat:
+          for_each: "{{ zones }}"
+          sequence:
+            - variables:
+                eid: "{{ repeat.item.entity }}"
+                preset: "{{ state_attr(repeat.item.entity, 'preset_mode') | default('') | lower }}"
+                ohjaus: "{{ states(repeat.item.tila) }}"
+                tavoite: "{{ states(repeat.item.kaytto) | float(20) }}"
+                termo: "{{ state_attr(repeat.item.entity, 'temperature') | float(99) }}"
+            - if:
+                - condition: template
+                  value_template: >
+                    {{ ohjaus == 'Automaatti' and (
+                      preset == 'away' or
+                      (
+                        repeat.item.entity == 'climate.nele_lattialammitys' and
+                        termo < 19 and
+                        tavoite >= 19 and
+                        is_state('binary_sensor.lammitys_nele_ikkuna_auki', 'off')
+                      )
+                    ) }}
+              then:
+                - action: script.lammitys_aseta_termostaatti
+                  data:
+                    climates:
+                      - "{{ eid }}"
+                    temperature: "{{ tavoite }}"
+
+  - id: lammitys_sekoitus
+    alias: Lämmitys sekoitusventtiili climate.lattialammitys
+    mode: single
+    trigger:
+      - platform: time_pattern
+        minutes: "/3"
+      - platform: homeassistant
+        event: start
+      - platform: state
+        entity_id:
+          - sensor.ulkolampotila_met_no
+          - sensor.energi_data_service
+          - sensor.vilp_ohjaus_lampotilat_air_temperature_8
+          - sensor.lammitys_sekoitus_kaytto
+    action:
+      - variables:
+          kv_ok: "{{ states('sensor.vilp_ohjaus_lampotilat_air_temperature_8') | float(0) > 55 }}"
+          lampo: "{{ states('sensor.lammitys_sekoitus_kaytto') | float(35) }}"
+      - action: script.lammitys_aseta_sekoitus
+        data:
+          active: "{{ kv_ok }}"
+          temperature: "{{ lampo }}"
+
+  - id: lammitys_sekoituspumppu
+    alias: Lämmitys sekoituspumppu nostaa menoveden
+    mode: single
+    trigger:
+      - platform: time_pattern
+        minutes: "/1"
+      - platform: homeassistant
+        event: start
+      - platform: state
+        entity_id:
+          - sensor.vilp_ohjaus_lampotilat_air_temperature_10
+          - sensor.vilp_ohjaus_lampotilat_air_temperature_9
+          - sensor.vilp_ohjaus_lampotilat_air_temperature_13
+          - sensor.vilp_ohjaus_lampotilat_air_temperature_8
+          - sensor.lammitys_sekoitus_kaytto
+          - switch.sonoff_4_ch_pro_2_tasmota2
+          - climate.lattialammitys
+          - input_text.lammitys_sekoituspumppu
+          - input_number.lammitys_menovesi_hystereesi
+    action:
+      - variables:
+          pump_e: "{{ states('input_text.lammitys_sekoituspumppu') | trim }}"
+          meno_s: "{{ states('sensor.vilp_ohjaus_lampotilat_air_temperature_10') }}"
+          meno: "{{ meno_s | float(none) }}"
+          paluu: "{{ states('sensor.vilp_ohjaus_lampotilat_air_temperature_9') | float(none) }}"
+          tank: "{{ states('sensor.vilp_ohjaus_lampotilat_air_temperature_13') | float(0) }}"
+          kv: "{{ states('sensor.vilp_ohjaus_lampotilat_air_temperature_8') | float(0) }}"
+          tavoite: "{{ states('sensor.lammitys_sekoitus_kaytto') | float(35) }}"
+          hyst: "{{ states('input_number.lammitys_menovesi_hystereesi') | float(1) }}"
+          ll_kierto: "{{ 1 if is_state('switch.sonoff_4_ch_pro_2_tasmota2', 'on') else 0 }}"
+          nyt_paalla: "{{ 1 if pump_e not in ['unknown', 'unavailable', 'none', ''] and is_state(pump_e, 'on') else 0 }}"
+          meno_ok: "{{ 1 if meno_s not in ['unknown', 'unavailable', 'none', ''] else 0 }}"
+          nosta: >
+            {{ 1 if (ll_kierto | int(0) == 1)
+               and (kv | float(0) > 55)
+               and (tank | float(0) > 25)
+               and (meno_ok | int(0) == 1)
+               and (tank | float(0) > (meno | float(0) + 0.8))
+               and (meno | float(99) < 48)
+               and (meno | float(99) < ((tavoite | float(35)) - (hyst | float(1))))
+               else 0 }}
+          pidetaan: >
+            {{ 1 if (nyt_paalla | int(0) == 1)
+               and (ll_kierto | int(0) == 1)
+               and (kv | float(0) > 55)
+               and (tank | float(0) > 25)
+               and (meno_ok | int(0) == 1)
+               and (meno | float(0) < 48)
+               and (meno | float(0) < ((tavoite | float(35)) + 0.3))
+               else 0 }}
+      - choose:
+          - conditions:
+              - condition: template
+                value_template: "{{ (nosta | int(0) == 1) or (pidetaan | int(0) == 1) }}"
+            sequence:
+              - action: script.lammitys_aseta_sekoituspumppu
+                data:
+                  paalle: true
+        default:
+          - action: script.lammitys_aseta_sekoituspumppu
+            data:
+              paalle: false
+
+  - id: lammitys_aurinkopumppu
+    alias: Aurinkolämpöpumppu
+    mode: single
+    trigger:
+      - platform: time_pattern
+        minutes: "/3"
+      - platform: state
+        entity_id:
+          - sensor.nele_ja_keittio_lattialammitys_anturit_air_temperature_8
+          - sensor.vilp_ohjaus_lampotilat_air_temperature_13
+          - input_select.lammitys_aurinkopumppu
+    action:
+      - variables:
+          tila: "{{ states('input_select.lammitys_aurinkopumppu') }}"
+          solar: "{{ states('sensor.nele_ja_keittio_lattialammitys_anturit_air_temperature_8') | float(0) }}"
+          tank: "{{ states('sensor.vilp_ohjaus_lampotilat_air_temperature_13') | float(0) }}"
+          diff: "{{ solar - tank }}"
+          pump: switch.sonoff_4_ch_pro_2_tasmota3
+      - choose:
+          - conditions: "{{ tila == 'Pois' }}"
+            sequence:
+              - action: switch.turn_off
+                target:
+                  entity_id: "{{ pump }}"
+          - conditions: "{{ tila == 'Pakko päälle' }}"
+            sequence:
+              - action: switch.turn_on
+                target:
+                  entity_id: "{{ pump }}"
+        default:
+          - choose:
+              - conditions: "{{ diff | float(0) > 7 }}"
+                sequence:
+                  - action: switch.turn_on
+                    target:
+                      entity_id: "{{ pump }}"
+            default:
+              - action: switch.turn_off
+                target:
+                  entity_id: "{{ pump }}"
+
+  - id: lammitys_pumppu
+    alias: Lattialämmityspumppu päälle/pois
+    mode: single
+    trigger:
+      - platform: time_pattern
+        minutes: "/1"
+      - platform: state
+        entity_id:
+          - switch.eteisen_lattialammitys
+          - switch.nele_ja_keittio_lattialammitys_anturit
+          - switch.olohuone_hm_lattialammitys_6
+          - switch.makuhuone_glen_lattialammitys
+          - switch.olohuone_hm_lattialammitys
+          - switch.makuhuone_glen_lattialammitys_6
+          - switch.nele_ja_keittio_lattialammitys_anturit_6
+      - platform: state
+        entity_id:
+          - climate.olohuone_lattialammitys
+          - climate.keittio_lattialammitys
+          - climate.hm_lattialammitys
+          - climate.makuhuone_lattialammitys
+          - climate.glen_lattialammitys
+          - climate.nele_lattialammitys
+          - climate.eteisen_lattialammitys
+        attribute: hvac_action
+    action:
+      - variables:
+          joku_paalla: >
+            {{ is_state('switch.eteisen_lattialammitys', 'on')
+               or is_state('switch.nele_ja_keittio_lattialammitys_anturit', 'on')
+               or is_state('switch.olohuone_hm_lattialammitys_6', 'on')
+               or is_state('switch.makuhuone_glen_lattialammitys', 'on')
+               or is_state('switch.olohuone_hm_lattialammitys', 'on')
+               or is_state('switch.makuhuone_glen_lattialammitys_6', 'on')
+               or is_state('switch.nele_ja_keittio_lattialammitys_anturit_6', 'on')
+               or state_attr('climate.olohuone_lattialammitys', 'hvac_action') == 'heating'
+               or state_attr('climate.keittio_lattialammitys', 'hvac_action') == 'heating'
+               or state_attr('climate.hm_lattialammitys', 'hvac_action') == 'heating'
+               or state_attr('climate.makuhuone_lattialammitys', 'hvac_action') == 'heating'
+               or state_attr('climate.glen_lattialammitys', 'hvac_action') == 'heating'
+               or state_attr('climate.nele_lattialammitys', 'hvac_action') == 'heating'
+               or state_attr('climate.eteisen_lattialammitys', 'hvac_action') == 'heating' }}
+      - choose:
+          - conditions: "{{ joku_paalla }}"
+            sequence:
+              - action: switch.turn_on
+                target:
+                  entity_id: switch.sonoff_4_ch_pro_2_tasmota2
+        default:
+          - action: switch.turn_off
+            target:
+              entity_id: switch.sonoff_4_ch_pro_2_tasmota2
