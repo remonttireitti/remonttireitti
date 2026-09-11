@@ -15,8 +15,12 @@ export function AppShell({ children }: { children: ReactNode }) {
         <PageViewTracker />
       </Suspense>
       {children}
-      <SiteFooter />
-      <CookieConsentBanner />
+      <div className="print:hidden">
+        <SiteFooter />
+      </div>
+      <div className="print:hidden">
+        <CookieConsentBanner />
+      </div>
       {siteConfig.gaId ? (
         <GoogleAnalytics measurementId={siteConfig.gaId} />
       ) : null}

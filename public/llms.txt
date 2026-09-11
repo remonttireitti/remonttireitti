@@ -13,6 +13,7 @@ Remonttireitti yhdistää asiakkaan ja urakoitsijat. Asiakas luo tarjouspyynnön
 - [Huolto tai korjaus](https://remonttireitti.fi/huolto/uusi): lämpöpumpun huolto/korjaus
 - [Remonttitori](https://remonttireitti.fi/markkinapaikka): osta ja myy remonttiin liittyviä laitteita
 - [Urakoitsijaksi](https://remonttireitti.fi/urakoitsijaksi): rekisteröityminen ja provisiot
+- [Esimerkkiraportti](https://remonttireitti.fi/esimerkki/raportti): fiktiivinen huoltopöytäkirja konvektoreille
 
 ## Palvelualueet (tarjouspyyntö)
 
@@ -33,7 +34,7 @@ Markkinapaikka remonttiin liittyville laitteille, varaosille ja tarvikkeille (l�
 
 ## Indeksointi
 
-Julkinen sisältö: /, /palvelut/, /markkinapaikka, /vian-selvitys, /huolto/uusi, /urakoitsijaksi.
+Julkinen sisältö: /, /palvelut/, /markkinapaikka, /vian-selvitys, /huolto/uusi, /urakoitsijaksi, /esimerkki/raportti.
 Ei julkinen: /oma-tili, /admin/, /remontti/ (wizard), /tarjoukset/, /kirjaudu, /api/.
 
 Sitemap: https://remonttireitti.fi/sitemap.xml
