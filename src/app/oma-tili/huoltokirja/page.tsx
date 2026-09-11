@@ -50,7 +50,11 @@ export default async function PropertyLogPage({
             </h1>
             <p className="mt-2 max-w-xl text-sm leading-relaxed text-stone-600">
               Lisää kodit ja mökit sekä niiden tekniset tiedot. Valmiit urakat
-              kirjautuvat automaattisesti työhistoriaan.
+              kirjautuvat automaattisesti työhistoriaan.{" "}
+              <Link href="/esimerkki/raportti" className="font-medium text-sky-800 hover:underline">
+                Katso esimerkkiraportti
+              </Link>
+              .
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
@@ -80,7 +84,11 @@ export default async function PropertyLogPage({
             <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-stone-500">
               Lisää ensimmäinen kohde — esim. omakotitalo tai mökki — ja täydennä
               lämmitys, ilmanvaihto ja muut tiedot. Urakoiden historia kertyy
-              automaattisesti valmiista töistä.
+              automaattisesti valmiista töistä. Voit myös{" "}
+              <Link href="/esimerkki/raportti" className="font-medium text-sky-800 hover:underline">
+                katsoa esimerkkiraportin
+              </Link>
+              .
             </p>
             <Link
               href="/oma-tili/huoltokirja/uusi"

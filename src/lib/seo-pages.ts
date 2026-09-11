@@ -151,6 +151,20 @@ export const STATIC_SEO_PAGES: SeoPageDef[] = [
     priority: 0.8,
   },
   {
+    path: "/esimerkki/raportti",
+    title: "Esimerkkiraportti — huoltopöytäkirja, konvektorit",
+    description:
+      "Fiktiivinen huoltopöytäkirja kattokonvektoreille 01.01.2026. Tekijä Esimerkki tekijä, asiakas Esimerkki asiakas. Näin huoltokirjan raportti voi näyttää.",
+    keywords: mergeKeywords(HEAT_PUMP_KEYWORDS, [
+      "huoltopöytäkirja",
+      "konvektori",
+      "esimerkkiraportti",
+      "huoltokirja",
+    ]),
+    changeFrequency: "yearly",
+    priority: 0.45,
+  },
+  {
     path: "/hinta-arkisto",
     title: "Hinta-arkisto — toteutuneet lämpöpumppuhinnat",
     description:
