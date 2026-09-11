@@ -318,7 +318,7 @@ input_number:
 
 input_text:
   lammitys_sekoituspumppu:
-    name: Lämmitys sekoituspumppu
+    name: Varaajan sekoitus pumppu
     initial: switch.sonoff_4_ch_pro_2_tasmota4
     max: 128
     icon: mdi:pump
@@ -1045,6 +1045,7 @@ template:
             {% endfor %}
             {{ ns.n }}
           tomorrow_valid: "{{ state_attr('sensor.energi_data_service', 'tomorrow_valid') }}"
+  - sensor:
       - name: Lammitys sekoitus kayra
         unique_id: lammitys_sekoitus_kayra
         unit_of_measurement: "°C"
@@ -1505,7 +1506,7 @@ automation:
                     temperature: "{{ tavoite }}"
 
   - id: lammitys_sekoitus
-    alias: Lämmitys sekoitusventtiili climate.lattialammitys
+    alias: Lämmitys sekoitus climate.lattialammitys
     mode: single
     trigger:
       - platform: time_pattern
