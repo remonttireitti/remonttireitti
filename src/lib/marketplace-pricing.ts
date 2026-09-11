@@ -119,8 +119,8 @@ export const PRICING_FAQ = [
     a: `Julkaistu ilmoitus on torilla ${LISTING_DURATION_WEEKS} viikkoa, ellei poista sitä aiemmin. Vanhentuneet ilmoitukset piilotetaan automaattisesti.`,
   },
   {
-    q: "Mitä saan tarjouskilpailun välitysmaksun lisäksi?",
-    a: `Tarjouskilpailu ja ${marketplaceBrand.name.toLowerCase()} ovat erillisiä palveluita. Tarjouksen hyväksynnän välitysmaksu avaa asiakkaan yhteystiedot urakalle; tori on remonttiin liittyvien laitteiden, varaosien ja tarvikkeiden myyntiin.`,
+    q: "Mitä eroa on torilla ja tarjouskilpailulla?",
+    a: `Tori on laitteiden myyntiin (ilmoitus- tai kk-maksu). Tarjouskilpailu on asiakkaan työpyyntöihin tarjoamiseen — siinä on joko kuukausitilaus tai maksu per hyväksytty diili.`,
   },
 ] as const;
 

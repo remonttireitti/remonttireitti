@@ -1,10 +1,10 @@
 /**
- * Välityspalkkio hyväksytystä tarjouksesta.
- * Kaikki amount_cents / hinnastohinnat ovat VEROTTOMIA (alv 0 % myyntihinta).
- * ALV lisätään erikseen B2B-laskulle (kevyt yrittäjä / ALV-rekisteröity myyjä).
+ * Välityspalkkio hyväksytystä tarjouksesta (maksu per diili -malli).
+ * Kuukausitilauksella per-diili -palkkio on 0 €.
  */
 
-import { SERVICE_JOB_SLUGS } from "@/constants/service-jobs";
+/** Maksu per hyväksytty diili ilman kuukausitilausta (veroton). */
+export const PAY_PER_DEAL_FEE_CENTS = 3900;
 
 export const PLATFORM_FEE_VAT_RATE = 25.5;
 
@@ -14,87 +14,23 @@ export const PLATFORM_FEE_DUE_DAYS = 7;
 export const B2B_PRICE_VAT_NOTE =
   "Hinnat ovat verottomia. Arvonlisävero lisätään laskulle yritysasiakkaalle.";
 
-/** @deprecated Käytä computePlatformFeeCents — vanha kiinteä oletus vain taaksepäin yhteensopivuuteen. */
-export const PLATFORM_FEE_CENTS = 9900;
+/** @deprecated Käytä PAY_PER_DEAL_FEE_CENTS */
+export const PLATFORM_FEE_CENTS = PAY_PER_DEAL_FEE_CENTS;
 
-/** Provisioluokat tyypin mukaan. */
-export type PlatformFeeCategory = "standard" | "large" | "maintenance";
-
-/** Provisio sentteinä: [1–3 tarjoajaa, 4–6 tarjoajaa, 7+ tarjoajaa]. */
-export const PLATFORM_FEE_TIERS_CENTS: Record<
-  PlatformFeeCategory,
-  readonly [number, number, number]
-> = {
-  standard: [2000, 2500, 3000],
-  large: [4000, 5000, 6000],
-  maintenance: [800, 1000, 1200],
-};
-
-export const PLATFORM_FEE_CATEGORY_LABELS: Record<PlatformFeeCategory, string> =
-  {
-    standard: "Remontti tai asennus",
-    large: "Laaja remontti tai iso asennus",
-    maintenance: "Huolto, korjaus tai palvelu",
-  };
-
-/** @deprecated Käytä PlatformFeeCategory.standard */
-export type LegacyPlatformFeeCategory = "ilp";
-
-const MAINTENANCE_JOB_SLUGS = new Set([
-  "lampopumppu-huolto",
-  "lampopumppu-korjaus",
-  "ilmanvaihto-puhdistus",
-  ...SERVICE_JOB_SLUGS,
-]);
-
-const LARGE_JOB_SLUGS = new Set([
-  "maalampopumppu",
-  "ilmavesilampopumppu",
-  "lammitys-vaihto",
-  "keittio",
-  "kylpyhuone",
-  "wc-remontti",
-  "sauna",
-  "perustus",
-  "julkisivu-rapaus",
-  "julkisivu-verhous",
-  "vesivahinko",
-]);
-
-export function platformFeeCategoryFromJobSlug(slug: string): PlatformFeeCategory {
-  if (MAINTENANCE_JOB_SLUGS.has(slug)) return "maintenance";
-  if (LARGE_JOB_SLUGS.has(slug)) return "large";
-  return "standard";
+/** Per-diili -palkkio sentteinä (veroton). */
+export function payPerDealFeeCents(): number {
+  return PAY_PER_DEAL_FEE_CENTS;
 }
 
-/**
- * Laskee välityspalkkion tarjoajamäärän mukaan.
- * - 1–3 tarjoajaa → alempi taso
- * - 4–6 tarjoajaa → keskitaso
- * - 7+ tarjoajaa → ylin taso
- */
-export function computePlatformFeeCents(
-  category: PlatformFeeCategory,
-  bidderCount: number,
-): number {
-  const n = Math.max(1, Math.floor(bidderCount));
-  const [low, mid, high] = PLATFORM_FEE_TIERS_CENTS[category];
-  if (n <= 3) return low;
-  if (n <= 6) return mid;
-  return high;
-}
-
+/** @deprecated Käytä payPerDealFeeCents — taaksepäin yhteensopivuus. */
 export function computePlatformFeeCentsForJob(
-  jobTypeSlug: string,
-  bidderCount: number,
+  _jobTypeSlug?: string,
+  _bidderCount?: number,
 ): number {
-  return computePlatformFeeCents(
-    platformFeeCategoryFromJobSlug(jobTypeSlug),
-    bidderCount,
-  );
+  return PAY_PER_DEAL_FEE_CENTS;
 }
 
-export function formatPlatformFee(cents: number = PLATFORM_FEE_CENTS): string {
+export function formatPlatformFee(cents: number = PAY_PER_DEAL_FEE_CENTS): string {
   return new Intl.NumberFormat("fi-FI", {
     style: "currency",
     currency: "EUR",
@@ -110,7 +46,7 @@ export function grossCentsFromNet(
   return Math.round(netCents * (1 + vatRate / 100));
 }
 
-/** Esim. "20 € veroton → laskulla n. 25 € (ALV 25,5 %)" */
+/** Esim. "39 € veroton → laskulla n. 49 € (ALV 25,5 %)" */
 export function formatPlatformFeeInvoiceLine(netCents: number): string {
   const net = formatPlatformFee(netCents);
   const gross = formatPlatformFee(grossCentsFromNet(netCents));
@@ -121,18 +57,6 @@ function vatRateLabel(): string {
   return Number.isInteger(PLATFORM_FEE_VAT_RATE)
     ? `${PLATFORM_FEE_VAT_RATE} %`
     : `${PLATFORM_FEE_VAT_RATE.toLocaleString("fi-FI")} %`;
-}
-
-export function platformFeeTierDescription(
-  category: PlatformFeeCategory,
-): { maxBidders: string; amounts: [string, string, string] } {
-  const [a, b, c] = PLATFORM_FEE_TIERS_CENTS[category].map((x) =>
-    formatPlatformFee(x),
-  );
-  return {
-    maxBidders: "1–2 / 3–6 / 7+ tarjoajaa",
-    amounts: [a, b, c],
-  };
 }
 
 export function platformFeeDueAt(from = new Date()): string {

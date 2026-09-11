@@ -21,8 +21,8 @@ const COPY: Record<
   },
   "contractor-pay-on-win": {
     audience: "Urakoitsijalle",
-    title: "Ensimmäiset 3 diiliä ilman palkkiota",
-    body: "Tarjousten jättäminen on maksutonta. Kun asiakas hyväksyy tarjouksesi, ensimmäiset kolme diiliä ovat välityspalkkiota 0 € — yhteystiedot avautuvat heti. Sen jälkeen normaali hinnasto tyypin ja kilpailijoiden mukaan.",
+    title: "Tarjoa ilmaiseksi — maksat vain voitosta",
+    body: "Joko kuukausitilaus (ei per-diili -maksuja) tai 39 € per hyväksytty diili. Ensimmäiset diilit voivat olla ilman palkkiota beta-aikana.",
     accent: "sky",
   },
 };

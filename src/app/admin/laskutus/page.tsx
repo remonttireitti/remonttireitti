@@ -6,6 +6,10 @@ import {
   PlatformBillingQueue,
   type PlatformBillingRow,
 } from "@/components/admin/platform-billing-queue";
+import {
+  PlatformSubscriptionBillingQueue,
+  type PlatformSubscriptionBillingRow,
+} from "@/components/admin/platform-subscription-billing-queue";
 import { SiteHeader } from "@/components/site-header";
 import { requireAdmin } from "@/lib/admin";
 import { getAdminBillingEmail } from "@/lib/billing-admin";
@@ -133,6 +137,37 @@ export default async function AdminBillingPage() {
     };
   });
 
+  const { data: subscriptionRequests } = await admin
+    .from("platform_billing_requests")
+    .select(
+      `
+      id,
+      status,
+      amount_eur_cents,
+      description_fi,
+      created_at,
+      contractor_profiles ( company_name )
+    `,
+    )
+    .in("status", ["pending", "invoiced"])
+    .order("created_at", { ascending: true });
+
+  const subscriptionRows: PlatformSubscriptionBillingRow[] = (
+    subscriptionRequests ?? []
+  ).map((r) => {
+    const cp = Array.isArray(r.contractor_profiles)
+      ? r.contractor_profiles[0]
+      : r.contractor_profiles;
+    return {
+      id: r.id,
+      status: r.status,
+      amount: formatPriceFromCents(r.amount_eur_cents),
+      description: r.description_fi,
+      companyName: cp?.company_name ?? "—",
+      createdAt: r.created_at,
+    };
+  });
+
   const billingEmail = getAdminBillingEmail();
 
   return (
@@ -150,10 +185,18 @@ export default async function AdminBillingPage() {
           lähetetyksi ja maksetuksi, kun maksu on kirjattu.
         </p>
 
-        <section id="valitysmaksut" className="mt-10">
-          <h2 className="text-lg font-semibold">Välitysmaksut (tarjouskilpailu)</h2>
+        <section id="tilaukset" className="mt-10">
+          <h2 className="text-lg font-semibold">Kuukausitilaukset (tarjouskilpailu)</h2>
           <p className="text-sm text-stone-500">
-            Kun asiakas hyväksyy tarjouksen, laskuta urakoitsijalta välityspalkkio.
+            Urakoitsijan kuukausijakso — merkitse maksetuksi aktivoidaksesi tilauksen.
+          </p>
+          <PlatformSubscriptionBillingQueue rows={subscriptionRows} />
+        </section>
+
+        <section id="valitysmaksut" className="mt-10 border-t border-stone-200 pt-10">
+          <h2 className="text-lg font-semibold">Välitysmaksut per diili</h2>
+          <p className="text-sm text-stone-500">
+            Kun asiakas hyväksyy tarjouksen ilman voimassa olevaa kuukausitilausta.
           </p>
           <PlatformBillingQueue rows={platformRows} />
         </section>

@@ -1,4 +1,4 @@
-import { computePlatformFeeCentsForJob } from "@/lib/platform-fee";
+import { payPerDealFeeCents } from "@/lib/platform-fee";
 
 /** Oletus: ensimmäiset 3 hyväksyttyä diiliä ilman välityspalkkiota. Poista: PLATFORM_FEE_BETA_FREE_DEALS=0 */
 export function platformFeeBetaFreeDealsLimit(): number {
@@ -18,13 +18,13 @@ export function isPlatformFeeBetaActive(): boolean {
 export function platformFeeBetaPromoTitle(): string | null {
   const limit = platformFeeBetaFreeDealsLimit();
   if (limit <= 0) return null;
-  return `Ensimmäiset ${limit} hyväksyttyä diiliä ilman välityspalkkiota`;
+  return `Ensimmäiset ${limit} hyväksyttyä diiliä ilman palkkiota (maksu per diili -mallissa)`;
 }
 
 export function platformFeeBetaPromoBody(): string | null {
   const limit = platformFeeBetaFreeDealsLimit();
   if (limit <= 0) return null;
-  return `Urakoitsijana tarjoukset ovat edelleen maksuttomia. Kun asiakas hyväksyy tarjouksesi, ensimmäiset ${limit} diiliä ovat välityspalkkiota 0 € — yhteystiedot avautuvat heti. Sen jälkeen normaali hinnasto.`;
+  return `Tarjousten jättäminen on maksutonta. Maksu per diili -mallissa ensimmäiset ${limit} hyväksyttyä diiliä ovat 0 € — yhteystiedot avautuvat heti. Kuukausitilauksessa ei per-diili -maksuja.`;
 }
 
 export function contractorBetaFreeDealsRemaining(priorInvoiceCount: number): number {
@@ -41,12 +41,10 @@ export function qualifiesForPlatformFeeBetaWaiver(
 }
 
 export function resolvePlatformFeeCentsForContractor(params: {
-  jobTypeSlug: string;
-  bidderCount: number;
   priorInvoiceCount: number;
+  hasActiveSubscription: boolean;
 }): number {
-  if (qualifiesForPlatformFeeBetaWaiver(params.priorInvoiceCount)) {
-    return 0;
-  }
-  return computePlatformFeeCentsForJob(params.jobTypeSlug, params.bidderCount);
+  if (params.hasActiveSubscription) return 0;
+  if (qualifiesForPlatformFeeBetaWaiver(params.priorInvoiceCount)) return 0;
+  return payPerDealFeeCents();
 }

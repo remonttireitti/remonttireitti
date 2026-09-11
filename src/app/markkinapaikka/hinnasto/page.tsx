@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { MarketplacePricingFaq } from "@/components/marketplace/pricing-faq";
 import { MarketplacePricingSection } from "@/components/marketplace/pricing-section";
-import { PlatformFeeTable } from "@/components/pricing/platform-fee-table";
+import { PlatformPricingSection } from "@/components/pricing/platform-pricing-section";
 import { SiteHeader } from "@/components/site-header";
 import { getSessionUser, isContractor } from "@/lib/auth";
 import { MARKETPLACE_INVOICE_EMAIL } from "@/lib/marketplace-pricing";
@@ -55,14 +55,13 @@ export default async function MarketplacePricingPage() {
           className="mt-12 scroll-mt-8 rounded-xl border border-sky-100 bg-white p-6 shadow-sm"
         >
           <h2 className="text-lg font-semibold text-stone-900">
-            Tarjouskilpailun välityspalkkio (urakoitsija)
+            Tarjouskilpailu (urakoitsija)
           </h2>
           <p className="mt-2 text-sm text-stone-600">
-            Maksat vain, kun asiakas hyväksyy tarjouksesi. Summa riippuu työn
-            tyypistä ja siitä, montako tarjousta pyyntöön on kertynyt
-            hyväksyntähetkellä.
+            Kuukausitilaus tai maksu per diili — erillinen palvelu torin
+            ilmoitusmaksuista.
           </p>
-          <PlatformFeeTable className="mt-4" />
+          <PlatformPricingSection className="mt-4" />
         </section>
 
         <section className="mt-12 rounded-xl border border-stone-200 bg-white p-6 text-sm text-stone-600">

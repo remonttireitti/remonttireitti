@@ -839,27 +839,16 @@ export async function acceptBid(formData: FormData): Promise<void> {
     acceptedIncludesEquipment = Boolean(bid.offers_equipment);
   }
 
-  const { count: bidderCount } = await supabase
-    .from("bids")
-    .select("id", { count: "exact", head: true })
-    .eq("project_id", projectId)
-    .eq("status", "submitted");
-
-  const jobType = Array.isArray(project.job_types)
-    ? project.job_types[0]
-    : project.job_types;
-  const jobSlug =
-    (jobType as { slug?: string } | null)?.slug ?? "ilmalampopumppu";
-
   const admin = createAdminClient();
-  const priorInvoiceCount = await countContractorPlatformInvoices(
-    admin,
-    bid.contractor_id,
-  );
+  const [priorInvoiceCount, hasActiveSubscription] = await Promise.all([
+    countContractorPlatformInvoices(admin, bid.contractor_id),
+    import("@/lib/platform-subscription").then((m) =>
+      m.contractorHasActivePlatformSubscription(admin, bid.contractor_id),
+    ),
+  ]);
   const feeCents = resolvePlatformFeeCentsForContractor({
-    jobTypeSlug: jobSlug,
-    bidderCount: bidderCount ?? 1,
     priorInvoiceCount,
+    hasActiveSubscription,
   });
   const feeWaived = feeCents === 0;
 

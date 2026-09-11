@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Logo } from "@/components/brand/logo";
 import { BetaPlatformFeeBanner } from "@/components/promo/beta-platform-fee-banner";
-import { PlatformFeeTable } from "@/components/pricing/platform-fee-table";
+import { PlatformPricingSection } from "@/components/pricing/platform-pricing-section";
 import { SiteHeader } from "@/components/site-header";
 import { getSessionUser, isContractor } from "@/lib/auth";
 import { brand } from "@/lib/brand-theme";
@@ -175,13 +175,12 @@ export default async function ContractorLandingPage() {
           className="border-t border-stone-200 bg-white py-14 scroll-mt-20"
         >
           <div className={brand.containerWide}>
-            <h2 className="text-2xl font-bold">Välityspalkkio (veroton + ALV)</h2>
+            <h2 className="text-2xl font-bold">Hinnoittelu urakoitsijalle</h2>
             <p className="mt-2 text-sm text-stone-600">
-              Taulukon hinnat ovat verottomia. Arvonlisävero lisätään
-              kevytyrittäjä-laskulle. Summa määräytyy työn tyypin ja tarjoajien
-              määrän mukaan hyväksyntähetkellä.
+              Kaksi selkeää vaihtoehtoa: kuukausitilaus (ei per-diili -maksuja) tai maksu
+              per hyväksytty diili (kallein, ei sitoutumista).
             </p>
-            <PlatformFeeTable className="mt-6" />
+            <PlatformPricingSection className="mt-6" />
           </div>
         </section>
 
