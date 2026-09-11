@@ -1,61 +1,78 @@
 # Kopioi TÄMÄ koko YAML Lovelace-kortin editoriin (korvaa koko kortti).
-# Ei vaadi sensor.energia_kokonaisteho_w eikä sensor.energia_vaiheiden_summa.
-# Kokonaisteho = L1 + L2 + L3.
+# Maltillinen / Normaali / Korkea = tänään 00:00→nyt vs eilen 00:00→sama kello.
+# Ei hetkellistä tehoa.
 
 type: vertical-stack
 cards:
   - type: custom:mushroom-template-card
     layout: horizontal
-    fill_container: true
+    fill_container: false
     primary: >
-      {% set w = states('sensor.l1_vaihe_power') | float(0)
-               + states('sensor.l2_vaihe_power') | float(0)
-               + states('sensor.l3_vaihe_power') | float(0) %}
+      {% set w = states('sensor.energia_vaiheiden_summa') | float(0) %}
+      {% if w == 0 %}
+        {% set w = states('sensor.l1_vaihe_power') | float(0)
+                 + states('sensor.l2_vaihe_power') | float(0)
+                 + states('sensor.l3_vaihe_power') | float(0) %}
+      {% endif %}
       {% set c = states('sensor.energia_tanaan_kustannus_eur') %}
-      {% set a = 'Maltillinen' if w < 2500 else ('Korkea' if w > 5500 else 'Normaali') %}
-      ⚡ {{ w | round(0) }} W{% if c not in ['unknown','unavailable','none',''] %} · {{ c }} €{% endif %} · {{ a }}
-    secondary: >
-      L1 {{ states('sensor.l1_vaihe_power') | float(0) | round(0) }} ·
-      L2 {{ states('sensor.l2_vaihe_power') | float(0) | round(0) }} ·
-      L3 {{ states('sensor.l3_vaihe_power') | float(0) | round(0) }} W
+      {% set a = states('sensor.energia_kulutusarvio') %}
+      ⚡ {{ w | round(0) }} W{% if c not in ['unknown','unavailable','none','']
+      %} · {{ c }} €{% endif %} · {{ a }}
+    secondary: "{{ states('sensor.energia_vertailu_teksti') }}"
     icon: mdi:flash
     icon_color: >
-      {% set w = states('sensor.l1_vaihe_power') | float(0)
-               + states('sensor.l2_vaihe_power') | float(0)
-               + states('sensor.l3_vaihe_power') | float(0) %}
-      {% if w < 2500 %}green
-      {% elif w > 5500 %}red
-      {% else %}amber{% endif %}
+      {% set a = states('sensor.energia_kulutusarvio') %}
+      {% if a == 'Maltillinen' %}green
+      {% elif a == 'Korkea' %}red
+      {% elif a == 'Normaali' %}amber
+      {% else %}disabled{% endif %}
     tap_action:
       action: more-info
-      entity: sensor.l1_vaihe_power
+      entity: sensor.energia_paivittain
+    card_mod:
+      style: |
+        ha-card {
+          padding: 4px 8px 0 !important;
+        }
   - type: custom:mushroom-chips-card
     alignment: center
+    card_mod:
+      style: |
+        ha-card {
+          padding: 0 4px 4px !important;
+          background: none !important;
+          border: none !important;
+          box-shadow: none !important;
+        }
     chips:
       - type: template
         icon: mdi:trending-down
         content: Maltillinen
         icon_color: >
-          {% set w = states('sensor.l1_vaihe_power') | float(0)
-                   + states('sensor.l2_vaihe_power') | float(0)
-                   + states('sensor.l3_vaihe_power') | float(0) %}
-          {{ 'green' if w < 2500 else 'disabled' }}
+          {{ 'green' if is_state('sensor.energia_kulutusarvio', 'Maltillinen') else 'disabled' }}
+        tap_action:
+          action: more-info
+          entity: sensor.energia_vs_eilen_pct
       - type: template
         icon: mdi:approximately-equal
         content: Normaali
         icon_color: >
-          {% set w = states('sensor.l1_vaihe_power') | float(0)
-                   + states('sensor.l2_vaihe_power') | float(0)
-                   + states('sensor.l3_vaihe_power') | float(0) %}
-          {{ 'amber' if w >= 2500 and w <= 5500 else 'disabled' }}
+          {{ 'amber' if is_state('sensor.energia_kulutusarvio', 'Normaali') else 'disabled' }}
+        tap_action:
+          action: more-info
+          entity: sensor.energia_vs_eilen_pct
       - type: template
         icon: mdi:trending-up
         content: Korkea
         icon_color: >
-          {% set w = states('sensor.l1_vaihe_power') | float(0)
-                   + states('sensor.l2_vaihe_power') | float(0)
-                   + states('sensor.l3_vaihe_power') | float(0) %}
-          {{ 'red' if w > 5500 else 'disabled' }}
+          {{ 'red' if is_state('sensor.energia_kulutusarvio', 'Korkea') else 'disabled' }}
+        tap_action:
+          action: more-info
+          entity: sensor.energia_vs_eilen_pct
+      - type: entity
+        entity: sensor.energia_eilen_samaan_aikaan
+        icon: mdi:calendar-clock
+        content_info: state
   - type: custom:mod-card
     card_mod:
       style:
@@ -69,6 +86,7 @@ cards:
             .unit { font-size: 7px !important; font-weight: 600 !important; }
             .status { font-size: 7px !important; font-weight: 600 !important; }
             .panel { padding: 6px 4px 4px !important; }
+            .stage { margin: 0 !important; }
             .gauge { max-width: 160px !important; }
         .: >
           ha-card { background: none !important; box-shadow: none !important; border: none !important; }
@@ -77,25 +95,17 @@ cards:
       columns: 4
       square: false
       cards:
-        - type: custom:mushroom-template-card
-          layout: vertical
-          fill_container: true
-          primary: >
-            {{ (states('sensor.l1_vaihe_power') | float(0)
-              + states('sensor.l2_vaihe_power') | float(0)
-              + states('sensor.l3_vaihe_power') | float(0)) | round(0) }} W
-          secondary: Kokonaisteho
-          icon: mdi:flash
-          icon_color: >
-            {% set w = states('sensor.l1_vaihe_power') | float(0)
-                     + states('sensor.l2_vaihe_power') | float(0)
-                     + states('sensor.l3_vaihe_power') | float(0) %}
-            {% if w < 2500 %}green
-            {% elif w > 5500 %}red
-            {% else %}amber{% endif %}
-          tap_action:
-            action: more-info
-            entity: sensor.l3_vaihe_power
+        - type: custom:power-gauge-card
+          entity: sensor.energia_vaiheiden_summa
+          name: Kokonaisteho
+          unit: W
+          min: 0
+          max: 12000
+          normal: 1800
+          warning: 5400
+          critical: 9600
+          rolling_numbers: false
+          background: transparent
         - type: custom:power-gauge-card
           entity: sensor.l1_vaihe_power
           name: L1

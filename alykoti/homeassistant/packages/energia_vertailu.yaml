@@ -1,6 +1,10 @@
 # energia_vertailu.yaml
 # → config/packages/energia_vertailu.yaml
 # Tiedostonimi ILMAN yhdysviivaa.
+#
+# Vertaa tämän päivän kulutusta (00:00 → nyt) eiliseen samaan kelloon
+# (esim. tänään 11:07 vs eilen 00:00–11:07). EI hetkellistä tehoa.
+# Lukemat 5 min välein (288 slottia / vrk).
 
 sensor:
   - platform: integration
@@ -32,7 +36,7 @@ template:
     action:
       - variables:
           paiva: "{{ now().strftime('%Y-%m-%d') }}"
-          hour: "{{ now().hour | int }}"
+          slot: "{{ now().hour * 12 + now().minute // 5 }}"
           kwh: "{{ states('sensor.energia_paivittain') | float(0) }}"
           ulko: "{{ states('sensor.ulkolampotila_met_no') | float(10) }}"
           old_paiva: "{{ state_attr('sensor.energia_tuntilukemat', 'paiva') }}"
@@ -41,30 +45,55 @@ template:
           old_ulko_eilen: "{{ state_attr('sensor.energia_tuntilukemat', 'ulko_eilen') }}"
           old_ulko_tanaan: "{{ state_attr('sensor.energia_tuntilukemat', 'ulko_tanaan') }}"
           tanaan_csv: |
-            {% set raw = old_tanaan %}
-            {% set parts = raw.split(',') if raw is string else (raw if raw is sequence else []) %}
-            {% set vals = parts | map('float', 0) | list %}
-            {% set h = hour | int %}
-            {% set vals = (vals + [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0])[:24] %}
-            {% set vals = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0] if old_paiva != paiva else vals %}
-            {% set vals = vals[:h] + [kwh | float(0)] + vals[h+1:] %}
-            {{ vals[:24] | join(',') }}
+            {% set paiva = now().strftime('%Y-%m-%d') %}
+            {% set slot = now().hour * 12 + now().minute // 5 %}
+            {% set kwh = states('sensor.energia_paivittain') | float(0) %}
+            {% set old_paiva = state_attr('sensor.energia_tuntilukemat', 'paiva') %}
+            {% set raw = state_attr('sensor.energia_tuntilukemat', 'tanaan') %}
+            {% set parts = raw.split(',') if raw is string else [] %}
+            {% set ns = namespace(v=[]) %}
+            {% for i in range(288) %}
+              {% if old_paiva == paiva and parts | count >= 280 and i < parts | count %}
+                {% set ns.v = ns.v + [parts[i] | float(0)] %}
+              {% else %}
+                {% set ns.v = ns.v + [0] %}
+              {% endif %}
+            {% endfor %}
+            {% set ns.v = ns.v[:slot] + [kwh] + ns.v[slot + 1:] %}
+            {{ ns.v[:288] | join(',') }}
           eilen_csv: |
-            {% set raw_t = old_tanaan.split(',') | join(',') if old_tanaan is string else (old_tanaan | join(',') if old_tanaan is sequence else '') %}
-            {% set raw_e = old_eilen.split(',') | join(',') if old_eilen is string else (old_eilen | join(',') if old_eilen is sequence else '') %}
-            {{ raw_t if old_paiva != paiva else raw_e }}
+            {% set paiva = now().strftime('%Y-%m-%d') %}
+            {% set old_paiva = state_attr('sensor.energia_tuntilukemat', 'paiva') %}
+            {% set raw_t = state_attr('sensor.energia_tuntilukemat', 'tanaan') %}
+            {% set raw_e = state_attr('sensor.energia_tuntilukemat', 'eilen') %}
+            {% if old_paiva != paiva and raw_t is string and (raw_t.split(',') | count) >= 280 %}
+              {{ raw_t }}
+            {% elif raw_e is string %}
+              {{ raw_e }}
+            {% else %}
+              {% set ns = namespace(v=[]) %}
+              {% for i in range(288) %}{% set ns.v = ns.v + [0] %}{% endfor %}
+              {{ ns.v | join(',') }}
+            {% endif %}
           ulko_tanaan: |
-            {% set prev = old_ulko_tanaan | float(ulko) %}
-            {{ (ulko | float(10) | round(2)) if old_paiva != paiva else ((0.8 * prev + 0.2 * ulko | float(10)) | round(2)) }}
+            {% set ulko = states('sensor.ulkolampotila_met_no') | float(10) %}
+            {% set prev = state_attr('sensor.energia_tuntilukemat', 'ulko_tanaan') | float(ulko) %}
+            {% set old_paiva = state_attr('sensor.energia_tuntilukemat', 'paiva') %}
+            {% set paiva = now().strftime('%Y-%m-%d') %}
+            {{ (ulko | round(2)) if old_paiva != paiva else ((0.8 * prev + 0.2 * ulko) | round(2)) }}
           ulko_eilen: |
-            {{ (old_ulko_tanaan | float(ulko) | round(2)) if old_paiva != paiva else (old_ulko_eilen | float(ulko) | round(2)) }}
+            {% set ulko = states('sensor.ulkolampotila_met_no') | float(10) %}
+            {% set old_paiva = state_attr('sensor.energia_tuntilukemat', 'paiva') %}
+            {% set paiva = now().strftime('%Y-%m-%d') %}
+            {{ (state_attr('sensor.energia_tuntilukemat', 'ulko_tanaan') | float(ulko) | round(2)) if old_paiva != paiva else (state_attr('sensor.energia_tuntilukemat', 'ulko_eilen') | float(ulko) | round(2)) }}
     sensor:
       - name: Energia tuntilukemat
         unique_id: energia_tuntilukemat
         unit_of_measurement: "kWh"
-        state: "{{ kwh | float(0) | round(3) }}"
+        state: "{{ states('sensor.energia_paivittain') | float(0) | round(3) }}"
         attributes:
-          paiva: "{{ paiva }}"
+          paiva: "{{ now().strftime('%Y-%m-%d') }}"
+          slot: "{{ now().hour * 12 + now().minute // 5 }}"
           tanaan: "{{ tanaan_csv }}"
           eilen: "{{ eilen_csv }}"
           ulko_tanaan: "{{ ulko_tanaan }}"
@@ -72,83 +101,85 @@ template:
 
   - trigger:
       - platform: time_pattern
-        minutes: "/5"
+        minutes: "/1"
       - platform: homeassistant
         event: start
       - platform: state
         entity_id:
           - sensor.energia_paivittain
           - sensor.energia_tuntilukemat
-          - sensor.energia_vaiheiden_summa
-          - sensor.ulkolampotila_met_no
     sensor:
+      - name: Energia eilen samaan aikaan
+        unique_id: energia_eilen_samaan_aikaan
+        unit_of_measurement: "kWh"
+        device_class: energy
+        icon: mdi:calendar-clock
+        state: |
+          {% set raw = state_attr('sensor.energia_tuntilukemat', 'eilen') %}
+          {% set eilen = raw.split(',') if raw is string else [] %}
+          {% set n = eilen | count %}
+          {% set h = now().hour %}
+          {% set m = now().minute %}
+          {% if n >= 280 %}
+            {% set slot = h * 12 + m // 5 %}
+            {% set frac = (m % 5) / 5 %}
+            {% set e0 = eilen[slot] | float(0) if n > slot else 0 %}
+            {% set e1 = eilen[slot + 1] | float(e0) if n > slot + 1 else e0 %}
+            {{ (e0 + (e1 - e0) * frac) | round(2) }}
+          {% elif n >= 24 %}
+            {% set prev = eilen[h - 1] | float(0) if h > 0 else 0 %}
+            {% set cur = eilen[h] | float(prev) if n > h else prev %}
+            {{ (prev + (cur - prev) * (m / 60)) | round(2) }}
+          {% else %}
+            0
+          {% endif %}
       - name: Energia vs eilen pct
         unique_id: energia_vs_eilen_pct
         unit_of_measurement: "%"
         state_class: measurement
         icon: mdi:compare-horizontal
         state: |
-          {% set h = now().hour %}
-          {% set raw = state_attr('sensor.energia_tuntilukemat', 'eilen') %}
-          {% set eilen = raw.split(',') if raw is string else (raw if raw is sequence else []) %}
-          {% set e = eilen[h] | float(0) if eilen | count > h else 0 %}
+          {% set e = states('sensor.energia_eilen_samaan_aikaan') | float(0) %}
           {% set t = states('sensor.energia_paivittain') | float(0) %}
           {{ ((t / e - 1) * 100) | round(1) if e > 0.05 else none }}
-        availability: |
-          {% set h = now().hour %}
-          {% set raw = state_attr('sensor.energia_tuntilukemat', 'eilen') %}
-          {% set eilen = raw.split(',') if raw is string else (raw if raw is sequence else []) %}
-          {% set e = eilen[h] | float(0) if eilen | count > h else 0 %}
-          {{ e > 0.05 }}
+        availability: >
+          {{ states('sensor.energia_eilen_samaan_aikaan') | float(0) > 0.05 }}
       - name: Energia vs odotettu pct
         unique_id: energia_vs_odotettu_pct
         unit_of_measurement: "%"
         state_class: measurement
         icon: mdi:weather-partly-cloudy
         state: |
-          {% set h = now().hour %}
-          {% set raw = state_attr('sensor.energia_tuntilukemat', 'eilen') %}
-          {% set eilen = raw.split(',') if raw is string else (raw if raw is sequence else []) %}
-          {% set e = eilen[h] | float(0) if eilen | count > h else 0 %}
+          {% set e = states('sensor.energia_eilen_samaan_aikaan') | float(0) %}
           {% set t = states('sensor.energia_paivittain') | float(0) %}
           {% set t_today = state_attr('sensor.energia_tuntilukemat', 'ulko_tanaan') | float(10) %}
           {% set t_yest = state_attr('sensor.energia_tuntilukemat', 'ulko_eilen') | float(t_today) %}
           {% set expected = e * (([0, 17 - t_today] | max + 2) / ([0, 17 - t_yest] | max + 2)) %}
           {{ ((t / expected - 1) * 100) | round(1) if expected > 0.05 else none }}
-        availability: |
-          {% set h = now().hour %}
-          {% set raw = state_attr('sensor.energia_tuntilukemat', 'eilen') %}
-          {% set eilen = raw.split(',') if raw is string else (raw if raw is sequence else []) %}
-          {% set e = eilen[h] | float(0) if eilen | count > h else 0 %}
-          {{ e > 0.05 }}
+        availability: >
+          {{ states('sensor.energia_eilen_samaan_aikaan') | float(0) > 0.05 }}
       - name: Energia kulutusarvio
         unique_id: energia_kulutusarvio
         icon: mdi:speedometer
         state: |
-          {% set adj = states('sensor.energia_vs_odotettu_pct') %}
-          {% set raw = states('sensor.energia_vs_eilen_pct') %}
-          {% set pct = adj | float(none) if adj not in ['unknown', 'unavailable', 'none', ''] else none %}
-          {% set pct = raw | float(none) if pct is none and raw not in ['unknown', 'unavailable', 'none', ''] else pct %}
-          {% if pct is not none %}
-            {{ 'Maltillinen' if pct <= -10 else ('Korkea' if pct >= 15 else 'Normaali') }}
+          {% set pct_s = states('sensor.energia_vs_eilen_pct') %}
+          {% if pct_s in ['unknown', 'unavailable', 'none', ''] %}
+            Kertyy
           {% else %}
-            {% set w = states('sensor.energia_vaiheiden_summa') | float(0) %}
-            {{ 'Maltillinen' if w < 2500 else ('Korkea' if w > 5500 else 'Normaali') }}
+            {% set pct = pct_s | float(0) %}
+            {{ 'Maltillinen' if pct <= -10 else ('Korkea' if pct >= 15 else 'Normaali') }}
           {% endif %}
       - name: Energia vertailu teksti
         unique_id: energia_vertailu_teksti
         icon: mdi:chart-line
         state: |
           {% set t = states('sensor.energia_paivittain') | float(0) %}
-          {% set h = now().hour %}
-          {% set raw = state_attr('sensor.energia_tuntilukemat', 'eilen') %}
-          {% set eilen = raw.split(',') if raw is string else (raw if raw is sequence else []) %}
-          {% set e = eilen[h] | float(0) if eilen | count > h else 0 %}
+          {% set e = states('sensor.energia_eilen_samaan_aikaan') | float(0) %}
           {% set vs = states('sensor.energia_vs_eilen_pct') %}
           {% if e > 0.05 and vs not in ['unknown', 'unavailable', 'none', ''] %}
-            Tänään {{ t | round(1) }} kWh · eilen samaan {{ e | round(1) }} kWh ({{ vs | float(0) | round(0) }} %)
+            Tänään {{ t | round(1) }} kWh · eilen {{ now().strftime('%H:%M') }} asti {{ e | round(1) }} kWh ({{ vs | float(0) | round(0) }} %)
           {% else %}
-            Tänään {{ t | round(1) }} kWh · eilinen vertailu kertyy (ensimmäinen täysi vuorokausi)
+            Tänään {{ t | round(1) }} kWh · eilinen samaan kelloon kertyy
           {% endif %}
       - name: Energia analyysi teksti
         unique_id: energia_analyysi_teksti
@@ -162,13 +193,3 @@ template:
           {% else %}
             Analyysidata kertyy mittauksen myötä.
           {% endif %}
-      - name: Energia eilen samaan aikaan
-        unique_id: energia_eilen_samaan_aikaan
-        unit_of_measurement: "kWh"
-        device_class: energy
-        icon: mdi:calendar-clock
-        state: |
-          {% set h = now().hour %}
-          {% set raw = state_attr('sensor.energia_tuntilukemat', 'eilen') %}
-          {% set eilen = raw.split(',') if raw is string else (raw if raw is sequence else []) %}
-          {{ (eilen[h] | float(0) if eilen | count > h else 0) | round(2) }}
