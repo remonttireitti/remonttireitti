@@ -1,160 +1,195 @@
 # Kopioi TÄMÄ koko tiedosto Home Assistantin Lovelace-kortin YAML-editoriin
 # (korvaa koko nykyinen Keittiö ILP -kortti). Älä liitä snippettejä.
 
-type: vertical-stack
-cards:
-  - type: custom:mod-card
-    card_mod:
-      style: |
-        ha-card {
-          border-radius: 16px;
-          border: 1px solid rgba(0, 0, 0, 0.08);
-          box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
-          overflow: hidden;
-          {% set tila = states('input_select.keittio_ilp_tila') %}
-          {% set ulko = states('sensor.ulkolampotila_met_no') | float(0) %}
-          {% set action = state_attr('climate.keittio_ilp', 'hvac_action') %}
-          {% if tila == 'Pois' %}
-            background: rgba(100, 116, 139, 0.14);
-          {% elif action == 'cooling' %}
-            background: rgba(59, 130, 246, 0.16);
-          {% elif action == 'heating' %}
-            background: rgba(239, 68, 68, 0.16);
-          {% elif ulko > 20 %}
-            background: rgba(148, 163, 184, 0.14);
-          {% else %}
-            background: rgba(34, 197, 94, 0.12);
-          {% endif %}
-        }
-    card:
-      type: vertical-stack
-      cards:
-        - type: custom:mushroom-template-card
-          layout: horizontal
-          fill_container: true
-          primary: >
-            Keittiö ILP · {{ state_attr('climate.keittio_ilp',
-            'current_temperature') | float(0) | round(1) }} °C → {{
-            state_attr('climate.keittio_ilp', 'temperature') | float(0) |
-            round(1) }} °C
-          secondary: >
-            {% set s1 = states('input_text.keittio_ilp') %}
-            {% set s2 = states('input_text.keittio_ilp_status') %}
-            {{ s2 if s1 in ['unknown', 'unavailable', 'none', ''] else s1 }} ·
-            Ulko {{ states('sensor.ulkolampotila_met_no') }} °C · {{
-            states('input_select.keittio_ilp_tila') }}
-          icon: mdi:air-conditioner
-          icon_color: >
-            {% set tila = states('input_select.keittio_ilp_tila') %} {% set
-            action = state_attr('climate.keittio_ilp', 'hvac_action') %} {% if
-            tila == 'Pois' %}disabled {% elif action == 'cooling' %}blue {% elif
-            action == 'heating' %}orange {% elif
-            is_state('input_select.keittio_ilp_tila', 'Manuaali') %}deep-orange
-            {% else %}green{% endif %}
+type: custom:mod-card
+card_mod:
+  style: |
+    ha-card {
+      border-radius: 16px;
+      border: 1px solid rgba(0, 0, 0, 0.08);
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+      overflow: hidden;
+      --stack-card-margin: 0px;
+      --mush-spacing: 4px;
+      --icon-size: 32px;
+      {% set tila = states('input_select.keittio_ilp_tila') %}
+      {% set ulko = states('sensor.ulkolampotila_met_no') | float(0) %}
+      {% set action = state_attr('climate.keittio_ilp', 'hvac_action') %}
+      {% if tila == 'Pois' %}
+        background: rgba(100, 116, 139, 0.14);
+      {% elif action == 'cooling' %}
+        background: rgba(59, 130, 246, 0.16);
+      {% elif action == 'heating' %}
+        background: rgba(239, 68, 68, 0.16);
+      {% elif ulko > 20 %}
+        background: rgba(148, 163, 184, 0.14);
+      {% else %}
+        background: rgba(34, 197, 94, 0.12);
+      {% endif %}
+    }
+card:
+  type: vertical-stack
+  cards:
+    - type: custom:mushroom-template-card
+      layout: horizontal
+      fill_container: false
+      primary: >
+        Keittiö ILP · {{ state_attr('climate.keittio_ilp',
+        'current_temperature') | float(0) | round(1) }} → {{
+        state_attr('climate.keittio_ilp', 'temperature') | float(0) |
+        round(1) }} °C
+      secondary: >
+        {% set s1 = states('input_text.keittio_ilp') %}
+        {% set s2 = states('input_text.keittio_ilp_status') %}
+        {{ s2 if s1 in ['unknown', 'unavailable', 'none', ''] else s1 }}
+      icon: mdi:air-conditioner
+      icon_color: >
+        {% set tila = states('input_select.keittio_ilp_tila') %} {% set
+        action = state_attr('climate.keittio_ilp', 'hvac_action') %} {% if
+        tila == 'Pois' %}disabled {% elif action == 'cooling' %}blue {% elif
+        action == 'heating' %}orange {% elif
+        is_state('input_select.keittio_ilp_tila', 'Manuaali') %}deep-orange
+        {% else %}green{% endif %}
+      tap_action:
+        action: more-info
+        entity: climate.keittio_ilp
+      card_mod:
+        style: |
+          ha-card {
+            padding: 2px 8px 0 !important;
+            background: none !important;
+            border: none !important;
+            box-shadow: none !important;
+          }
+    - type: custom:mushroom-chips-card
+      alignment: center
+      card_mod:
+        style: |
+          ha-card {
+            padding: 0 4px 4px !important;
+            background: none !important;
+            border: none !important;
+            box-shadow: none !important;
+          }
+      chips:
+        - type: template
+          icon: mdi:robot-outline
+          content: Auto
+          icon_color: >-
+            {{ 'green' if is_state('input_select.keittio_ilp_tila',
+            'Automaatti') else 'grey' }}
+          tap_action:
+            action: call-service
+            service: script.keittio_ilp_automaatti
+        - type: template
+          icon: mdi:power-off
+          content: Pois
+          icon_color: >-
+            {{ 'red' if is_state('input_select.keittio_ilp_tila', 'Pois')
+            else 'grey' }}
+          tap_action:
+            action: call-service
+            service: script.keittio_ilp_pois
+        - type: template
+          icon: mdi:hand-back-right
+          content: Käsi
+          icon_color: >-
+            {{ 'deep-orange' if is_state('input_select.keittio_ilp_tila',
+            'Manuaali') else 'grey' }}
+          tap_action:
+            action: call-service
+            service: input_select.select_option
+            data:
+              entity_id: input_select.keittio_ilp_tila
+              option: Manuaali
+        - type: template
+          icon: mdi:cash
+          icon_color: "{{ 'green' if is_state('binary_sensor.lammitys_halpa_sahko', 'on') else 'orange' }}"
+          content: >
+            {% set p = states('sensor.energi_data_service') | float(0) | round(1) %}
+            {{ 'Lattia' if is_state('binary_sensor.lammitys_halpa_sahko', 'on') else 'ILP' }} {{ p }} snt
           tap_action:
             action: more-info
-            entity: climate.keittio_ilp
-        - type: custom:mushroom-chips-card
-          alignment: center
-          chips:
-            - type: template
-              icon: mdi:robot-outline
-              content: Automaatti
-              icon_color: >-
-                {{ 'green' if is_state('input_select.keittio_ilp_tila',
-                'Automaatti') else 'grey' }}
-              tap_action:
-                action: call-service
-                service: script.keittio_ilp_automaatti
-            - type: template
-              icon: mdi:power-off
-              content: Pois
-              icon_color: >-
-                {{ 'red' if is_state('input_select.keittio_ilp_tila', 'Pois')
-                else 'grey' }}
-              tap_action:
-                action: call-service
-                service: script.keittio_ilp_pois
-            - type: template
-              icon: mdi:hand-back-right
-              content: Manuaali
-              icon_color: >-
-                {{ 'deep-orange' if is_state('input_select.keittio_ilp_tila',
-                'Manuaali') else 'grey' }}
-              tap_action:
-                action: call-service
-                service: input_select.select_option
-                data:
-                  entity_id: input_select.keittio_ilp_tila
-                  option: Manuaali
-            - type: template
-              icon: mdi:cash
-              icon_color: "{{ 'green' if is_state('binary_sensor.lammitys_halpa_sahko', 'on') else 'orange' }}"
-              content: >
-                {% if is_state('binary_sensor.lammitys_halpa_sahko', 'on') %}
-                  Lattia · {{ states('sensor.energi_data_service') }} snt
-                {% else %}
-                  ILP · {{ states('sensor.energi_data_service') }} snt
-                {% endif %}
-        - type: conditional
-          conditions:
-            - condition: state
-              entity: input_select.keittio_ilp_tila
-              state: Manuaali
-          card:
-            type: custom:mushroom-chips-card
-            alignment: center
-            chips:
-              - type: template
-                icon: mdi:fire
-                content: Lämmitys
-                icon_color: >-
-                  {{ 'orange' if
-                  is_state('input_select.keittio_ilp_manuaali_tila', 'Lämmitys')
-                  else 'grey' }}
-                tap_action:
-                  action: call-service
-                  service: input_select.select_option
-                  data:
-                    entity_id: input_select.keittio_ilp_manuaali_tila
-                    option: Lämmitys
-              - type: template
-                icon: mdi:snowflake
-                content: Jäähdytys
-                icon_color: >-
-                  {{ 'blue' if
-                  is_state('input_select.keittio_ilp_manuaali_tila',
-                  'Jäähdytys') else 'grey' }}
-                tap_action:
-                  action: call-service
-                  service: input_select.select_option
-                  data:
-                    entity_id: input_select.keittio_ilp_manuaali_tila
-                    option: Jäähdytys
-              - type: template
-                icon: mdi:play
-                content: Aja nyt
-                icon_color: green
-                tap_action:
-                  action: call-service
-                  service: script.keittio_ilp_manuaali
-        - type: entities
-          title: Lämpötilasäätö
-          show_header_toggle: false
-          entities:
-            - entity: input_number.keittio_ilp_lampo
-              name: Lämmitys (kallis sähkö)
-            - entity: input_number.keittio_ilp_lepoasetus
-              name: Lepoasetus (halpa sähkö, ILP jää päälle)
-            - entity: input_number.keittio_ilp_jaahdytys
-              name: Jäähdytys (kesä)
-            - entity: input_number.keittio_ilp_jaahdytys_keski
-              name: Jäähdytys vain jos 24h keski ≥
-            - entity: sensor.keittio_ilp_ulko_keski_24h
-              name: Ulko 24h keski
-            - entity: sensor.keittio_ilp_tavoite
-              name: Lämpökäyrän tavoite
-            - entity: sensor.ulkolampotila_met_no
-              name: Ulkolämpötila
-            - entity: binary_sensor.terassi_ovi_contact
-              name: Terassi ovi
+            entity: binary_sensor.lammitys_halpa_sahko
+        - type: entity
+          entity: input_number.keittio_ilp_lampo
+          icon: mdi:fire
+          content_info: state
+        - type: entity
+          entity: input_number.keittio_ilp_lepoasetus
+          icon: mdi:sleep
+          content_info: state
+        - type: entity
+          entity: input_number.keittio_ilp_jaahdytys
+          icon: mdi:snowflake
+          content_info: state
+        - type: entity
+          entity: input_number.keittio_ilp_jaahdytys_keski
+          icon: mdi:calendar-clock
+          content_info: state
+        - type: entity
+          entity: sensor.keittio_ilp_ulko_keski_24h
+          icon: mdi:thermometer-lines
+          content_info: state
+        - type: entity
+          entity: sensor.keittio_ilp_tavoite
+          icon: mdi:chart-bell-curve-cumulative
+          content_info: state
+        - type: entity
+          entity: sensor.ulkolampotila_met_no
+          icon: mdi:thermometer
+          content_info: state
+        - type: entity
+          entity: binary_sensor.terassi_ovi_contact
+          icon: mdi:door
+          content_info: name
+    - type: conditional
+      conditions:
+        - condition: state
+          entity: input_select.keittio_ilp_tila
+          state: Manuaali
+      card:
+        type: custom:mushroom-chips-card
+        alignment: center
+        card_mod:
+          style: |
+            ha-card {
+              padding: 0 4px 6px !important;
+              background: none !important;
+              border: none !important;
+              box-shadow: none !important;
+            }
+        chips:
+          - type: template
+            icon: mdi:fire
+            content: Lämmitys
+            icon_color: >-
+              {{ 'orange' if
+              is_state('input_select.keittio_ilp_manuaali_tila', 'Lämmitys')
+              else 'grey' }}
+            tap_action:
+              action: call-service
+              service: input_select.select_option
+              data:
+                entity_id: input_select.keittio_ilp_manuaali_tila
+                option: Lämmitys
+          - type: template
+            icon: mdi:snowflake
+            content: Jäähdytys
+            icon_color: >-
+              {{ 'blue' if
+              is_state('input_select.keittio_ilp_manuaali_tila',
+              'Jäähdytys') else 'grey' }}
+            tap_action:
+              action: call-service
+              service: input_select.select_option
+              data:
+                entity_id: input_select.keittio_ilp_manuaali_tila
+                option: Jäähdytys
+          - type: template
+            icon: mdi:play
+            content: Aja
+            icon_color: green
+            tap_action:
+              action: call-service
+              service: script.keittio_ilp_manuaali

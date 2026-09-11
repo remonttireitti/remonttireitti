@@ -382,15 +382,14 @@ script:
           hvac_want: "{{ 'cool' if (kausi | trim) == 'Jäähdytys' else 'heat' }}"
           status: >-
             {% set lukko = '' if lukitus_ok | bool else ' · kausilukko' %}
-            {% set ovi = ' · ovi auki' if ovi_auki | bool else '' %}
-            {% set price = states('sensor.energi_data_service') %}
-            {% set mean = states('sensor.keittio_ilp_ulko_keski_24h') %}
+            {% set ovi = ' · ovi' if ovi_auki | bool else '' %}
+            {% set price = states('sensor.energi_data_service') | float(0) | round(1) %}
             {% if (kausi | trim) == 'Jäähdytys' %}
-              Jäähdytys {{ send_temp }} °C · {{ fan }} · katto · 24h {{ mean }} °C · sisä {{ indoor | round(1) }} °C{{ lukko }}{{ ovi }}
+              Cool {{ send_temp }}° · {{ fan }}{{ lukko }}{{ ovi }}
             {% elif cheap | bool %}
-              Lepo {{ send_temp }} °C · lattia lämmittää ({{ price }} snt) · quiet · sisä {{ indoor | round(1) }} °C{{ ovi }}
+              Lepo {{ send_temp }}° · lattia {{ price }} snt{{ ovi }}
             {% else %}
-              ILP lämmittää {{ send_temp }} °C · {{ price }} snt · {{ fan }} · lattia · sisä {{ indoor | round(1) }} °C{{ lukko }}{{ ovi }}
+              ILP {{ send_temp }}° · {{ price }} snt · {{ fan }}{{ lukko }}{{ ovi }}
             {% endif %}
       - choose:
           - conditions:
