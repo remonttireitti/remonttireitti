@@ -305,115 +305,128 @@ cards:
               }
         - type: custom:mod-card
           card_mod:
-            style:
-              hui-grid-card$:
-                power-gauge-card$: >
-                  .title { font-size: 10px !important; font-weight: 700 !important; }
-                  .subtitle { font-size: 7px !important; font-weight: 600 !important; }
-                  .value { font-size: 15px !important; font-weight: 700 !important; }
-                  .unit-inline { font-size: 8px !important; font-weight: 600 !important; }
-                  .label-now { font-size: 6px !important; font-weight: 700 !important; }
-                  .unit { font-size: 0 !important; line-height: 0 !important; }
-                  .status { font-size: 7px !important; font-weight: 600 !important; }
-                  .panel { padding: 6px 4px 4px !important; }
-                  .stage { margin: 0 !important; }
-                  .gauge { max-width: 160px !important; }
-              .: >
-                ha-card { background: none !important; box-shadow: none !important; border: none !important; }
+            style: |
+              ha-card { background: none !important; box-shadow: none !important; border: none !important; }
           card:
             type: grid
             square: false
             columns: 4
             cards:
-              - type: custom:power-gauge-card
-                entity: sensor.vilp_ohjaus_lampotilat_air_temperature_13
-                name: Varaaja
-                unit: °C
-                min: 20
-                max: 60
-                normal: 40
-                warning: 41
-                critical: 50
-                precision: 1
-                rolling_numbers: false
-                background: transparent
-              - type: custom:power-gauge-card
-                entity: sensor.vilp_ohjaus_lampotilat_air_temperature_8
-                name: Käyttövesi
-                unit: °C
-                min: 40
-                max: 90
-                normal: 70
-                warning: 75
-                critical: 80
-                precision: 1
-                rolling_numbers: false
-                background: transparent
-              - type: custom:power-gauge-card
-                entity: sensor.vilp_ohjaus_lampotilat_air_temperature_10
-                name: LL meno
-                unit: °C
-                min: 20
-                max: 45
-                normal: 28
-                warning: 36
-                critical: 42
-                precision: 1
-                rolling_numbers: false
-                background: transparent
-              - type: custom:power-gauge-card
-                entity: sensor.vilp_ohjaus_lampotilat_air_temperature_9
-                name: LL paluu
-                unit: °C
-                min: 20
-                max: 45
-                normal: 26
-                warning: 34
-                critical: 40
-                precision: 1
-                rolling_numbers: false
-                background: transparent
+              - type: custom:mod-card
+                card_mod:
+                  style:
+                    power-gauge-card$: |
+                      .title { font-size: 10px !important; font-weight: 700 !important; }
+                      .value { font-size: 15px !important; font-weight: 700 !important; }
+                      .unit-inline { font-size: 8px !important; font-weight: 600 !important; }
+                      .panel { padding: 6px 4px 4px !important; }
+                      .stage { margin: 0 !important; }
+                      .gauge { max-width: 160px !important; }
+                      .subtitle, .status { display: none !important; }
+                      .label-now { font-size: 0 !important; }
+                      .label-now::after { content: "NYT"; font-size: 6px !important; font-weight: 700; letter-spacing: 1.5px; }
+                      .unit { font-size: 0 !important; }
+                      .unit::after { content: "{% set t = states('sensor.vilp_ohjaus_lampotilat_air_temperature_13') | float(none) %}{{ 'Ei dataa' if t is none else ('Kriittinen' if t > 50 else ('Varoitus' if t > 40 else ('Matala' if t < 35 else 'Normaali'))) }}"; font-size: 7px !important; font-weight: 700; }
+                card:
+                  type: custom:power-gauge-card
+                  entity: sensor.vilp_ohjaus_lampotilat_air_temperature_13
+                  name: Varaaja
+                  unit: °C
+                  min: 20
+                  max: 60
+                  normal: 40
+                  warning: 41
+                  critical: 50
+                  precision: 1
+                  rolling_numbers: false
+                  background: transparent
+              - type: custom:mod-card
+                card_mod:
+                  style:
+                    power-gauge-card$: |
+                      .title { font-size: 10px !important; font-weight: 700 !important; }
+                      .value { font-size: 15px !important; font-weight: 700 !important; }
+                      .unit-inline { font-size: 8px !important; font-weight: 600 !important; }
+                      .panel { padding: 6px 4px 4px !important; }
+                      .stage { margin: 0 !important; }
+                      .gauge { max-width: 160px !important; }
+                      .subtitle, .status { display: none !important; }
+                      .label-now { font-size: 0 !important; }
+                      .label-now::after { content: "NYT"; font-size: 6px !important; font-weight: 700; letter-spacing: 1.5px; }
+                      .unit { font-size: 0 !important; }
+                      .unit::after { content: "{% set t = states('sensor.vilp_ohjaus_lampotilat_air_temperature_8') | float(none) %}{{ 'Ei dataa' if t is none else ('Kriittinen' if t > 80 else ('Varoitus' if t >= 75 else ('Matala' if t < 65 else 'Normaali'))) }}"; font-size: 7px !important; font-weight: 700; }
+                card:
+                  type: custom:power-gauge-card
+                  entity: sensor.vilp_ohjaus_lampotilat_air_temperature_8
+                  name: Käyttövesi
+                  unit: °C
+                  min: 40
+                  max: 90
+                  normal: 70
+                  warning: 75
+                  critical: 80
+                  precision: 1
+                  rolling_numbers: false
+                  background: transparent
+              - type: custom:mod-card
+                card_mod:
+                  style:
+                    power-gauge-card$: |
+                      .title { font-size: 10px !important; font-weight: 700 !important; }
+                      .value { font-size: 15px !important; font-weight: 700 !important; }
+                      .unit-inline { font-size: 8px !important; font-weight: 600 !important; }
+                      .panel { padding: 6px 4px 4px !important; }
+                      .stage { margin: 0 !important; }
+                      .gauge { max-width: 160px !important; }
+                      .subtitle, .status { display: none !important; }
+                      .label-now { font-size: 0 !important; }
+                      .label-now::after { content: "NYT"; font-size: 6px !important; font-weight: 700; letter-spacing: 1.5px; }
+                      .unit { font-size: 0 !important; }
+                      .unit::after { content: "{% set t = states('sensor.vilp_ohjaus_lampotilat_air_temperature_10') | float(none) %}{{ 'Ei dataa' if t is none else ('Kriittinen' if t >= 42 else ('Varoitus' if t >= 36 else 'Normaali')) }}"; font-size: 7px !important; font-weight: 700; }
+                card:
+                  type: custom:power-gauge-card
+                  entity: sensor.vilp_ohjaus_lampotilat_air_temperature_10
+                  name: LL meno
+                  unit: °C
+                  min: 20
+                  max: 45
+                  normal: 28
+                  warning: 36
+                  critical: 42
+                  precision: 1
+                  rolling_numbers: false
+                  background: transparent
+              - type: custom:mod-card
+                card_mod:
+                  style:
+                    power-gauge-card$: |
+                      .title { font-size: 10px !important; font-weight: 700 !important; }
+                      .value { font-size: 15px !important; font-weight: 700 !important; }
+                      .unit-inline { font-size: 8px !important; font-weight: 600 !important; }
+                      .panel { padding: 6px 4px 4px !important; }
+                      .stage { margin: 0 !important; }
+                      .gauge { max-width: 160px !important; }
+                      .subtitle, .status { display: none !important; }
+                      .label-now { font-size: 0 !important; }
+                      .label-now::after { content: "NYT"; font-size: 6px !important; font-weight: 700; letter-spacing: 1.5px; }
+                      .unit { font-size: 0 !important; }
+                      .unit::after { content: "{% set t = states('sensor.vilp_ohjaus_lampotilat_air_temperature_9') | float(none) %}{{ 'Ei dataa' if t is none else ('Kriittinen' if t >= 40 else ('Varoitus' if t >= 34 else 'Normaali')) }}"; font-size: 7px !important; font-weight: 700; }
+                card:
+                  type: custom:power-gauge-card
+                  entity: sensor.vilp_ohjaus_lampotilat_air_temperature_9
+                  name: LL paluu
+                  unit: °C
+                  min: 20
+                  max: 45
+                  normal: 26
+                  warning: 34
+                  critical: 40
+                  precision: 1
+                  rolling_numbers: false
+                  background: transparent
         - type: custom:mushroom-chips-card
           alignment: center
           chips:
-            - type: template
-              icon: mdi:water-boiler
-              icon_color: >
-                {% set t = states('sensor.vilp_ohjaus_lampotilat_air_temperature_13') | float(none) %}
-                {% if t is none %}grey
-                {% elif t > 50 %}red
-                {% elif t > 40 %}orange
-                {% elif t < 35 %}blue
-                {% else %}green{% endif %}
-              content: >
-                {% set t = states('sensor.vilp_ohjaus_lampotilat_air_temperature_13') | float(none) %}
-                {% if t is none %}Varaaja ?
-                {% elif t > 50 %}Varaaja kriittinen
-                {% elif t > 40 %}Varaaja varoitus
-                {% elif t < 35 %}Varaaja matala
-                {% else %}Varaaja normaali{% endif %}
-              tap_action:
-                action: more-info
-                entity: sensor.vilp_ohjaus_lampotilat_air_temperature_13
-            - type: template
-              icon: mdi:water-thermometer
-              icon_color: >
-                {% set t = states('sensor.vilp_ohjaus_lampotilat_air_temperature_8') | float(none) %}
-                {% if t is none %}grey
-                {% elif t > 80 %}red
-                {% elif t >= 75 %}orange
-                {% elif t < 65 %}blue
-                {% else %}green{% endif %}
-              content: >
-                {% set t = states('sensor.vilp_ohjaus_lampotilat_air_temperature_8') | float(none) %}
-                {% if t is none %}Käyttövesi ?
-                {% elif t > 80 %}Käyttövesi kriittinen
-                {% elif t >= 75 %}Käyttövesi varoitus
-                {% elif t < 65 %}Käyttövesi matala
-                {% else %}Käyttövesi normaali{% endif %}
-              tap_action:
-                action: more-info
-                entity: sensor.vilp_ohjaus_lampotilat_air_temperature_8
             - type: template
               icon: mdi:pump
               icon_color: "{{ 'green' if is_state('switch.sonoff_4_ch_pro_2_tasmota2', 'on') else 'grey' }}"
