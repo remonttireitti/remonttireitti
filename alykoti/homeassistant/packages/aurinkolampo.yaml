@@ -1,17 +1,16 @@
 # aurinkolampo.yaml
 # Kopioi tämä Home Assistantin config/packages/ -kansioon.
 #
-# Lähde: sensor.aurinkolampo_teho_kw (kW)
-# Tulos:
-#   sensor.aurinkolampo_energia          kumulatiivinen kWh
-#   sensor.aurinkolampo_paivittain       tänään kWh (nollautuu keskiyöllä)
-#   sensor.aurinkolampo_viikottain       kuluva viikko kWh
-#   sensor.aurinkolampo_kuukausittain    kuluva kuukausi kWh
-#   sensor.aurinkolampo_tuotto_tanaan
-#   sensor.aurinkolampo_tuotto_eilen     (utility_meter last_period)
-#   sensor.aurinkolampo_tuotto_viikko
-#   sensor.aurinkolampo_tuotto_kuukausi
-#   sensor.aurinkolampo_tuotto_teksti
+# Lähde: sensor.aurinkolampo_teho_kw (kW) → Riemann kWh
+# Jaksot kalenterin mukaan (utility_meter last_reset):
+#   päivä = kuluva vuorokausi 00:00 → nyt
+#   viikko = kuluva viikko ma 00:00 → nyt
+#   kuukausi = kuluva kalenterikuukausi 1. pvä 00:00 → nyt
+# Samaan jaksoon talon kulutus (energia_paivittain / _viikottain / _kuukausittain).
+#
+# Varaaja ~300 l. 1 kWh ≈ +2,9 °C. Talvi (marras–helmi) ei tuota
+# vaikka paistaisi. Pumppu saa olla, mutta sekoitus/vastus jatkavat
+# jos laskenta sanoo ettei riitä.
 
 sensor:
   - platform: integration
@@ -55,24 +54,43 @@ template:
         state_class: total
         icon: mdi:solar-power
         state: "{{ states('sensor.aurinkolampo_paivittain') | float(0) | round(2) }}"
+        attributes:
+          jakso: "{{ now().strftime('%d.%m.%Y') }}"
+          jakso_alku: "{{ now().strftime('%Y-%m-%d') }} 00:00"
+          talo_kwh: "{{ states('sensor.energia_paivittain') | float(0) | round(2) }}"
       - name: Aurinkolampo tuotto eilen
         unique_id: aurinkolampo_tuotto_eilen
         unit_of_measurement: "kWh"
         device_class: energy
         icon: mdi:history
         state: "{{ state_attr('sensor.aurinkolampo_paivittain', 'last_period') | float(0) | round(2) }}"
+        attributes:
+          jakso: "{{ (now() - timedelta(days=1)).strftime('%d.%m.%Y') }}"
+          talo_kwh: "{{ state_attr('sensor.energia_paivittain', 'last_period') | float(0) | round(2) }}"
       - name: Aurinkolampo tuotto viikko
         unique_id: aurinkolampo_tuotto_viikko
         unit_of_measurement: "kWh"
         device_class: energy
         icon: mdi:calendar-week
         state: "{{ states('sensor.aurinkolampo_viikottain') | float(0) | round(2) }}"
+        attributes:
+          jakso: >
+            {% set alku = now() - timedelta(days=now().weekday()) %}
+            {{ alku.strftime('%d.%m.') }}–{{ now().strftime('%d.%m.%Y') }}
+          jakso_alku: >
+            {% set alku = now() - timedelta(days=now().weekday()) %}
+            {{ alku.strftime('%Y-%m-%d') }} 00:00
+          talo_kwh: "{{ states('sensor.energia_viikottain') | float(0) | round(2) }}"
       - name: Aurinkolampo tuotto kuukausi
         unique_id: aurinkolampo_tuotto_kuukausi
         unit_of_measurement: "kWh"
         device_class: energy
         icon: mdi:calendar-month
         state: "{{ states('sensor.aurinkolampo_kuukausittain') | float(0) | round(2) }}"
+        attributes:
+          jakso: "{{ now().strftime('1.%m.–%d.%m.%Y') }}"
+          jakso_alku: "{{ now().strftime('%Y-%m-01') }} 00:00"
+          talo_kwh: "{{ states('sensor.energia_kuukausittain') | float(0) | round(2) }}"
       - name: Aurinkolampo tuotto teksti
         unique_id: aurinkolampo_tuotto_teksti
         icon: mdi:solar-power-variant
@@ -82,4 +100,107 @@ template:
           {% set e = state_attr('sensor.aurinkolampo_paivittain', 'last_period') | float(0) %}
           {% set w = states('sensor.aurinkolampo_viikottain') | float(0) %}
           {% set m = states('sensor.aurinkolampo_kuukausittain') | float(0) %}
-          Nyt {{ p | round(2) }} kW · tänään {{ t | round(1) }} · eilen {{ e | round(1) }} · vko {{ w | round(1) }} · kk {{ m | round(1) }} kWh
+          {% set tt = states('sensor.energia_paivittain') | float(0) %}
+          {% set tw = states('sensor.energia_viikottain') | float(0) %}
+          {% set tm = states('sensor.energia_kuukausittain') | float(0) %}
+          {% set alku = now() - timedelta(days=now().weekday()) %}
+          Nyt {{ p | round(2) }} kW · {{ now().strftime('%d.%m.') }} {{ t | round(1) }}/talo {{ tt | round(1) }} · vko {{ alku.strftime('%d.%m.') }}–{{ now().strftime('%d.%m.') }} {{ w | round(1) }}/{{ tw | round(1) }} · kk 1.–{{ now().strftime('%d.%m.') }} {{ m | round(1) }}/{{ tm | round(1) }} kWh
+      - name: Aurinkolampo nousu per kwh
+        unique_id: aurinkolampo_nousu_per_kwh
+        unit_of_measurement: "°C"
+        icon: mdi:thermometer-plus
+        state: "{{ (3600 / (300 * 4.186)) | round(2) }}"
+        attributes:
+          varaaja_l: 300
+          selite: "1 kWh nostaa 300 l vettä noin 2,9 °C (Q = m·c·ΔT)"
+      - name: Aurinkolampo tarve kwh
+        unique_id: aurinkolampo_tarve_kwh
+        unit_of_measurement: "kWh"
+        device_class: energy
+        icon: mdi:water-boiler
+        state: >
+          {% set tank = states('sensor.vilp_ohjaus_lampotilat_air_temperature_13') | float(none) %}
+          {% set tavoite = states('sensor.lammitys_sekoitus_kaytto') | float(none) %}
+          {% if tank is none or tavoite is none %}unknown
+          {% else %}{{ ([tavoite - tank, 0] | max * 300 * 4.186 / 3600) | round(2) }}{% endif %}
+        attributes:
+          varaaja_l: 300
+          varaaja_c: "{{ states('sensor.vilp_ohjaus_lampotilat_air_temperature_13') }}"
+          tavoite_c: "{{ states('sensor.lammitys_sekoitus_kaytto') }}"
+          nousu_c: >
+            {% set tank = states('sensor.vilp_ohjaus_lampotilat_air_temperature_13') | float(none) %}
+            {% set tavoite = states('sensor.lammitys_sekoitus_kaytto') | float(none) %}
+            {{ ([tavoite - tank, 0] | max) | round(1) if tank is not none and tavoite is not none else none }}
+      - name: Aurinkolampo riitto teksti
+        unique_id: aurinkolampo_riitto_teksti
+        icon: mdi:solar-power
+        state: >
+          {% set kk = now().month %}
+          {% set talvi = kk in [11, 12, 1, 2] %}
+          {% set p = states('sensor.aurinkolampo_teho_kw') | float(0) %}
+          {% set tanaan = states('sensor.aurinkolampo_paivittain') | float(0) %}
+          {% set raja = states('input_number.lammitys_aurinko_teho_raja') | float(0.8) %}
+          {% set tank = states('sensor.vilp_ohjaus_lampotilat_air_temperature_13') | float(none) %}
+          {% set tavoite = states('sensor.lammitys_sekoitus_kaytto') | float(none) %}
+          {% set dt_kwh = 3600 / (300 * 4.186) %}
+          {% set need_dt = ([tavoite - tank, 0] | max) if tank is not none and tavoite is not none else 0 %}
+          {% set need = need_dt * 300 * 4.186 / 3600 %}
+          {% set tunnit = (need / p) if p > 0.05 else 99 %}
+          {% if talvi %}Talvi — ei riitä 300 l
+          {% elif not is_state('switch.sonoff_4_ch_pro_2_tasmota3', 'on') %}Pumppu pois
+          {% elif is_state('binary_sensor.aurinkolampo_riittaa', 'on') %}Riittää 300 l
+          {% else %}Ei riitä 300 l — vastus{% endif %}
+        attributes:
+          syy: >
+            {% set kk = now().month %}
+            {% set talvi = kk in [11, 12, 1, 2] %}
+            {% set p = states('sensor.aurinkolampo_teho_kw') | float(0) %}
+            {% set tanaan = states('sensor.aurinkolampo_paivittain') | float(0) %}
+            {% set tank = states('sensor.vilp_ohjaus_lampotilat_air_temperature_13') | float(none) %}
+            {% set tavoite = states('sensor.lammitys_sekoitus_kaytto') | float(none) %}
+            {% set dt_kwh = 3600 / (300 * 4.186) %}
+            {% set need_dt = ([tavoite - tank, 0] | max) if tank is not none and tavoite is not none else 0 %}
+            {% set need = need_dt * 300 * 4.186 / 3600 %}
+            {% set tunnit = (need / p) if p > 0.05 else 99 %}
+            {% if talvi %}Marras–helmi: aurinkolämpö ei lämmitä 300 l varaajaa vaikka paistaisi. Pumppu saa olla, lämmitä vastuksella.
+            {% elif tank is none or tavoite is none %}Ei varaaja- tai menovesitavoitetta — ei voi laskea riittävyyttä.
+            {% elif not is_state('switch.sonoff_4_ch_pro_2_tasmota3', 'on') %}Aurinkopumppu pois.
+            {% elif is_state('binary_sensor.aurinkolampo_riittaa', 'on') %}1 kWh ≈ +{{ dt_kwh | round(1) }} °C / 300 l. Tarve {{ need | round(1) }} kWh ({{ need_dt | round(1) }} °C), nyt {{ p | round(2) }} kW · tänään {{ tanaan | round(1) }} kWh.
+            {% else %}1 kWh ≈ +{{ dt_kwh | round(1) }} °C / 300 l. Tarve {{ need | round(1) }} kWh ({{ need_dt | round(1) }} °C), tänään {{ tanaan | round(1) }} kWh (≈ +{{ (tanaan * dt_kwh) | round(1) }} °C), teho {{ p | round(2) }} kW. Ei toivoa tällä tuotolla — pumppu saa olla, lämmitä vastuksella.{% endif %}
+          varaaja_l: 300
+          kausi: "{{ 'talvi' if now().month in [11, 12, 1, 2] else 'tuottokausi' }}"
+  - binary_sensor:
+      - name: Aurinkolampo riittaa
+        unique_id: aurinkolampo_riittaa
+        icon: mdi:solar-power
+        device_class: heat
+        state: >
+          {% set kk = now().month %}
+          {% set talvi = kk in [11, 12, 1, 2] %}
+          {% set p = states('sensor.aurinkolampo_teho_kw') | float(0) %}
+          {% set tanaan = states('sensor.aurinkolampo_paivittain') | float(0) %}
+          {% set raja = states('input_number.lammitys_aurinko_teho_raja') | float(0.8) %}
+          {% set tank = states('sensor.vilp_ohjaus_lampotilat_air_temperature_13') | float(none) %}
+          {% set tavoite = states('sensor.lammitys_sekoitus_kaytto') | float(none) %}
+          {% set need_dt = ([tavoite - tank, 0] | max) if tank is not none and tavoite is not none else 0 %}
+          {% set need = need_dt * 300 * 4.186 / 3600 %}
+          {% set tunnit = (need / p) if p > 0.05 else 99 %}
+          {% if talvi %}
+            false
+          {% elif not is_state('binary_sensor.lammitys_aurinko_lammittaa', 'on') %}
+            false
+          {% elif p < raja and tanaan < [need, 1] | max %}
+            false
+          {% elif need <= 0.3 %}
+            true
+          {% elif tanaan >= need or tunnit <= 3 %}
+            true
+          {% else %}
+            false
+          {% endif %}
+        attributes:
+          varaaja_l: 300
+          kausi: "{{ 'talvi' if now().month in [11, 12, 1, 2] else 'tuottokausi' }}"
+          tarve_kwh: "{{ states('sensor.aurinkolampo_tarve_kwh') }}"
+          nousu_c_per_kwh: "{{ states('sensor.aurinkolampo_nousu_per_kwh') }}"
+          selite: "Talvi ei riitä. Muuten riittää jos tänään kertynyt kWh tai ~3 h nykytehoa peittää varaajan vajeen."

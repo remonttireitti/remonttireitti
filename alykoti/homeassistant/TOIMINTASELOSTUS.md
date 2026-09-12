@@ -38,11 +38,13 @@ Virtaus oletuksena:
 
 ### Lämmitysvesi
 
-1. Aurinko, jos kenno on kuumempi kuin varaaja (ero > 7 °C). Silloin sekoituspumppu ei kilpaile, jos aurinkoteho on yli rajan.
+1. Aurinko, jos kenno on kuumempi kuin varaaja (ero > 7 °C). Pumppu saa olla. Sekoitus ja vastus väistävät vain jos aurinko **riittää 300 l varaajaan** (kausi + kWh). Marras–helmi ei riitä vaikka paistaisi. 1 kWh ≈ +2,9 °C / 300 l — jos vaje on isompi, lämmitä vastuksella.
 2. Sekoituspumppu, jos KV ≥ 58 °C ja KV on vähintään ~1,5 °C kuumempi kuin varaaja.
 3. Läpivirtausvastus, jos KV on liian kylmä varastettavaksi, kierto on käynyt ≥ 4 min, ja joko jokin lattia lämmittää tai varaaja kutsuu lämpöä.
 
 Käyttöveden suoja: sekoituspulssi 30 s, sitten 90 s odotus. Pois heti jos KV ≤ 56 °C tai KV laskee pulssin aikana liikaa.
+
+Aurinkolämpö kWh on kalenterijakso, sama kuin talon kulutus: kuluva päivä (00:00→nyt), kuluva viikko (ma→nyt), kuluva kuukausi (1. pvä→nyt). Varaaja ~300 l: 1 kWh ≈ +2,9 °C. Jos laskenta sanoo ettei riitä, pumppu saa jäädä päälle mutta sekoitus ja vastus jatkavat.
 
 ## 3. Varaajan termostaatti
 
@@ -80,7 +82,7 @@ Kirjoitettava asetus:
 | Pois, ikkuna/ovi auki | 17 °C | 17 °C |
 | Hetkellinen ≥ 40 c/t | tausta − 2 °C, min 17 | käyttö − 2 °C, min 17 |
 | Ennakoiva | käyttö + nosto, max 26 | käyttö + nosto, max 26 |
-| Korotus-ajastin | tavoite + korotus | tavoite + korotus |
+| Korotus-ajastin (+4 °C / 240 min) | tavoite + korotus | tavoite + korotus |
 | Normaali | tausta 18 °C | käyttö (20 / 23) |
 
 Sitten portti: `max(varaaja, menovesi) ≥ huoneasetus + 5 °C`.
@@ -141,4 +143,5 @@ Hetkellinen c/t (`sensor.hetkellinen_kustannus`):
 3. `climate.lattialammitys` mittaa varaajaa (13), ei menovettä (10)?
 4. Onko 21 °C oikea viitelämpö käyrän siirrolle (huone − 21)?
 5. Hetkellinen laskee huonetta ja sen myötä vettä. Riittääkö?
-6. Onko aurinkopiiri sama varaaja (13)?
+6. Onko aurinkopiiri sama ~300 l varaaja (13)?
+7. Korotus-apurit: jos vanhat 1,5 °C / 60 min jäivät, täysi uudelleenkäynnistys siirtää ne +4 °C / 240 min. Itse muutettua arvoa ei ylikirjoiteta.

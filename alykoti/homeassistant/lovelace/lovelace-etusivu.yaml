@@ -843,7 +843,8 @@ cards:
                 | round(1) }}°
             - type: template
               icon: mdi:solar-power
-              content: Tänään {{ states('sensor.aurinkolampo_tuotto_tanaan') | float(0) | round(1) }} kWh
+              content: >-
+                {{ now().strftime('%d.%m.') }} {{ states('sensor.aurinkolampo_tuotto_tanaan') | float(0) | round(1) }} / talo {{ states('sensor.energia_paivittain') | float(0) | round(1) }}
               tap_action:
                 action: more-info
                 entity: sensor.aurinkolampo_tuotto_tanaan
@@ -853,6 +854,27 @@ cards:
               tap_action:
                 action: more-info
                 entity: sensor.aurinkolampo_tuotto_eilen
+            - type: template
+              icon: mdi:calendar-week
+              content: >-
+                Vko {{ states('sensor.aurinkolampo_tuotto_viikko') | float(0) | round(1) }} / talo {{ states('sensor.energia_viikottain') | float(0) | round(1) }}
+              tap_action:
+                action: more-info
+                entity: sensor.aurinkolampo_tuotto_viikko
+            - type: template
+              icon: mdi:calendar-month
+              content: >-
+                Kk {{ states('sensor.aurinkolampo_tuotto_kuukausi') | float(0) | round(1) }} / talo {{ states('sensor.energia_kuukausittain') | float(0) | round(1) }}
+              tap_action:
+                action: more-info
+                entity: sensor.aurinkolampo_tuotto_kuukausi
+            - type: template
+              icon: mdi:water-boiler
+              icon_color: "{{ 'green' if is_state('binary_sensor.aurinkolampo_riittaa', 'on') else ('amber' if is_state('switch.sonoff_4_ch_pro_2_tasmota3', 'on') else 'grey') }}"
+              content: "{{ states('sensor.aurinkolampo_riitto_teksti') }}"
+              tap_action:
+                action: more-info
+                entity: sensor.aurinkolampo_riitto_teksti
             - type: entity
               entity: switch.sonoff_4_ch_pro_2_tasmota3
               icon: mdi:solar-power-variant

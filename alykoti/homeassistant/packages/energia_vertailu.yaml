@@ -5,6 +5,11 @@
 # Vertaa tämän päivän kulutusta (00:00 → nyt) eiliseen samaan kelloon
 # (esim. tänään 11:07 vs eilen 00:00–11:07). EI hetkellistä tehoa.
 # Lukemat 5 min välein (288 slottia / vrk).
+#
+# Kalenterijaksot samaan tapaan kuin aurinkolämpö:
+#   energia_paivittain      kuluva vuorokausi
+#   energia_viikottain      kuluva viikko (ma 00:00)
+#   energia_kuukausittain   kuluva kalenterikuukausi
 
 sensor:
   - platform: integration
@@ -24,6 +29,20 @@ utility_meter:
     unique_id: energia_paivittain
     source: sensor.energia_vertailu_kwh
     cycle: daily
+    offset: "00:00:00"
+    net_consumption: false
+  energia_viikottain:
+    name: Energia viikottain
+    unique_id: energia_viikottain
+    source: sensor.energia_vertailu_kwh
+    cycle: weekly
+    offset: "00:00:00"
+    net_consumption: false
+  energia_kuukausittain:
+    name: Energia kuukausittain
+    unique_id: energia_kuukausittain
+    source: sensor.energia_vertailu_kwh
+    cycle: monthly
     offset: "00:00:00"
     net_consumption: false
 
