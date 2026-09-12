@@ -27,14 +27,15 @@ Virtaus oletuksena:
 
 ### Olo + keittiö
 
-- Ensisijainen: ILP (`climate.keittio_ilp`).
-- Lattia normaalisti taustalla (oletus 18 °C), ettei lattia ja ILP taistele.
-- Lattia nousee käyttöasetukseen vain ennakoivassa (halpa sähkö, hinta nousemassa) tai korotuksessa.
+- Halpa sähkö + maltillinen hetkellinen, tai hinta nousemassa: lattia varaa olo+keittiön (käyttöasetus + nosto). ILP jää taustalle.
+- ILP-painotteinen vain kun spot on kallis ja hetkellinen korkea: lattia taustalla (18 °C), ILP lämmittää ilman.
+- Korotus nostaa lattian aina.
 
 ### Makuuhuoneet (HM, makuhuone, Glen, Nele) ja eteinen
 
 - Vain lattia. ILP ei lämmitä näitä.
 - Vakio: makuuhuoneet 20 °C, eteinen 23 °C.
+- Ennakoiva / halpa + maltillinen: eteinen ja makuuhuoneet saavat saman lattianoston kuin olo+keittiö.
 
 ### Lämmitysvesi
 
@@ -59,7 +60,9 @@ Vastus ei käy pelkällä kiertopumpulla: vähintään yksi lämmityspiiri (`bin
 
 ## 4. Menoveden tavoite seuraa huoneita
 
-Kaikkien huoneiden asetus muuttuu ulkolämmöstä, spotista ja hetkellisestä kulutuksesta (`sensor.lammitys_tavoite_*`). Sen päälle ennakoiva, korotus ja hetki-raja (`sensor.lammitys_kaytto_*`). Olo+keittiön lattia on silti taustalla paitsi ennakoivassa.
+Kaikkien huoneiden asetus muuttuu ulkolämmöstä, spotista ja hetkellisestä kulutuksesta (`sensor.lammitys_tavoite_*`). Sen päälle ennakoiva, korotus ja hetki-raja (`sensor.lammitys_kaytto_*`).
+
+Olo+keittiön lattia on taustalla vain ILP-painotteisessa jaksossa (kallis + korkea kulutus). Halvalla / ennakoivassa se nousee käyttöasetukseen.
 
 `sensor.lammitys_huone_max` = korkein aktiivinen huoneasetus (ikkuna/ovi auki tai Pois ei nosta).
 `sensor.lammitys_vesi_huone_raja` = huone_max + 5 °C. Olo 21 °C → 26 °C.
@@ -82,9 +85,10 @@ Kirjoitettava asetus:
 | Pois, ikkuna/ovi auki | 17 °C | 17 °C |
 | Hetkellinen ≥ 40 c/t | tausta − 2 °C, min 17 | käyttö − 2 °C, min 17 |
 | Huone alarajalla, ikkuna/ovi kiinni | käyttö, min 19 °C | käyttö, min 19 °C (eteinen 20) |
-| Ennakoiva | käyttö + nosto, max 26 | käyttö + nosto, max 26 |
+| Ennakoiva / halpa + maltillinen | käyttö + nosto, max 26 | käyttö + nosto (myös eteinen), max 26 |
 | Korotus-ajastin (+4 °C / 240 min) | tavoite + korotus | tavoite + korotus |
-| Normaali | tausta 18 °C | käyttö (20 / 23) |
+| Kallis + korkea kulutus | tausta 18 °C, ILP-painotteinen | käyttö (20 / 23) tai −2 °C |
+| Normaali (kallis, kulutus ok) | tausta 18 °C, ILP | käyttö (20 / 23) |
 
 Sitten portti: `max(varaaja, menovesi) ≥ huoneasetus + 5 °C`.
 
@@ -101,9 +105,9 @@ Kiertopumppu päälle jos jokin lattia oikeasti lämmittää, vastus on nostamas
 Spot (`sensor.energi_data_service`):
 
 - liikuttaa huoneiden `tavoite_*`-asetusta
-- kytkee ennakoivan (kaytto nousee) → menovesi ja varaaja seuraavat
+- kytkee ennakoivan (halpa + maltillinen, tai hinta nousemassa) → lattia varaa olo+keittiön, eteisen ja makuuhuoneet
 - suuri heilunta: tuleva keski ≥ nyt + 8 c → painopiste lattiassa
-- ILP:n asetus käyrä + `keittio_ilp_lampo`. Kompressoria ei sammuteta hinnalla
+- ILP-painotteinen vain kalliilla ja korkealla kulutuksella (`keittio_ilp_lampo`). Kompressoria ei sammuteta hinnalla
 
 Hetkellinen c/t (`sensor.hetkellinen_kustannus`):
 
@@ -118,6 +122,7 @@ Hetkellinen c/t (`sensor.hetkellinen_kustannus`):
 
 - Automaatti / Pois / Käsi.
 - Automaatti lämmityskaudella: `heat` päällä, asetus liikkuu. Ainoat off-tilat: Pois tai terassin ovi.
+- Ennakoiva / halpa: ILP taustalla (ei `keittio_ilp_lampo`-lisää). Kallis + korkea kulutus: ILP-painotteinen.
 - Ovi auki > 2 min → off. Oven takia pois vähintään 5 min.
 - Jäähdytys vain jos 24 h ulkokeski ≥ `keittio_ilp_jaahdytys_keski` (18 °C) ja ulko ≥ 20 °C. Kausivaihto 4 h viive. 16–20 °C: kausi ei vaihdu.
 - Puhallin: lähellä asetusta quiet, kaukana high.

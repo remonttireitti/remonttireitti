@@ -14,9 +14,9 @@
 #   - Oven takia sammuttua: pois vähintään 5 min, vaikka ovi menisi kiinni.
 #   - Automaatti EI sammuta kompressoria hinnalla: heat jää päälle, asetusarvoa
 #     liikutetaan. Pois / ovi = ainoat off-tilat.
-#   - ILP on olo+keittiön edullisin lämmittäjä. Ei lämmitä makuuhuoneita.
-#     Lämpökäyrä + lampo-liukuri. Olo+keittiö lattia taustalla, paitsi
-#     ennakoiva ylälämmitys (varaava lattia, lammitys_ohjaus.yaml).
+#   - ILP-painotteinen vain kalliilla sähköllä ja korkealla kulutuksella.
+#     Halpa + maltillinen / ennakoiva: lattia varaa olo+keittiön, ILP taustalla.
+#     Ei lämmitä makuuhuoneita. Lämpökäyrä + lampo-liukuri (kallis jakso).
 #   - Jäähdytys vain kun 24 h ulkokeski ≥ keittio_ilp_jaahdytys_keski
 #     (oletus 18 °C) JA ulko ≥ 20 °C. Viileänä vuodenaikana ei coolia.
 #   - 16–20 °C: kausi ei vaihdu (jos kesä sallittu). Kausivaihto 4 h viive.
@@ -336,7 +336,15 @@ script:
             {{ is_state('binary_sensor.terassi_ovi_contact', 'on') and (ovi_pois_ts | float(0)) >= lc }}
           ovi_esto: "{{ (ovi_auki_s | int(0) >= 120) or (ovi_lukko | bool) or (ovi_tama_avaus | bool) }}"
           target_cool: "{{ states('input_number.keittio_ilp_jaahdytys') | float(24) }}"
-          heat_active: "{{ [[16, (states('sensor.keittio_ilp_tavoite') | float(22)) + (states('input_number.keittio_ilp_lampo') | float(22) - 22)] | max, 30] | min | round(1) }}"
+          heat_active: >
+            {% set tavoite = states('sensor.keittio_ilp_tavoite') | float(22) %}
+            {% set lampo = states('input_number.keittio_ilp_lampo') | float(22) %}
+            {% if is_state('binary_sensor.lammitys_ennakoiva', 'on')
+               or is_state('binary_sensor.lammitys_halpa_sahko', 'on') %}
+              {{ [[16, tavoite] | max, 30] | min | round(1) }}
+            {% else %}
+              {{ [[16, tavoite + (lampo - 22)] | max, 30] | min | round(1) }}
+            {% endif %}
           target_heat: "{{ heat_active | float(22) }}"
           kausi_nyt: "{{ states('input_select.keittio_ilp_kausi') | trim }}"
           kausi_haluttu: >-
@@ -380,7 +388,14 @@ script:
             {% if (kausi | trim) == 'Jäähdytys' %}
               Cool {{ send_temp }}° · {{ fan }}{{ lukko }}{{ ovi }}
             {% else %}
-              ILP {{ send_temp }}° · olo+keittiö · {{ price }} snt · {{ fan }}{{ lukko }}{{ ovi }}
+              {% if is_state('binary_sensor.lammitys_ennakoiva', 'on')
+                 or is_state('binary_sensor.lammitys_halpa_sahko', 'on') %}
+                ILP tausta {{ send_temp }}° · lattia varaa olo+keittiön · {{ price }} snt · {{ fan }}{{ lukko }}{{ ovi }}
+              {% elif is_state('binary_sensor.lammitys_hetki_rajoita_huone', 'on') %}
+                ILP {{ send_temp }}° · painotteinen (kallis / korkea kulutus) · {{ price }} snt · {{ fan }}{{ lukko }}{{ ovi }}
+              {% else %}
+                ILP {{ send_temp }}° · olo+keittiö · {{ price }} snt · {{ fan }}{{ lukko }}{{ ovi }}
+              {% endif %}
             {% endif %}
       - choose:
           - conditions:
@@ -548,6 +563,8 @@ automation:
           - sensor.keittio_ilp_ulko_keski_24h
           - sensor.energi_data_service
           - binary_sensor.lammitys_halpa_sahko
+          - binary_sensor.lammitys_ennakoiva
+          - binary_sensor.lammitys_hetki_rajoita_huone
           - binary_sensor.keittio_ilp_jaahdytys_sallittu
           - input_number.keittio_ilp_lampo
           - input_number.keittio_ilp_jaahdytys
