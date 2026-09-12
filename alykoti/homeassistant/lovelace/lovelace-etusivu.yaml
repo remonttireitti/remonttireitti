@@ -2241,15 +2241,11 @@ cards:
             - type: template
               icon: mdi:molecule-co2
               content: >
-                {% set e = states('input_text.iv_co2_entiteetti') | trim %}
-                {% set c = states(e) if e not in ['unknown', 'unavailable', 'none', ''] else '' %}
-                {% if c in ['unknown', 'unavailable', 'none', ''] %}
-                  {% set c = states('sensor.olohuone_ilmanlaatu_anturi_hiilidioksidi') %}
-                {% endif %}
+                {% set c = states('sensor.iv_co2') %}
                 {{ 'CO2 —' if c in ['unknown', 'unavailable', 'none', ''] else 'CO2 ' ~ (c | int) }}
               tap_action:
                 action: more-info
-                entity: sensor.olohuone_ilmanlaatu_anturi_hiilidioksidi
+                entity: sensor.iv_co2
             - type: template
               icon: mdi:alert-octagon
               icon_color: "{{ 'red' if states('sensor.airfi_hataseis_tila') | int(0) > 0 or states('sensor.airfi_vikatila') | int(0) > 0 else 'green' }}"

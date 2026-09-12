@@ -8,6 +8,10 @@
 # Älä kirjoita holding 2 = 1 (tässä koneessa E1).
 #
 # Automaatti: tulo = tavoite, poisto = tavoite + 5 % (max 100).
+# Oletusanturit: CO2 + kosteus + PM (suurin nostaa).
+# CO2: sensor.olohuone_ilmanlaatu_anturi_carbon_dioxide.
+# LTO-ohituspelti (h46/h47/h48): vain kun lämmitystä ei tarvita.
+# Lämmitys päällä → ohitus kielletty (ulkoraja 25 °C), ettei IV jäähdytä.
 # Nopeuspäivitys kirjoittaa VAIN h10/h11 (ei h8=0). Täysi jakso vain kun
 # vakiopaine ei ole päällä tai hätäseis on aktiivinen.
 # Auto: hystereesi 5 %, max ±5–15 %/kirjoitus, vähintään 5 min väli.
@@ -26,7 +30,7 @@ input_select:
     initial: Automaatti
     icon: mdi:fan
   iv_auto_anturit:
-    name: Mitä antureita automaatti käyttää nopeuden nostoon (CO2, kosteus, PM)
+    name: "Mitä antureita automaatti käyttää nopeuden nostoon. Oletus: CO2, kosteus ja PM"
     options:
       - Kaikki kolme
       - CO2 ja PM
@@ -35,7 +39,7 @@ input_select:
       - Vain CO2
       - Vain PM
       - Vain kosteus
-    initial: Vain kosteus
+    initial: Kaikki kolme
     icon: mdi:tune-variant
 
 input_boolean:
@@ -81,7 +85,7 @@ input_number:
     icon: mdi:thermometer
     initial: 21
   iv_ohitus_asetus:
-    name: "Lämpötilaohitus: tavoite, jolloin IV voi ohittaa LTO:n"
+    name: "LTO-ohituspelti: sisätavoite jolloin lämmöntalteenotto ohitetaan. Kielletty kun lämmitys lämmittää"
     min: 10
     max: 30
     step: 0.5
@@ -90,7 +94,7 @@ input_number:
     icon: mdi:thermometer-chevron-up
     initial: 22
   iv_ohitus_ulko:
-    name: Lämpötilaohitus kielletty jos ulko on tämän alle
+    name: LTO-ohitus kielletty jos ulko on tämän alle. Lämmityksen aikana koneelle kirjoitetaan 25 °C
     min: 0
     max: 25
     step: 1
@@ -152,7 +156,7 @@ input_number:
 input_text:
   iv_co2_entiteetti:
     name: IV CO2-entiteetti
-    initial: sensor.olohuone_ilmanlaatu_anturi_hiilidioksidi
+    initial: sensor.olohuone_ilmanlaatu_anturi_carbon_dioxide
     max: 128
     icon: mdi:molecule-co2
   iv_kosteus_entiteetti:
@@ -204,17 +208,22 @@ template:
         unit_of_measurement: "%"
         availability: |
           {% set e = states('input_text.iv_co2_entiteetti') | trim %}
-          {% set a1 = e %}
-          {% set a2 = 'sensor.olohuone_ilmanlaatu_anturi_hiilidioksidi' %}
-          {% set a3 = 'sensor.olohuone_ilmanlaatu_hiilidioksidi' %}
-          {% set a4 = 'sensor.olohuone_ilmanlaatu_anturi_co2' %}
-          {{ (a1 not in ['unknown', 'unavailable', 'none', ''] and states(a1) not in ['unknown', 'unavailable', 'none', ''])
-             or states(a2) not in ['unknown', 'unavailable', 'none', '']
-             or states(a3) not in ['unknown', 'unavailable', 'none', '']
-             or states(a4) not in ['unknown', 'unavailable', 'none', ''] }}
+          {{ (e not in ['unknown', 'unavailable', 'none', ''] and states(e) not in ['unknown', 'unavailable', 'none', ''])
+             or states('sensor.olohuone_ilmanlaatu_anturi_carbon_dioxide') not in ['unknown', 'unavailable', 'none', '']
+             or states('sensor.olohuone_ilmanlaatu_anturi_hiilidioksidi') not in ['unknown', 'unavailable', 'none', '']
+             or states('sensor.olohuone_ilmanlaatu_hiilidioksidi') not in ['unknown', 'unavailable', 'none', '']
+             or states('sensor.olohuone_ilmanlaatu_anturi_co2') not in ['unknown', 'unavailable', 'none', '']
+             or states('sensor.olohuone_co2') not in ['unknown', 'unavailable', 'none', ''] }}
         state: |
           {% set e = states('input_text.iv_co2_entiteetti') | trim %}
-          {% set alts = [e, 'sensor.olohuone_ilmanlaatu_anturi_hiilidioksidi', 'sensor.olohuone_ilmanlaatu_hiilidioksidi', 'sensor.olohuone_ilmanlaatu_anturi_co2'] %}
+          {% set alts = [
+            e,
+            'sensor.olohuone_ilmanlaatu_anturi_carbon_dioxide',
+            'sensor.olohuone_ilmanlaatu_anturi_hiilidioksidi',
+            'sensor.olohuone_ilmanlaatu_hiilidioksidi',
+            'sensor.olohuone_ilmanlaatu_anturi_co2',
+            'sensor.olohuone_co2'
+          ] %}
           {% set src = namespace(e='') %}
           {% for a in alts if src.e == '' and a not in ['', 'unknown', 'none'] and states(a) not in ['unknown', 'unavailable', 'none', ''] %}
             {% set src.e = a %}
@@ -232,6 +241,35 @@ template:
             {% set raw = 70 + ([1, (s - 1100) / 400] | min) * 20 %}
           {% endif %}
           {{ [25, [100, ((raw / 5) | round(0) * 5)] | min] | max | int }}
+
+      - name: IV CO2
+        unique_id: iv_co2
+        device_class: carbon_dioxide
+        unit_of_measurement: "ppm"
+        state_class: measurement
+        availability: |
+          {% set e = states('input_text.iv_co2_entiteetti') | trim %}
+          {{ (e not in ['unknown', 'unavailable', 'none', ''] and states(e) not in ['unknown', 'unavailable', 'none', ''])
+             or states('sensor.olohuone_ilmanlaatu_anturi_carbon_dioxide') not in ['unknown', 'unavailable', 'none', '']
+             or states('sensor.olohuone_ilmanlaatu_anturi_hiilidioksidi') not in ['unknown', 'unavailable', 'none', '']
+             or states('sensor.olohuone_ilmanlaatu_hiilidioksidi') not in ['unknown', 'unavailable', 'none', '']
+             or states('sensor.olohuone_ilmanlaatu_anturi_co2') not in ['unknown', 'unavailable', 'none', '']
+             or states('sensor.olohuone_co2') not in ['unknown', 'unavailable', 'none', ''] }}
+        state: |
+          {% set e = states('input_text.iv_co2_entiteetti') | trim %}
+          {% set alts = [
+            e,
+            'sensor.olohuone_ilmanlaatu_anturi_carbon_dioxide',
+            'sensor.olohuone_ilmanlaatu_anturi_hiilidioksidi',
+            'sensor.olohuone_ilmanlaatu_hiilidioksidi',
+            'sensor.olohuone_ilmanlaatu_anturi_co2',
+            'sensor.olohuone_co2'
+          ] %}
+          {% set src = namespace(e='') %}
+          {% for a in alts if src.e == '' and a not in ['', 'unknown', 'none'] and states(a) not in ['unknown', 'unavailable', 'none', ''] %}
+            {% set src.e = a %}
+          {% endfor %}
+          {{ states(src.e) | float(0) | round(0) if src.e else none }}
 
       - name: IV auto kosteus tavoite
         unique_id: iv_auto_kosteus_tavoite
@@ -297,6 +335,21 @@ template:
           {% set p = states('sensor.iv_auto_pm_tavoite') | float(-1) %}
           {% set nimet = (['CO2'] if use_c and c == t else []) + (['kosteus'] if use_k and k == t else []) + (['PM'] if use_p and p == t else []) %}
           {{ nimet | join(' + ') if nimet | count > 0 else '—' }}
+
+  - binary_sensor:
+      - name: IV ohitus kielletty
+        unique_id: iv_ohitus_kielletty
+        icon: mdi:valve-closed
+        state: >
+          {% set ilp_auto = is_state('input_select.keittio_ilp_tila', 'Automaatti')
+             and is_state('input_select.keittio_ilp_kausi', 'Lämmitys')
+             and not is_state('climate.keittio_ilp', 'off') %}
+          {% set ilp_kasi = is_state('input_select.keittio_ilp_tila', 'Manuaali')
+             and is_state('input_select.keittio_ilp_manuaali_tila', 'Lämmitys')
+             and not is_state('climate.keittio_ilp', 'off') %}
+          {{ ilp_auto or ilp_kasi or is_state('climate.keittio_ilp', 'heat')
+             or is_state('binary_sensor.lammitys_ll_tarve', 'on')
+             or is_state('binary_sensor.lammitys_ennakoiva', 'on') }}
 
   - trigger:
       - platform: time_pattern
@@ -904,7 +957,7 @@ script:
               'Vain PM': 'automation.iv_auto_vain_pm',
               'Vain kosteus': 'automation.iv_auto_vain_kosteus'
             } %}
-            {{ m.get(states('input_select.iv_auto_anturit'), 'automation.iv_auto_vain_kosteus') }}
+            {{ m.get(states('input_select.iv_auto_anturit'), 'automation.iv_auto_co2_kosteus_pm') }}
       - service: automation.turn_off
         target:
           entity_id:
@@ -1178,9 +1231,47 @@ automation:
         state: Automaatti
       - service: script.iv_auto_aja
 
+  - id: iv_co2_entiteetti_korjaa
+    alias: IV CO2 entiteetti ja anturioletus
+    initial_state: true
+    mode: single
+    trigger:
+      - platform: homeassistant
+        event: start
+      - platform: state
+        entity_id: sensor.olohuone_ilmanlaatu_anturi_carbon_dioxide
+      - platform: time_pattern
+        minutes: "/10"
+    action:
+      - variables:
+          haluttu: sensor.olohuone_ilmanlaatu_anturi_carbon_dioxide
+          nyt: "{{ states('input_text.iv_co2_entiteetti') | trim }}"
+          vanha_co2: "{{ nyt in ['', 'unknown', 'unavailable', 'none'] or states(nyt) in ['unknown', 'unavailable', 'none', ''] or nyt in ['sensor.olohuone_ilmanlaatu_anturi_hiilidioksidi', 'sensor.olohuone_ilmanlaatu_hiilidioksidi', 'sensor.olohuone_ilmanlaatu_anturi_co2'] }}"
+      - if:
+          - condition: template
+            value_template: "{{ states(haluttu) not in ['unknown', 'unavailable', 'none', ''] and vanha_co2 | bool }}"
+        then:
+          - service: input_text.set_value
+            target:
+              entity_id: input_text.iv_co2_entiteetti
+            data:
+              value: "{{ haluttu }}"
+      - if:
+          - condition: state
+            entity_id: input_select.iv_auto_anturit
+            state: Vain kosteus
+          - condition: template
+            value_template: "{{ vanha_co2 | bool }}"
+        then:
+          - service: input_select.select_option
+            target:
+              entity_id: input_select.iv_auto_anturit
+            data:
+              option: Kaikki kolme
+
   - id: iv_auto_co2_kosteus_pm
     alias: IV auto co2 kosteus pm
-    initial_state: false
+    initial_state: true
     mode: single
     trigger:
       - platform: state
@@ -1306,7 +1397,7 @@ automation:
 
   - id: iv_auto_vain_kosteus
     alias: IV auto vain kosteus
-    initial_state: true
+    initial_state: false
     mode: single
     trigger:
       - platform: state
@@ -1414,7 +1505,7 @@ automation:
               - service: script.iv_kirjoita_sana
                 data:
                   osoite: 47
-                  arvo: "{{ [0, [25, states('input_number.iv_ohitus_ulko') | float(12)] | min] | max | int }}"
+                  arvo: "{{ 25 if is_state('binary_sensor.iv_ohitus_kielletty', 'on') else [0, [25, states('input_number.iv_ohitus_ulko') | float(12)] | min] | max | int }}"
           - conditions:
               - condition: template
                 value_template: "{{ trigger.entity_id == 'input_number.iv_ohitus_viive' }}"
@@ -1431,6 +1522,37 @@ automation:
                 data:
                   osoite: 51
                   arvo: "{{ [50, [260, (states('input_number.iv_poissa_lampo') | float(18) * 10) | round(0)] | min] | max | int }}"
+      - service: input_datetime.set_datetime
+        target:
+          entity_id: input_datetime.iv_modbus_tauko
+        data:
+          datetime: "{{ now().strftime('%Y-%m-%d %H:%M:%S') }}"
+
+  - id: iv_ohitus_suoja
+    alias: IV LTO-ohitus kielletty kun lammitetaan
+    initial_state: true
+    mode: restart
+    trigger:
+      - platform: homeassistant
+        event: start
+      - platform: state
+        entity_id: binary_sensor.iv_ohitus_kielletty
+      - platform: time_pattern
+        minutes: "/15"
+    condition:
+      - condition: template
+        value_template: >
+          {% set want = 25 if is_state('binary_sensor.iv_ohitus_kielletty', 'on')
+             else [0, [25, states('input_number.iv_ohitus_ulko') | float(12)] | min] | max | int %}
+          {% set have = states('sensor.airfi_ohituksen_ulkoilmaraja') %}
+          {{ have in ['unknown', 'unavailable', 'none', '']
+             or (have | float(-99) | round(0) | int) != want }}
+    action:
+      - service: script.iv_odota_tauko
+      - service: script.iv_kirjoita_sana
+        data:
+          osoite: 47
+          arvo: "{{ 25 if is_state('binary_sensor.iv_ohitus_kielletty', 'on') else [0, [25, states('input_number.iv_ohitus_ulko') | float(12)] | min] | max | int }}"
       - service: input_datetime.set_datetime
         target:
           entity_id: input_datetime.iv_modbus_tauko
@@ -1481,7 +1603,11 @@ automation:
               value: "{{ [10, [30, (ohitus | float(22) * 2) | round(0) / 2] | min] | max }}"
       - if:
           - condition: template
-            value_template: "{{ ulko not in ['unknown', 'unavailable', 'none', ''] }}"
+            value_template: >
+              {{ ulko not in ['unknown', 'unavailable', 'none', '']
+                 and not is_state('binary_sensor.iv_ohitus_kielletty', 'on')
+                 and not ((ulko | float(0)) >= 25
+                          and (states('input_number.iv_ohitus_ulko') | float(12)) < 25) }}
         then:
           - service: input_number.set_value
             target:
