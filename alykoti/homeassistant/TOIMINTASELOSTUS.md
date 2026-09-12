@@ -96,11 +96,11 @@ Esimerkki: olo 21 °C → vesi vähintään 26 °C, muuten lattia kirjoitetaan 1
 
 Poikkeus: `binary_sensor.lammitys_ennakoiva` — nosto on vakion päälle (ei jo lasketun tavoitteen päälle, ettei 19+2 näytä samalta kuin 21). Lattiat pidetään nostetussa asetuksessa vaikka vesi ei vielä ole huone+5, jotta varaaminen alkaa.
 
-Poikkeus: `binary_sensor.lammitys_vastus_nostaa` (vastus Automaatti, ei hetki-kieltoa, KV < 58 °C) → huoneiden asetus ja kierto pidetään, jotta vastus saa virtauksen.
+Poikkeus: `binary_sensor.lammitys_vastus_nostaa` (vastus Automaatti, ei hetki-kieltoa, KV < 58 °C) → huoneiden asetus pidetään, jotta venttiilit aukeavat. Kiertopumppu seuraa venttiileitä, ei päinvastoin.
 
 Toinen poikkeus: `binary_sensor.lammitys_huone_alaraja`. Jos mitattu huone < 19 °C (eteinen < 20 °C) ja ikkuna/ovi on kiinni, rajoitukset ohitetaan (hetkellinen −2 °C, vastuskielto, vesi+5 pois) kunnes huone on +0.5 °C yli alarajan. Ikkuna auki tai Pois ei ohita.
 
-Kiertopumppu päälle jos jokin lattia oikeasti lämmittää, vastus on nostamassa vettä, tai varaaja kutsuu ja KV on kylmä. Lattiatarve pois → vastus heti pois, kierto 120 s jäähdytykseen.
+Kiertopumppu (`tasmota2`) päällä vain jos `binary_sensor.lammitys_piiri_auki` — vähintään yksi huoneen venttiili auki. Ilman piiriä pumppu ei saa käydä (umpeenajo, ei kiertoa). Kaikki lattiat kiinni → pumppu ja vastus heti pois.
 
 ## 6. Hinta ja hetkellinen — mitä liikkuu
 
