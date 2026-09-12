@@ -90,7 +90,7 @@ Kirjoitettava asetus:
 | Kallis + korkea kulutus | tausta 18 °C, ILP-painotteinen | käyttö (20 / 23) tai −2 °C |
 | Normaali (kallis, kulutus ok) | tausta 18 °C, ILP | käyttö (20 / 23) |
 
-Sitten portti: `max(varaaja, menovesi) ≥ huoneasetus + 5 °C`.
+Sitten portti: `max(varaaja, menovesi) ≥ huoneasetus + 5 °C` päälle, pois vasta kun vesi < huone + 4 °C. Asetusta ei kirjoiteta uudestaan jos muutos on alle 0,3 °C, eikä vesianturin joka tikistä. Huoneiden `tavoite_*` pyöristyy 0,5 °C ja käyttää 30 min kustannuskeskiarvoa, ei raakaa hetkellistä.
 
 Esimerkki: olo 21 °C → vesi vähintään 26 °C, muuten lattia kirjoitetaan 17 °C. Vesi ei nosta huonetta.
 
