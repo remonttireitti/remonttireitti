@@ -387,6 +387,9 @@ cards:
           hours_to_show: 24
           entities:
             - sensor.lammitys_ohjaus_tila
+            - switch.sonoff_4_ch_pro_2_tasmota4
+            - switch.pannuhuone_lapivirtausvastus
+            - switch.sonoff_4_ch_pro_2_tasmota2
             - binary_sensor.lammitys_hetki_rajoita_huone
             - binary_sensor.lammitys_hetki_rajoita_vesi
             - binary_sensor.lammitys_korotus_paalla

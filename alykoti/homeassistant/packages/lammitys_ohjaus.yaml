@@ -71,7 +71,9 @@
 # vettä (KV liian kylmä sekoitukselle) → huoneiden lämmitys ja lattiakierto
 # pidetään päällä, jotta vastus saa virtauksen.
 #
-# Tila ja historia: sensor.lammitys_ohjaus_tila (syy-attribuutti + logbook).
+# Tila ja historia: sensor.lammitys_ohjaus_tila (syy + logbook).
+# Loki kirjoittaa tilan vaihdon, sekoitus-/vastuspulssin, lattiakierron
+# ja 15 min välein jos rajoitus tai lämmitys jää päälle (ei jää 10:19:ään).
 # Liput: rajoitettu, hetkellinen, korotus, ennakoiva, halpa/kallis, menovesi nosto/rajoitus.
 #
 # Hetkellinen kustannus (sensor.hetkellinen_kustannus, c/t):
@@ -864,6 +866,12 @@ script:
       - action: script.lammitys_aseta_sekoituspumppu
         data:
           paalle: true
+      - action: logbook.log
+        data:
+          name: Lämmitys ohjaus
+          entity_id: sensor.lammitys_ohjaus_tila
+          message: >
+            Sekoituspulssi {{ pulssi_s }} s — KV {{ states('sensor.vilp_ohjaus_lampotilat_air_temperature_8') | float(0) | round(1) }} °C → varaaja {{ states('sensor.vilp_ohjaus_lampotilat_air_temperature_13') | float(0) | round(1) }} °C
 
   lammitys_sekoitus_pulssi_loppu:
     alias: Lämmitys sekoitus pulssi loppu
@@ -890,12 +898,20 @@ script:
           entity_id: timer.lammitys_sekoitus_odota
         data:
           duration: "{{ wait_s | int(180) }}"
+      - action: logbook.log
+        data:
+          name: Lämmitys ohjaus
+          entity_id: sensor.lammitys_ohjaus_tila
+          message: >
+            Sekoituspulssi ohi — KV laski {{ ((states('input_number.lammitys_kv_ennen_pulssia') | float(0)) - (states('sensor.vilp_ohjaus_lampotilat_air_temperature_8') | float(0))) | round(2) }} °C, odotus {{ wait_s }} s
 
   lammitys_vastus_pois:
     alias: Lämmitys vastus pois
     description: Sisäinen. Vastus heti pois, pulssit nollaan. Älä aja käsin.
     mode: restart
     sequence:
+      - variables:
+          oli_paalla: "{{ is_state('switch.pannuhuone_lapivirtausvastus', 'on') }}"
       - action: switch.turn_off
         target:
           entity_id: switch.pannuhuone_lapivirtausvastus
@@ -911,6 +927,15 @@ script:
           entity_id: input_number.lammitys_vastus_paalla_nyt
         data:
           value: "{{ states('input_number.lammitys_vastus_paalla_min') | float(15) }}"
+      - if:
+          - condition: template
+            value_template: "{{ oli_paalla | bool }}"
+        then:
+          - action: logbook.log
+            data:
+              name: Lämmitys ohjaus
+              entity_id: sensor.lammitys_ohjaus_tila
+              message: Läpivirtausvastus pois
 
   lammitys_vastus_pulssi_alku:
     alias: Lämmitys vastus pulssi alku
@@ -950,6 +975,12 @@ script:
         target:
           entity_id: switch.pannuhuone_lapivirtausvastus
         continue_on_error: true
+      - action: logbook.log
+        data:
+          name: Lämmitys ohjaus
+          entity_id: sensor.lammitys_ohjaus_tila
+          message: >
+            Läpivirtausvastus pulssi {{ paalla }} s — meno {{ states('sensor.vilp_ohjaus_lampotilat_air_temperature_10') | float(0) | round(1) }} °C
 
   lammitys_vastus_pulssi_loppu:
     alias: Lämmitys vastus pulssi loppu
@@ -990,6 +1021,12 @@ script:
               {% set n = n + 5 %}
             {% endif %}
             {{ [[n, lo] | max, hi] | min }}
+      - action: logbook.log
+        data:
+          name: Lämmitys ohjaus
+          entity_id: sensor.lammitys_ohjaus_tila
+          message: >
+            Läpivirtausvastus pois — meno {{ meno | float(0) | round(1) }} °C ({{ delta | float(0) | round(2) }} °C), seuraava pulssi {{ seuraava }} s
       - action: input_number.set_value
         target:
           entity_id: input_number.lammitys_vastus_paalla_nyt
@@ -2609,25 +2646,56 @@ automation:
 
   - id: lammitys_ohjaus_loki
     alias: Lämmitys ohjaus loki
-    description: Kirjaa tilan vaihdon ja syyn lokiin. Älä aja käsin.
+    description: Kirjaa tilan vaihdon, lattiakierron ja jatkuvan rajoituksen lokiin. Älä aja käsin.
     mode: queued
-    max: 20
+    max: 30
     trigger:
       - platform: state
         entity_id: sensor.lammitys_ohjaus_tila
+        id: tila
+      - platform: state
+        entity_id: switch.sonoff_4_ch_pro_2_tasmota2
+        id: kierto
+      - platform: time_pattern
+        minutes: "/15"
+        id: edelleen
     condition:
       - condition: template
-        value_template: "{{ trigger.from_state is none or trigger.from_state.state != trigger.to_state.state }}"
+        value_template: >
+          {% if trigger.id == 'edelleen' %}
+            {{ is_state('binary_sensor.lammitys_hetki_rajoita_huone', 'on')
+               or is_state('binary_sensor.lammitys_hetki_rajoita_vesi', 'on')
+               or is_state('binary_sensor.lammitys_korotus_paalla', 'on')
+               or is_state('timer.lammitys_sekoitus_pulssi', 'active')
+               or is_state('timer.lammitys_vastus_odota', 'active')
+               or is_state('switch.pannuhuone_lapivirtausvastus', 'on')
+               or is_state('binary_sensor.lammitys_vesi_riittaa', 'off')
+               or is_state('binary_sensor.lammitys_vastus_nostaa', 'on') }}
+          {% elif trigger.id == 'kierto' %}
+            {{ trigger.from_state is none or trigger.from_state.state != trigger.to_state.state }}
+          {% else %}
+            {% set old_s = trigger.from_state.state if trigger.from_state else '' %}
+            {% set new_s = trigger.to_state.state %}
+            {% set old_y = (trigger.from_state.attributes.syy | default('') if trigger.from_state else '') | regex_replace('[0-9.,]+', '#') %}
+            {% set new_y = (trigger.to_state.attributes.syy | default('')) | regex_replace('[0-9.,]+', '#') %}
+            {{ old_s != new_s or old_y != new_y }}
+          {% endif %}
     action:
       - action: logbook.log
         data:
           name: Lämmitys ohjaus
           entity_id: sensor.lammitys_ohjaus_tila
           message: >
-            {{ trigger.to_state.state }} — {{ trigger.to_state.attributes.syy | default(states('sensor.lammitys_ohjaus_tila')) }}
-            {%- if trigger.from_state is not none and trigger.from_state.state not in ['unknown', 'unavailable', 'none', ''] %}
-             (ennen {{ trigger.from_state.state }})
-            {%- endif %}
+            {% if trigger.id == 'edelleen' %}
+              Edelleen {{ now().strftime('%H:%M') }}: {{ states('sensor.lammitys_ohjaus_tila') }} — {{ state_attr('sensor.lammitys_ohjaus_tila', 'syy') }}
+            {% elif trigger.id == 'kierto' %}
+              Lattiakierto {{ 'päälle' if trigger.to_state.state == 'on' else 'pois' }}
+            {% else %}
+              {{ trigger.to_state.state }} — {{ trigger.to_state.attributes.syy | default(states('sensor.lammitys_ohjaus_tila')) }}
+              {%- if trigger.from_state is not none and trigger.from_state.state not in ['unknown', 'unavailable', 'none', ''] %}
+               (ennen {{ trigger.from_state.state }})
+              {%- endif %}
+            {% endif %}
 
   - id: lammitys_sekoitus
     alias: Lämmitys sekoitus climate.lattialammitys

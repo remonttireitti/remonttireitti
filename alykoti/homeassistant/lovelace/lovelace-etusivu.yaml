@@ -550,7 +550,7 @@ cards:
           tap_action:
             action: navigate
             navigation_path: >-
-              /logbook?entity_id=sensor.lammitys_ohjaus_tila,binary_sensor.lammitys_hetki_rajoita_huone,binary_sensor.lammitys_hetki_rajoita_vesi,binary_sensor.lammitys_korotus_paalla,binary_sensor.lammitys_ennakoiva,binary_sensor.lammitys_halpa_sahko,binary_sensor.lammitys_menovesi_nosto,binary_sensor.lammitys_menovesi_rajoitus
+              /logbook?entity_id=sensor.lammitys_ohjaus_tila,switch.sonoff_4_ch_pro_2_tasmota4,switch.pannuhuone_lapivirtausvastus,switch.sonoff_4_ch_pro_2_tasmota2,binary_sensor.lammitys_hetki_rajoita_huone,binary_sensor.lammitys_hetki_rajoita_vesi,binary_sensor.lammitys_korotus_paalla,binary_sensor.lammitys_ennakoiva,binary_sensor.lammitys_halpa_sahko,binary_sensor.lammitys_menovesi_nosto,binary_sensor.lammitys_menovesi_rajoitus
           card_mod:
             style: |
               ha-card {
