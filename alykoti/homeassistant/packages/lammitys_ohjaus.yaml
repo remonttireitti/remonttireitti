@@ -53,9 +53,11 @@
 # Pumppu tai kaikki piirit pois → vastus heti pois.
 # Päällä vain kun: KV liian kylmä sekoituspumpulle (< kv_pumppu_paalle),
 # lattia tarvitsee lämpöä (meno < tavoite), ja jokin piiri on auki.
-# Aina pulssi, ei jatkuvaa päälle. Vähintään 10 s päälle ja 20 s pois —
-# ei tiheämpää. Pulssia ei keskeytetä, vaikka tarve tai sallittu vilkkuisi.
-# Teho ei riitä → nosta päällä-aikaa; meno nousee → vähennä.
+# Aina pulssi, ei jatkuvaa päälle. Aloitus 20 s päälle, pois 1–2 min
+# (vähintään 60 s), jotta anturit ehtivät. Ei tiheämpää. Pulssia ei
+# aloiteta ennen kuin kierto on päällä, viive (≥ 4 min) täynnä ja
+# vähintään yksi piiri auki. Pulssia ei keskeytetä, vaikka tarve vilkkuisi.
+# Teho ei riitä → nosta päällä-aikaa maltillisesti (+5 s); meno nousee → vähennä.
 # Lattiat kiinni tai kierto pois → vastus heti pois, kiertopumppu jää 120 s jäähdyttämään.
 #
 # Olo+keittiö vs ILP:
@@ -94,7 +96,7 @@ homeassistant:
     switch.sonoff_4_ch_pro_2_tasmota4:
       friendly_name: "Sekoituspumppu — lataa pientä lämmitysvaraajaa (13) käyttövettä (8). Ennakoivasti vähän yli, painopiste silti lattiassa"
     switch.pannuhuone_lapivirtausvastus:
-      friendly_name: "Läpivirtausvastus 4 kW. Lämmittää suoraan menovettä (anturi 10). Vaati virtauksen — kiertopumppu (tasmota2) ≥ 4 min JA vähintään 1 lämmityspiiri päällä. Pelkkä pumppu ei riitä. Pulssi vähintään 10 s / 20 s pois. Kielletty jos hetkellinen ≥ 50 c/t"
+      friendly_name: "Läpivirtausvastus 4 kW. Lämmittää suoraan menovettä (anturi 10). Vaati virtauksen — kiertopumppu (tasmota2) ≥ 4 min JA vähintään 1 lämmityspiiri päällä. Pelkkä pumppu ei riitä. Pulssi 20 s, pois 1–2 min. Kielletty jos hetkellinen ≥ 50 c/t"
     binary_sensor.lammitys_piiri_auki:
       friendly_name: "Vähintään yksi lämmityspiiri auki — vastus kielletty ilman tätä, pelkkä lattiapumppu ei tee läpivirtauksia"
     climate.lattialammitys:
@@ -493,16 +495,16 @@ input_number:
     icon: mdi:delta
     initial: 0
   lammitys_vastus_paalla_min:
-    name: "Vastus: lyhin päällä-aika. Ohjaus aloittaa tästä ja nostaa vain jos meno ei nouse"
-    min: 10
-    max: 30
+    name: "Vastus: lyhin päällä-aika. Aloitus tästä (20 s), nosto vain jos meno ei nouse"
+    min: 20
+    max: 40
     step: 5
     mode: slider
     unit_of_measurement: s
     icon: mdi:timer-outline
-    initial: 10
+    initial: 20
   lammitys_vastus_paalla_max:
-    name: "Vastus: pisin päällä-aika. Ei jatkuvaa päälle, aina tauko väliin"
+    name: "Vastus: pisin päällä-aika. Ei jatkuvaa päälle, aina 1–2 min tauko väliin"
     min: 20
     max: 60
     step: 5
@@ -511,23 +513,23 @@ input_number:
     icon: mdi:timer
     initial: 45
   lammitys_vastus_paalla_nyt:
-    name: "Vastus: nykyinen päällä-aika (ohjaus säätää itse)"
-    min: 10
+    name: "Vastus: nykyinen päällä-aika (ohjaus säätää itse, alku 20 s)"
+    min: 20
     max: 60
     step: 5
     mode: box
     unit_of_measurement: s
     icon: mdi:timer-play
-    initial: 10
+    initial: 20
   lammitys_vastus_pois_s:
-    name: "Vastus: pois-aika pulssien välissä. Vesi ehtii sekoittua, putki ei kuumene paikallaan"
-    min: 20
-    max: 90
-    step: 5
+    name: "Vastus: pois-aika pulssien välissä. Vähintään 1 min, jotta anturit ehtivät"
+    min: 60
+    max: 180
+    step: 30
     mode: slider
     unit_of_measurement: s
     icon: mdi:timer-sand
-    initial: 20
+    initial: 90
   lammitys_vastus_pumppu_min:
     name: Vastus kielletty kunnes kiertopumppu on ollut päällä näin monta minuuttia
     min: 2
@@ -643,11 +645,11 @@ timer:
     icon: mdi:timer-sand
   lammitys_vastus_pulssi:
     name: Läpivirtausvastus pulssi
-    duration: "00:00:10"
+    duration: "00:00:20"
     icon: mdi:timer-outline
   lammitys_vastus_odota:
     name: Läpivirtausvastus tauko
-    duration: "00:00:20"
+    duration: "00:01:30"
     icon: mdi:timer-sand
   lammitys_ll_pumppu_viive:
     name: "Kun lattia sammuu: vastus pois heti, kiertopumppu jää tähän ajaksi jäähdyttämään vastusta"
@@ -936,7 +938,7 @@ script:
         target:
           entity_id: input_number.lammitys_vastus_paalla_nyt
         data:
-          value: "{{ [10, states('input_number.lammitys_vastus_paalla_min') | float(10)] | max }}"
+          value: "{{ [20, states('input_number.lammitys_vastus_paalla_min') | float(20)] | max }}"
       - if:
           - condition: template
             value_template: "{{ oli_paalla | bool }}"
@@ -949,7 +951,7 @@ script:
 
   lammitys_vastus_pulssi_alku:
     alias: Lämmitys vastus pulssi alku
-    description: Sisäinen. Vähintään 10 s pulssi. Älä aja käsin.
+    description: Sisäinen. Vähintään 20 s pulssi, vain jos pumppu, piiri ja 4 min viive ovat kunnossa. Älä aja käsin.
     mode: single
     sequence:
       - condition: state
@@ -977,15 +979,15 @@ script:
           value: "{{ states('sensor.vilp_ohjaus_lampotilat_air_temperature_10') | float(0) | round(1) }}"
       - variables:
           paalla: >
-            {% set n = states('input_number.lammitys_vastus_paalla_nyt') | int(10) %}
-            {% set lo = [10, states('input_number.lammitys_vastus_paalla_min') | int(10)] | max %}
+            {% set n = states('input_number.lammitys_vastus_paalla_nyt') | int(20) %}
+            {% set lo = [20, states('input_number.lammitys_vastus_paalla_min') | int(20)] | max %}
             {% set hi = states('input_number.lammitys_vastus_paalla_max') | int(45) %}
             {{ [[n, lo] | max, hi] | min }}
       - action: timer.start
         target:
           entity_id: timer.lammitys_vastus_pulssi
         data:
-          duration: "{{ paalla | int(10) }}"
+          duration: "{{ paalla | int(20) }}"
       - action: switch.turn_on
         target:
           entity_id: switch.pannuhuone_lapivirtausvastus
@@ -999,7 +1001,7 @@ script:
 
   lammitys_vastus_pulssi_loppu:
     alias: Lämmitys vastus pulssi loppu
-    description: Sisäinen. Vastus pois, säädä pulssia, vähintään 20 s tauko. Älä aja käsin.
+    description: Sisäinen. Vastus pois, säädä pulssia, vähintään 60 s tauko. Älä aja käsin.
     mode: single
     sequence:
       - action: switch.turn_off
@@ -1017,23 +1019,23 @@ script:
           tavoite: "{{ states('sensor.lammitys_sekoitus_kaytto') | float(35) }}"
           hyst: "{{ states('input_number.lammitys_menovesi_hystereesi') | float(1) }}"
           max_nousu: "{{ states('input_number.lammitys_vastus_max_nousu') | float(1.5) }}"
-          lo: "{{ [10, states('input_number.lammitys_vastus_paalla_min') | int(10)] | max }}"
+          lo: "{{ [20, states('input_number.lammitys_vastus_paalla_min') | int(20)] | max }}"
           hi: "{{ states('input_number.lammitys_vastus_paalla_max') | int(45) }}"
-          nyt: "{{ states('input_number.lammitys_vastus_paalla_nyt') | int(10) }}"
-          pois_s: "{{ [20, states('input_number.lammitys_vastus_pois_s') | int(20)] | max }}"
+          nyt: "{{ states('input_number.lammitys_vastus_paalla_nyt') | int(20) }}"
+          pois_s: "{{ [60, states('input_number.lammitys_vastus_pois_s') | int(90)] | max }}"
           seuraava: >
             {% set d = delta | float(0) %}
             {% set err = (tavoite | float(35)) - (meno | float(0)) %}
-            {% set n = nyt | int(10) %}
-            {% set lo = lo | int(10) %}
+            {% set n = nyt | int(20) %}
+            {% set lo = lo | int(20) %}
             {% set hi = hi | int(45) %}
             {% if d >= (max_nousu | float(1.5)) %}
-              {% set n = n - 10 %}
+              {% set n = n - 5 %}
             {% elif err <= (hyst | float(1)) %}
               {% set n = lo %}
-            {% elif d >= 0.3 %}
+            {% elif d >= 0.4 %}
               {% set n = n - 5 %}
-            {% elif d <= 0.05 %}
+            {% elif d <= 0.15 %}
               {% set n = n + 5 %}
             {% endif %}
             {{ [[n, lo] | max, hi] | min }}
@@ -1047,7 +1049,7 @@ script:
         target:
           entity_id: input_number.lammitys_vastus_paalla_nyt
         data:
-          value: "{{ seuraava | int(10) }}"
+          value: "{{ seuraava | int(20) }}"
       - if:
           - condition: state
             entity_id: switch.sonoff_4_ch_pro_2_tasmota2
@@ -1062,7 +1064,7 @@ script:
             target:
               entity_id: timer.lammitys_vastus_odota
             data:
-              duration: "{{ pois_s | int(20) }}"
+              duration: "{{ pois_s | int(90) }}"
 
 template:
   - sensor:
@@ -2321,8 +2323,8 @@ template:
           {% set meno = states('sensor.vilp_ohjaus_lampotilat_air_temperature_10') | float(none) %}
           {% set tavoite = states('sensor.lammitys_sekoitus_kaytto') | float(none) %}
           {% set kv_on = states('input_number.lammitys_kv_pumppu_paalle') | float(58) %}
-          {% set nyt = [10, states('input_number.lammitys_vastus_paalla_nyt') | int(10)] | max %}
-          {% set pois = [20, states('input_number.lammitys_vastus_pois_s') | int(20)] | max %}
+          {% set nyt = [20, states('input_number.lammitys_vastus_paalla_nyt') | int(20)] | max %}
+          {% set pois = [60, states('input_number.lammitys_vastus_pois_s') | int(90)] | max %}
           {% set min_m = states('input_number.lammitys_vastus_pumppu_min') | int(4) %}
           {% set e = states.switch.sonoff_4_ch_pro_2_tasmota2 %}
           {% set kierto_s = (as_timestamp(now()) - as_timestamp(e.last_changed)) | int(0) if e is not none and is_state('switch.sonoff_4_ch_pro_2_tasmota2', 'on') else 0 %}
@@ -2426,31 +2428,31 @@ automation:
               value: 0.5
       - if:
           - condition: template
-            value_template: "{{ states('input_number.lammitys_vastus_paalla_min') | float(0) == 15 }}"
+            value_template: "{{ states('input_number.lammitys_vastus_paalla_min') | float(0) in [10, 15] }}"
         then:
           - action: input_number.set_value
             target:
               entity_id: input_number.lammitys_vastus_paalla_min
             data:
-              value: 10
+              value: 20
       - if:
           - condition: template
-            value_template: "{{ states('input_number.lammitys_vastus_paalla_nyt') | float(0) == 15 }}"
+            value_template: "{{ states('input_number.lammitys_vastus_paalla_nyt') | float(0) in [10, 15] }}"
         then:
           - action: input_number.set_value
             target:
               entity_id: input_number.lammitys_vastus_paalla_nyt
             data:
-              value: 10
+              value: 20
       - if:
           - condition: template
-            value_template: "{{ states('input_number.lammitys_vastus_pois_s') | float(0) == 30 }}"
+            value_template: "{{ states('input_number.lammitys_vastus_pois_s') | float(0) in [20, 30] }}"
         then:
           - action: input_number.set_value
             target:
               entity_id: input_number.lammitys_vastus_pois_s
             data:
-              value: 20
+              value: 90
   - id: lammitys_olohuone_keittio
     alias: Lämmitys olohuone ja keittiö
     mode: single
