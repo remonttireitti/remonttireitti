@@ -54,7 +54,7 @@ Aurinkolämpö kWh on kalenterijakso, sama kuin talon kulutus: kuluva päivä (0
 Kun varaaja on alle tavoitteen, termostaatti näyttää heating ja virtuaalikytkin menee päälle. Se ei ole lämpö. Oikea lämpö:
 
 - KV kuuma → sekoituspumppu lataa varaajaa
-- KV kylmä → kiertopumppu päälle, 4 min jälkeen vastus pulssittaa menovettä (15 s / 30 s)
+- KV kylmä → kiertopumppu päälle, 4 min jälkeen vastus pulssittaa menovettä (vähintään 10 s / 20 s, ei tiheämpää)
 
 Vastus ei käy pelkällä kiertopumpulla: vähintään yksi lämmityspiiri (`binary_sensor.lammitys_piiri_auki`) pitää olla yhtä aikaa päällä, muuten vesi ei kierrä vastuksen läpi. Kaikki huoneet Pois → ei piiriä → vastus kielletty. Hetkellinen ≥ 50 c/t kieltää vastuksen (huoneen alaraja ohittaa).
 
