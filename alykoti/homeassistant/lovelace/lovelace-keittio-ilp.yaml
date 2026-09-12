@@ -115,13 +115,13 @@ card:
               option: Manuaali
         - type: template
           icon: mdi:cash
-          icon_color: "{{ 'green' if is_state('binary_sensor.lammitys_halpa_sahko', 'on') else 'orange' }}"
+          icon_color: "{{ 'orange' if is_state('binary_sensor.lammitys_ennakoiva', 'on') else 'green' }}"
           content: >
             {% set p = states('sensor.energi_data_service') | float(0) | round(1) %}
-            {{ 'Lattia' if is_state('binary_sensor.lammitys_halpa_sahko', 'on') else 'ILP' }} {{ p }} snt
+            {{ 'ILP + lattia vara' if is_state('binary_sensor.lammitys_ennakoiva', 'on') else 'ILP olo+keittiö' }} {{ p }} snt
           tap_action:
             action: more-info
-            entity: binary_sensor.lammitys_halpa_sahko
+            entity: binary_sensor.lammitys_ennakoiva
         - type: entity
           entity: input_number.keittio_ilp_lampo
           icon: mdi:fire

@@ -14,10 +14,9 @@
 #   - Oven takia sammuttua: pois vähintään 5 min, vaikka ovi menisi kiinni.
 #   - Automaatti EI sammuta kompressoria hinnalla: heat jää päälle, asetusarvoa
 #     liikutetaan. Pois / ovi = ainoat off-tilat.
-#   - Kallis sähkö (≥ lammitys_hinta_lattia_raja, oletus 5 snt/kWh):
-#     ILP ensisijainen lämmittäjä (lämpökäyrä + lampo-liukuri).
-#     Olo+keittiö lattia tausta-asetukseen (lammitys_ohjaus.yaml).
-#   - Halpa sähkö (< raja): lattia lämmittää, ILP heat + lepoasetus + quiet.
+#   - ILP on olo+keittiön edullisin lämmittäjä. Ei lämmitä makuuhuoneita.
+#     Lämpökäyrä + lampo-liukuri. Olo+keittiö lattia taustalla, paitsi
+#     ennakoiva ylälämmitys (varaava lattia, lammitys_ohjaus.yaml).
 #   - Jäähdytys vain kun 24 h ulkokeski ≥ keittio_ilp_jaahdytys_keski
 #     (oletus 18 °C) JA ulko ≥ 20 °C. Viileänä vuodenaikana ei coolia.
 #   - 16–20 °C: kausi ei vaihdu (jos kesä sallittu). Kausivaihto 4 h viive.
@@ -74,7 +73,7 @@ input_number:
     icon: mdi:snowflake
     initial: 24
   keittio_ilp_lepoasetus:
-    name: "Keittiö ILP lepo kun lattia lämmittää (halpa sähkö): heat jää päälle tähän asetukseen"
+    name: "Keittiö ILP lepoasetus (varalla). Automaatti pitää ILP:n lämmityksen päällä olo+keittiössä"
     min: 16
     max: 22
     step: 0.5
@@ -336,16 +335,9 @@ script:
             {% set lc = as_timestamp(states.binary_sensor.terassi_ovi_contact.last_changed, 0) | float(0) %}
             {{ is_state('binary_sensor.terassi_ovi_contact', 'on') and (ovi_pois_ts | float(0)) >= lc }}
           ovi_esto: "{{ (ovi_auki_s | int(0) >= 120) or (ovi_lukko | bool) or (ovi_tama_avaus | bool) }}"
-          cheap: >-
-            {% if states('binary_sensor.lammitys_halpa_sahko') in ['on', 'off'] %}
-              {{ is_state('binary_sensor.lammitys_halpa_sahko', 'on') }}
-            {% else %}
-              {{ (states('sensor.energi_data_service') | float(99)) < (states('input_number.lammitys_hinta_lattia_raja') | float(5)) }}
-            {% endif %}
           target_cool: "{{ states('input_number.keittio_ilp_jaahdytys') | float(24) }}"
           heat_active: "{{ [[16, (states('sensor.keittio_ilp_tavoite') | float(22)) + (states('input_number.keittio_ilp_lampo') | float(22) - 22)] | max, 30] | min | round(1) }}"
-          heat_lepo: "{{ states('input_number.keittio_ilp_lepoasetus') | float(17.5) }}"
-          target_heat: "{{ heat_lepo | float(17.5) if cheap | bool else heat_active | float(22) }}"
+          target_heat: "{{ heat_active | float(22) }}"
           kausi_nyt: "{{ states('input_select.keittio_ilp_kausi') | trim }}"
           kausi_haluttu: >-
             {% set o = states('sensor.ulkolampotila_met_no') | float(0) %}
@@ -373,16 +365,12 @@ script:
               {% set t = target_cool | float(24) %}
               {% set out = t - 2 if g >= 2 else (t - 1 if g >= 1 else t) %}
               {{ [[16, out] | max, 30] | min | round(1) }}
-            {% elif cheap | bool %}
-              {{ target_heat | float(17.5) | round(1) }}
             {% else %}
               {% set t = target_heat | float(22) %}
               {% set out = t + 2 if g >= 2 else (t + 1 if g >= 1 else t) %}
               {{ [[16, out] | max, 30] | min | round(1) }}
             {% endif %}
-          fan: >-
-            {% if cheap | bool and (kausi | trim) != 'Jäähdytys' %}quiet
-            {% else %}{{ 'quiet' if gap | float(0) <= 0.6 else ('high' if gap | float(0) >= 1.5 else 'low') }}{% endif %}
+          fan: "{{ 'quiet' if gap | float(0) <= 0.6 else ('high' if gap | float(0) >= 1.5 else 'low') }}"
           swing: "{{ 'highest' if (kausi | trim) == 'Jäähdytys' else 'lowest' }}"
           hvac_want: "{{ 'cool' if (kausi | trim) == 'Jäähdytys' else 'heat' }}"
           status: >-
@@ -391,10 +379,8 @@ script:
             {% set price = states('sensor.energi_data_service') | float(0) | round(1) %}
             {% if (kausi | trim) == 'Jäähdytys' %}
               Cool {{ send_temp }}° · {{ fan }}{{ lukko }}{{ ovi }}
-            {% elif cheap | bool %}
-              Lepo {{ send_temp }}° · lattia {{ price }} snt{{ ovi }}
             {% else %}
-              ILP {{ send_temp }}° · {{ price }} snt · {{ fan }}{{ lukko }}{{ ovi }}
+              ILP {{ send_temp }}° · olo+keittiö · {{ price }} snt · {{ fan }}{{ lukko }}{{ ovi }}
             {% endif %}
       - choose:
           - conditions:
