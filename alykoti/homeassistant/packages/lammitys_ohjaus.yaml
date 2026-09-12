@@ -16,9 +16,11 @@
 # Käyttövesi (KV):   sensor.vilp_ohjaus_lampotilat_air_temperature_8
 # Lämmitysvaraaja:   sensor.vilp_ohjaus_lampotilat_air_temperature_13
 # Tavoite:  sensor.lammitys_sekoitus_kaytto
-#   ulkolämpökäyrä (asetukset) + spot nyt + ennakko (raw_today/raw_tomorrow).
-#   Halpa → nosto, kallis → rajoitus. Ennakko: jos seuraavat tunnit kalliimpia,
-#   lämmitetään nyt enemmän; jos halvempaa tulossa, pidetään maltti.
+#   Huoneiden asetus (kaikki alueet) muuttuu ulkolämmöstä, spotista ja
+#   hetkellisestä kulutuksesta (tavoite_*) + ennakoiva/korotus/hetki-raja
+#   (kaytto_*). Menoveden tavoite seuraa: vähintään korkein huone + 5 °C,
+#   plus ulkokäyrä siirrettynä saman verran kuin huone poikkeaa 21 °C:sta.
+#   Olo 21 °C → vesi ≥ 26 °C. Huone laskee → vesi laskee. Huone nousee → vesi nousee.
 # Sekoituspumppu: input_text.lammitys_sekoituspumppu
 #   (switch.sonoff_4_ch_pro_2_tasmota4).
 # Pumppu EI lämmitä menovettä suoraan. Se ottaa lämpöä käyttövettä (8)
@@ -1106,11 +1108,11 @@ template:
       - name: Lammitys menovesi nosto
         unique_id: lammitys_menovesi_nosto
         icon: mdi:thermometer-chevron-up
-        state: "{{ (states('sensor.lammitys_sekoitus_hinta_korjaus') | float(0)) > 0.3 }}"
+        state: "{{ (states('sensor.lammitys_sekoitus_kaytto') | float(0)) > ((states('sensor.lammitys_sekoitus_kayra') | float(0)) + 0.3) }}"
       - name: Lammitys menovesi rajoitus
         unique_id: lammitys_menovesi_rajoitus
         icon: mdi:thermometer-chevron-down
-        state: "{{ (states('sensor.lammitys_sekoitus_hinta_korjaus') | float(0)) < -0.3 }}"
+        state: "{{ (states('sensor.lammitys_sekoitus_kaytto') | float(99)) < ((states('sensor.lammitys_sekoitus_kayra') | float(0)) - 0.3) }}"
   - trigger:
       - platform: state
         entity_id:
@@ -1776,62 +1778,29 @@ template:
         device_class: temperature
         icon: mdi:valve
         state: >
-          {% set outdoor = states('sensor.ulkolampotila_met_no') | float(0) %}
-          {% set out_w = states('input_number.lammitys_kayra_ulko_vih') | float(18) %}
-          {% set out_c = states('input_number.lammitys_kayra_ulko_kylma') | float(-25) %}
-          {% set t_w = states('input_number.lammitys_kayra_meno_min') | float(35) %}
-          {% set t_c = states('input_number.lammitys_kayra_meno_max') | float(48) %}
-          {% set span = out_w - out_c %}
-          {% if span | abs < 0.1 %}{% set curve = t_w %}
-          {% elif outdoor >= out_w %}{% set curve = t_w %}
-          {% elif outdoor <= out_c %}{% set curve = t_c %}
-          {% else %}{% set curve = t_w + (t_c - t_w) * (out_w - outdoor) / span %}{% endif %}
-          {% set price_now = states('sensor.energi_data_service') | float(0) %}
-          {% set look = states('input_number.lammitys_hinta_ennakko_h') | int(6) %}
-          {% set ns = namespace(sum=0.0, n=0) %}
-          {% for attr in ['raw_today', 'raw_tomorrow'] %}
-            {% set rows = state_attr('sensor.energi_data_service', attr) %}
-            {% if rows %}
-              {% for item in rows %}
-                {% set ts = item.hour if item.hour is defined else none %}
-                {% set pr = item.price if item.price is defined else none %}
-                {% if ts is not none and pr is not none %}
-                  {% set start = as_datetime(ts) %}
-                  {% if start is not none and start >= now() - timedelta(minutes=15) and start < now() + timedelta(hours=look) %}
-                    {% set ns.sum = ns.sum + (pr | float(0)) %}
-                    {% set ns.n = ns.n + 1 %}
-                  {% endif %}
-                {% endif %}
-              {% endfor %}
-            {% endif %}
-          {% endfor %}
-          {% set avg_ahead = (ns.sum / ns.n) if ns.n > 0 else price_now %}
-          {% set price_eff = price_now + 0.5 * (price_now - avg_ahead) %}
-          {% set p_lo = states('input_number.lammitys_hinta_halpa') | float(5) %}
-          {% set p_hi = states('input_number.lammitys_hinta_kallis') | float(50) %}
-          {% set nosto = states('input_number.lammitys_hinta_nosto_max') | float(2) %}
-          {% set rajoitus = states('input_number.lammitys_hinta_rajoitus_max') | float(8) %}
-          {% if p_hi <= p_lo %}{% set adj = 0 %}
-          {% elif price_eff <= p_lo %}{% set adj = nosto %}
-          {% elif price_eff >= p_hi %}{% set adj = -rajoitus %}
+          {% set kayra = states('sensor.lammitys_sekoitus_kayra') | float(35) %}
+          {% set huone = states('sensor.lammitys_huone_max') | float(0) %}
+          {% set raja = states('sensor.lammitys_vesi_huone_raja') | float(0) %}
+          {% set katto = states('input_number.lammitys_kayra_meno_max') | float(48) %}
+          {% set lattia = states('input_number.lammitys_kayra_meno_min') | float(35) %}
+          {% if raja <= 0 %}
+            {{ [[lattia, kayra] | min, katto] | min | round(1) }}
           {% else %}
-            {% set x = (price_eff - p_lo) / (p_hi - p_lo) %}
-            {% set adj = nosto + (-rajoitus - nosto) * x %}
+            {% set siirto = huone - 21 %}
+            {{ [[raja, kayra + siirto] | max, katto] | min | round(1) }}
           {% endif %}
-          {{ [[t_w, curve + adj] | max, t_c] | min | round(1) }}
       - name: Sekoitusventtiilin tavoite ja hinta
         unique_id: lammitys_sekoitus_teksti
         icon: mdi:valve
         state: >
-          {% set kv = states('sensor.vilp_ohjaus_lampotilat_air_temperature_8') | float(none) %}
           {% set tavoite = states('sensor.lammitys_sekoitus_kaytto') | float(none) %}
           {% set kayra = states('sensor.lammitys_sekoitus_kayra') | float(none) %}
-          {% set adj = states('sensor.lammitys_sekoitus_hinta_korjaus') | float(0) %}
-          {% set price = states('sensor.energi_data_service') | float(none) %}
-          {% set ennakko = states('sensor.lammitys_hinta_ennakko') | float(none) %}
-          {% set look = states('input_number.lammitys_hinta_ennakko_h') | int(6) %}
-          {% if tavoite is none %}Ei varaajatavoitetta
-          {% else %}Varaaja-termostaatti {{ tavoite | round(1) }} °C (käyrä {{ kayra | round(1) if kayra is not none else '?' }}°{% if adj != 0 %}, hinta {{ adj | round(1) }}° @ {{ price | round(1) if price is not none else '?' }} c nyt{% if ennakko is not none %}, ennakko {{ ennakko | round(1) }} c / {{ look }} h{% endif %}{% endif %}{% if kv is not none %}, KV {{ kv | round(1) }} °C{% endif %}) · heater virtuaalinen, ei lämmitä{% endif %}
+          {% set huone = states('sensor.lammitys_huone_max') | float(none) %}
+          {% set raja = states('sensor.lammitys_vesi_huone_raja') | float(none) %}
+          {% set kv = states('sensor.vilp_ohjaus_lampotilat_air_temperature_8') | float(none) %}
+          {% if tavoite is none %}Ei menovesitavoitetta
+          {% elif raja is none or raja <= 0 %}Ei huonelämmitystä — käyrä {{ kayra | round(1) if kayra is not none else '?' }} °C
+          {% else %}Huone {{ huone | round(1) }} °C → vesi ≥ {{ raja | round(1) }} °C · käyrä {{ kayra | round(1) if kayra is not none else '?' }} °C siirto {{ (huone - 21) | round(1) }} ° → tavoite {{ tavoite | round(1) }} °C{% if kv is not none %} · KV {{ kv | round(1) }} °C{% endif %}{% endif %}
       - name: Miksi sekoituspumppu on päällä tai pois
         unique_id: lammitys_menovesi_teksti
         icon: mdi:pipe-valve
@@ -1855,8 +1824,7 @@ template:
           {% set solar_on = is_state('switch.sonoff_4_ch_pro_2_tasmota3', 'on') and (solar_p >= 0.3 or (kenno - (tank if tank is not none else 0)) >= 5) %}
           {% set solar_block = solar_on and (solar_p >= (states('input_number.lammitys_aurinko_teho_raja') | float(0.8))) %}
           {% set solar_extra = states('input_number.lammitys_aurinko_varo') | float(2.5) if solar_on else 0 %}
-          {% set extra = states('input_number.lammitys_hinta_nosto_max') | float(2) if is_state('binary_sensor.lammitys_ennakoiva', 'on') else 0 %}
-          {% set raja = ([tavoite + extra - solar_extra, katto] | min) if tavoite is not none else none %}
+          {% set raja = ([tavoite - solar_extra, katto] | min) if tavoite is not none else none %}
           {% if kv is none %}Ei käyttövesidataa
           {% elif tank is none %}Ei lämmitysvaraajadataa
           {% elif kv <= kv_off %}Sekoituspumppu pois — suojaa käyttövettä {{ kv | round(1) }} °C (pois ≤ {{ kv_off | round(1) }} °C)
@@ -1867,9 +1835,9 @@ template:
           {% elif kv < tank + delta %}Sekoituspumppu pois — KV {{ kv | round(1) }} °C ei ole tarpeeksi kuumempi kuin varaaja {{ tank | round(1) }} °C (ero ≥ {{ delta | round(1) }} °C)
           {% elif tank >= katto %}Sekoituspumppu pois — varaaja {{ tank | round(1) }} °C (katto {{ katto | round(1) }} °C)
           {% elif solar_on and raja is not none and tank >= raja %}Aurinko lämmittää — sekoituspumppu lepää kunnes varaaja {{ raja | round(1) }} °C
-          {% elif pump_on %}Lataa varaajaa KV {{ kv | round(1) }} °C → {{ tank | round(1) }} °C{% if raja is not none %} · lataus {{ raja | round(1) }} °C{% endif %}{% if extra > 0 %} · ennakoiva +{{ extra | round(1) }} °C{% endif %} — painopiste lattiassa
-          {% elif raja is not none and tank >= raja %}Varaaja {{ tank | round(1) }} °C · lataus {{ raja | round(1) }} °C{% if extra > 0 %} (ennakoiva +{{ extra | round(1) }} °C){% endif %} — ok
-          {% else %}Varaaja {{ tank | round(1) }} °C alle latauksen {{ raja | round(1) if raja is not none else '?' }} °C{% if extra > 0 %} (ennakoiva +{{ extra | round(1) }} °C){% endif %} — seuraava pulssi kun KV ≥ {{ kv_on | round(1) }} °C
+          {% elif pump_on %}Lataa varaajaa KV {{ kv | round(1) }} °C → {{ tank | round(1) }} °C{% if raja is not none %} · lataus {{ raja | round(1) }} °C{% endif %} — painopiste lattiassa
+          {% elif raja is not none and tank >= raja %}Varaaja {{ tank | round(1) }} °C · lataus {{ raja | round(1) }} °C — ok
+          {% else %}Varaaja {{ tank | round(1) }} °C alle latauksen {{ raja | round(1) if raja is not none else '?' }} °C — seuraava pulssi kun KV ≥ {{ kv_on | round(1) }} °C
           {% endif %}
   - binary_sensor:
       - name: Lammitys sekoitus sallittu
@@ -1888,9 +1856,8 @@ template:
           {% set tgt = state_attr('climate.lattialammitys', 'temperature') | float(none) %}
           {% set tank = states('sensor.vilp_ohjaus_lampotilat_air_temperature_13') | float(none) %}
           {% set tavoite = states('sensor.lammitys_sekoitus_kaytto') | float(35) %}
-          {% set extra = states('input_number.lammitys_hinta_nosto_max') | float(2) if is_state('binary_sensor.lammitys_ennakoiva', 'on') else 0 %}
           {% set katto = states('input_number.lammitys_kayra_meno_max') | float(48) %}
-          {% set raja = [tavoite + extra, katto] | min %}
+          {% set raja = [tavoite, katto] | min %}
           {% set mitta = cur if cur is not none else tank %}
           {{ mode == 'heat'
              and (
@@ -1959,11 +1926,11 @@ template:
             {{ vesi >= raja }}
           {% endif %}
   - sensor:
-      - name: Lammitys vesi huone raja
-        unique_id: lammitys_vesi_huone_raja
+      - name: Lammitys huone max
+        unique_id: lammitys_huone_max
         unit_of_measurement: "°C"
         device_class: temperature
-        icon: mdi:thermometer-water
+        icon: mdi:thermostat
         state: >
           {% set ns = namespace(t=0) %}
           {% if is_state('input_select.lammitys_tila_olohuone_keittio', 'Automaatti')
@@ -1991,8 +1958,15 @@ template:
               {% set ns.t = [ns.t, states(z[2]) | float(z[3])] | max %}
             {% endif %}
           {% endfor %}
-          {% if ns.t <= 17 %}0
-          {% else %}{{ (ns.t + 5) | round(1) }}{% endif %}
+          {{ ns.t | round(1) if ns.t > 17 else 0 }}
+      - name: Lammitys vesi huone raja
+        unique_id: lammitys_vesi_huone_raja
+        unit_of_measurement: "°C"
+        device_class: temperature
+        icon: mdi:thermometer-water
+        state: >
+          {% set h = states('sensor.lammitys_huone_max') | float(0) %}
+          {{ (h + 5) | round(1) if h > 17 else 0 }}
   - trigger:
       - platform: time_pattern
         seconds: "/10"
@@ -2487,14 +2461,15 @@ automation:
           - sensor.vilp_ohjaus_lampotilat_air_temperature_8
           - sensor.vilp_ohjaus_lampotilat_air_temperature_13
           - sensor.lammitys_sekoitus_kaytto
+          - sensor.lammitys_huone_max
+          - sensor.lammitys_vesi_huone_raja
           - binary_sensor.lammitys_ennakoiva
           - climate.lattialammitys
     action:
       - variables:
           tavoite: "{{ states('sensor.lammitys_sekoitus_kaytto') | float(35) }}"
-          extra: "{{ states('input_number.lammitys_hinta_nosto_max') | float(2) if is_state('binary_sensor.lammitys_ennakoiva', 'on') else 0 }}"
           katto: "{{ states('input_number.lammitys_kayra_meno_max') | float(48) }}"
-          lampo: "{{ [((tavoite | float(35)) + (extra | float(0))), (katto | float(48))] | min }}"
+          lampo: "{{ [tavoite | float(35), katto | float(48)] | min }}"
       - action: script.lammitys_aseta_sekoitus
         data:
           active: true
@@ -2562,8 +2537,7 @@ automation:
           lasku_nyt: "{{ ((states('input_number.lammitys_kv_ennen_pulssia') | float(0)) - (states('sensor.vilp_ohjaus_lampotilat_air_temperature_8') | float(0))) | round(2) }}"
           solar_block: "{{ 1 if (is_state('binary_sensor.lammitys_aurinko_lammittaa', 'on') and (states('sensor.aurinkolampo_teho_kw') | float(0) >= (states('input_number.lammitys_aurinko_teho_raja') | float(0.8)))) else 0 }}"
           solar_extra: "{{ states('input_number.lammitys_aurinko_varo') | float(2.5) if is_state('binary_sensor.lammitys_aurinko_lammittaa', 'on') else 0 }}"
-          extra: "{{ states('input_number.lammitys_hinta_nosto_max') | float(2) if is_state('binary_sensor.lammitys_ennakoiva', 'on') else 0 }}"
-          tank_raja: "{{ [((tavoite | float(35)) + (extra | float(0)) - (solar_extra | float(0))), (katto | float(48))] | min }}"
+          tank_raja: "{{ [((tavoite | float(35)) - (solar_extra | float(0))), (katto | float(48))] | min }}"
           tank_ok: "{{ 1 if tank_s not in ['unknown', 'unavailable', 'none', ''] else 0 }}"
           pulssi: "{{ 1 if is_state('timer.lammitys_sekoitus_pulssi', 'active') else 0 }}"
           odottaa: "{{ 1 if is_state('timer.lammitys_sekoitus_odota', 'active') else 0 }}"

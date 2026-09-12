@@ -46,10 +46,7 @@ Käyttöveden suoja: sekoituspulssi 30 s, sitten 90 s odotus. Pois heti jos KV �
 
 ## 3. Varaajan termostaatti
 
-`climate.lattialammitys` pidetään `heat`-tilassa. Sille kirjoitetaan tavoite:
-
-- perus = menoveden käyrä `sensor.lammitys_sekoitus_kaytto`
-- ennakoivassa + `lammitys_hinta_nosto_max` (katto `lammitys_kayra_meno_max`)
+`climate.lattialammitys` pidetään `heat`-tilassa. Sille kirjoitetaan sama tavoite kuin menovedelle (`sensor.lammitys_sekoitus_kaytto`): huone + 5 ja ulkokäyrä siirrettynä. Spot, hetkellinen ja ennakoiva tulevat huoneiden asetuksen kautta.
 
 Kun varaaja on alle tavoitteen, termostaatti näyttää heating ja virtuaalikytkin menee päälle. Se ei ole lämpö. Oikea lämpö:
 
@@ -58,20 +55,19 @@ Kun varaaja on alle tavoitteen, termostaatti näyttää heating ja virtuaalikytk
 
 Vastus ei käy, jos kaikki huoneet ovat Pois eikä ennakoiva ole päällä. Hetkellinen ≥ 50 c/t kieltää vastuksen.
 
-## 4. Menoveden tavoite (käyrä)
+## 4. Menoveden tavoite seuraa huoneita
 
-`sensor.lammitys_sekoitus_kaytto` ei ole huone + 5 °C. Se on ulkolämpökäyrä:
+Kaikkien huoneiden asetus muuttuu ulkolämmöstä, spotista ja hetkellisestä kulutuksesta (`sensor.lammitys_tavoite_*`). Sen päälle ennakoiva, korotus ja hetki-raja (`sensor.lammitys_kaytto_*`). Olo+keittiön lattia on silti taustalla paitsi ennakoivassa.
 
-- ulko lämmin (`lammitys_kayra_ulko_vih`, oletus 18 °C) → meno min (`lammitys_kayra_meno_min`, oletus 35 °C)
-- ulko kylmä (`lammitys_kayra_ulko_kylma`, oletus −25 °C) → meno max (`lammitys_kayra_meno_max`, oletus 48 °C)
-- väli lineaarisesti
+`sensor.lammitys_huone_max` = korkein aktiivinen huoneasetus (ikkuna/ovi auki tai Pois ei nosta).
+`sensor.lammitys_vesi_huone_raja` = huone_max + 5 °C. Olo 21 °C → 26 °C.
 
-Sitten spot nyt + seuraavat tunnit (`lammitys_hinta_ennakko_h`, oletus 6 h):
+`sensor.lammitys_sekoitus_kaytto` = max(huone + 5, ulkokäyrä + (huone − 21)), katto `lammitys_kayra_meno_max`.
 
-- halpa / hinta nousemassa → käyrää nostetaan (max `lammitys_hinta_nosto_max`)
-- kallis / halvempaa tulossa → käyrää lasketaan (max `lammitys_hinta_rajoitus_max`)
-
-Hetkellinen kulutus (`sensor.hetkellinen_kustannus`) ei suoraan liikuta tätä käyrää. Se rajoittaa huoneita ja kieltää vastuksen.
+- Huone nousee (halpa, ennakoiva, korotus) → vesi nousee.
+- Huone laskee (kallis, hetkellinen) → vesi laskee.
+- Ulkokäyrä pitää veden riittävän kuumana pakkasella (35…48 °C viite 21 °C:n huoneelle).
+- Sama luku kirjoitetaan varaajan termostaatille.
 
 ## 5. Huoneiden lattiat
 
@@ -99,17 +95,17 @@ Kiertopumppu päälle jos jokin lattia oikeasti lämmittää, vastus on nostamas
 
 Spot (`sensor.energi_data_service`):
 
-- liikuttaa menoveden käyrää
-- kytkee ennakoivan, kun tuleva 6 h keski > nyt + 1,5 °C-logiikka (halpa tai nosto)
-- suuri heilunta: tuleva keski ≥ nyt + 8 c → painopiste lattiassa, varaajaa silti vähän yli
-- ILP:n asetus käyrä + `keittio_ilp_lampo` (kallis sähkö → ILP:tä voi nostaa, kompressoria ei sammuteta)
+- liikuttaa huoneiden `tavoite_*`-asetusta
+- kytkee ennakoivan (kaytto nousee) → menovesi ja varaaja seuraavat
+- suuri heilunta: tuleva keski ≥ nyt + 8 c → painopiste lattiassa
+- ILP:n asetus käyrä + `keittio_ilp_lampo`. Kompressoria ei sammuteta hinnalla
 
 Hetkellinen c/t (`sensor.hetkellinen_kustannus`):
 
-- ≥ 40: huoneiden lattia-asetus −2 °C (hystereesi pois ≤ 35)
+- on jo `tavoite_*`-käyrässä (kulutusvaikutus)
+- ≥ 40: lisäksi huoneiden kaytto −2 °C (hystereesi pois ≤ 35) → menovesi laskee mukana
 - ≥ 50: vastus kielletty (hystereesi pois ≤ 45)
 - korotus ohittaa huonerajoituksen
-- ei liikuta varaajan/käyrän lukemaa suoraan
 - ILP:tä ei sammuteta hinnalla
 
 ## 7. Keittiö ILP
@@ -136,14 +132,13 @@ Hetkellinen c/t (`sensor.hetkellinen_kustannus`):
 
 - Ei ohjaa VILP:ää suoraan. KV:n lämpö tulee sieltä tai muualta; ohjaus vain varastaa sitä pulssilla.
 - Ei käytä virtuaalikytkintä lämmittimenä.
-- Menoveden käyrä ei seuraa huone + 5 °C. Huone + 5 on vain portti: saako lattia yrittää. Käyrä on ulko + spot.
-- Hetkellinen kulutus ei laske varaajan termostaatin lukemaa.
+- Menovesi ja varaajan termostaatti seuraavat huone + 5 °C ja käyrän siirtoa. Ei erillistä hintakorjausta menovedessä (se tulisi kahdesti).
 
 ## 10. Tarkista nämä
 
 1. Sekoituspumppu tosiaan KV → varaaja, ei suoraan menoveteen?
 2. Vastus tosiaan menoveden läpivirtauksessa, ei varaajan kyljessä?
 3. `climate.lattialammitys` mittaa varaajaa (13), ei menovettä (10)?
-4. Pitäisikö menoveden tavoitteen seurata huone + 5 °C (ja hinnan/kulutuksen muuttamaa huonetta), ei vain ulkokäyrää?
-5. Pitäisikö hetkellisen kulutuksen laskea myös varaajan/käyrän tavoitetta, ei vain huoneita ja vastusta?
+4. Onko 21 °C oikea viitelämpö käyrän siirrolle (huone − 21)?
+5. Hetkellinen laskee huonetta ja sen myötä vettä. Riittääkö?
 6. Onko aurinkopiiri sama varaaja (13)?
