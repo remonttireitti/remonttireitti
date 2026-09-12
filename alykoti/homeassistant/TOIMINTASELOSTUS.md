@@ -85,7 +85,7 @@ Kirjoitettava asetus:
 | Pois, ikkuna/ovi auki | 17 °C | 17 °C |
 | Hetkellinen ≥ 40 c/t | tausta − 2 °C, min 17 | käyttö − 2 °C, min 17 |
 | Huone alarajalla, ikkuna/ovi kiinni | käyttö, min 19 °C | käyttö, min 19 °C (eteinen 20) |
-| Ennakoiva / halpa + maltillinen | käyttö + nosto, max 26 | käyttö + nosto (myös eteinen), max 26 |
+| Ennakoiva / halpa + maltillinen | max(tavoite, 21) + nosto, vähintään 23 | max(tavoite, 20/23) + nosto, vähintään 22 / 25 |
 | Korotus-ajastin (+4 °C / 240 min) | tavoite + korotus | tavoite + korotus |
 | Kallis + korkea kulutus | tausta 18 °C, ILP-painotteinen | käyttö (20 / 23) tai −2 °C |
 | Normaali (kallis, kulutus ok) | tausta 18 °C, ILP | käyttö (20 / 23) |
@@ -93,6 +93,8 @@ Kirjoitettava asetus:
 Sitten portti: `max(varaaja, menovesi) ≥ huoneasetus + 5 °C`.
 
 Esimerkki: olo 21 °C → vesi vähintään 26 °C, muuten lattia kirjoitetaan 17 °C. Vesi ei nosta huonetta.
+
+Poikkeus: `binary_sensor.lammitys_ennakoiva` — nosto on vakion päälle (ei jo lasketun tavoitteen päälle, ettei 19+2 näytä samalta kuin 21). Lattiat pidetään nostetussa asetuksessa vaikka vesi ei vielä ole huone+5, jotta varaaminen alkaa.
 
 Poikkeus: `binary_sensor.lammitys_vastus_nostaa` (vastus Automaatti, ei hetki-kieltoa, KV < 58 °C) → huoneiden asetus ja kierto pidetään, jotta vastus saa virtauksen.
 
