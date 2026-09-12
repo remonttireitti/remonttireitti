@@ -55,7 +55,7 @@ Kun varaaja on alle tavoitteen, termostaatti näyttää heating ja virtuaalikytk
 - KV kuuma → sekoituspumppu lataa varaajaa
 - KV kylmä → kiertopumppu päälle, 4 min jälkeen vastus pulssittaa menovettä (15 s / 30 s)
 
-Vastus ei käy, jos kaikki huoneet ovat Pois eikä ennakoiva ole päällä. Hetkellinen ≥ 50 c/t kieltää vastuksen.
+Vastus ei käy pelkällä kiertopumpulla: vähintään yksi lämmityspiiri (`binary_sensor.lammitys_piiri_auki`) pitää olla yhtä aikaa päällä, muuten vesi ei kierrä vastuksen läpi. Kaikki huoneet Pois → ei piiriä → vastus kielletty. Hetkellinen ≥ 50 c/t kieltää vastuksen (huoneen alaraja ohittaa).
 
 ## 4. Menoveden tavoite seuraa huoneita
 

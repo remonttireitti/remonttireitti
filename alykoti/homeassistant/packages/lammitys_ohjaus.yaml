@@ -47,10 +47,12 @@
 # lämmittää SUORAAN menoveden (sensor.vilp_ohjaus_lampotilat_air_temperature_10).
 # Asennettu läpivirtauksena: EI SAA olla päällä ilman kiertoa.
 # Kiertopumppu switch.sonoff_4_ch_pro_2_tasmota2 PITÄÄ olla päällä.
-# Pumppu ensin päälle → vastus vasta kun kierto on käynyt ≥ 4 min.
-# Pumppu pois → vastus heti pois (ei virtausta, ylikuumenemisvaara).
+# Pelkkä pumppu ei riitä: vähintään 1 lämmityspiiri (venttiili) yhtä aikaa
+# päällä, muuten vesi ei kierrä vastuksen läpi (ylikuumenemisvaara).
+# Pumppu ensin päälle → vastus vasta kun kierto on käynyt ≥ 4 min JA piiri auki.
+# Pumppu tai kaikki piirit pois → vastus heti pois.
 # Päällä vain kun: KV liian kylmä sekoituspumpulle (< kv_pumppu_paalle),
-# lattia tarvitsee lämpöä (meno < tavoite), ja jokin lattia oikeasti lämmittää.
+# lattia tarvitsee lämpöä (meno < tavoite), ja jokin piiri on auki.
 # Aina pulssi (alku 15 s / 30 s pois), ei jatkuvaa päälle.
 # Teho ei riitä → nosta päällä-aikaa; meno nousee → vähennä.
 # Lattiatarve pois → vastus heti pois, kiertopumppu jää 120 s jäähdyttämään.
@@ -92,7 +94,9 @@ homeassistant:
     switch.sonoff_4_ch_pro_2_tasmota4:
       friendly_name: "Sekoituspumppu — lataa pientä lämmitysvaraajaa (13) käyttövettä (8). Ennakoivasti vähän yli, painopiste silti lattiassa"
     switch.pannuhuone_lapivirtausvastus:
-      friendly_name: "Läpivirtausvastus 4 kW. Lämmittää suoraan menovettä (anturi 10). Vaati virtauksen — kiertopumppu (tasmota2) päällä ≥ 4 min. Pulssi vain kun KV kylmä ja lattia tarvitsee lämpöä. Kielletty jos hetkellinen ≥ 50 c/t"
+      friendly_name: "Läpivirtausvastus 4 kW. Lämmittää suoraan menovettä (anturi 10). Vaati virtauksen — kiertopumppu (tasmota2) ≥ 4 min JA vähintään 1 lämmityspiiri päällä. Pelkkä pumppu ei riitä. Pulssi kun KV kylmä. Kielletty jos hetkellinen ≥ 50 c/t"
+    binary_sensor.lammitys_piiri_auki:
+      friendly_name: "Vähintään yksi lämmityspiiri auki — vastus kielletty ilman tätä, pelkkä lattiapumppu ei tee läpivirtauksia"
     climate.lattialammitys:
       friendly_name: "Lämmitysvaraajan termostaatti — tavoite käyrästä. Heater switch.energia_mittaus_koko_talo on virtuaalinen, ei lämmitä. Lämpö: sekoituspumppu KV:stä tai läpivirtausvastus"
     switch.energia_mittaus_koko_talo:
@@ -953,6 +957,9 @@ script:
         state: "on"
       - condition: state
         entity_id: switch.sonoff_4_ch_pro_2_tasmota2
+        state: "on"
+      - condition: state
+        entity_id: binary_sensor.lammitys_piiri_auki
         state: "on"
       - condition: state
         entity_id: binary_sensor.lammitys_ll_pumppu_valmis
@@ -2163,6 +2170,17 @@ template:
              or state_attr('climate.glen_lattialammitys', 'hvac_action') == 'heating'
              or state_attr('climate.nele_lattialammitys', 'hvac_action') == 'heating'
              or state_attr('climate.eteisen_lattialammitys', 'hvac_action') == 'heating' }}
+      - name: Lammitys piiri auki
+        unique_id: lammitys_piiri_auki
+        icon: mdi:pipe-valve
+        state: >
+          {{ is_state('switch.eteisen_lattialammitys', 'on')
+             or is_state('switch.nele_ja_keittio_lattialammitys_anturit', 'on')
+             or is_state('switch.olohuone_hm_lattialammitys_6', 'on')
+             or is_state('switch.makuhuone_glen_lattialammitys', 'on')
+             or is_state('switch.olohuone_hm_lattialammitys', 'on')
+             or is_state('switch.makuhuone_glen_lattialammitys_6', 'on')
+             or is_state('switch.nele_ja_keittio_lattialammitys_anturit_6', 'on') }}
       - name: Lammitys vastus nostaa
         unique_id: lammitys_vastus_nostaa
         icon: mdi:heating-coil
@@ -2239,6 +2257,7 @@ template:
           - switch.sonoff_4_ch_pro_2_tasmota2
           - switch.pannuhuone_lapivirtausvastus
           - binary_sensor.lammitys_ll_tarve
+          - binary_sensor.lammitys_piiri_auki
           - binary_sensor.lammitys_varaaja_tarve
           - input_select.lammitys_vastus
           - sensor.vilp_ohjaus_lampotilat_air_temperature_8
@@ -2283,6 +2302,7 @@ template:
           {{ is_state('input_select.lammitys_vastus', 'Automaatti')
              and (not is_state('binary_sensor.lammitys_hetki_rajoita_vesi', 'on')
                   or is_state('binary_sensor.lammitys_huone_alaraja', 'on'))
+             and is_state('binary_sensor.lammitys_piiri_auki', 'on')
              and (is_state('binary_sensor.lammitys_ll_tarve', 'on')
                   or (is_state('binary_sensor.lammitys_varaaja_tarve', 'on')
                       and ((states('sensor.lammitys_vesi_huone_raja') | float(0)) > 0
@@ -2312,6 +2332,7 @@ template:
           {% elif is_state('binary_sensor.lammitys_hetki_rajoita_vesi', 'on')
                and is_state('binary_sensor.lammitys_huone_alaraja', 'on') %}Huone alarajalla — vastuskielto ohitettu
           {% elif not is_state('switch.sonoff_4_ch_pro_2_tasmota2', 'on') %}Kierto pois — ei läpivirtauksia, vastus kielletty
+          {% elif not is_state('binary_sensor.lammitys_piiri_auki', 'on') %}Ei yhtään lämmityspiiriä päällä — pelkkä kiertopumppu ei riitä, vastus kielletty
           {% elif is_state('switch.pannuhuone_lapivirtausvastus', 'on') %}Pulssi {{ nyt }} s — lämmittää menovettä {{ meno | round(1) if meno is not none else '?' }} °C
           {% elif is_state('timer.lammitys_vastus_odota', 'active') %}Tauko {{ pois }} s · seuraava {{ nyt }} s · meno {{ meno | round(1) if meno is not none else '?' }} °C
           {% elif not is_state('binary_sensor.lammitys_ll_tarve', 'on')
@@ -3200,6 +3221,7 @@ automation:
         entity_id:
           - switch.pannuhuone_lapivirtausvastus
           - binary_sensor.lammitys_ll_tarve
+          - binary_sensor.lammitys_piiri_auki
           - binary_sensor.lammitys_varaaja_tarve
           - binary_sensor.lammitys_vastus_sallittu
           - binary_sensor.lammitys_hetki_rajoita_vesi
@@ -3215,6 +3237,7 @@ automation:
                or (is_state('binary_sensor.lammitys_hetki_rajoita_vesi', 'on')
                    and not is_state('binary_sensor.lammitys_huone_alaraja', 'on'))
                or not is_state('switch.sonoff_4_ch_pro_2_tasmota2', 'on')
+               or not is_state('binary_sensor.lammitys_piiri_auki', 'on')
                or not (is_state('binary_sensor.lammitys_ll_tarve', 'on')
                        or is_state('binary_sensor.lammitys_varaaja_tarve', 'on'))
                or (states('sensor.vilp_ohjaus_lampotilat_air_temperature_10') | float(0) >= (states('input_number.lammitys_kayra_meno_max') | float(48)))
@@ -3265,6 +3288,7 @@ automation:
           - binary_sensor.lammitys_ll_pumppu_valmis
           - switch.sonoff_4_ch_pro_2_tasmota2
           - binary_sensor.lammitys_ll_tarve
+          - binary_sensor.lammitys_piiri_auki
           - binary_sensor.lammitys_varaaja_tarve
           - input_select.lammitys_vastus
     action:
