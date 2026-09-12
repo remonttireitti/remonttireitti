@@ -25,9 +25,14 @@
 #   - Suuri poikkeama → tehostettu asetus (ei lepotilassa)
 #   - Komentoja vain kun arvo oikeasti muuttuu (ei kompressorin pätkimistä)
 
+homeassistant:
+  customize:
+    climate.keittio_ilp:
+      friendly_name: "Keittiö ILP — Automaatti säätää asetusta, ei sammuta hinnalla. Pois vain käsin tai ovesta"
+
 input_select:
   keittio_ilp_tila:
-    name: Keittiö ILP ohjaus
+    name: "Keittiö ILP: Automaatti säätää itse, Pois sammuttaa, Käsi = manuaali"
     options:
       - Automaatti
       - Pois
@@ -35,14 +40,14 @@ input_select:
     initial: Automaatti
     icon: mdi:air-conditioner
   keittio_ilp_manuaali_tila:
-    name: Keittiö ILP manuaali tila
+    name: "Keittiö ILP käsin: Lämmitys tai Jäähdytys, sitten Aja"
     options:
       - Lämmitys
       - Jäähdytys
     initial: Lämmitys
     icon: mdi:thermostat
   keittio_ilp_kausi:
-    name: Keittiö ILP kausi
+    name: "Keittiö ILP kausi: lämmitys/jäähdytys (automaatti vaihtaa viiveellä)"
     options:
       - Lämmitys
       - Jäähdytys
@@ -51,7 +56,7 @@ input_select:
 
 input_number:
   keittio_ilp_lampo:
-    name: Keittiö ILP lämpö (kallis sähkö)
+    name: Keittiö ILP lämmön lisä kun sähkö on kallista ja ILP on ensisijainen
     min: 16
     max: 30
     step: 0.5
@@ -60,7 +65,7 @@ input_number:
     icon: mdi:fire
     initial: 22
   keittio_ilp_jaahdytys:
-    name: Keittiö ILP jäähdytys (kesä)
+    name: Keittiö ILP jäähdytyksen asetus, vain kun 24 h ulkokeski ja ulko sallivat kesän
     min: 16
     max: 30
     step: 0.5
@@ -69,7 +74,7 @@ input_number:
     icon: mdi:snowflake
     initial: 24
   keittio_ilp_lepoasetus:
-    name: Keittiö ILP lepoasetus (halpa sähkö)
+    name: "Keittiö ILP lepo kun lattia lämmittää (halpa sähkö): heat jää päälle tähän asetukseen"
     min: 16
     max: 22
     step: 0.5
@@ -78,7 +83,7 @@ input_number:
     icon: mdi:sleep
     initial: 17.5
   keittio_ilp_jaahdytys_keski:
-    name: Keittiö ILP jäähdytys 24h keski
+    name: Jäähdytys kielletty kunnes 24 h ulkokeski on vähintään tämä
     min: 12
     max: 22
     step: 0.5
@@ -87,7 +92,7 @@ input_number:
     icon: mdi:calendar-clock
     initial: 18
   keittio_ilp_kausi_viive:
-    name: Keittiö ILP kausivaihdon viive
+    name: Kuinka monta tuntia 16–20 °C alueella ennen lämmitys/jäähdytys-kauden vaihtoa
     min: 3
     max: 8
     step: 0.5
@@ -98,17 +103,17 @@ input_number:
 
 input_datetime:
   keittio_ilp_kausi_vaihto:
-    name: Keittiö ILP viimeisin kausivaihto
+    name: Milloin ILP-kausi viimeksi vaihtui (ohjaus käyttää)
     has_date: true
     has_time: true
   keittio_ilp_ovi_pois:
-    name: Keittiö ILP ovisammutus
+    name: "Milloin terassin ovi sammutti ILP:n (pois vähintään 5 min)"
     has_date: true
     has_time: true
 
 input_text:
   keittio_ilp_status:
-    name: Keittiö ILP tila
+    name: "Keittiö ILP: ohjauksen selitys (miksi heat/cool/off)"
     max: 255
     initial: Käynnistyy
 

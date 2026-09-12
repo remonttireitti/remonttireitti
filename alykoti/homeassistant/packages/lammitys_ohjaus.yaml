@@ -33,51 +33,64 @@
 #   Spot < raja → lattia lämmittää normaalisti, ILP lepoasetuksella (heat jää päälle).
 #   Muut huoneet aina lattialla. Korotus ohittaa taustan.
 
+homeassistant:
+  customize:
+    switch.sonoff_4_ch_pro_2_tasmota2:
+      friendly_name: "Lattian kiertopumppu — pitää veden liikkeellä. Vastus kielletty jos tämä ei ole käynyt tarpeeksi kauan"
+    switch.sonoff_4_ch_pro_2_tasmota4:
+      friendly_name: "Sekoituspumppu — siirtää varaajan lämpöä lattian menoveteen. Ei lämmitä varaajaa. Ei käy jos varaaja on kylmempi kuin meno tai KV alle rajan"
+    switch.pannuhuone_lapivirtausvastus:
+      friendly_name: Läpivirtausvastus 4 kW menoputkessa. Vain pulssi kun KV kylmä, lattia tarvitsee lämpöä ja kierto on käynyt vähintään 4 min
+    climate.lattialammitys:
+      friendly_name: "Sekoitusventtiili — asettaa lattian menoveden tavoitelämpötilan"
+    switch.sonoff_4_ch_pro_2_tasmota3:
+      friendly_name: "Aurinkolämpöpumppu — siirtää kennon lämpöä varaajaan kun kenno on kuumempi"
+
 input_select:
   lammitys_tila_olohuone_keittio:
-    name: Lämmitys tila olohuone keittio
+    name: "Olo+keittiö lattia: Automaatti noudattaa tavoitetta, Pois laskee 17 °C"
     options:
       - Automaatti
       - Pois
     initial: Automaatti
     icon: mdi:thermostat-auto
   lammitys_tila_hm:
-    name: Lämmitys tila hm
+    name: "HM lattia: Automaatti noudattaa tavoitetta, Pois laskee 17 °C"
     options:
       - Automaatti
       - Pois
     initial: Automaatti
     icon: mdi:thermostat-auto
   lammitys_tila_makuhuone:
-    name: Lämmitys tila makuhuone
+    name: "Makuhuone lattia: Automaatti noudattaa tavoitetta, Pois laskee 17 °C"
     options:
       - Automaatti
       - Pois
     initial: Automaatti
     icon: mdi:thermostat-auto
   lammitys_tila_glen:
-    name: Lämmitys tila glen
+    name: "Glen lattia: Automaatti noudattaa tavoitetta, Pois laskee 17 °C"
     options:
       - Automaatti
       - Pois
     initial: Automaatti
     icon: mdi:thermostat-auto
   lammitys_tila_nele:
-    name: Lämmitys tila nele
+    name: "Nele lattia: Automaatti noudattaa tavoitetta, Pois laskee 17 °C"
     options:
       - Automaatti
       - Pois
     initial: Automaatti
     icon: mdi:thermostat-auto
   lammitys_tila_eteinen:
-    name: Lämmitys tila eteinen
+    name: "Eteinen lattia: Automaatti noudattaa tavoitetta, Pois laskee 17 °C"
     options:
       - Automaatti
       - Pois
     initial: Automaatti
     icon: mdi:thermostat-auto
   lammitys_aurinkopumppu:
-    name: Aurinkolämpöpumppu tila
+    name: "Aurinkopumppu: Automaatti kun kenno kuumempi kuin varaaja, Pois estää, Pakko päälle ajaa aina"
     options:
       - Automaatti
       - Pois
@@ -85,7 +98,7 @@ input_select:
     initial: Automaatti
     icon: mdi:solar-power
   lammitys_vastus:
-    name: Läpivirtausvastus
+    name: "Läpivirtausvastus 4 kW: Automaatti pulssittaa kun KV kylmä ja lattia tarvitsee lämpöä, Pois kieltää"
     options:
       - Automaatti
       - Pois
@@ -94,7 +107,7 @@ input_select:
 
 input_number:
   lammitys_korotus_olohuone_keittio:
-    name: Lämmitys korotus olohuone keittio
+    name: "Olo+keittiö korotus: montako °C lisätään lattian tavoitteeseen ajastimen ajaksi"
     min: 0.5
     max: 5
     step: 0.5
@@ -103,7 +116,7 @@ input_number:
     icon: mdi:thermometer-chevron-up
     initial: 1.5
   lammitys_kesto_olohuone_keittio:
-    name: Lämmitys kesto olohuone keittio
+    name: "Olo+keittiö korotuksen kesto: kuinka kauan korotus on voimassa"
     min: 15
     max: 480
     step: 15
@@ -112,7 +125,7 @@ input_number:
     icon: mdi:timer-outline
     initial: 60
   lammitys_korotus_hm:
-    name: Lämmitys korotus hm
+    name: "HM korotus: montako °C lisätään lattian tavoitteeseen ajastimen ajaksi"
     min: 0.5
     max: 5
     step: 0.5
@@ -121,7 +134,7 @@ input_number:
     icon: mdi:thermometer-chevron-up
     initial: 1.5
   lammitys_kesto_hm:
-    name: Lämmitys kesto hm
+    name: "HM korotuksen kesto: kuinka kauan korotus on voimassa"
     min: 15
     max: 480
     step: 15
@@ -130,7 +143,7 @@ input_number:
     icon: mdi:timer-outline
     initial: 60
   lammitys_korotus_makuhuone:
-    name: Lämmitys korotus makuhuone
+    name: "Makuhuone korotus: montako °C lisätään lattian tavoitteeseen ajastimen ajaksi"
     min: 0.5
     max: 5
     step: 0.5
@@ -139,7 +152,7 @@ input_number:
     icon: mdi:thermometer-chevron-up
     initial: 1.5
   lammitys_kesto_makuhuone:
-    name: Lämmitys kesto makuhuone
+    name: "Makuhuone korotuksen kesto: kuinka kauan korotus on voimassa"
     min: 15
     max: 480
     step: 15
@@ -148,7 +161,7 @@ input_number:
     icon: mdi:timer-outline
     initial: 60
   lammitys_korotus_glen:
-    name: Lämmitys korotus glen
+    name: "Glen korotus: montako °C lisätään lattian tavoitteeseen ajastimen ajaksi"
     min: 0.5
     max: 5
     step: 0.5
@@ -157,7 +170,7 @@ input_number:
     icon: mdi:thermometer-chevron-up
     initial: 1.5
   lammitys_kesto_glen:
-    name: Lämmitys kesto glen
+    name: "Glen korotuksen kesto: kuinka kauan korotus on voimassa"
     min: 15
     max: 480
     step: 15
@@ -166,7 +179,7 @@ input_number:
     icon: mdi:timer-outline
     initial: 60
   lammitys_korotus_nele:
-    name: Lämmitys korotus nele
+    name: "Nele korotus: montako °C lisätään lattian tavoitteeseen ajastimen ajaksi"
     min: 0.5
     max: 5
     step: 0.5
@@ -175,7 +188,7 @@ input_number:
     icon: mdi:thermometer-chevron-up
     initial: 1.5
   lammitys_kesto_nele:
-    name: Lämmitys kesto nele
+    name: "Nele korotuksen kesto: kuinka kauan korotus on voimassa"
     min: 15
     max: 480
     step: 15
@@ -184,7 +197,7 @@ input_number:
     icon: mdi:timer-outline
     initial: 60
   lammitys_korotus_eteinen:
-    name: Lämmitys korotus eteinen
+    name: "Eteinen korotus: montako °C lisätään lattian tavoitteeseen ajastimen ajaksi"
     min: 0.5
     max: 5
     step: 0.5
@@ -193,7 +206,7 @@ input_number:
     icon: mdi:thermometer-chevron-up
     initial: 1.5
   lammitys_kesto_eteinen:
-    name: Lämmitys kesto eteinen
+    name: "Eteinen korotuksen kesto: kuinka kauan korotus on voimassa"
     min: 15
     max: 480
     step: 15
@@ -202,7 +215,7 @@ input_number:
     icon: mdi:timer-outline
     initial: 60
   lammitys_aurinko_virtaus_l_s:
-    name: Aurinkolämpö virtaus
+    name: Aurinkopiirin oletusvirtaus tehon laskentaan (kW ≈ ero × virtaus × 4,2)
     min: 0.1
     max: 0.3
     step: 0.05
@@ -211,7 +224,7 @@ input_number:
     icon: mdi:hydraulic-oil-level
     initial: 0.2
   lammitys_menovesi_hystereesi:
-    name: Lämmitys menovesi hystereesi
+    name: "Menoveden hystereesi: näin paljon alle tavoitteen ennen kuin sekoituspumppu pulssittaa"
     min: 0.3
     max: 3
     step: 0.1
@@ -220,7 +233,7 @@ input_number:
     icon: mdi:thermometer-chevron-down
     initial: 1
   lammitys_kayra_ulko_vih:
-    name: Lämmitys käyrä ulko lämmin
+    name: "Lämpökäyrä: kun ulkona on näin lämmintä, menovesi menee minimiin"
     min: 0
     max: 25
     step: 1
@@ -229,7 +242,7 @@ input_number:
     icon: mdi:weather-sunny
     initial: 18
   lammitys_kayra_ulko_kylma:
-    name: Lämmitys käyrä ulko kylmä
+    name: "Lämpökäyrä: kun ulkona on näin kylmää, menovesi menee maximiin"
     min: -35
     max: 0
     step: 1
@@ -238,7 +251,7 @@ input_number:
     icon: mdi:snowflake
     initial: -25
   lammitys_kayra_meno_min:
-    name: Lämmitys käyrä meno min
+    name: "Lämpökäyrä: menoveden minimi leudolla säällä (lattian vesi)"
     min: 30
     max: 45
     step: 0.5
@@ -247,7 +260,7 @@ input_number:
     icon: mdi:thermometer-low
     initial: 35
   lammitys_kayra_meno_max:
-    name: Lämmitys käyrä meno max
+    name: "Lämpökäyrä: menoveden katto pakkasella — myös vastuksen hätäkatto"
     min: 38
     max: 55
     step: 0.5
@@ -256,7 +269,7 @@ input_number:
     icon: mdi:thermometer-high
     initial: 48
   lammitys_hinta_halpa:
-    name: Lämmitys hinta halpa
+    name: "Spot halpa: alle tämän hinnan menovettä saa nostaa (hinta nosto max)"
     min: 0
     max: 20
     step: 0.5
@@ -265,7 +278,7 @@ input_number:
     icon: mdi:currency-eur
     initial: 5
   lammitys_hinta_kallis:
-    name: Lämmitys hinta kallis
+    name: "Spot kallis: yli tämän hinnan menovettä rajoitetaan (hinta rajoitus max)"
     min: 10
     max: 80
     step: 1
@@ -274,7 +287,7 @@ input_number:
     icon: mdi:currency-eur-off
     initial: 50
   lammitys_hinta_nosto_max:
-    name: Lämmitys hinta nosto max
+    name: "Halvalla sähköllä: enintään näin monta °C lisätään käyrän menoveteen"
     min: 0
     max: 6
     step: 0.5
@@ -283,7 +296,7 @@ input_number:
     icon: mdi:thermometer-chevron-up
     initial: 2
   lammitys_hinta_rajoitus_max:
-    name: Lämmitys hinta rajoitus max
+    name: "Kalliilla sähköllä: enintään näin monta °C leikataan käyrän menovedestä"
     min: 0
     max: 12
     step: 0.5
@@ -292,7 +305,7 @@ input_number:
     icon: mdi:thermometer-chevron-down
     initial: 8
   lammitys_hinta_ennakko_h:
-    name: Lämmitys hinta ennakko
+    name: "Hintaennakko: montako tulevaa tuntia vaikuttaa menoveden nostoon/rajoitukseen"
     min: 1
     max: 24
     step: 1
@@ -301,7 +314,7 @@ input_number:
     icon: mdi:clock-outline
     initial: 6
   lammitys_kv_pumppu_paalle:
-    name: Lämmitys KV pumppu päälle
+    name: "Sekoitus saa pulssittaa vasta kun käyttövesi on vähintään tämä — suojaa KV:tä"
     min: 55.5
     max: 65
     step: 0.5
@@ -310,7 +323,7 @@ input_number:
     icon: mdi:water-thermometer
     initial: 58
   lammitys_kv_pumppu_pois:
-    name: Lämmitys KV pumppu pois
+    name: Sekoitus katkeaa heti jos käyttövesi laskee tähän tai alle
     min: 55
     max: 63
     step: 0.5
@@ -319,7 +332,7 @@ input_number:
     icon: mdi:water-alert
     initial: 56
   lammitys_aurinko_varo:
-    name: Lämmitys aurinko varo
+    name: "Aurinko lämmittää: sekoitus lepää, kunnes meno on näin paljon alle tavoitteen"
     min: 0
     max: 6
     step: 0.5
@@ -328,7 +341,7 @@ input_number:
     icon: mdi:solar-power
     initial: 2.5
   lammitys_aurinko_teho_raja:
-    name: Lämmitys aurinko teho raja
+    name: "Aurinkoteho: yli tämän sekoituspumppu ei kilpaile saman piirin kanssa"
     min: 0.2
     max: 4
     step: 0.1
@@ -337,7 +350,7 @@ input_number:
     icon: mdi:solar-power-variant
     initial: 0.8
   lammitys_hinta_lattia_raja:
-    name: Lattia lämmittää alle
+    name: "Olo+keittiö: alle tämän spotin lattia lämmittää, yli tämän ILP on ensisijainen"
     min: 1
     max: 20
     step: 0.5
@@ -346,7 +359,7 @@ input_number:
     icon: mdi:cash
     initial: 5
   lammitys_lattia_tausta_olokeittio:
-    name: Olo+keittiö lattia tausta
+    name: Olo+keittiö lattian tausta kun ILP lämmittää (kallis sähkö), ei täyttä lattialämpöä
     min: 16
     max: 21
     step: 0.5
@@ -355,7 +368,7 @@ input_number:
     icon: mdi:thermometer-minus
     initial: 18
   lammitys_sekoitus_pulssi_s:
-    name: Sekoituspumppu pulssi
+    name: "Sekoituspumppu: yhden pulssin kesto — nostaa menovettä varaajasta, ei saa jäädä päälle"
     min: 10
     max: 60
     step: 5
@@ -364,7 +377,7 @@ input_number:
     icon: mdi:timer-outline
     initial: 30
   lammitys_sekoitus_odota_s:
-    name: Sekoituspumppu odotus
+    name: "Sekoituspumppu: tauko pulssien välissä, mitataan ettei KV laskenut liikaa"
     min: 30
     max: 180
     step: 10
@@ -373,7 +386,7 @@ input_number:
     icon: mdi:timer-sand
     initial: 90
   lammitys_kv_pulse_max_lasku:
-    name: KV max lasku / pulssi
+    name: Sekoitus katkeaa jos käyttövesi laskee näin paljon yhden pulssin aikana
     min: 0.3
     max: 3
     step: 0.1
@@ -382,7 +395,7 @@ input_number:
     icon: mdi:thermometer-chevron-down
     initial: 1.0
   lammitys_kv_ennen_pulssia:
-    name: KV ennen pulssia
+    name: "Mittaus: käyttövesi pulssin alussa (ohjaus käyttää, ei tarvitse säätää)"
     min: 0
     max: 90
     step: 0.1
@@ -391,7 +404,7 @@ input_number:
     icon: mdi:water-thermometer
     initial: 0
   lammitys_kv_viime_lasku:
-    name: KV viime pulssin lasku
+    name: "Mittaus: paljonko KV laski viime pulssissa (ohjaus käyttää, ei tarvitse säätää)"
     min: -5
     max: 20
     step: 0.1
@@ -400,7 +413,7 @@ input_number:
     icon: mdi:delta
     initial: 0
   lammitys_vastus_paalla_min:
-    name: Vastus pulssi min
+    name: "Vastus: lyhin päällä-aika. Ohjaus aloittaa tästä ja nostaa vain jos meno ei nouse"
     min: 10
     max: 30
     step: 5
@@ -409,7 +422,7 @@ input_number:
     icon: mdi:timer-outline
     initial: 15
   lammitys_vastus_paalla_max:
-    name: Vastus pulssi max
+    name: "Vastus: pisin päällä-aika. Ei jatkuvaa päälle, aina tauko väliin"
     min: 20
     max: 60
     step: 5
@@ -418,7 +431,7 @@ input_number:
     icon: mdi:timer
     initial: 45
   lammitys_vastus_paalla_nyt:
-    name: Vastus pulssi nyt
+    name: "Vastus: nykyinen päällä-aika (ohjaus säätää itse)"
     min: 10
     max: 60
     step: 5
@@ -427,7 +440,7 @@ input_number:
     icon: mdi:timer-play
     initial: 15
   lammitys_vastus_pois_s:
-    name: Vastus tauko
+    name: "Vastus: pois-aika pulssien välissä. Vesi ehtii sekoittua, putki ei kuumene paikallaan"
     min: 20
     max: 90
     step: 5
@@ -436,7 +449,7 @@ input_number:
     icon: mdi:timer-sand
     initial: 30
   lammitys_vastus_pumppu_min:
-    name: Vastus kierto min
+    name: Vastus kielletty kunnes kiertopumppu on ollut päällä näin monta minuuttia
     min: 2
     max: 10
     step: 1
@@ -445,7 +458,7 @@ input_number:
     icon: mdi:pump
     initial: 4
   lammitys_ll_pumppu_viive_s:
-    name: LL pumppu poisviive
+    name: "Kun lattia sammuu: vastus pois heti, kiertopumppu jää tähän ajaksi jäähdyttämään vastusta"
     min: 30
     max: 300
     step: 10
@@ -454,7 +467,7 @@ input_number:
     icon: mdi:timer-sand
     initial: 120
   lammitys_vastus_max_nousu:
-    name: Vastus max nousu / pulssi
+    name: Vastus pois heti jos meno nousee näin paljon yhden pulssin aikana (ylikuumeneminen)
     min: 0.5
     max: 4
     step: 0.1
@@ -463,7 +476,7 @@ input_number:
     icon: mdi:thermometer-chevron-up
     initial: 1.5
   lammitys_vastus_meno_ennen:
-    name: Vastus meno ennen pulssia
+    name: "Mittaus: meno pulssin alussa (ohjaus käyttää, ei tarvitse säätää)"
     min: 0
     max: 90
     step: 0.1
@@ -474,42 +487,42 @@ input_number:
 
 input_text:
   lammitys_sekoituspumppu:
-    name: Varaajan sekoitus pumppu
+    name: Sekoituspumpun kytkin (tasmota4). Vie varaajan lämpöä lattian menoveteen
     initial: switch.sonoff_4_ch_pro_2_tasmota4
     max: 128
     icon: mdi:pump
 
 timer:
   lammitys_korotus_olohuone_keittio:
-    name: Lämmitys korotus olohuone keittio
+    name: "Olo+keittiö korotus: montako °C lisätään lattian tavoitteeseen ajastimen ajaksi"
     duration: "01:00:00"
     icon: mdi:timer-sand
   lammitys_korotus_hm:
-    name: Lämmitys korotus hm
+    name: "HM korotus: montako °C lisätään lattian tavoitteeseen ajastimen ajaksi"
     duration: "01:00:00"
     icon: mdi:timer-sand
   lammitys_korotus_makuhuone:
-    name: Lämmitys korotus makuhuone
+    name: "Makuhuone korotus: montako °C lisätään lattian tavoitteeseen ajastimen ajaksi"
     duration: "01:00:00"
     icon: mdi:timer-sand
   lammitys_korotus_glen:
-    name: Lämmitys korotus glen
+    name: "Glen korotus: montako °C lisätään lattian tavoitteeseen ajastimen ajaksi"
     duration: "01:00:00"
     icon: mdi:timer-sand
   lammitys_korotus_nele:
-    name: Lämmitys korotus nele
+    name: "Nele korotus: montako °C lisätään lattian tavoitteeseen ajastimen ajaksi"
     duration: "01:00:00"
     icon: mdi:timer-sand
   lammitys_korotus_eteinen:
-    name: Lämmitys korotus eteinen
+    name: "Eteinen korotus: montako °C lisätään lattian tavoitteeseen ajastimen ajaksi"
     duration: "01:00:00"
     icon: mdi:timer-sand
   lammitys_sekoitus_pulssi:
-    name: Sekoituspumppu pulssi
+    name: "Sekoituspumppu: yhden pulssin kesto — nostaa menovettä varaajasta, ei saa jäädä päälle"
     duration: "00:00:30"
     icon: mdi:timer-outline
   lammitys_sekoitus_odota:
-    name: Sekoituspumppu odotus
+    name: "Sekoituspumppu: tauko pulssien välissä, mitataan ettei KV laskenut liikaa"
     duration: "00:01:30"
     icon: mdi:timer-sand
   lammitys_vastus_pulssi:
@@ -521,7 +534,7 @@ timer:
     duration: "00:00:30"
     icon: mdi:timer-sand
   lammitys_ll_pumppu_viive:
-    name: LL pumppu poisviive
+    name: "Kun lattia sammuu: vastus pois heti, kiertopumppu jää tähän ajaksi jäähdyttämään vastusta"
     duration: "00:02:00"
     icon: mdi:timer-sand
 
@@ -1491,7 +1504,7 @@ template:
             {% set adj = nosto + (-rajoitus - nosto) * x %}
           {% endif %}
           {{ [[t_w, curve + adj] | max, t_c] | min | round(1) }}
-      - name: Lammitys sekoitus teksti
+      - name: Sekoitusventtiilin tavoite ja hinta
         unique_id: lammitys_sekoitus_teksti
         icon: mdi:valve
         state: >
@@ -1505,7 +1518,7 @@ template:
           {% if kv is none %}Ei käyttövesidataa
           {% elif kv <= 55 %}Pois — käyttövesi {{ kv | round(1) }} °C (raja 55 °C)
           {% else %}Sekoitus {{ tavoite | round(1) }} °C (käyrä {{ kayra | round(1) }}°{% if adj != 0 %}, hinta {{ adj | round(1) }}° @ {{ price | round(1) }} c nyt{% if ennakko is not none %}, ennakko {{ ennakko | round(1) }} c / {{ look }} h{% endif %}{% endif %}, KV {{ kv | round(1) }} °C){% endif %}
-      - name: Lammitys menovesi teksti
+      - name: Miksi sekoituspumppu on päällä tai pois
         unique_id: lammitys_menovesi_teksti
         icon: mdi:pipe-valve
         state: >
@@ -1644,7 +1657,7 @@ template:
              and meno < (tavoite - hyst)
              and meno < (katto - 0.5) }}
     sensor:
-      - name: Lammitys vastus teksti
+      - name: Miksi läpivirtausvastus on päällä tai pois
         unique_id: lammitys_vastus_teksti
         icon: mdi:heating-coil
         state: >

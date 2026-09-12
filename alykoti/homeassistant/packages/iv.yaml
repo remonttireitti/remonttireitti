@@ -17,7 +17,7 @@
 
 input_select:
   iv_ohjaus:
-    name: IV ohjaus
+    name: "IV tila: Automaatti antureilla, Käsi liukusäätimillä, Tehostus ajastin, Pois = hätäseis"
     options:
       - Automaatti
       - Manuaali
@@ -26,7 +26,7 @@ input_select:
     initial: Automaatti
     icon: mdi:fan
   iv_auto_anturit:
-    name: IV automaatin anturit
+    name: Mitä antureita automaatti käyttää nopeuden nostoon (CO2, kosteus, PM)
     options:
       - Kaikki kolme
       - CO2 ja PM
@@ -40,21 +40,21 @@ input_select:
 
 input_boolean:
   iv_modbus_kirjoitus:
-    name: IV Modbus-kirjoitus
+    name: Salli kirjoitus AirFiin. Pois = vain luku, koneeseen ei lähetetä
     icon: mdi:upload-network
     initial: true
   iv_sauna:
-    name: IV sauna
+    name: "Saunatila: nostaa poistoa, ei tuhoa asetuksia"
     icon: mdi:hot-tub
     initial: false
   iv_ohita_vaihto:
-    name: IV ohita ohjausvaihto
+    name: "Sisäinen: estää tilanvaihdon kesken kirjoituksen"
     icon: mdi:debug-step-over
     initial: false
 
 input_number:
   iv_manuaali_poisto:
-    name: IV käsi poisto
+    name: "Käsi-tila: poistoilmapuhaltimen nopeus %. Automaatissa seurataan mitattua"
     min: 0
     max: 100
     step: 5
@@ -63,7 +63,7 @@ input_number:
     icon: mdi:fan
     initial: 40
   iv_manuaali_tulo:
-    name: IV käsi tulo
+    name: "Käsi-tila: tuloilmapuhaltimen nopeus %. Automaatissa poisto on tulo + 5 %"
     min: 0
     max: 100
     step: 5
@@ -72,7 +72,7 @@ input_number:
     icon: mdi:fan-plus
     initial: 35
   iv_lampo_asetus:
-    name: IV lämpöasetus
+    name: "IV:n tuloilman lämpöasetus, kirjoitetaan koneelle"
     min: 5
     max: 26
     step: 0.5
@@ -81,7 +81,7 @@ input_number:
     icon: mdi:thermometer
     initial: 21
   iv_ohitus_asetus:
-    name: IV ohituksen asetuslämpötila
+    name: "Lämpötilaohitus: tavoite, jolloin IV voi ohittaa LTO:n"
     min: 10
     max: 30
     step: 0.5
@@ -90,7 +90,7 @@ input_number:
     icon: mdi:thermometer-chevron-up
     initial: 22
   iv_ohitus_ulko:
-    name: IV ohituksen ulkoilmaraja
+    name: Lämpötilaohitus kielletty jos ulko on tämän alle
     min: 0
     max: 25
     step: 1
@@ -99,7 +99,7 @@ input_number:
     icon: mdi:thermometer-low
     initial: 12
   iv_ohitus_viive:
-    name: IV ohituksen viive
+    name: Kuinka monta minuuttia ehtoa pitää täyttyä ennen LTO-ohitusta
     min: 0
     max: 120
     step: 1
@@ -108,7 +108,7 @@ input_number:
     icon: mdi:timer-outline
     initial: 15
   iv_poissa_lampo:
-    name: IV poissa lämpötila
+    name: IV lämpöasetus poissaollessa
     min: 5
     max: 26
     step: 0.5
@@ -193,7 +193,7 @@ timer:
     duration: "00:15:00"
     restore: true
   iv_sauna:
-    name: IV sauna
+    name: "Saunatila: nostaa poistoa, ei tuhoa asetuksia"
     duration: "00:15:00"
     restore: true
 

@@ -44,7 +44,7 @@ cards:
           icon_color: "{{ 'green' if is_state('binary_sensor.lammitys_sekoituspumppu_paalla', 'on') else ('orange' if is_state('binary_sensor.lammitys_sekoitus_sallittu', 'on') else 'disabled') }}"
           tap_action:
             action: more-info
-            entity: sensor.vilp_ohjaus_lampotilat_air_temperature_10
+            entity: sensor.lammitys_menovesi_teksti
           card_mod:
             style: |
               ha-card {
@@ -61,7 +61,7 @@ cards:
           icon_color: "{{ 'green' if is_state('binary_sensor.lammitys_sekoitus_sallittu', 'on') else 'disabled' }}"
           tap_action:
             action: more-info
-            entity: climate.lattialammitys
+            entity: sensor.lammitys_sekoitus_teksti
           card_mod:
             style: |
               ha-card {
@@ -142,24 +142,27 @@ cards:
         - type: custom:mushroom-chips-card
           alignment: center
           chips:
-            - type: entity
-              entity: switch.sonoff_4_ch_pro_2_tasmota2
+            - type: template
               icon: mdi:pump
-              content_info: name
+              icon_color: "{{ 'green' if is_state('switch.sonoff_4_ch_pro_2_tasmota2', 'on') else 'grey' }}"
+              content: "{{ 'Kierto päällä' if is_state('switch.sonoff_4_ch_pro_2_tasmota2', 'on') else 'Kierto pois' }}"
+              tap_action:
+                action: more-info
+                entity: switch.sonoff_4_ch_pro_2_tasmota2
             - type: template
               icon: mdi:pump
               icon_color: "{{ 'orange' if is_state('timer.lammitys_sekoitus_pulssi', 'active') else ('blue' if is_state('timer.lammitys_sekoitus_odota', 'active') else ('green' if is_state('binary_sensor.lammitys_sekoituspumppu_paalla', 'on') else 'grey')) }}"
               content: >
-                {% if is_state('timer.lammitys_sekoitus_pulssi', 'active') %}Pulssi
-                {% elif is_state('timer.lammitys_sekoitus_odota', 'active') %}Odottaa KV
-                {% elif is_state('binary_sensor.lammitys_sekoituspumppu_paalla', 'on') %}Sekoituspumppu
-                {% else %}Sekoituspumppu pois{% endif %}
+                {% if is_state('timer.lammitys_sekoitus_pulssi', 'active') %}Sekoitus pulssi
+                {% elif is_state('timer.lammitys_sekoitus_odota', 'active') %}Sekoitus odottaa KV
+                {% elif is_state('binary_sensor.lammitys_sekoituspumppu_paalla', 'on') %}Sekoitus päällä
+                {% else %}Sekoitus pois{% endif %}
               tap_action:
                 action: more-info
-                entity: switch.sonoff_4_ch_pro_2_tasmota4
+                entity: sensor.lammitys_menovesi_teksti
               hold_action:
                 action: more-info
-                entity: input_text.lammitys_sekoituspumppu
+                entity: switch.sonoff_4_ch_pro_2_tasmota4
             - type: entity
               entity: climate.lattialammitys
               icon: mdi:valve
@@ -239,46 +242,10 @@ cards:
               content: "{{ states('sensor.lammitys_vastus_teksti') }}"
               tap_action:
                 action: more-info
-                entity: switch.pannuhuone_lapivirtausvastus
+                entity: sensor.lammitys_vastus_teksti
               hold_action:
                 action: more-info
                 entity: input_select.lammitys_vastus
-            - type: entity
-              entity: input_select.lammitys_vastus
-              icon: mdi:cog
-              content_info: state
-            - type: entity
-              entity: switch.pannuhuone_lapivirtausvastus
-              icon: mdi:heating-coil
-              content_info: name
-            - type: entity
-              entity: input_number.lammitys_vastus_paalla_nyt
-              icon: mdi:timer-play
-              content_info: state
-            - type: entity
-              entity: input_number.lammitys_vastus_paalla_min
-              icon: mdi:timer-outline
-              content_info: state
-            - type: entity
-              entity: input_number.lammitys_vastus_paalla_max
-              icon: mdi:timer
-              content_info: state
-            - type: entity
-              entity: input_number.lammitys_vastus_pois_s
-              icon: mdi:timer-sand
-              content_info: state
-            - type: entity
-              entity: input_number.lammitys_vastus_pumppu_min
-              icon: mdi:pump
-              content_info: state
-            - type: entity
-              entity: input_number.lammitys_ll_pumppu_viive_s
-              icon: mdi:timer-sand
-              content_info: state
-            - type: entity
-              entity: input_number.lammitys_vastus_max_nousu
-              icon: mdi:thermometer-chevron-up
-              content_info: state
   - type: custom:mod-card
     card_mod:
       style: |
