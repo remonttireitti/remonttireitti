@@ -54,7 +54,7 @@ homeassistant:
     switch.sonoff_4_ch_pro_2_tasmota4:
       friendly_name: "Sekoituspumppu — ottaa lämpöä käyttövettä (anturi 8) ja siirtää sen lämmityspiirin varaajaan (anturi 13). Ei käy jos KV alle rajan tai KV ei ole kuumempi kuin varaaja"
     switch.pannuhuone_lapivirtausvastus:
-      friendly_name: Läpivirtausvastus 4 kW. Lämmittää suoraan menovettä (anturi 10). Vaati virtauksen: kiertopumppu (tasmota2) päällä ≥ 4 min. Pulssi vain kun KV kylmä ja lattia tarvitsee lämpöä. Kielletty jos hetkellinen ≥ 50 c/t
+      friendly_name: "Läpivirtausvastus 4 kW. Lämmittää suoraan menovettä (anturi 10). Vaati virtauksen — kiertopumppu (tasmota2) päällä ≥ 4 min. Pulssi vain kun KV kylmä ja lattia tarvitsee lämpöä. Kielletty jos hetkellinen ≥ 50 c/t"
     climate.lattialammitys:
       friendly_name: "Sekoitusventtiili — asettaa lattian menoveden tavoitelämpötilan"
     switch.sonoff_4_ch_pro_2_tasmota3:
@@ -2487,6 +2487,7 @@ automation:
       - platform: state
         entity_id:
           - binary_sensor.lammitys_vastus_sallittu
+          - binary_sensor.lammitys_ll_pumppu_valmis
           - switch.sonoff_4_ch_pro_2_tasmota2
           - binary_sensor.lammitys_ll_tarve
           - input_select.lammitys_vastus
