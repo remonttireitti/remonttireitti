@@ -195,6 +195,9 @@ cards:
             secondary: "{{ states('sensor.lammitys_rajoitus_teksti') }}"
             icon: mdi:thermometer-alert
             icon_color: red
+            tap_action:
+              action: more-info
+              entity: sensor.lammitys_rajoitus_teksti
         - type: custom:mushroom-template-card
           layout: horizontal
           fill_container: true
@@ -795,11 +798,15 @@ cards:
           layout: horizontal
           fill_container: true
           primary: Huoneet
-          secondary: Auto / pois / korotus jokaisessa ruudussa
+          secondary: >
+            {% if is_state('binary_sensor.lammitys_hetki_rajoita_huone', 'on') %}
+              Hetkellinen {{ states('sensor.hetkellinen_kustannus') }} c/t — termostaatit rajoitettu
+            {% else %}Auto / pois / korotus jokaisessa ruudussa{% endif %}
           icon: mdi:home-thermometer
-          icon_color: blue
+          icon_color: "{{ 'orange' if is_state('binary_sensor.lammitys_hetki_rajoita_huone', 'on') else 'blue' }}"
           tap_action:
-            action: none
+            action: more-info
+            entity: sensor.lammitys_rajoitus_teksti
           card_mod:
             style: |
               ha-card {
