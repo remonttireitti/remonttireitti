@@ -25,12 +25,16 @@
 # jos aurinkoteho ≥ raja, sekoituspumppu pois (ei kilpaile kennon kanssa).
 #
 # Läpivirtausvastus 4 kW (switch.pannuhuone_lapivirtausvastus):
-# suoraan lattian menoputkeen — ylikuumenemisvaara. EI pakko päälle.
+# lämmittää SUORAAN menoveden (sensor.vilp_ohjaus_lampotilat_air_temperature_10).
+# Asennettu läpivirtauksena: EI SAA olla päällä ilman kiertoa.
+# Kiertopumppu switch.sonoff_4_ch_pro_2_tasmota2 PITÄÄ olla päällä.
+# Pumppu ensin päälle → vastus vasta kun kierto on käynyt ≥ 4 min.
+# Pumppu pois → vastus heti pois (ei virtausta, ylikuumenemisvaara).
 # Päällä vain kun: KV liian kylmä sekoituspumpulle (< kv_pumppu_paalle),
-# lattia tarvitsee lämpöä (meno < tavoite), kiertopumppu päällä ≥ 4 min,
-# ja jokin lattia oikeasti lämmittää. Aina pulssi (alku 15 s / 30 s pois),
-# ei jatkuvaa päälle. Teho ei riitä → nosta päällä-aikaa; meno nousee → vähennä.
-# Lattiatarve pois → vastus heti pois, kiertopumppu jää jäähdyttämään viiveen.
+# lattia tarvitsee lämpöä (meno < tavoite), ja jokin lattia oikeasti lämmittää.
+# Aina pulssi (alku 15 s / 30 s pois), ei jatkuvaa päälle.
+# Teho ei riitä → nosta päällä-aikaa; meno nousee → vähennä.
+# Lattiatarve pois → vastus heti pois, kiertopumppu jää 120 s jäähdyttämään.
 #
 # Olo+keittiö vs ILP:
 #   Spot ≥ lammitys_hinta_lattia_raja (oletus 5 snt/kWh) → ILP lämmittää,
@@ -46,11 +50,11 @@
 homeassistant:
   customize:
     switch.sonoff_4_ch_pro_2_tasmota2:
-      friendly_name: "Lattian kiertopumppu — pitää veden liikkeellä. Vastus kielletty jos tämä ei ole käynyt tarpeeksi kauan"
+      friendly_name: "Lattian kiertopumppu — tekee läpivirtauksen vastukselle. Vastus kielletty jos tämä ei ole päällä tai ei ole käynyt vähintään 4 min. Lattia pois → tämä jää 120 s jäähdyttämään"
     switch.sonoff_4_ch_pro_2_tasmota4:
       friendly_name: "Sekoituspumppu — ottaa lämpöä käyttövettä (anturi 8) ja siirtää sen lämmityspiirin varaajaan (anturi 13). Ei käy jos KV alle rajan tai KV ei ole kuumempi kuin varaaja"
     switch.pannuhuone_lapivirtausvastus:
-      friendly_name: Läpivirtausvastus 4 kW menoputkessa. Vain pulssi kun KV kylmä, lattia tarvitsee lämpöä ja kierto on käynyt vähintään 4 min. Kielletty jos hetkellinen kustannus ≥ 50 c/t
+      friendly_name: Läpivirtausvastus 4 kW. Lämmittää suoraan menovettä (anturi 10). Vaati virtauksen: kiertopumppu (tasmota2) päällä ≥ 4 min. Pulssi vain kun KV kylmä ja lattia tarvitsee lämpöä. Kielletty jos hetkellinen ≥ 50 c/t
     climate.lattialammitys:
       friendly_name: "Sekoitusventtiili — asettaa lattian menoveden tavoitelämpötilan"
     switch.sonoff_4_ch_pro_2_tasmota3:
@@ -846,6 +850,9 @@ script:
         state: "on"
       - condition: state
         entity_id: switch.sonoff_4_ch_pro_2_tasmota2
+        state: "on"
+      - condition: state
+        entity_id: binary_sensor.lammitys_ll_pumppu_valmis
         state: "on"
       - action: timer.cancel
         target:
@@ -1800,13 +1807,13 @@ template:
           {% set kierto_s = (as_timestamp(now()) - as_timestamp(e.last_changed)) | int(0) if e is not none and is_state('switch.sonoff_4_ch_pro_2_tasmota2', 'on') else 0 %}
           {% if is_state('input_select.lammitys_vastus', 'Pois') %}Pois
           {% elif is_state('binary_sensor.lammitys_hetki_rajoita_vesi', 'on') %}Hetkellinen {{ states('sensor.hetkellinen_kustannus') }} c/t — läpivirtausvastus kielletty
-          {% elif is_state('switch.pannuhuone_lapivirtausvastus', 'on') %}Pulssi {{ nyt }} s · meno {{ meno | round(1) if meno is not none else '?' }} °C
+          {% elif not is_state('switch.sonoff_4_ch_pro_2_tasmota2', 'on') %}Kierto pois — ei läpivirtauksia, vastus kielletty
+          {% elif is_state('switch.pannuhuone_lapivirtausvastus', 'on') %}Pulssi {{ nyt }} s — lämmittää menovettä {{ meno | round(1) if meno is not none else '?' }} °C
           {% elif is_state('timer.lammitys_vastus_odota', 'active') %}Tauko {{ pois }} s · seuraava {{ nyt }} s · meno {{ meno | round(1) if meno is not none else '?' }} °C
           {% elif not is_state('binary_sensor.lammitys_ll_tarve', 'on') %}Ei lattiatarvetta — vastus pois
-          {% elif not is_state('switch.sonoff_4_ch_pro_2_tasmota2', 'on') %}Kierto pois — vastus kielletty
-          {% elif not is_state('binary_sensor.lammitys_ll_pumppu_valmis', 'on') %}Odottaa kiertoa {{ [min_m * 60 - kierto_s, 0] | max }} s (min {{ min_m }} min)
+          {% elif not is_state('binary_sensor.lammitys_ll_pumppu_valmis', 'on') %}Odottaa kiertoa {{ [min_m * 60 - kierto_s, 0] | max }} s (min {{ min_m }} min) ennen vastusta
           {% elif kv is none %}Ei käyttövesidataa — vastus pois
-          {% elif kv >= kv_on %}KV {{ kv | round(1) }} °C riittää — sekoitus hoitaa, vastus pois
+          {% elif kv >= kv_on %}KV {{ kv | round(1) }} °C riittää — sekoituspumppu lataa varaajaa, vastus pois
           {% elif meno is none %}Ei menovesidataa — vastus pois
           {% elif tavoite is not none and meno >= tavoite - (states('input_number.lammitys_menovesi_hystereesi') | float(1)) %}Menovesi {{ meno | round(1) }} °C riittää
           {% else %}Valmis pulssittamaan {{ nyt }}/{{ pois }} s · meno {{ meno | round(1) }} → {{ tavoite | round(1) if tavoite is not none else '?' }} °C
