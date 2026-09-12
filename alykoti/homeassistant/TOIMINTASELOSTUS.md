@@ -39,10 +39,10 @@ Virtaus oletuksena:
 ### Lämmitysvesi
 
 1. Aurinko, jos kenno on kuumempi kuin varaaja (ero > 7 °C). Pumppu saa olla. Sekoitus ja vastus väistävät vain jos aurinko **riittää 300 l varaajaan** (kausi + kWh). Marras–helmi ei riitä vaikka paistaisi. 1 kWh ≈ +2,9 °C / 300 l — jos vaje on isompi, lämmitä vastuksella.
-2. Sekoituspumppu, jos KV ≥ 58 °C ja KV on vähintään ~1,5 °C kuumempi kuin varaaja.
+2. Sekoituspumppu vain pulssina, jos KV on reilusti ylijäämässä (oletus ≥ 68 °C, vähintään 67, plus lisää jos spot kallis) ja KV on ~1,5 °C kuumempi kuin varaaja. KV:tä lämmittää 3 kW vastus ilman kytkintä: jos teho nousee ~3 kW tai KV nousee, sekoitus ei varasta. Kallista sähköä ei pidä laukaista.
 3. Läpivirtausvastus, jos KV on liian kylmä varastettavaksi, kierto on käynyt ≥ 4 min, ja joko jokin lattia lämmittää tai varaaja kutsuu lämpöä.
 
-Käyttöveden suoja: sekoituspulssi 30 s, sitten 90 s odotus. Pois heti jos KV ≤ 56 °C tai KV laskee pulssin aikana liikaa.
+Käyttöveden suoja: pulssi 15 s, odotus 180 s (pitenee jos KV laski tai spot kallis). Pois heti jos KV ≤ 64 °C, lasku pulssissa ≥ 0,5 °C, tai KV laskee > 1,2 °C / 5 min. Lattia sitten läpivirtausvastuksella, ei tyhjentämällä käyttövettä.
 
 Aurinkolämpö kWh on kalenterijakso, sama kuin talon kulutus: kuluva päivä (00:00→nyt), kuluva viikko (ma→nyt), kuluva kuukausi (1. pvä→nyt). Varaaja ~300 l: 1 kWh ≈ +2,9 °C. Jos laskenta sanoo ettei riitä, pumppu saa jäädä päälle mutta sekoitus ja vastus jatkavat.
 
