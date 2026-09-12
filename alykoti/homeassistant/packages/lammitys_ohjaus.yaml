@@ -755,8 +755,6 @@ script:
           sequence:
             - variables:
                 eid: "{{ repeat.item }}"
-                nykyinen: "{{ state_attr(eid, 'temperature') | float(99) }}"
-                uusi: "{{ temperature | float(17) }}"
                 modes: "{{ state_attr(eid, 'preset_modes') or [] }}"
                 clear_preset: >
                   {% if 'none' in modes %}none
@@ -765,34 +763,30 @@ script:
                   {% elif 'comfort' in modes %}comfort
                   {% elif 'Comfort' in modes %}Comfort
                   {% else %}none{% endif %}
-            - if:
-                - condition: template
-                  value_template: "{{ (nykyinen | float(99) - uusi | float(17)) | abs >= 0.3 }}"
-              then:
-                - action: climate.set_preset_mode
-                  target:
-                    entity_id: "{{ eid }}"
-                  data:
-                    preset_mode: "{{ clear_preset }}"
-                - delay:
-                    milliseconds: 700
-                - action: climate.set_hvac_mode
-                  target:
-                    entity_id: "{{ eid }}"
-                  data:
-                    hvac_mode: heat
-                - action: climate.set_temperature
-                  target:
-                    entity_id: "{{ eid }}"
-                  data:
-                    temperature: "{{ uusi }}"
-                - delay:
-                    milliseconds: 900
-                - action: climate.set_preset_mode
-                  target:
-                    entity_id: "{{ eid }}"
-                  data:
-                    preset_mode: "{{ clear_preset }}"
+            - action: climate.set_preset_mode
+              target:
+                entity_id: "{{ eid }}"
+              data:
+                preset_mode: "{{ clear_preset }}"
+            - delay:
+                milliseconds: 700
+            - action: climate.set_hvac_mode
+              target:
+                entity_id: "{{ eid }}"
+              data:
+                hvac_mode: heat
+            - action: climate.set_temperature
+              target:
+                entity_id: "{{ eid }}"
+              data:
+                temperature: "{{ temperature }}"
+            - delay:
+                milliseconds: 900
+            - action: climate.set_preset_mode
+              target:
+                entity_id: "{{ eid }}"
+              data:
+                preset_mode: "{{ clear_preset }}"
 
   lammitys_aseta_sekoitus:
     alias: Lämmitys aseta varaajan termostaatti
@@ -2521,6 +2515,10 @@ automation:
             {% elif vesi >= (t + 5) %}{{ t }}
             {% elif nyt > 17.3 and vesi >= (t + 4) %}{{ t }}
             {% else %}17{% endif %}
+      - condition: template
+        value_template: >
+          {{ (state_attr('climate.olohuone_lattialammitys', 'temperature') | float(99) - lampo | float(17)) | abs >= 0.3
+             or (state_attr('climate.keittio_lattialammitys', 'temperature') | float(99) - lampo | float(17)) | abs >= 0.3 }}
       - action: script.lammitys_aseta_termostaatti
         data:
           climates:
@@ -2567,6 +2565,9 @@ automation:
             {% elif vesi >= (t + 5) %}{{ t }}
             {% elif nyt > 17.3 and vesi >= (t + 4) %}{{ t }}
             {% else %}17{% endif %}
+      - condition: template
+        value_template: >
+          {{ (state_attr('climate.hm_lattialammitys', 'temperature') | float(99) - lampo | float(17)) | abs >= 0.3 }}
       - action: script.lammitys_aseta_termostaatti
         data:
           climates:
@@ -2612,6 +2613,9 @@ automation:
             {% elif vesi >= (t + 5) %}{{ t }}
             {% elif nyt > 17.3 and vesi >= (t + 4) %}{{ t }}
             {% else %}17{% endif %}
+      - condition: template
+        value_template: >
+          {{ (state_attr('climate.makuhuone_lattialammitys', 'temperature') | float(99) - lampo | float(17)) | abs >= 0.3 }}
       - action: script.lammitys_aseta_termostaatti
         data:
           climates:
@@ -2657,6 +2661,9 @@ automation:
             {% elif vesi >= (t + 5) %}{{ t }}
             {% elif nyt > 17.3 and vesi >= (t + 4) %}{{ t }}
             {% else %}17{% endif %}
+      - condition: template
+        value_template: >
+          {{ (state_attr('climate.glen_lattialammitys', 'temperature') | float(99) - lampo | float(17)) | abs >= 0.3 }}
       - action: script.lammitys_aseta_termostaatti
         data:
           climates:
@@ -2703,6 +2710,9 @@ automation:
             {% elif vesi >= (t + 5) %}{{ t }}
             {% elif nyt > 17.3 and vesi >= (t + 4) %}{{ t }}
             {% else %}17{% endif %}
+      - condition: template
+        value_template: >
+          {{ (state_attr('climate.nele_lattialammitys', 'temperature') | float(99) - lampo | float(17)) | abs >= 0.3 }}
       - action: script.lammitys_aseta_termostaatti
         data:
           climates:
@@ -2748,6 +2758,9 @@ automation:
             {% elif vesi >= (t + 5) %}{{ t }}
             {% elif nyt > 17.3 and vesi >= (t + 4) %}{{ t }}
             {% else %}17{% endif %}
+      - condition: template
+        value_template: >
+          {{ (state_attr('climate.eteisen_lattialammitys', 'temperature') | float(99) - lampo | float(17)) | abs >= 0.3 }}
       - action: script.lammitys_aseta_termostaatti
         data:
           climates:
@@ -2861,6 +2874,8 @@ automation:
                         is_state('binary_sensor.lammitys_nele_ikkuna_auki', 'off')
                       )
                     ) }}
+                - condition: template
+                  value_template: "{{ (termo | float(99) - tavoite | float(17)) | abs >= 0.3 }}"
               then:
                 - action: script.lammitys_aseta_termostaatti
                   data:
