@@ -189,7 +189,8 @@ cards:
           secondary: "{{ state_attr('sensor.lammitys_ohjaus_tila', 'syy') }}"
           icon: >
             {% set t = states('sensor.lammitys_ohjaus_tila') %}
-            {% if t == 'Lämmitysvesi kylmä' %}mdi:snowflake-alert
+            {% if t == 'Huone alarajalla' %}mdi:thermometer-low
+            {% elif t == 'Lämmitysvesi kylmä' %}mdi:snowflake-alert
             {% elif t == 'Liian korkea hetkellinen kulutus' %}mdi:cash-remove
             {% elif t == 'Asetusta nostettu' %}mdi:thermometer-chevron-up
             {% elif t == 'Ennakoiva lämmitys' %}mdi:chart-timeline-variant
@@ -198,7 +199,7 @@ cards:
             {% else %}mdi:radiator{% endif %}
           icon_color: >
             {% set t = states('sensor.lammitys_ohjaus_tila') %}
-            {% if t in ['Lämmitysvesi kylmä', 'Liian korkea hetkellinen kulutus'] %}red
+            {% if t in ['Huone alarajalla', 'Lämmitysvesi kylmä', 'Liian korkea hetkellinen kulutus'] %}red
             {% elif t == 'Asetusta nostettu' %}blue
             {% elif t == 'Ennakoiva lämmitys' %}orange
             {% elif t == 'Halpa sähkö' %}green

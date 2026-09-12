@@ -81,6 +81,7 @@ Kirjoitettava asetus:
 |---|---|---|
 | Pois, ikkuna/ovi auki | 17 °C | 17 °C |
 | Hetkellinen ≥ 40 c/t | tausta − 2 °C, min 17 | käyttö − 2 °C, min 17 |
+| Huone alarajalla, ikkuna/ovi kiinni | käyttö, min 19 °C | käyttö, min 19 °C (eteinen 20) |
 | Ennakoiva | käyttö + nosto, max 26 | käyttö + nosto, max 26 |
 | Korotus-ajastin (+4 °C / 240 min) | tavoite + korotus | tavoite + korotus |
 | Normaali | tausta 18 °C | käyttö (20 / 23) |
@@ -90,6 +91,8 @@ Sitten portti: `max(varaaja, menovesi) ≥ huoneasetus + 5 °C`.
 Esimerkki: olo 21 °C → vesi vähintään 26 °C, muuten lattia kirjoitetaan 17 °C. Vesi ei nosta huonetta.
 
 Poikkeus: `binary_sensor.lammitys_vastus_nostaa` (vastus Automaatti, ei hetki-kieltoa, KV < 58 °C) → huoneiden asetus ja kierto pidetään, jotta vastus saa virtauksen.
+
+Toinen poikkeus: `binary_sensor.lammitys_huone_alaraja`. Jos mitattu huone < 19 °C (eteinen < 20 °C) ja ikkuna/ovi on kiinni, rajoitukset ohitetaan (hetkellinen −2 °C, vastuskielto, vesi+5 pois) kunnes huone on +0.5 °C yli alarajan. Ikkuna auki tai Pois ei ohita.
 
 Kiertopumppu päälle jos jokin lattia oikeasti lämmittää, vastus on nostamassa vettä, tai varaaja kutsuu ja KV on kylmä. Lattiatarve pois → vastus heti pois, kierto 120 s jäähdytykseen.
 
@@ -108,6 +111,7 @@ Hetkellinen c/t (`sensor.hetkellinen_kustannus`):
 - ≥ 40: lisäksi huoneiden kaytto −2 °C (hystereesi pois ≤ 35) → menovesi laskee mukana
 - ≥ 50: vastus kielletty (hystereesi pois ≤ 45)
 - korotus ohittaa huonerajoituksen
+- huoneen alaraja (ikkuna kiinni) ohittaa huone- ja vastusrajoituksen
 - ILP:tä ei sammuteta hinnalla
 
 ## 7. Keittiö ILP
