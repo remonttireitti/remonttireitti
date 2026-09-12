@@ -110,67 +110,118 @@ cards:
               content_info: state
         - type: custom:mod-card
           card_mod:
-            style:
-              hui-grid-card$:
-                power-gauge-card$: >
-                  .title { font-size: 10px !important; font-weight: 700 !important; }
-                  .subtitle { font-size: 7px !important; font-weight: 600 !important; }
-                  .value { font-size: 15px !important; font-weight: 700 !important; }
-                  .unit-inline { font-size: 8px !important; font-weight: 600 !important; }
-                  .label-now { font-size: 6px !important; font-weight: 700 !important; }
-                  .unit { font-size: 7px !important; font-weight: 600 !important; }
-                  .status { font-size: 7px !important; font-weight: 600 !important; }
-                  .panel { padding: 6px 4px 4px !important; }
-                  .stage { margin: 0 !important; }
-                  .gauge { max-width: 160px !important; }
-              .: >
-                ha-card { background: none !important; box-shadow: none !important; border: none !important; }
+            style: |
+              ha-card { background: none !important; box-shadow: none !important; border: none !important; }
           card:
             type: grid
             columns: 4
             square: false
             cards:
-              - type: custom:power-gauge-card
-                entity: sensor.energia_vaiheiden_summa
-                name: Kokonaisteho
-                unit: W
-                min: 0
-                max: 12000
-                normal: 1800
-                warning: 5400
-                critical: 9600
-                rolling_numbers: false
-                background: transparent
-              - type: custom:power-gauge-card
-                entity: sensor.l1_vaihe_power
-                name: L1
-                unit: W
-                min: 0
-                max: 4000
-                normal: 600
-                warning: 1800
-                critical: 3200
-                rolling_numbers: false
-                background: transparent
-              - type: custom:power-gauge-card
-                entity: sensor.l2_vaihe_power
-                name: L2
-                unit: W
-                min: 0
-                max: 4000
-                normal: 600
-                warning: 1800
-                critical: 3200
-                rolling_numbers: false
-                background: transparent
-              - type: custom:power-gauge-card
-                entity: sensor.l3_vaihe_power
-                name: L3
-                unit: W
-                min: 0
-                max: 4000
-                normal: 600
-                warning: 1800
-                critical: 3200
-                rolling_numbers: false
-                background: transparent
+              - type: custom:mod-card
+                card_mod:
+                  style:
+                    power-gauge-card$: |
+                      .title { font-size: 10px !important; font-weight: 700 !important; }
+                      .value { font-size: 15px !important; font-weight: 700 !important; }
+                      .unit-inline { font-size: 8px !important; font-weight: 600 !important; }
+                      .panel { padding: 6px 4px 4px !important; }
+                      .stage { margin: 0 !important; }
+                      .gauge { max-width: 160px !important; }
+                      .subtitle, .status { display: none !important; }
+                      .label-now { font-size: 0 !important; }
+                      .label-now::after { content: "NYT"; font-size: 6px !important; font-weight: 700; letter-spacing: 1.5px; }
+                      .unit { font-size: 0 !important; }
+                      .unit::after { content: "{% set t = states('sensor.energia_vaiheiden_summa') | float(none) %}{% if t is none %}Ei dataa{% else %}{{ (t / 1000) | round(2) }} kW · {{ 'Kriittinen' if t > 4500 else ('Korkea' if t >= 3600 else ('Matala' if t < 2500 else 'Normaali')) }}{% endif %}"; font-size: 7px !important; font-weight: 700; }
+                card:
+                  type: custom:power-gauge-card
+                  entity: sensor.energia_vaiheiden_summa
+                  name: Kokonaisteho
+                  unit: W
+                  min: 0
+                  max: 12000
+                  normal: 3600
+                  warning: 4050
+                  critical: 4500
+                  rolling_numbers: false
+                  background: transparent
+              - type: custom:mod-card
+                card_mod:
+                  style:
+                    power-gauge-card$: |
+                      .title { font-size: 10px !important; font-weight: 700 !important; }
+                      .value { font-size: 15px !important; font-weight: 700 !important; }
+                      .unit-inline { font-size: 8px !important; font-weight: 600 !important; }
+                      .panel { padding: 6px 4px 4px !important; }
+                      .stage { margin: 0 !important; }
+                      .gauge { max-width: 160px !important; }
+                      .subtitle, .status { display: none !important; }
+                      .label-now { font-size: 0 !important; }
+                      .label-now::after { content: "NYT"; font-size: 6px !important; font-weight: 700; letter-spacing: 1.5px; }
+                      .unit { font-size: 0 !important; }
+                      .unit::after { content: "{% set t = states('sensor.l1_vaihe_power') | float(none) %}{% if t is none %}Ei dataa{% else %}{{ (t / 1000) | round(2) }} kW · {{ 'Kriittinen' if t > 3500 else ('Korkea' if t >= 3000 else ('Matala' if t < 1000 else 'Normaali')) }}{% endif %}"; font-size: 7px !important; font-weight: 700; }
+                card:
+                  type: custom:power-gauge-card
+                  entity: sensor.l1_vaihe_power
+                  name: L1
+                  unit: W
+                  min: 0
+                  max: 4000
+                  normal: 3000
+                  warning: 3250
+                  critical: 3500
+                  rolling_numbers: false
+                  background: transparent
+              - type: custom:mod-card
+                card_mod:
+                  style:
+                    power-gauge-card$: |
+                      .title { font-size: 10px !important; font-weight: 700 !important; }
+                      .value { font-size: 15px !important; font-weight: 700 !important; }
+                      .unit-inline { font-size: 8px !important; font-weight: 600 !important; }
+                      .panel { padding: 6px 4px 4px !important; }
+                      .stage { margin: 0 !important; }
+                      .gauge { max-width: 160px !important; }
+                      .subtitle, .status { display: none !important; }
+                      .label-now { font-size: 0 !important; }
+                      .label-now::after { content: "NYT"; font-size: 6px !important; font-weight: 700; letter-spacing: 1.5px; }
+                      .unit { font-size: 0 !important; }
+                      .unit::after { content: "{% set t = states('sensor.l2_vaihe_power') | float(none) %}{% if t is none %}Ei dataa{% else %}{{ (t / 1000) | round(2) }} kW · {{ 'Kriittinen' if t > 3500 else ('Korkea' if t >= 3000 else ('Matala' if t < 1000 else 'Normaali')) }}{% endif %}"; font-size: 7px !important; font-weight: 700; }
+                card:
+                  type: custom:power-gauge-card
+                  entity: sensor.l2_vaihe_power
+                  name: L2
+                  unit: W
+                  min: 0
+                  max: 4000
+                  normal: 3000
+                  warning: 3250
+                  critical: 3500
+                  rolling_numbers: false
+                  background: transparent
+              - type: custom:mod-card
+                card_mod:
+                  style:
+                    power-gauge-card$: |
+                      .title { font-size: 10px !important; font-weight: 700 !important; }
+                      .value { font-size: 15px !important; font-weight: 700 !important; }
+                      .unit-inline { font-size: 8px !important; font-weight: 600 !important; }
+                      .panel { padding: 6px 4px 4px !important; }
+                      .stage { margin: 0 !important; }
+                      .gauge { max-width: 160px !important; }
+                      .subtitle, .status { display: none !important; }
+                      .label-now { font-size: 0 !important; }
+                      .label-now::after { content: "NYT"; font-size: 6px !important; font-weight: 700; letter-spacing: 1.5px; }
+                      .unit { font-size: 0 !important; }
+                      .unit::after { content: "{% set t = states('sensor.l3_vaihe_power') | float(none) %}{% if t is none %}Ei dataa{% else %}{{ (t / 1000) | round(2) }} kW · {{ 'Kriittinen' if t > 3500 else ('Korkea' if t >= 3000 else ('Matala' if t < 1000 else 'Normaali')) }}{% endif %}"; font-size: 7px !important; font-weight: 700; }
+                card:
+                  type: custom:power-gauge-card
+                  entity: sensor.l3_vaihe_power
+                  name: L3
+                  unit: W
+                  min: 0
+                  max: 4000
+                  normal: 3000
+                  warning: 3250
+                  critical: 3500
+                  rolling_numbers: false
+                  background: transparent
