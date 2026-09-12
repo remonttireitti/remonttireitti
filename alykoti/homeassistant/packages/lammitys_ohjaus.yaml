@@ -42,6 +42,9 @@
 #   Spot < raja → lattia lämmittää normaalisti, ILP lepoasetuksella (heat jää päälle).
 #   Muut huoneet aina lattialla. Korotus ohittaa taustan.
 #
+# Tila ja historia: sensor.lammitys_ohjaus_tila (syy-attribuutti + logbook).
+# Liput: rajoitettu, hetkellinen, korotus, ennakoiva, halpa/kallis, menovesi nosto/rajoitus.
+#
 # Hetkellinen kustannus (sensor.hetkellinen_kustannus, c/t):
 #   ≥ 40 → rajoita ensin huonetermostaatteja (−2 °C, min 17 °C).
 #   ≥ 50 → sen jälkeen kiellä läpivirtausvastus (lämmitysveden sähkölämmitys).
@@ -57,6 +60,16 @@ homeassistant:
       friendly_name: "Läpivirtausvastus 4 kW. Lämmittää suoraan menovettä (anturi 10). Vaati virtauksen — kiertopumppu (tasmota2) päällä ≥ 4 min. Pulssi vain kun KV kylmä ja lattia tarvitsee lämpöä. Kielletty jos hetkellinen ≥ 50 c/t"
     climate.lattialammitys:
       friendly_name: "Sekoitusventtiili — asettaa lattian menoveden tavoitelämpötilan"
+    sensor.lammitys_ohjaus_tila:
+      friendly_name: "Lämmitys ohjaus — tila (historia kertoo mitä tehtiin ja miksi)"
+    binary_sensor.lammitys_korotus_paalla:
+      friendly_name: "Huonekorotus päällä — asetusta nostettu ajastimella"
+    binary_sensor.lammitys_ennakoiva:
+      friendly_name: "Ennakoiva lämmitys — menovettä nostettu ennen spotin nousua"
+    binary_sensor.lammitys_menovesi_nosto:
+      friendly_name: "Menovettä nostettu halvan tai nousevan hinnan takia"
+    binary_sensor.lammitys_menovesi_rajoitus:
+      friendly_name: "Menovettä rajoitettu kalliin sähkön takia"
     switch.sonoff_4_ch_pro_2_tasmota3:
       friendly_name: "Aurinkolämpöpumppu — siirtää kennon lämpöä varaajaan kun kenno on kuumempi"
 
@@ -1035,6 +1048,107 @@ template:
         icon: mdi:cash
         state: >
           {{ (states('sensor.energi_data_service') | float(99)) < (states('input_number.lammitys_hinta_lattia_raja') | float(5)) }}
+      - name: Lammitys korotus paalla
+        unique_id: lammitys_korotus_paalla
+        icon: mdi:thermometer-chevron-up
+        state: >
+          {{ is_state('timer.lammitys_korotus_olohuone_keittio', 'active')
+             or is_state('timer.lammitys_korotus_hm', 'active')
+             or is_state('timer.lammitys_korotus_makuhuone', 'active')
+             or is_state('timer.lammitys_korotus_glen', 'active')
+             or is_state('timer.lammitys_korotus_nele', 'active')
+             or is_state('timer.lammitys_korotus_eteinen', 'active') }}
+      - name: Lammitys ennakoiva
+        unique_id: lammitys_ennakoiva
+        icon: mdi:chart-timeline-variant
+        state: >
+          {% set now_p = states('sensor.energi_data_service') | float(0) %}
+          {% set ahead = states('sensor.lammitys_hinta_ennakko') | float(0) %}
+          {% set adj = states('sensor.lammitys_sekoitus_hinta_korjaus') | float(0) %}
+          {{ ahead > (now_p + 1.5) and adj > 0.2 }}
+      - name: Lammitys menovesi nosto
+        unique_id: lammitys_menovesi_nosto
+        icon: mdi:thermometer-chevron-up
+        state: "{{ (states('sensor.lammitys_sekoitus_hinta_korjaus') | float(0)) > 0.3 }}"
+      - name: Lammitys menovesi rajoitus
+        unique_id: lammitys_menovesi_rajoitus
+        icon: mdi:thermometer-chevron-down
+        state: "{{ (states('sensor.lammitys_sekoitus_hinta_korjaus') | float(0)) < -0.3 }}"
+  - trigger:
+      - platform: state
+        entity_id:
+          - sensor.vilp_ohjaus_lampotilat_air_temperature_13
+          - sensor.hetkellinen_kustannus
+          - sensor.energi_data_service
+          - sensor.lammitys_hinta_ennakko
+          - sensor.lammitys_sekoitus_hinta_korjaus
+          - binary_sensor.lammitys_hetki_rajoita_huone
+          - binary_sensor.lammitys_hetki_rajoita_vesi
+          - binary_sensor.lammitys_halpa_sahko
+          - binary_sensor.lammitys_korotus_paalla
+          - binary_sensor.lammitys_ennakoiva
+          - binary_sensor.lammitys_menovesi_nosto
+          - binary_sensor.lammitys_menovesi_rajoitus
+          - timer.lammitys_korotus_olohuone_keittio
+          - timer.lammitys_korotus_hm
+          - timer.lammitys_korotus_makuhuone
+          - timer.lammitys_korotus_glen
+          - timer.lammitys_korotus_nele
+          - timer.lammitys_korotus_eteinen
+          - input_number.lammitys_hinta_lattia_raja
+          - input_number.lammitys_hetki_raja_huone
+          - input_number.lammitys_hetki_raja_vesi
+          - input_number.lammitys_hetki_huone_lasku
+      - platform: homeassistant
+        event: start
+    sensor:
+      - name: Lammitys ohjaus tila
+        unique_id: lammitys_ohjaus_tila
+        icon: mdi:state-machine
+        state: >
+          {% set tank = states('sensor.vilp_ohjaus_lampotilat_air_temperature_13') | float(99) %}
+          {% if tank <= 25 %}Lämmitysvesi kylmä
+          {% elif is_state('binary_sensor.lammitys_hetki_rajoita_huone', 'on')
+               or is_state('binary_sensor.lammitys_hetki_rajoita_vesi', 'on') %}Liian korkea hetkellinen kulutus
+          {% elif is_state('binary_sensor.lammitys_korotus_paalla', 'on') %}Asetusta nostettu
+          {% elif is_state('binary_sensor.lammitys_ennakoiva', 'on') %}Ennakoiva lämmitys
+          {% elif is_state('binary_sensor.lammitys_halpa_sahko', 'on') %}Halpa sähkö
+          {% elif states('sensor.energi_data_service') not in ['unknown', 'unavailable', 'none', ''] %}Kallis sähkö
+          {% else %}Normaali{% endif %}
+        attributes:
+          syy: >
+            {% set tank = states('sensor.vilp_ohjaus_lampotilat_air_temperature_13') | float(none) %}
+            {% set c = states('sensor.hetkellinen_kustannus') | float(none) %}
+            {% set spot = states('sensor.energi_data_service') | float(none) %}
+            {% set ahead = states('sensor.lammitys_hinta_ennakko') | float(none) %}
+            {% set adj = states('sensor.lammitys_sekoitus_hinta_korjaus') | float(0) %}
+            {% set raja_h = states('input_number.lammitys_hetki_raja_huone') | float(40) %}
+            {% set raja_v = [states('input_number.lammitys_hetki_raja_vesi') | float(50), raja_h] | max %}
+            {% set drop = states('input_number.lammitys_hetki_huone_lasku') | float(2) %}
+            {% set look = states('input_number.lammitys_hinta_ennakko_h') | int(6) %}
+            {% set ns = namespace(z=[]) %}
+            {% for item in [
+              ('Olo+keittiö', 'timer.lammitys_korotus_olohuone_keittio'),
+              ('HM', 'timer.lammitys_korotus_hm'),
+              ('Makuhuone', 'timer.lammitys_korotus_makuhuone'),
+              ('Glen', 'timer.lammitys_korotus_glen'),
+              ('Nele', 'timer.lammitys_korotus_nele'),
+              ('Eteinen', 'timer.lammitys_korotus_eteinen')
+            ] %}
+              {% if is_state(item[1], 'active') %}{% set ns.z = ns.z + [item[0]] %}{% endif %}
+            {% endfor %}
+            {% if tank is not none and tank <= 25 %}Lämmitysvaraaja {{ tank | round(1) }} °C ≤ 25 °C — huoneet 17 °C
+            {% elif is_state('binary_sensor.lammitys_hetki_rajoita_vesi', 'on') %}Hetkellinen {{ c | round(1) if c is not none else '?' }} c/t ≥ {{ raja_v | int }} — huoneet −{{ drop }} °C ja läpivirtausvastus pois
+            {% elif is_state('binary_sensor.lammitys_hetki_rajoita_huone', 'on') %}Hetkellinen {{ c | round(1) if c is not none else '?' }} c/t ≥ {{ raja_h | int }} — huonetermostaatit −{{ drop }} °C
+            {% elif ns.z %}Korotus päällä: {{ ns.z | join(', ') }}
+            {% elif is_state('binary_sensor.lammitys_ennakoiva', 'on') %}Spot {{ spot | round(1) if spot is not none else '?' }} c, ennakko {{ ahead | round(1) if ahead is not none else '?' }} c / {{ look }} h — menovettä nostettu {{ adj | round(1) }} °C ennen hinnan nousua
+            {% elif is_state('binary_sensor.lammitys_halpa_sahko', 'on') %}Spot {{ spot | round(1) if spot is not none else '?' }} c alle rajan {{ states('input_number.lammitys_hinta_lattia_raja') }} c — lattia lämmittää{% if adj > 0.3 %}, menovesi +{{ adj | round(1) }} °C{% endif %}
+            {% elif is_state('binary_sensor.lammitys_menovesi_rajoitus', 'on') %}Spot {{ spot | round(1) if spot is not none else '?' }} c — menovettä rajoitettu {{ adj | round(1) }} °C, olo+keittiö ILP:llä
+            {% else %}Spot {{ spot | round(1) if spot is not none else '?' }} c — olo+keittiö ILP, muut huoneet lattialla{% endif %}
+          spot_c: "{{ states('sensor.energi_data_service') }}"
+          ennakko_c: "{{ states('sensor.lammitys_hinta_ennakko') }}"
+          hetkellinen_ct: "{{ states('sensor.hetkellinen_kustannus') }}"
+          menovesi_korjaus: "{{ states('sensor.lammitys_sekoitus_hinta_korjaus') }}"
   - trigger:
       - platform: state
         entity_id:
@@ -2122,6 +2236,28 @@ automation:
                     climates:
                       - "{{ eid }}"
                     temperature: "{{ tavoite }}"
+
+  - id: lammitys_ohjaus_loki
+    alias: Lämmitys ohjaus loki
+    description: Kirjaa tilan vaihdon ja syyn lokiin. Älä aja käsin.
+    mode: queued
+    max: 20
+    trigger:
+      - platform: state
+        entity_id: sensor.lammitys_ohjaus_tila
+    condition:
+      - condition: template
+        value_template: "{{ trigger.from_state is none or trigger.from_state.state != trigger.to_state.state }}"
+    action:
+      - action: logbook.log
+        data:
+          name: Lämmitys ohjaus
+          entity_id: sensor.lammitys_ohjaus_tila
+          message: >
+            {{ trigger.to_state.state }} — {{ trigger.to_state.attributes.syy | default(states('sensor.lammitys_ohjaus_tila')) }}
+            {%- if trigger.from_state is not none and trigger.from_state.state not in ['unknown', 'unavailable', 'none', ''] %}
+             (ennen {{ trigger.from_state.state }})
+            {%- endif %}
 
   - id: lammitys_sekoitus
     alias: Lämmitys sekoitus climate.lattialammitys
