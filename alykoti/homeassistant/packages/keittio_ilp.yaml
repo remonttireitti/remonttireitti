@@ -20,8 +20,8 @@
 #   - Jäähdytys vain kun 24 h ulkokeski ≥ keittio_ilp_jaahdytys_keski
 #     (oletus 18 °C) JA ulko ≥ 20 °C. Viileänä vuodenaikana ei coolia.
 #   - 16–20 °C: kausi ei vaihdu (jos kesä sallittu). Kausivaihto 4 h viive.
-#   - Lähellä asetusta → fan quiet; kaukana → high (lepotilassa aina quiet)
-#   - Suuri poikkeama → tehostettu asetus (ei lepotilassa)
+#   - Lähellä asetusta → fan quiet; kaukana → high
+#   - Suuri poikkeama → tehostettu asetus
 #   - Komentoja vain kun arvo oikeasti muuttuu (ei kompressorin pätkimistä)
 
 homeassistant:
