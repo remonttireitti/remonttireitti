@@ -46,6 +46,14 @@
 #   ja vie eniten energiaa lämmetäkseen. Varaajaan ei ylilatausta.
 #   Hetkellinen kulutus rajoittaa ensin huoneet, sitten vastuksen.
 #
+# Huoneiden vakio (keskiverto hinta ja kulutus):
+#   olo+keittiö 21 °C, makuuhuoneet 20 °C, eteinen 23 °C.
+#   Ikkuna/ovi auki → asetus minimiin (17 °C).
+# Lattia lämmittää vain jos varaaja tai menovesi on vähintään huone + 5 °C.
+# Muuten turha (vesi ei nosta huonetta). Poikkeus: läpivirtausvastus nostaa
+# vettä (KV liian kylmä sekoitukselle) → huoneiden lämmitys ja lattiakierto
+# pidetään päällä, jotta vastus saa virtauksen.
+#
 # Tila ja historia: sensor.lammitys_ohjaus_tila (syy-attribuutti + logbook).
 # Liput: rajoitettu, hetkellinen, korotus, ennakoiva, halpa/kallis, menovesi nosto/rajoitus.
 #
@@ -74,6 +82,10 @@ homeassistant:
       friendly_name: "Menovettä nostettu halvan tai nousevan hinnan takia — lämpö lattioihin"
     binary_sensor.lammitys_menovesi_rajoitus:
       friendly_name: "Menovettä rajoitettu kalliin sähkön takia"
+    binary_sensor.lammitys_vesi_riittaa:
+      friendly_name: "Lämmitysvesi riittää huoneeseen — varaaja tai meno ≥ huone + 5 °C"
+    binary_sensor.lammitys_vastus_nostaa:
+      friendly_name: "Läpivirtausvastus nostaa vettä — lattia ja kierto pidetään päällä vaikka vesi on vielä alle huone + 5 °C"
     switch.sonoff_4_ch_pro_2_tasmota3:
       friendly_name: "Aurinkolämpöpumppu — siirtää kennon lämpöä varaajaan kun kenno on kuumempi"
 
@@ -975,7 +987,8 @@ template:
           {% set drop = states('input_number.lammitys_hetki_huone_lasku') | float(2) %}
           {% set huone = is_state('binary_sensor.lammitys_hetki_rajoita_huone', 'on') %}
           {% set vesi = is_state('binary_sensor.lammitys_hetki_rajoita_vesi', 'on') %}
-          {% if t is not none and t <= 25 %}Lämmitysvesi {{ t | round(1) }} °C (raja 25 °C)
+          {% if is_state('binary_sensor.lammitys_vastus_nostaa', 'on') and is_state('binary_sensor.lammitys_vesi_riittaa', 'off') %}Varaaja/meno alle huone + 5 °C — vastus nostaa, kierto päällä
+          {% elif is_state('binary_sensor.lammitys_vesi_riittaa', 'off') %}Lämmitysvesi alle huone + 5 °C — lattiat pois (turha)
           {% elif vesi %}Hetkellinen {{ c | round(1) if c is not none else '?' }} c/t ≥ {{ raja_v | int }} — huoneet (−{{ drop }} °C) ja läpivirtausvastus pois
           {% elif huone %}Hetkellinen {{ c | round(1) if c is not none else '?' }} c/t ≥ {{ raja_h | int }} — huonetermostaatit −{{ drop }} °C
           {% elif t is none %}Ei lämmitysvesidataa
@@ -1044,7 +1057,8 @@ template:
         unique_id: lammitys_rajoitettu
         icon: mdi:thermometer-alert
         state: >
-          {{ states('sensor.vilp_ohjaus_lampotilat_air_temperature_13') | float(99) <= 25
+          {{ (is_state('binary_sensor.lammitys_vesi_riittaa', 'off')
+              and not is_state('binary_sensor.lammitys_vastus_nostaa', 'on'))
              or is_state('binary_sensor.lammitys_hetki_rajoita_huone', 'on')
              or is_state('binary_sensor.lammitys_hetki_rajoita_vesi', 'on') }}
       - name: Lammitys halpa sahko
@@ -1084,6 +1098,7 @@ template:
       - platform: state
         entity_id:
           - sensor.vilp_ohjaus_lampotilat_air_temperature_13
+          - sensor.vilp_ohjaus_lampotilat_air_temperature_10
           - sensor.hetkellinen_kustannus
           - sensor.energi_data_service
           - sensor.lammitys_hinta_ennakko
@@ -1093,6 +1108,9 @@ template:
           - binary_sensor.lammitys_halpa_sahko
           - binary_sensor.lammitys_korotus_paalla
           - binary_sensor.lammitys_ennakoiva
+          - binary_sensor.lammitys_vesi_riittaa
+          - binary_sensor.lammitys_vastus_nostaa
+          - sensor.lammitys_vesi_huone_raja
           - binary_sensor.lammitys_menovesi_nosto
           - binary_sensor.lammitys_menovesi_rajoitus
           - timer.lammitys_korotus_olohuone_keittio
@@ -1113,7 +1131,9 @@ template:
         icon: mdi:state-machine
         state: >
           {% set tank = states('sensor.vilp_ohjaus_lampotilat_air_temperature_13') | float(99) %}
-          {% if tank <= 25 %}Lämmitysvesi kylmä
+          {% if is_state('binary_sensor.lammitys_vastus_nostaa', 'on')
+               and is_state('binary_sensor.lammitys_vesi_riittaa', 'off') %}Vastus nostaa vettä
+          {% elif is_state('binary_sensor.lammitys_vesi_riittaa', 'off') %}Lämmitysvesi kylmä
           {% elif is_state('binary_sensor.lammitys_hetki_rajoita_huone', 'on')
                or is_state('binary_sensor.lammitys_hetki_rajoita_vesi', 'on') %}Liian korkea hetkellinen kulutus
           {% elif is_state('binary_sensor.lammitys_korotus_paalla', 'on') %}Asetusta nostettu
@@ -1143,7 +1163,11 @@ template:
             ] %}
               {% if is_state(item[1], 'active') %}{% set ns.z = ns.z + [item[0]] %}{% endif %}
             {% endfor %}
-            {% if tank is not none and tank <= 25 %}Lämmitysvaraaja {{ tank | round(1) }} °C ≤ 25 °C — huoneet 17 °C
+            {% set meno = states('sensor.vilp_ohjaus_lampotilat_air_temperature_10') | float(none) %}
+            {% set vesi = [tank if tank is not none else -99, meno if meno is not none else -99] | max %}
+            {% set raja = states('sensor.lammitys_vesi_huone_raja') | float(26) %}
+            {% if is_state('binary_sensor.lammitys_vastus_nostaa', 'on') and is_state('binary_sensor.lammitys_vesi_riittaa', 'off') %}Varaaja {{ tank | round(1) if tank is not none else '?' }} °C / meno {{ meno | round(1) if meno is not none else '?' }} °C < huone + 5 °C ({{ raja | round(1) }} °C) — vastus nostaa, lattia ja kierto päällä
+            {% elif is_state('binary_sensor.lammitys_vesi_riittaa', 'off') %}Varaaja {{ tank | round(1) if tank is not none else '?' }} °C / meno {{ meno | round(1) if meno is not none else '?' }} °C < huone + 5 °C ({{ raja | round(1) }} °C) — lattiat pois, turha lämmittää
             {% elif is_state('binary_sensor.lammitys_hetki_rajoita_vesi', 'on') %}Hetkellinen {{ c | round(1) if c is not none else '?' }} c/t ≥ {{ raja_v | int }} — huoneet −{{ drop }} °C ja läpivirtausvastus pois
             {% elif is_state('binary_sensor.lammitys_hetki_rajoita_huone', 'on') %}Hetkellinen {{ c | round(1) if c is not none else '?' }} c/t ≥ {{ raja_h | int }} — huonetermostaatit −{{ drop }} °C
             {% elif ns.z %}Korotus päällä: {{ ns.z | join(', ') }}
@@ -1243,7 +1267,7 @@ template:
         unit_of_measurement: "°C"
         device_class: temperature
         state: >
-          {% set BASE_TEMP = 22 %}
+          {% set BASE_TEMP = 21 %}
           {% set OUTDOOR_COLD = -20 %}
           {% set OUTDOOR_WARM = 10 %}
           {% set OUTDOOR_EFFECT = 5 %}
@@ -1253,8 +1277,8 @@ template:
           {% set COST_CHEAP = 0 %}
           {% set COST_EXPENSIVE = 70 %}
           {% set COST_EFFECT = 1.5 %}
-          {% set MIN_TEMP = 20 %}
-          {% set MAX_TEMP = 22 %}
+          {% set MIN_TEMP = 19 %}
+          {% set MAX_TEMP = 23 %}
           {% set outdoor = states('sensor.ulkolampotila_met_no') | float(0) %}
           {% set price_now = states('sensor.energi_data_service') | float(0) %}
           {% set instant = states('sensor.hetkellinen_kustannus') | float(0) %}
@@ -1276,7 +1300,7 @@ template:
         unit_of_measurement: "°C"
         device_class: temperature
         state: >
-          {% set BASE_TEMP = 22 %}
+          {% set BASE_TEMP = 20 %}
           {% set OUTDOOR_COLD = -20 %}
           {% set OUTDOOR_WARM = 10 %}
           {% set OUTDOOR_EFFECT = 5 %}
@@ -1287,7 +1311,7 @@ template:
           {% set COST_EXPENSIVE = 50 %}
           {% set COST_EFFECT = 4.5 %}
           {% set MIN_TEMP = 17 %}
-          {% set MAX_TEMP = 20 %}
+          {% set MAX_TEMP = 22 %}
           {% set outdoor = states('sensor.ulkolampotila_met_no') | float(0) %}
           {% set price_now = states('sensor.energi_data_service') | float(0) %}
           {% set instant = states('sensor.hetkellinen_kustannus') | float(0) %}
@@ -1309,7 +1333,7 @@ template:
         unit_of_measurement: "°C"
         device_class: temperature
         state: >
-          {% set BASE_TEMP = 22 %}
+          {% set BASE_TEMP = 20 %}
           {% set OUTDOOR_COLD = -20 %}
           {% set OUTDOOR_WARM = 10 %}
           {% set OUTDOOR_EFFECT = 5 %}
@@ -1320,7 +1344,7 @@ template:
           {% set COST_EXPENSIVE = 50 %}
           {% set COST_EFFECT = 4.5 %}
           {% set MIN_TEMP = 18 %}
-          {% set MAX_TEMP = 21 %}
+          {% set MAX_TEMP = 22 %}
           {% set outdoor = states('sensor.ulkolampotila_met_no') | float(0) %}
           {% set price_now = states('sensor.energi_data_service') | float(0) %}
           {% set instant = states('sensor.hetkellinen_kustannus') | float(0) %}
@@ -1342,7 +1366,7 @@ template:
         unit_of_measurement: "°C"
         device_class: temperature
         state: >
-          {% set BASE_TEMP = 22 %}
+          {% set BASE_TEMP = 20 %}
           {% set OUTDOOR_COLD = -20 %}
           {% set OUTDOOR_WARM = 10 %}
           {% set OUTDOOR_EFFECT = 5 %}
@@ -1353,7 +1377,7 @@ template:
           {% set COST_EXPENSIVE = 50 %}
           {% set COST_EFFECT = 4.5 %}
           {% set MIN_TEMP = 18 %}
-          {% set MAX_TEMP = 21 %}
+          {% set MAX_TEMP = 22 %}
           {% set outdoor = states('sensor.ulkolampotila_met_no') | float(0) %}
           {% set price_now = states('sensor.energi_data_service') | float(0) %}
           {% set instant = states('sensor.hetkellinen_kustannus') | float(0) %}
@@ -1385,8 +1409,8 @@ template:
           {% set COST_CHEAP = 0 %}
           {% set COST_EXPENSIVE = 50 %}
           {% set COST_EFFECT = 4.5 %}
-          {% set MIN_TEMP = 19 %}
-          {% set MAX_TEMP = 21 %}
+          {% set MIN_TEMP = 18 %}
+          {% set MAX_TEMP = 22 %}
           {% set outdoor = states('sensor.ulkolampotila_met_no') | float(0) %}
           {% set price_now = states('sensor.energi_data_service') | float(0) %}
           {% set instant = states('sensor.hetkellinen_kustannus') | float(0) %}
@@ -1408,7 +1432,7 @@ template:
         unit_of_measurement: "°C"
         device_class: temperature
         state: >
-          {% set BASE_TEMP = 25 %}
+          {% set BASE_TEMP = 23 %}
           {% set OUTDOOR_COLD = -20 %}
           {% set OUTDOOR_WARM = 10 %}
           {% set OUTDOOR_EFFECT = 5 %}
@@ -1419,7 +1443,7 @@ template:
           {% set COST_EXPENSIVE = 50 %}
           {% set COST_EFFECT = 4.5 %}
           {% set MIN_TEMP = 21 %}
-          {% set MAX_TEMP = 23 %}
+          {% set MAX_TEMP = 25 %}
           {% set outdoor = states('sensor.ulkolampotila_met_no') | float(0) %}
           {% set price_now = states('sensor.energi_data_service') | float(0) %}
           {% set instant = states('sensor.hetkellinen_kustannus') | float(0) %}
@@ -1473,9 +1497,9 @@ template:
         state: >
           {% set base_s = states('sensor.lammitys_tavoite_olohuone_keittio') %}
           {% if base_s in ['unknown', 'unavailable', 'none', ''] %}
-            {% set base = state_attr('climate.olohuone_lattialammitys', 'temperature') | float(20) %}
+            {% set base = state_attr('climate.olohuone_lattialammitys', 'temperature') | float(21) %}
           {% else %}
-            {% set base = base_s | float(20) %}
+            {% set base = base_s | float(21) %}
           {% endif %}
           {% set korotus = states('input_number.lammitys_korotus_olohuone_keittio') | float(0) %}
           {% if is_state('timer.lammitys_korotus_olohuone_keittio', 'active') %}
@@ -1494,9 +1518,9 @@ template:
         state: >
           {% set base_s = states('sensor.lammitys_tavoite_hm') %}
           {% if base_s in ['unknown', 'unavailable', 'none', ''] %}
-            {% set base = state_attr('climate.hm_lattialammitys', 'temperature') | float(18) %}
+            {% set base = state_attr('climate.hm_lattialammitys', 'temperature') | float(20) %}
           {% else %}
-            {% set base = base_s | float(18) %}
+            {% set base = base_s | float(20) %}
           {% endif %}
           {% set korotus = states('input_number.lammitys_korotus_hm') | float(0) %}
           {% if is_state('timer.lammitys_korotus_hm', 'active') %}
@@ -1515,9 +1539,9 @@ template:
         state: >
           {% set base_s = states('sensor.lammitys_tavoite_makuhuone') %}
           {% if base_s in ['unknown', 'unavailable', 'none', ''] %}
-            {% set base = state_attr('climate.makuhuone_lattialammitys', 'temperature') | float(19) %}
+            {% set base = state_attr('climate.makuhuone_lattialammitys', 'temperature') | float(20) %}
           {% else %}
-            {% set base = base_s | float(19) %}
+            {% set base = base_s | float(20) %}
           {% endif %}
           {% set korotus = states('input_number.lammitys_korotus_makuhuone') | float(0) %}
           {% if is_state('timer.lammitys_korotus_makuhuone', 'active') %}
@@ -1536,9 +1560,9 @@ template:
         state: >
           {% set base_s = states('sensor.lammitys_tavoite_glen') %}
           {% if base_s in ['unknown', 'unavailable', 'none', ''] %}
-            {% set base = state_attr('climate.glen_lattialammitys', 'temperature') | float(19) %}
+            {% set base = state_attr('climate.glen_lattialammitys', 'temperature') | float(20) %}
           {% else %}
-            {% set base = base_s | float(19) %}
+            {% set base = base_s | float(20) %}
           {% endif %}
           {% set korotus = states('input_number.lammitys_korotus_glen') | float(0) %}
           {% if is_state('timer.lammitys_korotus_glen', 'active') %}
@@ -1557,9 +1581,9 @@ template:
         state: >
           {% set base_s = states('sensor.lammitys_tavoite_nele') %}
           {% if base_s in ['unknown', 'unavailable', 'none', ''] %}
-            {% set base = state_attr('climate.nele_lattialammitys', 'temperature') | float(19) %}
+            {% set base = state_attr('climate.nele_lattialammitys', 'temperature') | float(20) %}
           {% else %}
-            {% set base = base_s | float(19) %}
+            {% set base = base_s | float(20) %}
           {% endif %}
           {% set korotus = states('input_number.lammitys_korotus_nele') | float(0) %}
           {% if is_state('timer.lammitys_korotus_nele', 'active') %}
@@ -1578,9 +1602,9 @@ template:
         state: >
           {% set base_s = states('sensor.lammitys_tavoite_eteinen') %}
           {% if base_s in ['unknown', 'unavailable', 'none', ''] %}
-            {% set base = state_attr('climate.eteisen_lattialammitys', 'temperature') | float(22) %}
+            {% set base = state_attr('climate.eteisen_lattialammitys', 'temperature') | float(23) %}
           {% else %}
-            {% set base = base_s | float(22) %}
+            {% set base = base_s | float(23) %}
           {% endif %}
           {% set korotus = states('input_number.lammitys_korotus_eteinen') | float(0) %}
           {% if is_state('timer.lammitys_korotus_eteinen', 'active') %}
@@ -1874,6 +1898,62 @@ template:
              or state_attr('climate.glen_lattialammitys', 'hvac_action') == 'heating'
              or state_attr('climate.nele_lattialammitys', 'hvac_action') == 'heating'
              or state_attr('climate.eteisen_lattialammitys', 'hvac_action') == 'heating' }}
+      - name: Lammitys vastus nostaa
+        unique_id: lammitys_vastus_nostaa
+        icon: mdi:heating-coil
+        device_class: heat
+        state: >
+          {{ is_state('input_select.lammitys_vastus', 'Automaatti')
+             and not is_state('binary_sensor.lammitys_hetki_rajoita_vesi', 'on')
+             and (states('sensor.vilp_ohjaus_lampotilat_air_temperature_8') | float(99))
+                 < (states('input_number.lammitys_kv_pumppu_paalle') | float(58)) }}
+      - name: Lammitys vesi riittaa
+        unique_id: lammitys_vesi_riittaa
+        icon: mdi:water-thermometer
+        state: >
+          {% set raja = states('sensor.lammitys_vesi_huone_raja') | float(0) %}
+          {% if raja <= 0 %}true
+          {% else %}
+            {% set tank = states('sensor.vilp_ohjaus_lampotilat_air_temperature_13') | float(none) %}
+            {% set meno = states('sensor.vilp_ohjaus_lampotilat_air_temperature_10') | float(none) %}
+            {% set vesi = [tank if tank is not none else -99, meno if meno is not none else -99] | max %}
+            {{ vesi >= raja }}
+          {% endif %}
+  - sensor:
+      - name: Lammitys vesi huone raja
+        unique_id: lammitys_vesi_huone_raja
+        unit_of_measurement: "°C"
+        device_class: temperature
+        icon: mdi:thermometer-water
+        state: >
+          {% set ns = namespace(t=0) %}
+          {% if is_state('input_select.lammitys_tila_olohuone_keittio', 'Automaatti')
+             and is_state('binary_sensor.lammitys_terassi_auki', 'off') %}
+            {% if is_state('timer.lammitys_korotus_olohuone_keittio', 'active') %}
+              {% set ns.t = [ns.t, states('sensor.lammitys_kaytto_olohuone_keittio') | float(21)] | max %}
+            {% elif is_state('binary_sensor.lammitys_hetki_rajoita_huone', 'on') %}
+              {% set tausta = states('input_number.lammitys_lattia_tausta_olokeittio') | float(18) %}
+              {% set drop = states('input_number.lammitys_hetki_huone_lasku') | float(2) %}
+              {% set ns.t = [ns.t, [tausta - drop, 17] | max] | max %}
+            {% elif is_state('binary_sensor.lammitys_ennakoiva', 'on') %}
+              {% set ns.t = [ns.t, states('sensor.lammitys_kaytto_olohuone_keittio') | float(21)] | max %}
+            {% else %}
+              {% set ns.t = [ns.t, states('input_number.lammitys_lattia_tausta_olokeittio') | float(18)] | max %}
+            {% endif %}
+          {% endif %}
+          {% for z in [
+            ('input_select.lammitys_tila_hm', 'binary_sensor.lammitys_hm_ikkuna_auki', 'sensor.lammitys_kaytto_hm', 20),
+            ('input_select.lammitys_tila_makuhuone', 'binary_sensor.lammitys_makuhuone_ikkuna_auki', 'sensor.lammitys_kaytto_makuhuone', 20),
+            ('input_select.lammitys_tila_glen', 'binary_sensor.lammitys_glen_ikkuna_auki', 'sensor.lammitys_kaytto_glen', 20),
+            ('input_select.lammitys_tila_nele', 'binary_sensor.lammitys_nele_ikkuna_auki', 'sensor.lammitys_kaytto_nele', 20),
+            ('input_select.lammitys_tila_eteinen', 'binary_sensor.lammitys_eteinen_ovi_auki', 'sensor.lammitys_kaytto_eteinen', 23)
+          ] %}
+            {% if is_state(z[0], 'Automaatti') and is_state(z[1], 'off') %}
+              {% set ns.t = [ns.t, states(z[2]) | float(z[3])] | max %}
+            {% endif %}
+          {% endfor %}
+          {% if ns.t <= 17 %}0
+          {% else %}{{ (ns.t + 5) | round(1) }}{% endif %}
   - trigger:
       - platform: time_pattern
         seconds: "/10"
@@ -1968,6 +2048,7 @@ automation:
       - platform: state
         entity_id:
           - sensor.vilp_ohjaus_lampotilat_air_temperature_13
+          - sensor.vilp_ohjaus_lampotilat_air_temperature_10
           - binary_sensor.terassi_ovi_contact
           - input_select.lammitys_tila_olohuone_keittio
           - timer.lammitys_korotus_olohuone_keittio
@@ -1980,25 +2061,31 @@ automation:
           - binary_sensor.lammitys_hetki_rajoita_huone
           - input_number.lammitys_hetki_huone_lasku
           - binary_sensor.lammitys_ennakoiva
+          - binary_sensor.lammitys_vastus_nostaa
     action:
       - variables:
           lampo: >
-            {% if is_state('input_select.lammitys_tila_olohuone_keittio', 'Pois') %}17
+            {% if is_state('input_select.lammitys_tila_olohuone_keittio', 'Pois') %}{% set t = 17 %}
             {% elif is_state('timer.lammitys_korotus_olohuone_keittio', 'active') %}
-              {% set t = states('sensor.lammitys_tavoite_olohuone_keittio') %}
-              {% set base = t | float(20) if t not in ['unknown','unavailable','none',''] else 20 %}
+              {% set s = states('sensor.lammitys_tavoite_olohuone_keittio') %}
+              {% set base = s | float(21) if s not in ['unknown','unavailable','none',''] else 21 %}
               {% set k = states('input_number.lammitys_korotus_olohuone_keittio') | float(1.5) %}
-              {{ [base + k, 30] | min | round(1) }}
-            {% elif states('sensor.vilp_ohjaus_lampotilat_air_temperature_13') | float(0) <= 25 %}17
-            {% elif is_state('binary_sensor.lammitys_terassi_auki', 'on') %}17
+              {% set t = [base + k, 30] | min | round(1) %}
+            {% elif is_state('binary_sensor.lammitys_terassi_auki', 'on') %}{% set t = 17 %}
             {% elif is_state('binary_sensor.lammitys_hetki_rajoita_huone', 'on') %}
               {% set tausta = states('input_number.lammitys_lattia_tausta_olokeittio') | float(18) %}
               {% set drop = states('input_number.lammitys_hetki_huone_lasku') | float(2) %}
-              {{ [tausta - drop, 17] | max | round(1) }}
+              {% set t = [tausta - drop, 17] | max | round(1) %}
             {% elif is_state('binary_sensor.lammitys_ennakoiva', 'on') %}
-              {{ states('sensor.lammitys_kaytto_olohuone_keittio') | float(20) }}
-            {% else %}{{ states('input_number.lammitys_lattia_tausta_olokeittio') | float(18) }}
+              {% set t = states('sensor.lammitys_kaytto_olohuone_keittio') | float(21) %}
+            {% else %}{% set t = states('input_number.lammitys_lattia_tausta_olokeittio') | float(18) %}
             {% endif %}
+            {% set tank = states('sensor.vilp_ohjaus_lampotilat_air_temperature_13') | float(0) %}
+            {% set meno = states('sensor.vilp_ohjaus_lampotilat_air_temperature_10') | float(0) %}
+            {% set vesi = [tank, meno] | max %}
+            {% if t <= 17 %}17
+            {% elif is_state('binary_sensor.lammitys_vastus_nostaa', 'on') or vesi >= (t + 5) %}{{ t }}
+            {% else %}17{% endif %}
       - action: script.lammitys_aseta_termostaatti
         data:
           climates:
@@ -2014,6 +2101,7 @@ automation:
       - platform: state
         entity_id:
           - sensor.vilp_ohjaus_lampotilat_air_temperature_13
+          - sensor.vilp_ohjaus_lampotilat_air_temperature_10
           - binary_sensor.hm_ikkunatunnistin_contact
           - input_select.lammitys_tila_hm
           - timer.lammitys_korotus_hm
@@ -2022,19 +2110,25 @@ automation:
           - input_number.lammitys_korotus_hm
           - binary_sensor.lammitys_hetki_rajoita_huone
           - binary_sensor.lammitys_ennakoiva
+          - binary_sensor.lammitys_vastus_nostaa
     action:
       - variables:
           lampo: >
-            {% if is_state('input_select.lammitys_tila_hm', 'Pois') %}17
+            {% if is_state('input_select.lammitys_tila_hm', 'Pois') %}{% set t = 17 %}
             {% elif is_state('timer.lammitys_korotus_hm', 'active') %}
-              {% set t = states('sensor.lammitys_tavoite_hm') %}
-              {% set base = t | float(18) if t not in ['unknown','unavailable','none',''] else 18 %}
+              {% set s = states('sensor.lammitys_tavoite_hm') %}
+              {% set base = s | float(20) if s not in ['unknown','unavailable','none',''] else 20 %}
               {% set k = states('input_number.lammitys_korotus_hm') | float(1.5) %}
-              {{ [base + k, 30] | min | round(1) }}
-            {% elif states('sensor.vilp_ohjaus_lampotilat_air_temperature_13') | float(0) <= 25 %}17
-            {% elif is_state('binary_sensor.lammitys_hm_ikkuna_auki', 'on') %}17
-            {% else %}{{ states('sensor.lammitys_kaytto_hm') | float(18) }}
+              {% set t = [base + k, 30] | min | round(1) %}
+            {% elif is_state('binary_sensor.lammitys_hm_ikkuna_auki', 'on') %}{% set t = 17 %}
+            {% else %}{% set t = states('sensor.lammitys_kaytto_hm') | float(20) %}
             {% endif %}
+            {% set tank = states('sensor.vilp_ohjaus_lampotilat_air_temperature_13') | float(0) %}
+            {% set meno = states('sensor.vilp_ohjaus_lampotilat_air_temperature_10') | float(0) %}
+            {% set vesi = [tank, meno] | max %}
+            {% if t <= 17 %}17
+            {% elif is_state('binary_sensor.lammitys_vastus_nostaa', 'on') or vesi >= (t + 5) %}{{ t }}
+            {% else %}17{% endif %}
       - action: script.lammitys_aseta_termostaatti
         data:
           climates:
@@ -2049,6 +2143,7 @@ automation:
       - platform: state
         entity_id:
           - sensor.vilp_ohjaus_lampotilat_air_temperature_13
+          - sensor.vilp_ohjaus_lampotilat_air_temperature_10
           - binary_sensor.makuhuone_ikkunatunnistin_contact
           - input_select.lammitys_tila_makuhuone
           - timer.lammitys_korotus_makuhuone
@@ -2057,19 +2152,25 @@ automation:
           - input_number.lammitys_korotus_makuhuone
           - binary_sensor.lammitys_hetki_rajoita_huone
           - binary_sensor.lammitys_ennakoiva
+          - binary_sensor.lammitys_vastus_nostaa
     action:
       - variables:
           lampo: >
-            {% if is_state('input_select.lammitys_tila_makuhuone', 'Pois') %}17
+            {% if is_state('input_select.lammitys_tila_makuhuone', 'Pois') %}{% set t = 17 %}
             {% elif is_state('timer.lammitys_korotus_makuhuone', 'active') %}
-              {% set t = states('sensor.lammitys_tavoite_makuhuone') %}
-              {% set base = t | float(19) if t not in ['unknown','unavailable','none',''] else 19 %}
+              {% set s = states('sensor.lammitys_tavoite_makuhuone') %}
+              {% set base = s | float(20) if s not in ['unknown','unavailable','none',''] else 20 %}
               {% set k = states('input_number.lammitys_korotus_makuhuone') | float(1.5) %}
-              {{ [base + k, 30] | min | round(1) }}
-            {% elif states('sensor.vilp_ohjaus_lampotilat_air_temperature_13') | float(0) <= 25 %}17
-            {% elif is_state('binary_sensor.lammitys_makuhuone_ikkuna_auki', 'on') %}17
-            {% else %}{{ states('sensor.lammitys_kaytto_makuhuone') | float(19) }}
+              {% set t = [base + k, 30] | min | round(1) %}
+            {% elif is_state('binary_sensor.lammitys_makuhuone_ikkuna_auki', 'on') %}{% set t = 17 %}
+            {% else %}{% set t = states('sensor.lammitys_kaytto_makuhuone') | float(20) %}
             {% endif %}
+            {% set tank = states('sensor.vilp_ohjaus_lampotilat_air_temperature_13') | float(0) %}
+            {% set meno = states('sensor.vilp_ohjaus_lampotilat_air_temperature_10') | float(0) %}
+            {% set vesi = [tank, meno] | max %}
+            {% if t <= 17 %}17
+            {% elif is_state('binary_sensor.lammitys_vastus_nostaa', 'on') or vesi >= (t + 5) %}{{ t }}
+            {% else %}17{% endif %}
       - action: script.lammitys_aseta_termostaatti
         data:
           climates:
@@ -2084,6 +2185,7 @@ automation:
       - platform: state
         entity_id:
           - sensor.vilp_ohjaus_lampotilat_air_temperature_13
+          - sensor.vilp_ohjaus_lampotilat_air_temperature_10
           - binary_sensor.glen_ikkunatunnistin_contact
           - input_select.lammitys_tila_glen
           - timer.lammitys_korotus_glen
@@ -2092,19 +2194,25 @@ automation:
           - input_number.lammitys_korotus_glen
           - binary_sensor.lammitys_hetki_rajoita_huone
           - binary_sensor.lammitys_ennakoiva
+          - binary_sensor.lammitys_vastus_nostaa
     action:
       - variables:
           lampo: >
-            {% if is_state('input_select.lammitys_tila_glen', 'Pois') %}17
+            {% if is_state('input_select.lammitys_tila_glen', 'Pois') %}{% set t = 17 %}
             {% elif is_state('timer.lammitys_korotus_glen', 'active') %}
-              {% set t = states('sensor.lammitys_tavoite_glen') %}
-              {% set base = t | float(19) if t not in ['unknown','unavailable','none',''] else 19 %}
+              {% set s = states('sensor.lammitys_tavoite_glen') %}
+              {% set base = s | float(20) if s not in ['unknown','unavailable','none',''] else 20 %}
               {% set k = states('input_number.lammitys_korotus_glen') | float(1.5) %}
-              {{ [base + k, 30] | min | round(1) }}
-            {% elif states('sensor.vilp_ohjaus_lampotilat_air_temperature_13') | float(0) <= 25 %}17
-            {% elif is_state('binary_sensor.lammitys_glen_ikkuna_auki', 'on') %}19
-            {% else %}{{ states('sensor.lammitys_kaytto_glen') | float(19) }}
+              {% set t = [base + k, 30] | min | round(1) %}
+            {% elif is_state('binary_sensor.lammitys_glen_ikkuna_auki', 'on') %}{% set t = 17 %}
+            {% else %}{% set t = states('sensor.lammitys_kaytto_glen') | float(20) %}
             {% endif %}
+            {% set tank = states('sensor.vilp_ohjaus_lampotilat_air_temperature_13') | float(0) %}
+            {% set meno = states('sensor.vilp_ohjaus_lampotilat_air_temperature_10') | float(0) %}
+            {% set vesi = [tank, meno] | max %}
+            {% if t <= 17 %}17
+            {% elif is_state('binary_sensor.lammitys_vastus_nostaa', 'on') or vesi >= (t + 5) %}{{ t }}
+            {% else %}17{% endif %}
       - action: script.lammitys_aseta_termostaatti
         data:
           climates:
@@ -2119,6 +2227,7 @@ automation:
       - platform: state
         entity_id:
           - sensor.vilp_ohjaus_lampotilat_air_temperature_13
+          - sensor.vilp_ohjaus_lampotilat_air_temperature_10
           - binary_sensor.nele_ikkunatunnistin_contact
           - input_select.lammitys_tila_nele
           - timer.lammitys_korotus_nele
@@ -2128,21 +2237,27 @@ automation:
           - climate.nele_lattialammitys
           - binary_sensor.lammitys_hetki_rajoita_huone
           - binary_sensor.lammitys_ennakoiva
+          - binary_sensor.lammitys_vastus_nostaa
     action:
       - variables:
           lampo: >
-            {% if is_state('input_select.lammitys_tila_nele', 'Pois') %}17
+            {% if is_state('input_select.lammitys_tila_nele', 'Pois') %}{% set t = 17 %}
             {% elif is_state('timer.lammitys_korotus_nele', 'active') %}
-              {% set t = states('sensor.lammitys_tavoite_nele') %}
-              {% set base = t | float(19) if t not in ['unknown','unavailable','none',''] else 19 %}
+              {% set s = states('sensor.lammitys_tavoite_nele') %}
+              {% set base = s | float(20) if s not in ['unknown','unavailable','none',''] else 20 %}
               {% set k = states('input_number.lammitys_korotus_nele') | float(1.5) %}
-              {{ [base + k, 30] | min | round(1) }}
-            {% elif is_state('binary_sensor.lammitys_nele_ikkuna_auki', 'on') %}17
+              {% set t = [base + k, 30] | min | round(1) %}
+            {% elif is_state('binary_sensor.lammitys_nele_ikkuna_auki', 'on') %}{% set t = 17 %}
             {% elif is_state('binary_sensor.lammitys_hetki_rajoita_huone', 'on') %}
-              {{ states('sensor.lammitys_kaytto_nele') | float(17) }}
-            {% else %}{% set kaytto = states('sensor.lammitys_kaytto_nele') | float(19) %}
-              {{ [kaytto, 19] | max | round(1) }}
+              {% set t = states('sensor.lammitys_kaytto_nele') | float(17) %}
+            {% else %}{% set t = states('sensor.lammitys_kaytto_nele') | float(20) %}
             {% endif %}
+            {% set tank = states('sensor.vilp_ohjaus_lampotilat_air_temperature_13') | float(0) %}
+            {% set meno = states('sensor.vilp_ohjaus_lampotilat_air_temperature_10') | float(0) %}
+            {% set vesi = [tank, meno] | max %}
+            {% if t <= 17 %}17
+            {% elif is_state('binary_sensor.lammitys_vastus_nostaa', 'on') or vesi >= (t + 5) %}{{ t }}
+            {% else %}17{% endif %}
       - action: script.lammitys_aseta_termostaatti
         data:
           climates:
@@ -2157,6 +2272,7 @@ automation:
       - platform: state
         entity_id:
           - sensor.vilp_ohjaus_lampotilat_air_temperature_13
+          - sensor.vilp_ohjaus_lampotilat_air_temperature_10
           - binary_sensor.etuovi_current_status_of_the_door
           - input_select.lammitys_tila_eteinen
           - timer.lammitys_korotus_eteinen
@@ -2165,19 +2281,25 @@ automation:
           - input_number.lammitys_korotus_eteinen
           - binary_sensor.lammitys_hetki_rajoita_huone
           - binary_sensor.lammitys_ennakoiva
+          - binary_sensor.lammitys_vastus_nostaa
     action:
       - variables:
           lampo: >
-            {% if is_state('input_select.lammitys_tila_eteinen', 'Pois') %}17
+            {% if is_state('input_select.lammitys_tila_eteinen', 'Pois') %}{% set t = 17 %}
             {% elif is_state('timer.lammitys_korotus_eteinen', 'active') %}
-              {% set t = states('sensor.lammitys_tavoite_eteinen') %}
-              {% set base = t | float(22) if t not in ['unknown','unavailable','none',''] else 22 %}
+              {% set s = states('sensor.lammitys_tavoite_eteinen') %}
+              {% set base = s | float(23) if s not in ['unknown','unavailable','none',''] else 23 %}
               {% set k = states('input_number.lammitys_korotus_eteinen') | float(1.5) %}
-              {{ [base + k, 30] | min | round(1) }}
-            {% elif states('sensor.vilp_ohjaus_lampotilat_air_temperature_13') | float(0) <= 25 %}17
-            {% elif is_state('binary_sensor.lammitys_eteinen_ovi_auki', 'on') %}17
-            {% else %}{{ states('sensor.lammitys_kaytto_eteinen') | float(22) }}
+              {% set t = [base + k, 30] | min | round(1) %}
+            {% elif is_state('binary_sensor.lammitys_eteinen_ovi_auki', 'on') %}{% set t = 17 %}
+            {% else %}{% set t = states('sensor.lammitys_kaytto_eteinen') | float(23) %}
             {% endif %}
+            {% set tank = states('sensor.vilp_ohjaus_lampotilat_air_temperature_13') | float(0) %}
+            {% set meno = states('sensor.vilp_ohjaus_lampotilat_air_temperature_10') | float(0) %}
+            {% set vesi = [tank, meno] | max %}
+            {% if t <= 17 %}17
+            {% elif is_state('binary_sensor.lammitys_vastus_nostaa', 'on') or vesi >= (t + 5) %}{{ t }}
+            {% else %}17{% endif %}
       - action: script.lammitys_aseta_termostaatti
         data:
           climates:
@@ -2214,6 +2336,9 @@ automation:
         entity_id:
           - binary_sensor.lammitys_ennakoiva
           - binary_sensor.lammitys_hetki_rajoita_huone
+          - binary_sensor.lammitys_vastus_nostaa
+          - sensor.vilp_ohjaus_lampotilat_air_temperature_13
+          - sensor.vilp_ohjaus_lampotilat_air_temperature_10
     action:
       - variables:
           zones:
@@ -2251,10 +2376,16 @@ automation:
                        and not is_state('binary_sensor.lammitys_ennakoiva', 'on') %}
                     {% set t = states('input_number.lammitys_lattia_tausta_olokeittio') | float(18) %}
                     {% set drop = states('input_number.lammitys_hetki_huone_lasku') | float(2) if is_state('binary_sensor.lammitys_hetki_rajoita_huone', 'on') else 0 %}
-                    {{ [t - drop, 17] | max }}
+                    {% set t = [t - drop, 17] | max %}
                   {% else %}
-                    {{ states(repeat.item.kaytto) | float(20) }}
+                    {% set t = states(repeat.item.kaytto) | float(20) %}
                   {% endif %}
+                  {% set tank = states('sensor.vilp_ohjaus_lampotilat_air_temperature_13') | float(0) %}
+                  {% set meno = states('sensor.vilp_ohjaus_lampotilat_air_temperature_10') | float(0) %}
+                  {% set vesi = [tank, meno] | max %}
+                  {% if t <= 17 %}17
+                  {% elif is_state('binary_sensor.lammitys_vastus_nostaa', 'on') or vesi >= (t + 5) %}{{ t }}
+                  {% else %}17{% endif %}
                 termo: "{{ state_attr(repeat.item.entity, 'temperature') | float(99) }}"
             - if:
                 - condition: template
@@ -2263,8 +2394,8 @@ automation:
                       preset == 'away' or
                       (
                         repeat.item.entity == 'climate.nele_lattialammitys' and
-                        termo < 19 and
-                        tavoite >= 19 and
+                        termo < 20 and
+                        tavoite >= 20 and
                         is_state('binary_sensor.lammitys_nele_ikkuna_auki', 'off')
                       )
                     ) }}
@@ -2511,6 +2642,7 @@ automation:
           - timer.lammitys_ll_pumppu_viive
           - timer.lammitys_vastus_pulssi
           - timer.lammitys_vastus_odota
+          - binary_sensor.lammitys_vastus_nostaa
       - platform: state
         entity_id:
           - switch.eteisen_lattialammitys
@@ -2532,7 +2664,18 @@ automation:
         attribute: hvac_action
     action:
       - variables:
-          tarve: "{{ is_state('binary_sensor.lammitys_ll_tarve', 'on') }}"
+          tarve: >
+            {{ is_state('binary_sensor.lammitys_ll_tarve', 'on')
+               or (is_state('binary_sensor.lammitys_vastus_nostaa', 'on')
+                   and (
+                     state_attr('climate.olohuone_lattialammitys', 'temperature') | float(17) > 17
+                     or state_attr('climate.keittio_lattialammitys', 'temperature') | float(17) > 17
+                     or state_attr('climate.hm_lattialammitys', 'temperature') | float(17) > 17
+                     or state_attr('climate.makuhuone_lattialammitys', 'temperature') | float(17) > 17
+                     or state_attr('climate.glen_lattialammitys', 'temperature') | float(17) > 17
+                     or state_attr('climate.nele_lattialammitys', 'temperature') | float(17) > 17
+                     or state_attr('climate.eteisen_lattialammitys', 'temperature') | float(17) > 17
+                   )) }}
           vastus_kaytossa: >
             {{ is_state('switch.pannuhuone_lapivirtausvastus', 'on')
                or is_state('timer.lammitys_vastus_pulssi', 'active')

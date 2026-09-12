@@ -1542,7 +1542,7 @@ cards:
                     overflow: hidden;
                     {% set pois = is_state('input_select.lammitys_tila_nele', 'Pois') %}
                     {% set heat = state_attr('climate.nele_lattialammitys', 'hvac_action') == 'heating' %}
-                    {% set matala = state_attr('climate.nele_lattialammitys', 'temperature') | float(99) < 19 %}
+                    {% set matala = state_attr('climate.nele_lattialammitys', 'temperature') | float(99) <= 17 %}
                     {% if pois or matala %}
                       background: rgba(100, 116, 139, 0.12);
                     {% elif heat %}
@@ -1576,9 +1576,7 @@ cards:
                       Auto {% if auto_t is not none %}{{ auto_t | round(1) }}{% else
                       %}—{% endif %}° · Termo {% if termo is not none %}{{ termo |
                       round(1) }}{% else %}—{% endif %}° · {% if ohj == 'Pois' or
-                      (termo is not none and termo | float(99) <= 17) or (ohj !=
-                      'Pois' and termo is not none and termo | float(99) < 19 and
-                      is_state('binary_sensor.lammitys_nele_ikkuna_auki', 'off')) %}📉
+                      (termo is not none and termo | float(99) <= 17) %}📉
                       Matala{% elif heat == 'heating' %}♨️ Lämmittää{% else %}⏸
                       Odottaa{% endif %} · {% if ohj == 'Pois' %}Ohjaus pois{% elif
                       kor %}Korotus ⏱{% else %}Ohjaus auto{% endif %}{% if ohj !=
@@ -1588,7 +1586,7 @@ cards:
                     icon_color: >
                       {% if is_state('input_select.lammitys_tila_nele', 'Pois') %}grey
                       {% elif state_attr('climate.nele_lattialammitys', 'temperature')
-                      | float(99) < 19 %}disabled {% elif
+                      | float(99) <= 17 %}disabled {% elif
                       state_attr('climate.nele_lattialammitys', 'hvac_action') ==
                       'heating' %}orange {% elif
                       is_state('timer.lammitys_korotus_nele', 'active') %}deep-orange
