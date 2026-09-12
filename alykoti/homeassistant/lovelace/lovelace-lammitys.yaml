@@ -237,10 +237,22 @@ cards:
               hold_action:
                 action: more-info
                 entity: switch.sonoff_4_ch_pro_2_tasmota4
-            - type: entity
-              entity: climate.lattialammitys
-              icon: mdi:valve
-              content_info: state
+            - type: template
+              icon: mdi:water-boiler
+              icon_color: >
+                {% if is_state('timer.lammitys_sekoitus_pulssi', 'active') or is_state('binary_sensor.lammitys_sekoituspumppu_paalla', 'on') %}green
+                {% elif is_state('switch.pannuhuone_lapivirtausvastus', 'on') %}orange
+                {% elif is_state('binary_sensor.lammitys_varaaja_tarve', 'on') %}red
+                {% else %}grey{% endif %}
+              content: >
+                {% set t = state_attr('climate.lattialammitys', 'temperature') %}
+                {% if is_state('timer.lammitys_sekoitus_pulssi', 'active') or is_state('binary_sensor.lammitys_sekoituspumppu_paalla', 'on') %}Varaaja ← KV
+                {% elif is_state('switch.pannuhuone_lapivirtausvastus', 'on') %}Varaaja ← vastus
+                {% elif is_state('binary_sensor.lammitys_varaaja_tarve', 'on') %}Varaaja kutsuu
+                {% else %}Varaaja {{ t }}°{% endif %}
+              tap_action:
+                action: more-info
+                entity: climate.lattialammitys
             - type: entity
               entity: input_number.lammitys_menovesi_hystereesi
               icon: mdi:thermometer-chevron-down

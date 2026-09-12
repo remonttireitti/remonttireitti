@@ -2,8 +2,14 @@
 # → config/packages/lammitys_ohjaus.yaml
 # Tiedostonimi ILMAN yhdysviivaa. EI Lovelace-kortti (älä laita type: vertical-stack).
 #
-# Huonekohtaiset termostaatit + sekoitusventtiili (climate.lattialammitys)
+# Huonekohtaiset termostaatit + varaajan termostaatti (climate.lattialammitys)
 # + lattialämmityspumppu (tasmota2) + sekoituspumppu (KV → lämmitysvaraaja).
+#
+# climate.lattialammitys on varaajan generic thermostat. Sen heater
+# switch.energia_mittaus_koko_talo on virtuaalinen (energiamittaus) —
+# se EI lämmitä varaajaa. Kun termostaatti näyttää heating, oikea lämpö
+# tulee sekoituspumpusta (KV kuuma) tai läpivirtausvastuksesta (KV kylmä,
+# kierto päällä). Älä ohjaa energia_mittaus_koko_talo-kytkintä lämmittimeksi.
 #
 # Menovesi:          sensor.vilp_ohjaus_lampotilat_air_temperature_10 (LL meno)
 # Paluu:             sensor.vilp_ohjaus_lampotilat_air_temperature_9
@@ -71,7 +77,9 @@ homeassistant:
     switch.pannuhuone_lapivirtausvastus:
       friendly_name: "Läpivirtausvastus 4 kW. Lämmittää suoraan menovettä (anturi 10). Vaati virtauksen — kiertopumppu (tasmota2) päällä ≥ 4 min. Pulssi vain kun KV kylmä ja lattia tarvitsee lämpöä. Kielletty jos hetkellinen ≥ 50 c/t"
     climate.lattialammitys:
-      friendly_name: "Sekoitusventtiili — asettaa lattian menoveden tavoitelämpötilan"
+      friendly_name: "Lämmitysvaraajan termostaatti — tavoite käyrästä. Heater switch.energia_mittaus_koko_talo on virtuaalinen, ei lämmitä. Lämpö: sekoituspumppu KV:stä tai läpivirtausvastus"
+    switch.energia_mittaus_koko_talo:
+      friendly_name: "Virtuaalinen — climate.lattialammitys kytkee tämän kun varaaja kutsuu lämpöä. Ei lämmitä mitään"
     sensor.lammitys_ohjaus_tila:
       friendly_name: "Lämmitys ohjaus — tila (historia kertoo mitä tehtiin ja miksi)"
     binary_sensor.lammitys_korotus_paalla:
@@ -746,17 +754,17 @@ script:
                 preset_mode: "{{ clear_preset }}"
 
   lammitys_aseta_sekoitus:
-    alias: Lämmitys aseta sekoitusventtiili
-    description: Sisäinen. Automaatio Lämmitys sekoitusventtiili kutsuu tätä. Älä aja käsin. Kirjoittaa olemassa olevaan climate.lattialammitys -laitteeseen, ei luo toista sekoitinta.
+    alias: Lämmitys aseta varaajan termostaatti
+    description: Sisäinen. Kirjoittaa climate.lattialammitys -varaajalle tavoitteen. Heater on virtuaalinen, ei lämmitä. Älä aja käsin.
     mode: single
     fields:
       active:
-        description: Sallitaanko lämmitys (käyttövesi > 55 °C)
+        description: Pidä termostaatti heat-tilassa (aina, paitsi jos lämmitys kokonaan pois)
         required: true
         selector:
           boolean:
       temperature:
-        description: Sekoituslämpötila °C
+        description: Varaajan tavoite °C
         required: true
         selector:
           number:
@@ -1822,9 +1830,8 @@ template:
           {% set price = states('sensor.energi_data_service') | float(none) %}
           {% set ennakko = states('sensor.lammitys_hinta_ennakko') | float(none) %}
           {% set look = states('input_number.lammitys_hinta_ennakko_h') | int(6) %}
-          {% if kv is none %}Ei käyttövesidataa
-          {% elif kv <= 55 %}Pois — käyttövesi {{ kv | round(1) }} °C (raja 55 °C)
-          {% else %}Sekoitus {{ tavoite | round(1) }} °C (käyrä {{ kayra | round(1) }}°{% if adj != 0 %}, hinta {{ adj | round(1) }}° @ {{ price | round(1) }} c nyt{% if ennakko is not none %}, ennakko {{ ennakko | round(1) }} c / {{ look }} h{% endif %}{% endif %}, KV {{ kv | round(1) }} °C){% endif %}
+          {% if tavoite is none %}Ei varaajatavoitetta
+          {% else %}Varaaja-termostaatti {{ tavoite | round(1) }} °C (käyrä {{ kayra | round(1) if kayra is not none else '?' }}°{% if adj != 0 %}, hinta {{ adj | round(1) }}° @ {{ price | round(1) if price is not none else '?' }} c nyt{% if ennakko is not none %}, ennakko {{ ennakko | round(1) }} c / {{ look }} h{% endif %}{% endif %}{% if kv is not none %}, KV {{ kv | round(1) }} °C{% endif %}) · heater virtuaalinen, ei lämmitä{% endif %}
       - name: Miksi sekoituspumppu on päällä tai pois
         unique_id: lammitys_menovesi_teksti
         icon: mdi:pipe-valve
@@ -1856,7 +1863,7 @@ template:
           {% elif is_state('timer.lammitys_sekoitus_pulssi', 'active') %}Pulssi {{ states('input_number.lammitys_sekoitus_pulssi_s') | int(30) }} s — KV {{ kv | round(1) }} °C → varaaja {{ tank | round(1) }} °C (meno tulee varaajasta)
           {% elif is_state('timer.lammitys_sekoitus_odota', 'active') %}Odottaa KV {{ states('input_number.lammitys_sekoitus_odota_s') | int(90) }} s · edellinen lasku {{ states('input_number.lammitys_kv_viime_lasku') }} °C · KV {{ kv | round(1) }} °C
           {% elif solar_block %}Sekoituspumppu pois — aurinko lämmittää samaa piiriä ({{ solar_p }} kW), ei kilpailla
-          {% elif kv < kv_on and not pump_on %}Sekoituspumppu odottaa — KV {{ kv | round(1) }} °C (päälle ≥ {{ kv_on | round(1) }} °C, ettei KV laske liikaa)
+          {% elif kv < kv_on and not pump_on %}{% if is_state('binary_sensor.lammitys_varaaja_tarve', 'on') %}Varaaja kutsuu lämpöä — KV {{ kv | round(1) }} °C liian kylmä sekoitukselle (päälle ≥ {{ kv_on | round(1) }} °C), läpivirtausvastus jos kierto päällä{% else %}Sekoituspumppu odottaa — KV {{ kv | round(1) }} °C (päälle ≥ {{ kv_on | round(1) }} °C, ettei KV laske liikaa){% endif %}
           {% elif kv < tank + delta %}Sekoituspumppu pois — KV {{ kv | round(1) }} °C ei ole tarpeeksi kuumempi kuin varaaja {{ tank | round(1) }} °C (ero ≥ {{ delta | round(1) }} °C)
           {% elif tank >= katto %}Sekoituspumppu pois — varaaja {{ tank | round(1) }} °C (katto {{ katto | round(1) }} °C)
           {% elif solar_on and raja is not none and tank >= raja %}Aurinko lämmittää — sekoituspumppu lepää kunnes varaaja {{ raja | round(1) }} °C
@@ -1870,6 +1877,27 @@ template:
         icon: mdi:valve
         state: >
           {{ states('sensor.vilp_ohjaus_lampotilat_air_temperature_8') | float(0) > 55 }}
+      - name: Lammitys varaaja tarve
+        unique_id: lammitys_varaaja_tarve
+        icon: mdi:water-boiler
+        device_class: heat
+        state: >
+          {% set mode = states('climate.lattialammitys') %}
+          {% set act = state_attr('climate.lattialammitys', 'hvac_action') %}
+          {% set cur = state_attr('climate.lattialammitys', 'current_temperature') | float(none) %}
+          {% set tgt = state_attr('climate.lattialammitys', 'temperature') | float(none) %}
+          {% set tank = states('sensor.vilp_ohjaus_lampotilat_air_temperature_13') | float(none) %}
+          {% set tavoite = states('sensor.lammitys_sekoitus_kaytto') | float(35) %}
+          {% set extra = states('input_number.lammitys_hinta_nosto_max') | float(2) if is_state('binary_sensor.lammitys_ennakoiva', 'on') else 0 %}
+          {% set katto = states('input_number.lammitys_kayra_meno_max') | float(48) %}
+          {% set raja = [tavoite + extra, katto] | min %}
+          {% set mitta = cur if cur is not none else tank %}
+          {{ mode == 'heat'
+             and (
+               act == 'heating'
+               or (mitta is not none and tgt is not none and mitta < tgt)
+               or (mitta is not none and mitta < raja)
+             ) }}
       - name: Lammitys aurinko lammittaa
         unique_id: lammitys_aurinko_lammittaa
         icon: mdi:solar-power
@@ -1975,6 +2003,7 @@ template:
           - switch.sonoff_4_ch_pro_2_tasmota2
           - switch.pannuhuone_lapivirtausvastus
           - binary_sensor.lammitys_ll_tarve
+          - binary_sensor.lammitys_varaaja_tarve
           - input_select.lammitys_vastus
           - sensor.vilp_ohjaus_lampotilat_air_temperature_8
           - sensor.vilp_ohjaus_lampotilat_air_temperature_10
@@ -2016,7 +2045,10 @@ template:
           {% set kierto_ok = is_state('switch.sonoff_4_ch_pro_2_tasmota2', 'on') and e is not none and (as_timestamp(now()) - as_timestamp(e.last_changed)) >= min_s %}
           {{ is_state('input_select.lammitys_vastus', 'Automaatti')
              and not is_state('binary_sensor.lammitys_hetki_rajoita_vesi', 'on')
-             and is_state('binary_sensor.lammitys_ll_tarve', 'on')
+             and (is_state('binary_sensor.lammitys_ll_tarve', 'on')
+                  or (is_state('binary_sensor.lammitys_varaaja_tarve', 'on')
+                      and ((states('sensor.lammitys_vesi_huone_raja') | float(0)) > 0
+                           or is_state('binary_sensor.lammitys_ennakoiva', 'on'))))
              and kierto_ok
              and kv is not none and kv < kv_on
              and meno is not none
@@ -2041,7 +2073,8 @@ template:
           {% elif not is_state('switch.sonoff_4_ch_pro_2_tasmota2', 'on') %}Kierto pois — ei läpivirtauksia, vastus kielletty
           {% elif is_state('switch.pannuhuone_lapivirtausvastus', 'on') %}Pulssi {{ nyt }} s — lämmittää menovettä {{ meno | round(1) if meno is not none else '?' }} °C
           {% elif is_state('timer.lammitys_vastus_odota', 'active') %}Tauko {{ pois }} s · seuraava {{ nyt }} s · meno {{ meno | round(1) if meno is not none else '?' }} °C
-          {% elif not is_state('binary_sensor.lammitys_ll_tarve', 'on') %}Ei lattiatarvetta — vastus pois
+          {% elif not is_state('binary_sensor.lammitys_ll_tarve', 'on')
+               and not is_state('binary_sensor.lammitys_varaaja_tarve', 'on') %}Ei lattia- eikä varaajatarvetta — vastus pois
           {% elif not is_state('binary_sensor.lammitys_ll_pumppu_valmis', 'on') %}Odottaa kiertoa {{ [min_m * 60 - kierto_s, 0] | max }} s (min {{ min_m }} min) ennen vastusta
           {% elif kv is none %}Ei käyttövesidataa — vastus pois
           {% elif kv >= kv_on %}KV {{ kv | round(1) }} °C riittää — sekoituspumppu lataa varaajaa, vastus pois
@@ -2452,14 +2485,19 @@ automation:
           - sensor.ulkolampotila_met_no
           - sensor.energi_data_service
           - sensor.vilp_ohjaus_lampotilat_air_temperature_8
+          - sensor.vilp_ohjaus_lampotilat_air_temperature_13
           - sensor.lammitys_sekoitus_kaytto
+          - binary_sensor.lammitys_ennakoiva
+          - climate.lattialammitys
     action:
       - variables:
-          kv_ok: "{{ states('sensor.vilp_ohjaus_lampotilat_air_temperature_8') | float(0) > 55 }}"
-          lampo: "{{ states('sensor.lammitys_sekoitus_kaytto') | float(35) }}"
+          tavoite: "{{ states('sensor.lammitys_sekoitus_kaytto') | float(35) }}"
+          extra: "{{ states('input_number.lammitys_hinta_nosto_max') | float(2) if is_state('binary_sensor.lammitys_ennakoiva', 'on') else 0 }}"
+          katto: "{{ states('input_number.lammitys_kayra_meno_max') | float(48) }}"
+          lampo: "{{ [((tavoite | float(35)) + (extra | float(0))), (katto | float(48))] | min }}"
       - action: script.lammitys_aseta_sekoitus
         data:
-          active: "{{ kv_ok }}"
+          active: true
           temperature: "{{ lampo }}"
 
   - id: lammitys_sekoituspumppu
@@ -2503,6 +2541,8 @@ automation:
           - binary_sensor.lammitys_aurinko_lammittaa
           - binary_sensor.lammitys_ennakoiva
           - binary_sensor.lammitys_halpa_sahko
+          - binary_sensor.lammitys_varaaja_tarve
+          - climate.lattialammitys
     action:
       - variables:
           pump_e: >
@@ -2649,7 +2689,9 @@ automation:
       - platform: time_pattern
         minutes: "/1"
       - platform: state
-        entity_id: binary_sensor.lammitys_ll_tarve
+        entity_id:
+          - binary_sensor.lammitys_ll_tarve
+          - binary_sensor.lammitys_varaaja_tarve
       - platform: state
         entity_id:
           - switch.pannuhuone_lapivirtausvastus
@@ -2689,7 +2731,14 @@ automation:
                      or state_attr('climate.glen_lattialammitys', 'temperature') | float(17) > 17
                      or state_attr('climate.nele_lattialammitys', 'temperature') | float(17) > 17
                      or state_attr('climate.eteisen_lattialammitys', 'temperature') | float(17) > 17
-                   )) }}
+                   ))
+               or (is_state('binary_sensor.lammitys_varaaja_tarve', 'on')
+                   and is_state('input_select.lammitys_vastus', 'Automaatti')
+                   and not is_state('binary_sensor.lammitys_hetki_rajoita_vesi', 'on')
+                   and (states('sensor.vilp_ohjaus_lampotilat_air_temperature_8') | float(99))
+                       < (states('input_number.lammitys_kv_pumppu_paalle') | float(58))
+                   and ((states('sensor.lammitys_vesi_huone_raja') | float(0)) > 0
+                        or is_state('binary_sensor.lammitys_ennakoiva', 'on'))) }}
           vastus_kaytossa: >
             {{ is_state('switch.pannuhuone_lapivirtausvastus', 'on')
                or is_state('timer.lammitys_vastus_pulssi', 'active')
@@ -2737,9 +2786,10 @@ automation:
         to: idle
     action:
       - if:
-          - condition: state
-            entity_id: binary_sensor.lammitys_ll_tarve
-            state: "off"
+          - condition: template
+            value_template: >
+              {{ is_state('binary_sensor.lammitys_ll_tarve', 'off')
+                 and is_state('binary_sensor.lammitys_varaaja_tarve', 'off') }}
         then:
           - action: script.lammitys_vastus_pois
           - action: switch.turn_off
@@ -2761,6 +2811,7 @@ automation:
         entity_id:
           - switch.pannuhuone_lapivirtausvastus
           - binary_sensor.lammitys_ll_tarve
+          - binary_sensor.lammitys_varaaja_tarve
           - binary_sensor.lammitys_vastus_sallittu
           - binary_sensor.lammitys_hetki_rajoita_vesi
           - sensor.vilp_ohjaus_lampotilat_air_temperature_10
@@ -2774,7 +2825,8 @@ automation:
             {{ 1 if is_state('input_select.lammitys_vastus', 'Pois')
                or is_state('binary_sensor.lammitys_hetki_rajoita_vesi', 'on')
                or not is_state('switch.sonoff_4_ch_pro_2_tasmota2', 'on')
-               or not is_state('binary_sensor.lammitys_ll_tarve', 'on')
+               or not (is_state('binary_sensor.lammitys_ll_tarve', 'on')
+                       or is_state('binary_sensor.lammitys_varaaja_tarve', 'on'))
                or (states('sensor.vilp_ohjaus_lampotilat_air_temperature_10') | float(0) >= (states('input_number.lammitys_kayra_meno_max') | float(48)))
                or (is_state('timer.lammitys_vastus_pulssi', 'active')
                    and (((states('sensor.vilp_ohjaus_lampotilat_air_temperature_10') | float(0)) - (states('input_number.lammitys_vastus_meno_ennen') | float(0))) >= (states('input_number.lammitys_vastus_max_nousu') | float(1.5))))
@@ -2823,6 +2875,7 @@ automation:
           - binary_sensor.lammitys_ll_pumppu_valmis
           - switch.sonoff_4_ch_pro_2_tasmota2
           - binary_sensor.lammitys_ll_tarve
+          - binary_sensor.lammitys_varaaja_tarve
           - input_select.lammitys_vastus
     action:
       - variables:
