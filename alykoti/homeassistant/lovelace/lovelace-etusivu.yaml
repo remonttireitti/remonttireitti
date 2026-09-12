@@ -313,7 +313,7 @@ cards:
                   .value { font-size: 15px !important; font-weight: 700 !important; }
                   .unit-inline { font-size: 8px !important; font-weight: 600 !important; }
                   .label-now { font-size: 6px !important; font-weight: 700 !important; }
-                  .unit { font-size: 7px !important; font-weight: 600 !important; }
+                  .unit { font-size: 0 !important; line-height: 0 !important; }
                   .status { font-size: 7px !important; font-weight: 600 !important; }
                   .panel { padding: 6px 4px 4px !important; }
                   .stage { margin: 0 !important; }
@@ -329,11 +329,11 @@ cards:
                 entity: sensor.vilp_ohjaus_lampotilat_air_temperature_13
                 name: Varaaja
                 unit: °C
-                min: 15
+                min: 20
                 max: 60
                 normal: 40
-                warning: 30
-                critical: 25
+                warning: 41
+                critical: 50
                 precision: 1
                 rolling_numbers: false
                 background: transparent
@@ -342,10 +342,10 @@ cards:
                 name: Käyttövesi
                 unit: °C
                 min: 40
-                max: 70
-                normal: 55
-                warning: 62
-                critical: 68
+                max: 90
+                normal: 70
+                warning: 75
+                critical: 80
                 precision: 1
                 rolling_numbers: false
                 background: transparent
@@ -376,6 +376,44 @@ cards:
         - type: custom:mushroom-chips-card
           alignment: center
           chips:
+            - type: template
+              icon: mdi:water-boiler
+              icon_color: >
+                {% set t = states('sensor.vilp_ohjaus_lampotilat_air_temperature_13') | float(none) %}
+                {% if t is none %}grey
+                {% elif t > 50 %}red
+                {% elif t > 40 %}orange
+                {% elif t < 35 %}blue
+                {% else %}green{% endif %}
+              content: >
+                {% set t = states('sensor.vilp_ohjaus_lampotilat_air_temperature_13') | float(none) %}
+                {% if t is none %}Varaaja ?
+                {% elif t > 50 %}Varaaja kriittinen
+                {% elif t > 40 %}Varaaja varoitus
+                {% elif t < 35 %}Varaaja matala
+                {% else %}Varaaja normaali{% endif %}
+              tap_action:
+                action: more-info
+                entity: sensor.vilp_ohjaus_lampotilat_air_temperature_13
+            - type: template
+              icon: mdi:water-thermometer
+              icon_color: >
+                {% set t = states('sensor.vilp_ohjaus_lampotilat_air_temperature_8') | float(none) %}
+                {% if t is none %}grey
+                {% elif t > 80 %}red
+                {% elif t >= 75 %}orange
+                {% elif t < 65 %}blue
+                {% else %}green{% endif %}
+              content: >
+                {% set t = states('sensor.vilp_ohjaus_lampotilat_air_temperature_8') | float(none) %}
+                {% if t is none %}Käyttövesi ?
+                {% elif t > 80 %}Käyttövesi kriittinen
+                {% elif t >= 75 %}Käyttövesi varoitus
+                {% elif t < 65 %}Käyttövesi matala
+                {% else %}Käyttövesi normaali{% endif %}
+              tap_action:
+                action: more-info
+                entity: sensor.vilp_ohjaus_lampotilat_air_temperature_8
             - type: template
               icon: mdi:pump
               icon_color: "{{ 'green' if is_state('switch.sonoff_4_ch_pro_2_tasmota2', 'on') else 'grey' }}"
