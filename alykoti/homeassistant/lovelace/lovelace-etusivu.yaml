@@ -543,17 +543,21 @@ cards:
               hold_action:
                 action: more-info
                 entity: input_select.lammitys_vastus
-        - type: logbook
-          hours_to_show: 24
-          entities:
-            - sensor.lammitys_ohjaus_tila
-            - binary_sensor.lammitys_hetki_rajoita_huone
-            - binary_sensor.lammitys_hetki_rajoita_vesi
-            - binary_sensor.lammitys_korotus_paalla
-            - binary_sensor.lammitys_ennakoiva
-            - binary_sensor.lammitys_halpa_sahko
-            - binary_sensor.lammitys_menovesi_nosto
-            - binary_sensor.lammitys_menovesi_rajoitus
+        - type: custom:mushroom-template-card
+          primary: Katso toimintahistoria
+          icon: mdi:history
+          icon_color: grey
+          tap_action:
+            action: navigate
+            navigation_path: >-
+              /logbook?entity_id=sensor.lammitys_ohjaus_tila,binary_sensor.lammitys_hetki_rajoita_huone,binary_sensor.lammitys_hetki_rajoita_vesi,binary_sensor.lammitys_korotus_paalla,binary_sensor.lammitys_ennakoiva,binary_sensor.lammitys_halpa_sahko,binary_sensor.lammitys_menovesi_nosto,binary_sensor.lammitys_menovesi_rajoitus
+          card_mod:
+            style: |
+              ha-card {
+                background: none !important;
+                border: none !important;
+                box-shadow: none !important;
+              }
   - type: custom:mod-card
     card_mod:
       style: |
