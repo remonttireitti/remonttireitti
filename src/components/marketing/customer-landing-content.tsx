@@ -121,7 +121,7 @@ export function CustomerLandingContent() {
             {
               step: "3",
               title: "Valitse tekijä",
-              body: "Hyväksy paras tarjous. Maksat työn urakoitsijalle — Remonttireitti ei veloita sinulta.",
+              body: "Hyväksy tarjous tai vastatarjous. Maksat työn urakoitsijalle — Remonttireitti ei veloita sinulta.",
             },
           ].map((s) => (
             <li key={s.step} className="flex gap-3">

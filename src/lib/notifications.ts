@@ -15,6 +15,7 @@ export type NotificationType =
   | "new_project_published"
   | "bid_request_reminder"
   | "review_reminder"
+  | "huoltokirja_sync"
   | "project_inactivity_warning"
   | "project_auto_closed";
 
@@ -46,6 +47,7 @@ export const notificationTypeLabels: Record<NotificationType, string> = {
   new_project_published: "Tarjouspyyntö",
   bid_request_reminder: "Muistutus",
   review_reminder: "Arvostelu",
+  huoltokirja_sync: "Huoltokirja",
   project_inactivity_warning: "Tarjouspyyntö",
   project_auto_closed: "Tarjouspyyntö",
 };

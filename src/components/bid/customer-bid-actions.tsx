@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import {
   acceptBid,
   rejectBid,
@@ -60,6 +60,12 @@ export function CustomerBidActions({
   const canAcceptFinal = !stale && !counterPending;
   const splitOffer = bidHasSplitEquipmentOffer(bid);
 
+  useEffect(() => {
+    if (state.success) {
+      setShowCounterForm(false);
+    }
+  }, [state.success]);
+
   return (
     <div className="space-y-2">
       {counterLabel && (
@@ -87,6 +93,12 @@ export function CustomerBidActions({
           Urakoitsija voi hyväksyä sen tai hylätä ja säilyttää alkuperäisen hinnan{" "}
           <strong>{formatEurosFromCents(bid.amount_cents)}</strong>. Et voi
           hyväksyä tarjousta ennen vastausta.
+          {bid.counter_message?.trim() && (
+            <>
+              {" "}
+              Viestisi: &ldquo;{bid.counter_message.trim()}&rdquo;
+            </>
+          )}
         </p>
       )}
 
@@ -179,9 +191,9 @@ export function CustomerBidActions({
             setShowCounterForm(true);
           }}
           disabled={counterPending || stale}
-          className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm font-medium text-stone-700 hover:bg-stone-50 disabled:opacity-60"
+          className="w-full rounded-lg border-2 border-amber-300 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-950 hover:bg-amber-100 disabled:opacity-60"
         >
-          {counterPending ? "Vastatarjous odottaa" : "Jätä vastatarjous"}
+          {counterPending ? "Vastatarjous odottaa" : "Tingaa — jätä vastatarjous"}
         </button>
       ) : (
         <form

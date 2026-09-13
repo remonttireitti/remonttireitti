@@ -34,7 +34,7 @@ export const HOME_FAQ_ITEMS: HomeFaqItem[] = [
     id: "vastatarjous",
     question: "Voiko remontin hinnasta neuvotella?",
     answer:
-      "Kyllä. Jos tarjous tuntuu korkealta, voit ehdottaa omaa hintaa vastatarjouksella. Urakoitsija voi hyväksyä, hylätä tai jättää uuden tarjouksen — neuvottelu tapahtuu alustalla.",
+      "Kyllä. Jos tarjous tuntuu korkealta, voit ehdottaa omaa hintaa vastatarjouksella. Urakoitsija voi hyväksyä sen (hinta päivittyy) tai hylätä sen (alkuperäinen hinta säilyy). Voit myös jättää uuden vastatarjouksen hylkäyksen jälkeen.",
   },
   {
     id: "lampopumppu",

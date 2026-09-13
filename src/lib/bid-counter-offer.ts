@@ -33,3 +33,18 @@ export const counterOfferStatusLabels: Record<CounterOfferStatus, string> = {
   accepted: "Vastatarjous hyväksytty",
   declined: "Vastatarjous hylätty",
 };
+
+export function counterOfferBadgeClass(
+  status: CounterOfferStatus | null,
+): string {
+  switch (status) {
+    case "pending":
+      return "bg-amber-100 text-amber-900 ring-amber-200";
+    case "accepted":
+      return "bg-sky-100 text-sky-900 ring-sky-200";
+    case "declined":
+      return "bg-stone-100 text-stone-700 ring-stone-200";
+    default:
+      return "";
+  }
+}

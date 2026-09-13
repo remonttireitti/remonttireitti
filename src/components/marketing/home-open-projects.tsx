@@ -9,10 +9,20 @@ function formatBudget(min: number | null, max: number | null): string | null {
   return `enint. ${max!.toLocaleString("fi-FI")} €`;
 }
 
-export function HomeOpenProjects({ projects }: { projects: PublicOpenProject[] }) {
-  if (projects.length === 0) return null;
+export function HomeOpenProjects({
+  projects,
+  totalCount,
+}: {
+  projects: PublicOpenProject[];
+  totalCount: number;
+}) {
+  if (totalCount === 0 && projects.length === 0) return null;
 
   const preview = projects.slice(0, 3);
+  const countLabel =
+    totalCount > projects.length
+      ? `${totalCount} (näytetään ${preview.length})`
+      : String(totalCount);
 
   return (
     <section className="border-t border-stone-200 bg-white py-12 sm:py-14">
@@ -23,7 +33,7 @@ export function HomeOpenProjects({ projects }: { projects: PublicOpenProject[] }
               Juuri nyt
             </p>
             <h2 className="mt-1 text-2xl font-bold tracking-tight text-stone-900">
-              Avoimia tarjouspyyntöjä: {projects.length}
+              Avoimia tarjouspyyntöjä: {countLabel}
             </h2>
             <p className="mt-2 max-w-xl text-sm text-stone-600">
               Urakoitsijat voivat tarjota ilmaiseksi. Asiakkaalle palvelu on aina

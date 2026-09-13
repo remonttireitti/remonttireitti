@@ -30,12 +30,21 @@ import {
   fetchArchivedUserNotifications,
   fetchUserNotifications,
 } from "@/lib/notifications-server";
-import { fetchPublicOpenProjects } from "@/lib/public-projects-server";
+import { HomePlatformStats } from "@/components/marketing/home-platform-stats";
+import {
+  countPublicOpenProjects,
+  fetchPublicOpenProjects,
+} from "@/lib/public-projects-server";
+import { fetchPublicPlatformStats } from "@/lib/public-platform-stats";
 import { brand } from "@/lib/brand-theme";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function Home() {
-  const openProjects = await fetchPublicOpenProjects(12);
+  const [openProjects, openProjectCount, platformStats] = await Promise.all([
+    fetchPublicOpenProjects(12),
+    countPublicOpenProjects(),
+    fetchPublicPlatformStats(),
+  ]);
   const user = await getSessionUser();
   let notifications: Awaited<ReturnType<typeof fetchUserNotifications>> = [];
   let archivedNotifications: Awaited<
@@ -119,7 +128,12 @@ export default async function Home() {
           </section>
         )}
 
-        <HomeOpenProjects projects={openProjects} />
+        <HomeOpenProjects
+          projects={openProjects}
+          totalCount={openProjectCount}
+        />
+
+        {platformStats && <HomePlatformStats stats={platformStats} />}
 
         <section className="border-t border-stone-200 bg-white py-14">
           <div className={brand.containerWide}>
