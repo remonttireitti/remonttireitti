@@ -814,3 +814,27 @@ COMMENT ON COLUMN public.bids.offered_trade_ids IS
 
 COMMENT ON COLUMN public.bids.turnkey_coordination IS
   'turnkey: subcontract = alihankkijat, customer_sources = asiakas hankkii puuttuvat.';
+
+
+-- ========== 20260913200000_community_trades.sql ==========
+
+ALTER TABLE public.trades
+  ADD COLUMN IF NOT EXISTS source text NOT NULL DEFAULT 'seed';
+
+ALTER TABLE public.trades
+  ADD COLUMN IF NOT EXISTS created_by uuid REFERENCES public.profiles (id) ON DELETE SET NULL;
+
+ALTER TABLE public.trades
+  DROP CONSTRAINT IF EXISTS trades_source_check;
+
+ALTER TABLE public.trades
+  ADD CONSTRAINT trades_source_check
+  CHECK (source IN ('seed', 'community'));
+
+CREATE INDEX IF NOT EXISTS trades_source_idx ON public.trades (source);
+
+COMMENT ON COLUMN public.trades.source IS
+  'seed = oletusvalikoima, community = käyttäjien ehdottama ammatti';
+
+COMMENT ON COLUMN public.trades.created_by IS
+  'Ensimmäinen urakoitsija joka ehdotti community-ammattia';

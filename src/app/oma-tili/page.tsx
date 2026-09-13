@@ -16,7 +16,7 @@ import { ContractorProfileForm } from "@/components/contractor/contractor-profil
 import { ContractorServiceAreaForm } from "@/components/contractor/contractor-service-area-form";
 import { ContractorWorkPreferencesForm } from "@/components/contractor/contractor-work-preferences-form";
 import { fetchContractorBidDefaultsBundle } from "@/lib/contractor-bid-defaults-server";
-import { PUBLIC_CONTRACTOR_TRADE_SLUGS } from "@/constants/contractor-trades";
+import { getContractorSelectableTrades } from "@/lib/contractor-trade-options";
 import { fetchHeatPumpCatalog, fetchJobCatalog } from "@/lib/job-catalog-server";
 import { getContractorQualifications } from "@/lib/save-contractor-qualifications";
 import {
@@ -86,10 +86,7 @@ export default async function AccountPage({
       fetchJobCatalog(),
       fetchHeatPumpCatalog(),
     ]);
-    const tradeSlugs = new Set<string>(PUBLIC_CONTRACTOR_TRADE_SLUGS);
-    contractorTrades = jobCatalog.trades
-      .filter((t) => tradeSlugs.has(t.slug))
-      .map((t) => ({ id: t.id, slug: t.slug, name_fi: t.name_fi }));
+    contractorTrades = getContractorSelectableTrades(jobCatalog.trades);
     heatPumpJobTypes = pumpCatalog.jobTypes.map((j) => ({
       id: j.id,
       slug: j.slug,

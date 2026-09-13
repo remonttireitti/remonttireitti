@@ -9,6 +9,7 @@ import {
   parseTradeIds,
   validateContractorQualifications,
 } from "@/lib/contractor-qualifications";
+import { resolveContractorTradeIdsFromForm } from "@/lib/resolve-contractor-trades";
 import { saveContractorQualifications } from "@/lib/save-contractor-qualifications";
 import { notifyAdminsNewRegistration } from "@/lib/admin-user-notify";
 import { syncContractorAccount } from "@/lib/sync-contractor";
@@ -92,10 +93,18 @@ export async function signUp(
       .update({ role: "contractor" })
       .eq("id", data.user.id);
 
+    const resolvedTrades = await resolveContractorTradeIdsFromForm(
+      formData,
+      data.user.id,
+    );
+    if (resolvedTrades.error) {
+      return { error: resolvedTrades.error };
+    }
+
     const saveRes = await saveContractorQualifications({
       contractorId: data.user.id,
       companyName: companyName || "Yritys (täydennä profiilissa)",
-      tradeIds: parseTradeIds(formData),
+      tradeIds: resolvedTrades.tradeIds,
       jobTypeIds: parseJobTypeIds(formData),
       refrigerantLicense: parseRefrigerantLicense(formData),
       electricalQualification: parseElectricalQualification(formData),

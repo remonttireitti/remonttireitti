@@ -57,7 +57,7 @@ export async function fetchJobCatalog(): Promise<JobCatalog> {
   const [tradesRes, jobTypesRes, linksRes] = await Promise.all([
     supabase
       .from("trades")
-      .select("id, slug, name_fi, description_fi, sort_order")
+      .select("id, slug, name_fi, description_fi, sort_order, source")
       .eq("is_active", true)
       .order("sort_order"),
     supabase
