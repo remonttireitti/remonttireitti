@@ -50,6 +50,11 @@ export function SiteFooter() {
                   Hinta-arkisto
                 </Link>
               </li>
+              <li>
+                <Link href="/esimerkki/raportti" className="text-stone-600 hover:text-sky-700">
+                  Esimerkkiraportti
+                </Link>
+              </li>
             </ul>
           </div>
 

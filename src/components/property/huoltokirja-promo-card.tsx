@@ -44,7 +44,11 @@ export function HuoltokirjaPromoCard({
           <p className="mt-3 max-w-xl text-sm leading-relaxed text-stone-600">
             Tallenna kiinteistökirja, rakennussuunnitelmat, laiterekisteri ja
             rakennusosat — kuitit ja takuut liitteinä. Valmiit urakat
-            työhistoriaan automaattisesti.
+            työhistoriaan automaattisesti.{" "}
+            <Link href="/esimerkki/raportti" className="font-medium text-sky-800 hover:underline">
+              Katso esimerkkiraportti
+            </Link>
+            .
           </p>
 
           {hasProperties ? (
