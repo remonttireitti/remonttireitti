@@ -5,6 +5,7 @@ import { NavLinkPendingContent } from "@/components/navigation/nav-link-pending"
 
 const links = [
   { href: "/admin", label: "Käyttäjät" },
+  { href: "/admin/tarjousvahti", label: "Tarjousvahti" },
   { href: "/admin/pyynnot", label: "Tarjouspyynnöt" },
   { href: "/admin/tilastot", label: "Tilastot" },
   { href: "/admin/kysynta", label: "Kysyntä" },

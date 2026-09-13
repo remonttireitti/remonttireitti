@@ -1,9 +1,11 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type {
   BidEvaluationCategory,
+  BidEvaluationSettings,
   BidEvaluationStatus,
   BidEvaluationVerdict,
   BidEvaluationDimension,
+  EvaluatorProfile,
 } from "@/lib/bid-evaluation";
 
 export type BidEvaluationRequestRow = {
@@ -17,6 +19,7 @@ export type BidEvaluationRequestRow = {
   submitted_at: string | null;
   completed_at: string | null;
   assigned_evaluator_id: string | null;
+  quoted_total_cents: number | null;
   created_at: string;
 };
 
@@ -58,7 +61,7 @@ export async function fetchCustomerEvaluationRequests(
   const { data } = await supabase
     .from("bid_evaluation_requests")
     .select(
-      "id, customer_id, project_id, category, heat_pump_type, context_notes, status, submitted_at, completed_at, assigned_evaluator_id, created_at",
+      "id, customer_id, project_id, category, heat_pump_type, context_notes, status, submitted_at, completed_at, assigned_evaluator_id, quoted_total_cents, created_at",
     )
     .eq("customer_id", customerId)
     .order("created_at", { ascending: false });
@@ -73,7 +76,7 @@ export async function fetchEvaluationRequestById(
   const { data } = await supabase
     .from("bid_evaluation_requests")
     .select(
-      "id, customer_id, project_id, category, heat_pump_type, context_notes, status, submitted_at, completed_at, assigned_evaluator_id, created_at",
+      "id, customer_id, project_id, category, heat_pump_type, context_notes, status, submitted_at, completed_at, assigned_evaluator_id, quoted_total_cents, created_at",
     )
     .eq("id", requestId)
     .maybeSingle();
@@ -130,11 +133,44 @@ export async function fetchEvaluatorQueue(
   const { data } = await supabase
     .from("bid_evaluation_requests")
     .select(
-      "id, customer_id, project_id, category, heat_pump_type, context_notes, status, submitted_at, completed_at, assigned_evaluator_id, created_at",
+      "id, customer_id, project_id, category, heat_pump_type, context_notes, status, submitted_at, completed_at, assigned_evaluator_id, quoted_total_cents, created_at",
     )
     .in("category", categories)
     .in("status", ["submitted", "in_review"])
     .order("submitted_at", { ascending: true });
 
   return (data ?? []) as BidEvaluationRequestRow[];
+}
+
+export async function fetchBidEvaluationSettings(
+  supabase: SupabaseClient,
+): Promise<BidEvaluationSettings> {
+  const { data } = await supabase
+    .from("bid_evaluation_settings")
+    .select("pricing_mode, price_per_bid_cents")
+    .eq("id", 1)
+    .maybeSingle();
+
+  return {
+    pricing_mode: (data?.pricing_mode as BidEvaluationSettings["pricing_mode"]) ?? "free",
+    price_per_bid_cents: (data?.price_per_bid_cents ?? null) as number | null,
+  };
+}
+
+export async function fetchEvaluatorProfile(
+  supabase: SupabaseClient,
+  evaluatorId: string,
+): Promise<EvaluatorProfile> {
+  const { data } = await supabase
+    .from("evaluator_profiles")
+    .select("evaluator_id, accepting_reviews, unavailable_note, unavailable_set_by")
+    .eq("evaluator_id", evaluatorId)
+    .maybeSingle();
+
+  return {
+    evaluator_id: evaluatorId,
+    accepting_reviews: data?.accepting_reviews ?? true,
+    unavailable_note: (data?.unavailable_note as string | null) ?? null,
+    unavailable_set_by: (data?.unavailable_set_by as EvaluatorProfile["unavailable_set_by"]) ?? null,
+  };
 }

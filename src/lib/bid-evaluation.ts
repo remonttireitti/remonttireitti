@@ -111,3 +111,55 @@ export function averageScore(scores: (number | null | undefined)[]): number | nu
   if (valid.length === 0) return null;
   return valid.reduce((a, b) => a + b, 0) / valid.length;
 }
+
+export type BidEvaluationPricingMode = "free" | "paid_per_bid";
+
+export type BidEvaluationSettings = {
+  pricing_mode: BidEvaluationPricingMode;
+  price_per_bid_cents: number | null;
+};
+
+export type EvaluatorProfile = {
+  evaluator_id: string;
+  accepting_reviews: boolean;
+  unavailable_note: string | null;
+  unavailable_set_by: "self" | "admin" | null;
+};
+
+export function computeEvaluationQuoteCents(
+  settings: BidEvaluationSettings,
+  bidCount: number,
+): number {
+  if (settings.pricing_mode === "free" || bidCount < 1) return 0;
+  const perBid = settings.price_per_bid_cents ?? 0;
+  return perBid * bidCount;
+}
+
+export function formatEvaluationPriceLabel(
+  settings: BidEvaluationSettings,
+  bidCount = 1,
+): string {
+  if (settings.pricing_mode === "free") return "0 €";
+  const total = computeEvaluationQuoteCents(settings, bidCount);
+  const euros = Math.round(total / 100);
+  if (bidCount <= 1) {
+    const perBid = Math.round((settings.price_per_bid_cents ?? 0) / 100);
+    return `${perBid} € / tarjous`;
+  }
+  return `${euros} € (${bidCount} tarjousta)`;
+}
+
+export function evaluationPricingSummary(
+  settings: BidEvaluationSettings,
+  bidCount = 1,
+): string {
+  if (settings.pricing_mode === "free") {
+    return "Maksuton tarjousarvio — ei sido ostamaan mitään.";
+  }
+  const perBid = Math.round((settings.price_per_bid_cents ?? 0) / 100);
+  if (bidCount <= 1) {
+    return `Hinta ${perBid} € per arvioitava tarjous. Maksu otetaan käyttöön, jos arviointi ulkoistetaan.`;
+  }
+  const total = computeEvaluationQuoteCents(settings, bidCount);
+  return `Arvio ${Math.round(total / 100)} € (${perBid} € × ${bidCount} tarjousta). Maksu otetaan käyttöön, jos arviointi ulkoistetaan.`;
+}

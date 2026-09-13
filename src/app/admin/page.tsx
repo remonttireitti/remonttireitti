@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AdminNav } from "@/components/admin/admin-nav";
+import { EvaluatorAvailabilityAdminForm } from "@/components/admin/evaluator-availability-admin-form";
 import { EvaluatorScopeForm } from "@/components/admin/evaluator-scope-form";
 import { UserRowActions } from "@/components/admin/user-row-actions";
 import { SiteHeader } from "@/components/site-header";
@@ -41,12 +42,20 @@ export default async function AdminPage() {
     .from("evaluator_scopes")
     .select("evaluator_id, scope");
 
+  const { data: evaluatorProfileRows } = await admin
+    .from("evaluator_profiles")
+    .select("evaluator_id, accepting_reviews, unavailable_note, unavailable_set_by");
+
   const scopesByUser = new Map<string, string[]>();
   for (const row of evaluatorScopeRows ?? []) {
     const list = scopesByUser.get(row.evaluator_id as string) ?? [];
     list.push(row.scope as string);
     scopesByUser.set(row.evaluator_id as string, list);
   }
+
+  const profileByUser = new Map(
+    (evaluatorProfileRows ?? []).map((p) => [p.evaluator_id as string, p]),
+  );
 
   const contractorByUser = new Map((contractors ?? []).map((c) => [c.id, c]));
 
@@ -132,6 +141,26 @@ export default async function AdminPage() {
                   scopes={
                     scopesByUser.get(row.id) ??
                     (row.role === "admin" ? ["heat_pump", "general"] : [])
+                  }
+                />
+                <EvaluatorAvailabilityAdminForm
+                  userId={row.id}
+                  hasScopes={
+                    (scopesByUser.get(row.id)?.length ?? 0) > 0 ||
+                    row.role === "admin"
+                  }
+                  profile={
+                    profileByUser.has(row.id)
+                      ? {
+                          evaluator_id: row.id,
+                          accepting_reviews: profileByUser.get(row.id)!
+                            .accepting_reviews as boolean,
+                          unavailable_note: (profileByUser.get(row.id)!
+                            .unavailable_note as string | null) ?? null,
+                          unavailable_set_by: (profileByUser.get(row.id)!
+                            .unavailable_set_by as "self" | "admin" | null) ?? null,
+                        }
+                      : null
                   }
                 />
               </article>

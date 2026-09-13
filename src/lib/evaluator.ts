@@ -47,3 +47,14 @@ export async function evaluatorCanReviewCategory(
   const scopes = await fetchEvaluatorScopes(userId);
   return scopes.includes(category);
 }
+
+export async function isEvaluatorAcceptingReviews(userId: string): Promise<boolean> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("evaluator_profiles")
+    .select("accepting_reviews")
+    .eq("evaluator_id", userId)
+    .maybeSingle();
+
+  return data?.accepting_reviews ?? true;
+}
