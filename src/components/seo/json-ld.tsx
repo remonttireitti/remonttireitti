@@ -61,7 +61,7 @@ export function JsonLd() {
         "@id": `${base}/#services`,
         name: "Palvelut",
         numberOfItems: PUBLIC_SERVICE_SLUGS.length,
-        itemListElement: PUBLIC_SERVICE_SLUGS.slice(0, 20).map((slug, i) => ({
+        itemListElement: PUBLIC_SERVICE_SLUGS.map((slug, i) => ({
           "@type": "ListItem",
           position: i + 1,
           url: `${base}/palvelut/${slug}`,

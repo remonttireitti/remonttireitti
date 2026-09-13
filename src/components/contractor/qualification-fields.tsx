@@ -192,7 +192,7 @@ export function ContractorQualificationFields({
                     onClick={() =>
                       setCustomTrades((prev) => prev.filter((t) => t !== name))
                     }
-                    className="text-violet-700 hover:text-violet-950"
+                    className="inline-flex min-h-8 min-w-8 items-center justify-center rounded-full text-violet-700 hover:bg-violet-200/60 hover:text-violet-950"
                     aria-label={`Poista ${name}`}
                   >
                     ×

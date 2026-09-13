@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { ContractorJsonLd } from "@/components/seo/contractor-json-ld";
 import { ContractorQualificationsCell } from "@/components/bid/contractor-qualifications-cell";
 import { ContractorReviewsList } from "@/components/review/contractor-reviews-list";
 import { StarRatingDisplay } from "@/components/review/star-rating-display";
@@ -61,6 +62,7 @@ export default async function PublicContractorPage({
 
   return (
     <div className={brand.page}>
+      <ContractorJsonLd profile={profile} />
       <SiteHeader />
       <main className={brand.mainContent}>
         <Link

@@ -1,3 +1,4 @@
+import type { Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { AppShell } from "@/components/app-shell";
 import { JsonLd } from "@/components/seo/json-ld";
@@ -15,6 +16,12 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata = rootMetadata;
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+};
 
 export default function RootLayout({
   children,

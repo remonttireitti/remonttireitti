@@ -6,13 +6,15 @@ Remonttireitti yhdistää asiakkaan ja urakoitsijat. Asiakas luo tarjouspyynnön
 
 ## Keskeiset sivut
 
-- [Etusivu](https://remonttireitti.fi/): remontit, palvelut, huolto ja tori
+- [Etusivu](https://remonttireitti.fi/): remontit, palvelut, huolto
 - [Palvelut](https://remonttireitti.fi/palvelut): remontit, asennukset ja kunnossapito (kertaluonteinen ja jatkuva)
-- [Aloita tarjouspyyntö](https://remonttireitti.fi/remontti/uusi): asiakkaan wizard (ei indeksoida hakukoneille)
+- [Asiakkaalle](https://remonttireitti.fi/asiakkaalle): ilmainen kilpailutus remontille
+- [Avoimet tarjouspyynnöt](https://remonttireitti.fi/tarjouspyynnot): selaa ilman kirjautumista
+- [Tarjousvahti](https://remonttireitti.fi/tarjousarvio): ilmainen puolueeton tarjousarvio
+- [Hinta-arkisto](https://remonttireitti.fi/hinta-arkisto): anonymisoituja lämpöpumppuhintoja
 - [Lämpöpumpun vian selvitys](https://remonttireitti.fi/vian-selvitys): itse-apu ennen huoltopyyntöä
-- [Huolto tai korjaus](https://remonttireitti.fi/huolto/uusi): lämpöpumpun huolto/korjaus
-- [Remonttitori](https://remonttireitti.fi/markkinapaikka): osta ja myy remonttiin liittyviä laitteita
 - [Urakoitsijaksi](https://remonttireitti.fi/urakoitsijaksi): rekisteröityminen ja provisiot
+- [Remonttitori](https://remonttireitti.fi/markkinapaikka): osta ja myy remonttiin liittyviä laitteita (lanseerataan myöhemmin)
 
 ## Palvelualueet (tarjouspyyntö)
 
@@ -20,10 +22,6 @@ Remonttireitti yhdistää asiakkaan ja urakoitsijat. Asiakas luo tarjouspyynnön
 - Lämmitys: lämpöpumput, puulämmitys, aurinkopaneelit, latauspiste
 - Palvelut & kunnossapito: kotisiivous, loppusiivous, ikkunanpesu, nurmikon leikkuu, lumityö, muutto, kuljetus
 - Huolto: lämpöpumpun huolto ja korjaus (vian selvitys + huoltopyyntö)
-
-## Remonttitori
-
-Markkinapaikka remonttiin liittyville laitteille, varaosille ja tarvikkeille (lämmitys, keittiö, kylpyhuone, sähkö jne.). Yksityishenkilön ilmoittaminen on ilmaista.
 
 ## Yhteystiedot
 
@@ -33,7 +31,7 @@ Markkinapaikka remonttiin liittyville laitteille, varaosille ja tarvikkeille (l�
 
 ## Indeksointi
 
-Julkinen sisältö: /, /palvelut/, /markkinapaikka, /vian-selvitys, /huolto/uusi, /urakoitsijaksi.
-Ei julkinen: /oma-tili, /admin/, /remontti/ (wizard), /tarjoukset/, /kirjaudu, /api/.
+Julkinen sisältö: /, /palvelut/, /asiakkaalle, /tarjouspyynnot, /tarjousarvio, /hinta-arkisto, /vian-selvitys, /urakoitsijaksi, /urakoitsija/[id].
+Ei julkinen: /oma-tili, /admin/, /remontti/ (wizard), /tarjoukset/, /kirjaudu, /api/, /markkinapaikka (kunnes tori lanseerataan).
 
 Sitemap: https://remonttireitti.fi/sitemap.xml

@@ -56,7 +56,7 @@ export function HomeHeroVisual() {
   const maxAmount = Math.max(...BIDS.map((b) => b.amount));
 
   return (
-    <div className="relative mx-auto w-full max-w-md lg:max-w-none">
+    <div className="relative mx-auto w-full max-w-md overflow-x-clip lg:max-w-none">
       <div
         className="pointer-events-none absolute -right-6 -top-6 h-32 w-32 rounded-full bg-orange-200/40 blur-3xl"
         aria-hidden
@@ -85,15 +85,19 @@ export function HomeHeroVisual() {
         </div>
 
         <div className="relative px-4 py-4 sm:px-5 sm:py-5">
-          <div className="absolute -right-1 top-0 z-10 flex items-center gap-1.5 rounded-full border border-sky-200 bg-white px-3 py-1.5 text-xs font-semibold text-sky-900 shadow-md ring-1 ring-sky-100">
-            <span className="relative flex h-2 w-2">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+          <div className="mb-3 flex flex-wrap items-center gap-2 sm:absolute sm:right-0 sm:top-0 sm:mb-0 sm:max-w-[11rem]">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-sky-200 bg-white px-3 py-1.5 text-xs font-semibold text-sky-900 shadow-md ring-1 ring-sky-100">
+              <span className="relative flex h-2 w-2">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+              </span>
+              3 tarjousta saapui
             </span>
-            3 tarjousta saapui
           </div>
 
-          <p className="pr-28 text-sm font-semibold text-stone-900">Vertaa hintoja samassa muodossa</p>
+          <p className="text-sm font-semibold text-stone-900 sm:pr-28">
+            Vertaa hintoja samassa muodossa
+          </p>
           <p className="mt-0.5 text-xs text-stone-500">
             Urakoitsijat vastaavat valmiiseen pyyntöön — ei turhia kysymyksiä.
           </p>
@@ -156,18 +160,18 @@ export function HomeHeroVisual() {
             })}
           </ul>
 
-          <div className="mt-4 grid grid-cols-3 gap-2 rounded-xl border border-stone-100 bg-stone-50/60 p-3 text-center">
-            <div>
+          <div className="mt-4 grid grid-cols-1 gap-2 rounded-xl border border-stone-100 bg-stone-50/60 p-3 text-center xs:grid-cols-3 min-[400px]:grid-cols-3">
+            <div className="min-[400px]:border-r min-[400px]:border-stone-200/80 min-[400px]:pr-2">
               <p className="text-lg font-bold text-stone-900">0 €</p>
-              <p className="text-[10px] leading-tight text-stone-500">Asiakkaalle</p>
+              <p className="text-xs leading-tight text-stone-500">Asiakkaalle</p>
             </div>
-            <div className="border-x border-stone-200/80">
+            <div className="min-[400px]:px-2">
               <p className="text-lg font-bold text-stone-900">3</p>
-              <p className="text-[10px] leading-tight text-stone-500">Tarjousta</p>
+              <p className="text-xs leading-tight text-stone-500">Tarjousta</p>
             </div>
-            <div>
+            <div className="min-[400px]:border-l min-[400px]:border-stone-200/80 min-[400px]:pl-2">
               <p className="text-lg font-bold text-stone-900">48 h</p>
-              <p className="text-[10px] leading-tight text-stone-500">Tyypillinen vastaus</p>
+              <p className="text-xs leading-tight text-stone-500">Tyypillinen vastaus</p>
             </div>
           </div>
         </div>

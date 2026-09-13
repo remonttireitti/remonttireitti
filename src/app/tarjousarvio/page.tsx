@@ -7,14 +7,17 @@ import { EvaluationPricingNotice } from "@/components/bid-evaluation/evaluation-
 import { IMPARTIALITY_NOTICE } from "@/lib/bid-evaluation";
 import { fetchBidEvaluationSettings } from "@/lib/bid-evaluation-server";
 import { pageMetadata } from "@/lib/seo";
+import { seoDefByPath } from "@/lib/seo-pages";
 import { getSessionUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 
+const seo = seoDefByPath("/tarjousarvio")!;
+
 export const metadata: Metadata = pageMetadata({
-  title: "Tarjousvahti — ilmainen puolueeton tarjousarvio",
-  description:
-    "Saitko tarjoukset muualta? Lähetä ne Remonttireittiin — asiantuntija auttaa ymmärtämään hintaa ja sisältöä. 0 €, ei suositusta urakoitsijasta.",
+  title: seo.title,
+  description: seo.description,
   path: "/tarjousarvio",
+  keywords: seo.keywords,
 });
 
 const checks = [
