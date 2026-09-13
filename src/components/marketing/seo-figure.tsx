@@ -40,8 +40,9 @@ export function SeoFigure({
         className="h-auto w-full object-cover"
         sizes="(max-width: 768px) 100vw, 33vw"
       />
-      <figcaption className="border-t border-stone-100 px-4 py-3 text-sm leading-relaxed text-stone-600">
-        {caption}
+      <figcaption className="border-t border-stone-100 px-4 py-3">
+        <p className="text-sm font-semibold text-stone-900">{title}</p>
+        <p className="mt-0.5 text-sm text-stone-600">{caption}</p>
       </figcaption>
     </figure>
   );

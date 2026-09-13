@@ -1,34 +1,29 @@
 const items = [
   {
     title: "Tingaa hintaa",
-    body: "Etkö hyväksy tarjousta? Ehdota alhaisempaa vastatarjouksella — urakoitsija voi hyväksyä, hylätä tai jättää uuden tarjouksen. Tämä erottaa Remonttireitin perinteisistä kilpailutuspalveluista.",
+    body: "Ehdota alempaa vastatarjouksella — suoraan alustalla.",
     highlight: true,
   },
   {
     title: "Vertailukelpoiset tarjoukset",
-    body: "Useita tarjouksia samassa muodossa: laajuus, hinta, takuu ja aikataulu. Näet arvostelut ja voit valita rauhassa.",
-    highlight: false,
-  },
-  {
-    title: "Valmiit tarjouspyynnöt",
-    body: "Asiakas kuvaa kohteen ja liittää kuvat — urakoitsija voi tarjota tarkasti ilman turhia kierroksia. Lämpöpumpuissa tarkempi lomake.",
+    body: "Hinta, laajuus, takuu ja aikataulu samassa muodossa.",
     highlight: false,
   },
   {
     title: "Sinulle ilmainen",
-    body: "Pyyntö, vertailu ja vastatarjoukset eivät maksa mitään. Urakoitsija maksaa palvelun välityspalkkion vasta, kun hyväksyt hänen tarjouksensa.",
+    body: "Pyyntö ja vertailu maksavat 0 €.",
     highlight: false,
   },
   {
-    title: "Kertyy arvoa ajan myötä",
-    body: "Arvostelut, huoltokirja ja hinta-arkisto auttavat seuraavassa valinnassa. Mitä enemmän käytät, sitä hyödyllisempi palvelu muuttuu.",
+    title: "Huoltokirja",
+    body: "Valmiit urakat ja laitteet talteen saman tilin alle.",
     highlight: false,
   },
 ] as const;
 
 export function HomeDifferentiators() {
   return (
-    <div className="grid gap-4 sm:grid-cols-2 sm:gap-6">
+    <div className="grid gap-4 sm:grid-cols-2 sm:gap-5">
       {items.map((item) => (
         <div
           key={item.title}
@@ -39,9 +34,7 @@ export function HomeDifferentiators() {
           }
         >
           <h3 className="font-semibold text-stone-900">{item.title}</h3>
-          <p className="mt-2 text-sm leading-relaxed text-stone-700">
-            {item.body}
-          </p>
+          <p className="mt-1.5 text-sm text-stone-600">{item.body}</p>
         </div>
       ))}
     </div>

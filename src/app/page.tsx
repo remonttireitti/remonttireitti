@@ -22,7 +22,6 @@ import { HomeSeoContent } from "@/components/marketing/home-seo-content";
 import { HomeTrust } from "@/components/marketing/home-trust";
 import { ServiceCards } from "@/components/marketing/service-cards";
 import { HomeNotifications } from "@/components/notifications/home-notifications";
-import { ValuePromoPair } from "@/components/promo/value-promo-banner";
 import { SiteHeader } from "@/components/site-header";
 import { getSessionUser } from "@/lib/auth";
 import {
@@ -140,10 +139,6 @@ export default async function Home() {
             <h2 className="text-center text-2xl font-bold tracking-tight">
               Mitä voit kilpailuttaa
             </h2>
-            <p className="mx-auto mt-2 max-w-xl text-center text-sm text-stone-600">
-              Remontti, palvelu tai huolto — sama malli: pyyntö, tarjoukset,
-              vertailu ja valinta.
-            </p>
             <div className="mt-8">
               <ServiceCards />
             </div>
@@ -160,12 +155,6 @@ export default async function Home() {
 
         <HomeFaq />
 
-        <section className="border-t border-stone-200 bg-white py-12">
-          <div className={brand.containerWide}>
-            <ValuePromoPair />
-          </div>
-        </section>
-
         <section className="border-t border-stone-200/80 bg-white py-14 sm:py-16">
           <div className={brand.containerWide}>
             <HomeTrust />
@@ -177,11 +166,7 @@ export default async function Home() {
             <h2 className="text-2xl font-bold tracking-tight">
               Miksi Remonttireitti?
             </h2>
-            <p className="mt-2 max-w-xl text-sm text-stone-600">
-              Ei vain yhteydenottoja — vertailukelpoiset tarjoukset ja mahdollisuus
-              neuvotella hinnasta alustalla.
-            </p>
-            <div className="mt-8">
+            <div className="mt-6">
               <HomeDifferentiators />
             </div>
             <p className="mt-8 text-center text-sm text-stone-700">
