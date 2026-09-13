@@ -45,13 +45,6 @@ import { createClient } from "@/lib/supabase/server";
 
 export default async function Home() {
   const supabase = await createClient();
-  const [openProjects, openProjectCount, platformStats, bidEvaluationSettings] =
-    await Promise.all([
-      fetchPublicOpenProjects(12),
-      countPublicOpenProjects(),
-      fetchPublicPlatformStats(),
-      fetchBidEvaluationSettings(supabase),
-    ]);
   const user = await getSessionUser();
   const contractor = user ? await isContractor() : false;
   if (contractor) {
@@ -59,6 +52,14 @@ export default async function Home() {
   }
   const profile = user ? await getProfile() : null;
   const isCustomer = !!user && profile?.role === "customer";
+
+  const [openProjects, openProjectCount, platformStats, bidEvaluationSettings] =
+    await Promise.all([
+      isCustomer ? Promise.resolve([]) : fetchPublicOpenProjects(12),
+      isCustomer ? Promise.resolve(0) : countPublicOpenProjects(),
+      fetchPublicPlatformStats(),
+      fetchBidEvaluationSettings(supabase),
+    ]);
   let notifications: Awaited<ReturnType<typeof fetchUserNotifications>> = [];
   let archivedNotifications: Awaited<
     ReturnType<typeof fetchArchivedUserNotifications>
@@ -149,12 +150,14 @@ export default async function Home() {
           </section>
         )}
 
-        <HomeQualityRequest />
+        <HomeQualityRequest hideContractorLink={isCustomer} />
 
-        <HomeOpenProjects
-          projects={openProjects}
-          totalCount={openProjectCount}
-        />
+        {!isCustomer && (
+          <HomeOpenProjects
+            projects={openProjects}
+            totalCount={openProjectCount}
+          />
+        )}
 
         {platformStats && <HomePlatformStats stats={platformStats} />}
 

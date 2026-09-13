@@ -25,7 +25,11 @@ const pillars = [
   },
 ] as const;
 
-export function HomeQualityRequest() {
+type Props = {
+  hideContractorLink?: boolean;
+};
+
+export function HomeQualityRequest({ hideContractorLink = false }: Props) {
   return (
     <section className="border-t border-stone-200 bg-white py-14 sm:py-16">
       <div className={brand.containerWide}>
@@ -62,9 +66,14 @@ export function HomeQualityRequest() {
           <Link href="/remontti/uusi" className={`${brand.btnPrimary} ${brand.btnPrimaryBlock}`}>
             Kokeile ohjattua pyyntöä
           </Link>
-          <Link href="/urakoitsijaksi" className={`${brand.btnSecondary} ${brand.btnSecondaryBlock}`}>
-            Urakoitsijalle: Tarjousavustaja →
-          </Link>
+          {!hideContractorLink && (
+            <Link
+              href="/urakoitsijaksi"
+              className={`${brand.btnSecondary} ${brand.btnSecondaryBlock}`}
+            >
+              Urakoitsijalle: Tarjousavustaja →
+            </Link>
+          )}
         </div>
       </div>
     </section>
