@@ -3,6 +3,7 @@
 import {
   useActionState,
   useEffect,
+  useRef,
   useState,
   startTransition,
   type FormEvent,
@@ -24,9 +25,20 @@ import {
 import { BidCommitmentNotice } from "@/components/bid/bid-commitment-notice";
 import { BidAssistantPanel } from "@/components/bid/bid-assistant-panel";
 import {
-  assistantTargetForItem,
-  scopeSuggestionForItem,
-} from "@/lib/bid-assistant";
+  BidScopeLinesEditor,
+  type BidScopeLinesEditorHandle,
+} from "@/components/bid/bid-scope-lines-editor";
+import { assistantTargetForItem } from "@/lib/bid-assistant";
+import {
+  buildSeededScopeLines,
+  findScopeLineIndexByItemId,
+  mergeScopeLines,
+  newScopeLineId,
+  parseScopeTerms,
+  scopeLineFilled,
+  serializeScopeLines,
+  type BidScopeLine,
+} from "@/lib/bid-scope-lines";
 import { BidTermsTemplatePicker } from "@/components/bid/bid-terms-template-picker";
 import {
   applyBidDefaultsToFields,
@@ -106,19 +118,24 @@ export function BidForm({
   projectQuality?: ProjectQualityResult | null;
 }) {
   const isServiceProject = Boolean(serviceEngagement);
-  const [fields, setFields] = useState<BidFormFields>(() => {
-    const base = initialFields ?? initialBidFormFields(
-      serviceEngagement
-        ? defaultServicePricingModel(serviceEngagement)
-        : "",
-    );
+  const initialFormFields = (() => {
+    const base =
+      initialFields ??
+      initialBidFormFields(
+        serviceEngagement ? defaultServicePricingModel(serviceEngagement) : "",
+      );
     if (initialFields || !defaultBidTerms) return base;
     return applyBidDefaultsToFields(base, defaultBidTerms);
-  });
+  })();
+  const [fields, setFields] = useState<BidFormFields>(initialFormFields);
   const [fieldErrors, setFieldErrors] = useState<
     Partial<Record<BidFormFieldKey, string>>
   >({});
   const [clientError, setClientError] = useState<string | null>(null);
+  const [scopeLines, setScopeLines] = useState<BidScopeLine[]>(() =>
+    buildSeededScopeLines(jobTypeSlug ?? null, initialFormFields.scope_terms),
+  );
+  const scopeLinesEditorRef = useRef<BidScopeLinesEditorHandle>(null);
 
   const saveAction = mode === "edit" ? updateBid : submitBid;
 
@@ -131,17 +148,53 @@ export function BidForm({
   useEffect(() => {
     if (initialFields) {
       setFields(initialFields);
+      setScopeLines(
+        buildSeededScopeLines(jobTypeSlug ?? null, initialFields.scope_terms),
+      );
     }
-  }, [initialFields]);
+  }, [initialFields, jobTypeSlug]);
 
   useEffect(() => {
     if (state.fields) {
       setFields(state.fields);
+      setScopeLines(
+        buildSeededScopeLines(jobTypeSlug ?? null, state.fields.scope_terms),
+      );
     }
     if (state.fieldErrors) {
       setFieldErrors(state.fieldErrors);
     }
   }, [state.fields, state.fieldErrors]);
+
+  function syncScopeLines(lines: BidScopeLine[]) {
+    setScopeLines(lines);
+    setFields((prev) => ({
+      ...prev,
+      scope_terms: serializeScopeLines(lines),
+    }));
+    setFieldErrors((prev) => {
+      if (!prev.scope_terms) return prev;
+      const next = { ...prev };
+      delete next.scope_terms;
+      return next;
+    });
+    setClientError(null);
+  }
+
+  function applyScopeTemplate(text: string, mode: "append" | "replace") {
+    const parsed = parseScopeTerms(text);
+    if (parsed.length === 0 && text.trim()) {
+      syncScopeLines(
+        mergeScopeLines(
+          scopeLines,
+          [{ id: newScopeLineId(), label: "", value: text.trim() }],
+          mode,
+        ),
+      );
+      return;
+    }
+    syncScopeLines(mergeScopeLines(scopeLines, parsed, mode));
+  }
 
   function applyTemplate(
     key: BidTermTemplateTarget,
@@ -160,10 +213,25 @@ export function BidForm({
     });
   }
 
-  function appendAssistantItem(itemId: string, label: string) {
+  function focusAssistantItem(itemId: string, label: string) {
     const target = assistantTargetForItem(itemId);
     if (!target) return;
-    applyTemplate(target, scopeSuggestionForItem(itemId, label), "append");
+    if (target === "scope_terms") {
+      scopeLinesEditorRef.current?.focusLine(label, itemId);
+      return;
+    }
+    document.getElementById(target)?.focus({ preventScroll: true });
+  }
+
+  function scopeLineStatus(itemId: string, label: string) {
+    let idx = findScopeLineIndexByItemId(scopeLines, itemId);
+    if (idx < 0 && label.trim()) {
+      idx = scopeLines.findIndex(
+        (line) => line.label.trim().toLowerCase() === label.trim().toLowerCase(),
+      );
+    }
+    if (idx < 0) return "missing" as const;
+    return scopeLineFilled(scopeLines[idx]!) ? ("done" as const) : ("pending" as const);
   }
 
   function update<K extends BidFormFieldKey>(key: K, value: BidFormFields[K]) {
@@ -596,33 +664,35 @@ export function BidForm({
         </p>
 
         <div>
-          <label htmlFor="scope_terms" className="block text-sm font-medium">
-            {fields.offer_scope === "own_trade" && isMultiTrade
-              ? "Oman ammattisi osuuden laajuus (mitä hinta sisältää)"
-              : fields.offer_scope === "turnkey" && isMultiTrade
-                ? "Kokonaisurakan laajuus (mitä hinta sisältää)"
-                : "Asennuksen laajuus (mitä hinta sisältää)"}
-          </label>
-          <textarea
-            id="scope_terms"
-            name="scope_terms"
-            rows={5}
-            value={fields.scope_terms}
-            onChange={(e) => update("scope_terms", e.target.value)}
-            className={inputClass}
-            placeholder={
-              fields.offer_scope === "own_trade"
-                ? "Esim. sähkökiukaan asennus ja kytkentä — ei sisällä rakennustöitä tai putkityötä…"
-                : fields.offer_scope === "turnkey"
-                  ? "Esim. kylpyhuone kokonaisuudessaan: purku, putket, vesieristys, laatoitus, kalusteet…"
-                  : "Esim. perusasennus, putket, käyttöönotto, mitä ei sisälly…"
+          <BidScopeLinesEditor
+            ref={scopeLinesEditorRef}
+            lines={scopeLines}
+            onChange={syncScopeLines}
+            inputClass={inputClass}
+            sectionLabel={
+              fields.offer_scope === "own_trade" && isMultiTrade
+                ? "Oman ammattisi osuuden laajuus (mitä hinta sisältää)"
+                : fields.offer_scope === "turnkey" && isMultiTrade
+                  ? "Kokonaisurakan laajuus (mitä hinta sisältää)"
+                  : "Asennuksen laajuus (mitä hinta sisältää)"
             }
           />
+          <input type="hidden" name="scope_terms" value={fields.scope_terms} />
           <BidTermsTemplatePicker
             target="scope_terms"
             jobTypeSlug={jobTypeSlug}
-            onApply={(text, mode) => applyTemplate("scope_terms", text, mode)}
+            onApply={(text, mode) => applyScopeTemplate(text, mode)}
           />
+          <div className="border-t border-stone-200 pt-4">
+            <BidAssistantPanel
+              fields={fields}
+              scopeLines={scopeLines}
+              jobTypeSlug={jobTypeSlug}
+              projectQuality={projectQuality}
+              onFocusItem={focusAssistantItem}
+              scopeLineStatus={scopeLineStatus}
+            />
+          </div>
         </div>
 
         <div>
@@ -674,15 +744,6 @@ export function BidForm({
               {fieldErrors.warranty_work}
             </p>
           )}
-        </div>
-
-        <div className="border-t border-stone-200 pt-4">
-          <BidAssistantPanel
-            fields={fields}
-            jobTypeSlug={jobTypeSlug}
-            projectQuality={projectQuality}
-            onAppendItem={appendAssistantItem}
-          />
         </div>
       </fieldset>
 
