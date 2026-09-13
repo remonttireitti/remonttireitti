@@ -86,10 +86,20 @@ export async function updateContractorQualifications(
       .eq("id", user.id);
 
     if (factsErr) {
-      const msg = factsErr.message.includes("founded_year")
-        ? "Aja Supabase-migraatio 20260913210000_contractor_company_facts.sql"
-        : factsErr.message;
-      return { error: msg };
+      const msg = factsErr.message ?? "";
+      const missingCompanyFactsColumn =
+        factsErr.code === "PGRST204" ||
+        factsErr.code === "42703" ||
+        msg.includes("schema cache") ||
+        msg.includes("founded_year") ||
+        msg.includes("company_size_band");
+      if (missingCompanyFactsColumn) {
+        return {
+          error:
+            "Yritystietojen sarakkeet puuttuvat tietokannasta. Aja Supabase SQL Editorissa supabase/PRODUCTION_APPLY_COMPANY_FACTS.sql ja yritä tallennusta uudelleen.",
+        };
+      }
+      return { error: msg || "Yritystietojen tallennus epäonnistui." };
     }
   }
 
