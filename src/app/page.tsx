@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { pageMetadata } from "@/lib/seo";
 import { seoDefByPath } from "@/lib/seo-pages";
 
@@ -53,8 +54,11 @@ export default async function Home() {
     ]);
   const user = await getSessionUser();
   const contractor = user ? await isContractor() : false;
+  if (contractor) {
+    redirect("/tarjoukset");
+  }
   const profile = user ? await getProfile() : null;
-  const isCustomer = !!user && !contractor && profile?.role === "customer";
+  const isCustomer = !!user && profile?.role === "customer";
   let notifications: Awaited<ReturnType<typeof fetchUserNotifications>> = [];
   let archivedNotifications: Awaited<
     ReturnType<typeof fetchArchivedUserNotifications>
@@ -112,43 +116,21 @@ export default async function Home() {
                 </li>
               </ul>
               <div className="mx-auto mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row lg:mx-0 lg:justify-start">
-                {contractor ? (
-                  <>
-                    <Link
-                      href="/tarjoukset"
-                      className={`${brand.btnPrimary} ${brand.btnPrimaryBlock}`}
-                    >
-                      Avoimet tarjouspyynnöt
-                    </Link>
-                    <Link
-                      href="/oma-tili#yritystiedot"
-                      className={`${brand.btnSecondary} ${brand.btnSecondaryBlock}`}
-                    >
-                      Yritystiedot
-                    </Link>
-                  </>
-                ) : (
-                  <>
-                    <Link
-                      href="/remontti/uusi"
-                      className={`${brand.btnPrimary} ${brand.btnPrimaryBlock}`}
-                    >
-                      Jätä tarjouspyyntö – maksutta
-                    </Link>
-                    <Link
-                      href={isCustomer ? "/oma-tili" : "/asiakkaalle"}
-                      className={`${brand.btnSecondary} ${brand.btnSecondaryBlock}`}
-                    >
-                      {isCustomer ? "Oma tili" : "Miten se toimii?"}
-                    </Link>
-                  </>
-                )}
+                <Link
+                  href="/remontti/uusi"
+                  className={`${brand.btnPrimary} ${brand.btnPrimaryBlock}`}
+                >
+                  Jätä tarjouspyyntö – maksutta
+                </Link>
+                <Link
+                  href={isCustomer ? "/oma-tili" : "/asiakkaalle"}
+                  className={`${brand.btnSecondary} ${brand.btnSecondaryBlock}`}
+                >
+                  {isCustomer ? "Oma tili" : "Miten se toimii?"}
+                </Link>
               </div>
               <div className="mx-auto mt-8 lg:mx-0">
-                <HomeAudienceSplit
-                  hideCustomer={contractor}
-                  hideContractor={isCustomer}
-                />
+                <HomeAudienceSplit hideContractor={isCustomer} />
               </div>
             </div>
             <div className="mt-10 lg:mt-0">
@@ -167,7 +149,7 @@ export default async function Home() {
           </section>
         )}
 
-        {!contractor && <HomeQualityRequest />}
+        <HomeQualityRequest />
 
         <HomeOpenProjects
           projects={openProjects}
@@ -176,30 +158,26 @@ export default async function Home() {
 
         {platformStats && <HomePlatformStats stats={platformStats} />}
 
-        {!contractor && (
-          <section className="border-t border-stone-200 bg-white py-14">
-            <div className={brand.containerWide}>
-              <h2 className="text-center text-2xl font-bold tracking-tight">
-                Mitä voit kilpailuttaa
-              </h2>
-              <div className="mt-8">
-                <ServiceCards />
-              </div>
+        <section className="border-t border-stone-200 bg-white py-14">
+          <div className={brand.containerWide}>
+            <h2 className="text-center text-2xl font-bold tracking-tight">
+              Mitä voit kilpailuttaa
+            </h2>
+            <div className="mt-8">
+              <ServiceCards />
             </div>
-          </section>
-        )}
+          </div>
+        </section>
 
-        {!contractor && (
-          <section className="border-t border-stone-200 bg-stone-50 py-14 sm:py-16">
-            <div className={brand.containerWide}>
-              <HomeHowItWorks />
-            </div>
-          </section>
-        )}
+        <section className="border-t border-stone-200 bg-stone-50 py-14 sm:py-16">
+          <div className={brand.containerWide}>
+            <HomeHowItWorks />
+          </div>
+        </section>
 
-        {!contractor && <HomeSeoContent />}
+        <HomeSeoContent />
 
-        {!contractor && <HomeTarjousvahti settings={bidEvaluationSettings} />}
+        <HomeTarjousvahti settings={bidEvaluationSettings} />
 
         <HomeFaq />
 
