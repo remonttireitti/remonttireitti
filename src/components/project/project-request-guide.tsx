@@ -23,6 +23,8 @@ function promptPrefix(promptLine: string): string {
 /** Käyttäjä on täyttänyt kysymyksen oikeasti (ei pelkkä pohjarivi). */
 function questionAnswered(q: RequestGuideQuestion, description: string): boolean {
   if (questionPromptFilled(q, description)) return true;
+  // Pohjarivi kuvauksessa = lisätty, ei vielä valmis — älä laske avainsanoilla.
+  if (questionAddedToDescription(q, description)) return false;
   if (!q.keywords?.length) return description.trim().length > 40;
   const norm = normalize(description);
   return q.keywords.some((k) => norm.includes(normalize(k)));

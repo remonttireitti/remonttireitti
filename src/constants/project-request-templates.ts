@@ -361,7 +361,7 @@ const GENERIC_TEMPLATE: ProjectRequestTemplate = {
       id: "gen_what",
       question: "Mitä työtä tarvitset?",
       hint: "Kuvaile selkeästi tavoite.",
-      keywords: ["tarvitsen", "haluan", "remontti", "asennus", "korjaus", "työn kuvaus"],
+      keywords: ["tarvitsen", "haluan", "remontti", "asennus", "korjaus"],
       promptLine: "Työn kuvaus: ___.",
     },
     {
