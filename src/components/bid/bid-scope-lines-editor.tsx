@@ -9,6 +9,7 @@ import {
   useState,
   type Ref,
 } from "react";
+import { StickyProgressBadge } from "@/components/ui/sticky-progress-badge";
 import {
   findScopeLineIndexByItemId,
   findScopeLineIndexByLabel,
@@ -139,14 +140,9 @@ export const BidScopeLinesEditor = forwardRef(function BidScopeLinesEditor(
 
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <p className="text-sm font-medium text-stone-900">{sectionLabel}</p>
-        {progress.total > 0 && (
-          <span className="shrink-0 text-xs font-medium text-sky-800">
-            {progress.done}/{progress.total} valmis
-          </span>
-        )}
-      </div>
+      <StickyProgressBadge done={progress.done} total={progress.total} variant="sky" />
+
+      <p className="text-sm font-medium text-stone-900">{sectionLabel}</p>
 
       <ol className="space-y-3">
         {lines.map((line, index) => {
