@@ -128,6 +128,39 @@ export type PriceArchivePageData = {
   selectedJob: PriceArchiveStat | null;
 };
 
+export type BudgetGuidance = {
+  jobSlug: string;
+  jobName: string;
+  sampleCount: number;
+  medianCents: number;
+  minCents: number;
+  maxCents: number;
+  regionLabel: string | null;
+  scope: "regional" | "national";
+};
+
+export async function fetchBudgetGuidanceForJob(
+  jobSlug: string,
+  postalCode?: string | null,
+): Promise<BudgetGuidance | null> {
+  const data = await fetchPriceArchivePageData({
+    jobSlug,
+    postalFilter: postalCode?.trim() || null,
+  });
+
+  const regional = data.regional?.find((s) => s.jobSlug === jobSlug);
+  if (regional && regional.sampleCount >= PRICE_ARCHIVE_MIN_SAMPLES) {
+    return { ...regional, scope: "regional" };
+  }
+
+  const national = data.national.find((s) => s.jobSlug === jobSlug);
+  if (national && national.sampleCount >= PRICE_ARCHIVE_MIN_SAMPLES) {
+    return { ...national, scope: "national" };
+  }
+
+  return null;
+}
+
 export async function fetchPriceArchivePageData(options: {
   jobSlug?: string | null;
   postalFilter?: string | null;

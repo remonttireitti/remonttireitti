@@ -449,6 +449,14 @@ const INTERIOR_JOB_SLUGS = new Set([
   "laatoitus-sisa",
 ]);
 
+/** Tyhjä kuvaus täytetään tällä kun työlaji valitaan (ei strukturoituja lomakkeita). */
+export function buildTemplateDescriptionSkeleton(
+  template: ProjectRequestTemplate,
+): string {
+  const lines = template.questions.map((q) => q.promptLine);
+  return [template.intro, "", ...lines].join("\n");
+}
+
 export function getProjectRequestTemplate(
   jobSlug: string | null | undefined,
 ): ProjectRequestTemplate {

@@ -43,6 +43,18 @@ function questionAddedToDescription(
 }
 
 /** Pohjarivillä on oikeaa sisältöä ___-kohdan sijaan. */
+function questionMatchesEmphasis(
+  q: RequestGuideQuestion,
+  criterionId: string,
+): boolean {
+  if (criterionId === q.id) return true;
+  const critPart = criterionId.includes("_")
+    ? criterionId.slice(criterionId.indexOf("_") + 1)
+    : criterionId;
+  const qPart = q.id.includes("_") ? q.id.slice(q.id.indexOf("_") + 1) : q.id;
+  return critPart === qPart;
+}
+
 function questionPromptFilled(q: RequestGuideQuestion, description: string): boolean {
   const prefix = promptPrefix(q.promptLine);
   if (!prefix) return false;
@@ -121,6 +133,30 @@ export function ProjectRequestGuide({
     }
   }
 
+  function appendAllPrompts() {
+    const missing = template.questions.filter(
+      (q) => !questionAddedToDescription(q, description),
+    );
+    if (missing.length === 0) {
+      setFlash({
+        questionId: "_all",
+        message: "Kaikki kohdat ovat jo kuvauskentässä.",
+      });
+      focusDescriptionField();
+      return;
+    }
+
+    const lines = missing.map((q) => q.promptLine);
+    const trimmed = description.trim();
+    const next = trimmed ? `${trimmed}\n${lines.join("\n")}` : lines.join("\n");
+    onDescriptionChange(next);
+    setFlash({
+      questionId: "_all",
+      message: `Lisättiin ${missing.length} kohtaa kuvauskenttään — täydennä ___-kohdat.`,
+    });
+    focusDescriptionField();
+  }
+
   function appendPrompt(q: RequestGuideQuestion) {
     if (questionAddedToDescription(q, description)) {
       setFlash({
@@ -187,10 +223,21 @@ export function ProjectRequestGuide({
       )}
 
       {expanded && (
-        <ol className="mt-4 space-y-3">
+        <>
+          <button
+            type="button"
+            onClick={appendAllPrompts}
+            className="mt-4 w-full rounded-lg border border-violet-200 bg-white px-3 py-2 text-xs font-medium text-violet-900 hover:bg-violet-50"
+          >
+            Lisää kaikki kohdat kuvaukseen
+          </button>
+          <ol className="mt-3 space-y-3">
           {template.questions.map((q) => {
             const done = questionAnswered(q, description);
             const added = !done && questionAddedToDescription(q, description);
+            const emphasized = emphasizedForJob.some((c) =>
+              questionMatchesEmphasis(q, c.id),
+            );
 
             return (
               <li
@@ -200,7 +247,9 @@ export function ProjectRequestGuide({
                     ? "border-emerald-200 bg-emerald-50/50"
                     : added
                       ? "border-sky-200 bg-sky-50/60"
-                      : "border-violet-100 bg-white/80"
+                      : emphasized
+                        ? "border-amber-200 bg-amber-50/50 ring-1 ring-amber-200/80"
+                        : "border-violet-100 bg-white/80"
                 }`}
               >
                 <p className="font-medium text-stone-900">
@@ -236,7 +285,8 @@ export function ProjectRequestGuide({
               </li>
             );
           })}
-        </ol>
+          </ol>
+        </>
       )}
     </aside>
   );
