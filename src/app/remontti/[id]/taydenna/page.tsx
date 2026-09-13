@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { SiteHeader } from "@/components/site-header";
 import { CustomerCompletionForm } from "@/components/project/customer-completion-form";
-import { getProfile, getSessionUser } from "@/lib/auth";
+import { getProfile, getSessionUser, isContractor } from "@/lib/auth";
 import {
   aggregateCompletionNeeds,
   fetchOpenCompletionRequestsForProject,
@@ -140,8 +140,8 @@ export default async function ProjectCompletionPage({
   try {
     const user = await getSessionUser();
     const profile = user ? await getProfile() : null;
-    if (profile?.role === "contractor") {
-      redirect("/oma-tili");
+    if (await isContractor()) {
+      redirect("/tarjoukset");
     }
 
     const guestAccessToken =

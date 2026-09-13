@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { SiteHeader } from "@/components/site-header";
 import { ProjectWizard } from "@/components/project/project-wizard";
-import { getProfile, getSessionUser } from "@/lib/auth";
+import { getProfile, getSessionUser, isContractor } from "@/lib/auth";
 import { buildProjectEditSnapshot } from "@/lib/project-edit";
 import { fetchHeatPumpCatalog } from "@/lib/job-catalog-server";
 import { createClient } from "@/lib/supabase/server";
@@ -24,8 +24,8 @@ export default async function EditProjectPage({
   if (!user) redirect(`/kirjaudu?redirect=/remontti/${id}/muokkaa`);
 
   const profile = await getProfile();
-  if (profile?.role === "contractor") {
-    redirect("/oma-tili");
+  if (await isContractor()) {
+    redirect("/tarjoukset");
   }
 
   const supabase = await createClient();
