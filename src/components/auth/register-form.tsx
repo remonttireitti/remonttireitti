@@ -3,7 +3,8 @@
 import { useActionState, useState } from "react";
 import { signUp, type AuthState } from "@/app/actions/auth";
 import { ContractorQualificationFields } from "@/components/contractor/qualification-fields";
-import type { JobType, Trade } from "@/types/job-catalog";
+import type { SelectableTrade } from "@/lib/contractor-trade-options";
+import type { JobType } from "@/types/job-catalog";
 import Link from "next/link";
 
 const inputClass =
@@ -17,7 +18,7 @@ export function RegisterForm({
 }: {
   defaultRole?: "customer" | "contractor";
   defaultEmail?: string;
-  trades?: Pick<Trade, "id" | "slug" | "name_fi">[];
+  trades?: SelectableTrade[];
   heatPumpJobTypes?: Pick<JobType, "id" | "slug">[];
 }) {
   const [role, setRole] = useState<"customer" | "contractor">(

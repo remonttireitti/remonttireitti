@@ -16,6 +16,7 @@ import {
   parseBidDefaultsByJobType,
 } from "@/lib/contractor-bid-defaults-shared";
 import { HEAT_PUMP_MARKETING } from "@/constants/heat-pumps";
+import { resolveContractorTradeIdsFromForm } from "@/lib/resolve-contractor-trades";
 import { saveContractorQualifications, getContractorQualifications } from "@/lib/save-contractor-qualifications";
 import { createClient } from "@/lib/supabase/server";
 
@@ -38,10 +39,13 @@ export async function updateContractorQualifications(
   const companyName = String(formData.get("company_name") ?? "").trim();
   if (!companyName) return { error: "Yrityksen nimi vaaditaan." };
 
+  const resolvedTrades = await resolveContractorTradeIdsFromForm(formData, user.id);
+  if (resolvedTrades.error) return { error: resolvedTrades.error };
+
   const saveRes = await saveContractorQualifications({
     contractorId: user.id,
     companyName,
-    tradeIds: parseTradeIds(formData),
+    tradeIds: resolvedTrades.tradeIds,
     jobTypeIds: parseJobTypeIds(formData),
     refrigerantLicense: parseRefrigerantLicense(formData),
     electricalQualification: parseElectricalQualification(formData),

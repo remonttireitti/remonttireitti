@@ -1,6 +1,6 @@
 import { AuthShell } from "@/components/auth/auth-shell";
 import { RegisterForm } from "@/components/auth/register-form";
-import { PUBLIC_CONTRACTOR_TRADE_SLUGS } from "@/constants/contractor-trades";
+import { getContractorSelectableTrades } from "@/lib/contractor-trade-options";
 import { fetchHeatPumpCatalog, fetchJobCatalog } from "@/lib/job-catalog-server";
 
 export default async function RegisterPage({
@@ -18,8 +18,7 @@ export default async function RegisterPage({
     fetchHeatPumpCatalog(),
   ]);
 
-  const tradeSlugs = new Set<string>(PUBLIC_CONTRACTOR_TRADE_SLUGS);
-  const trades = catalog.trades.filter((t) => tradeSlugs.has(t.slug));
+  const trades = getContractorSelectableTrades(catalog.trades);
 
   return (
     <AuthShell
@@ -33,11 +32,7 @@ export default async function RegisterPage({
       <RegisterForm
         defaultRole={defaultRole}
         defaultEmail={defaultEmail}
-        trades={trades.map((t) => ({
-          id: t.id,
-          slug: t.slug,
-          name_fi: t.name_fi,
-        }))}
+        trades={trades}
         heatPumpJobTypes={pumpCatalog.jobTypes.map((j) => ({
           id: j.id,
           slug: j.slug,

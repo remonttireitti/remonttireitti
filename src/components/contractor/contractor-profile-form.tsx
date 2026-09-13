@@ -7,7 +7,8 @@ import {
 } from "@/app/actions/contractor-profile";
 import { ContractorQualificationFields } from "@/components/contractor/qualification-fields";
 import { brand, formInputClass } from "@/lib/brand-theme";
-import type { JobType, Trade } from "@/types/job-catalog";
+import type { SelectableTrade } from "@/lib/contractor-trade-options";
+import type { JobType } from "@/types/job-catalog";
 import type {
   ElectricalQualification,
   LviQualification,
@@ -17,7 +18,7 @@ import type {
 const inputClass = formInputClass;
 
 type Props = {
-  trades: Pick<Trade, "id" | "slug" | "name_fi">[];
+  trades: SelectableTrade[];
   jobTypes: Pick<JobType, "id" | "slug">[];
   companyName: string;
   tradeIds: string[];
