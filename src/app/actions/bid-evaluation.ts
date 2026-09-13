@@ -6,10 +6,12 @@ import { uploadBidEvaluationFiles } from "@/lib/bid-evaluation-files";
 import {
   BID_EVALUATION_DIMENSIONS,
   computeEvaluationQuoteCents,
+  parseEvaluationCategory,
   type BidEvaluationCategory,
   type BidEvaluationPricingMode,
   type BidEvaluationVerdict,
 } from "@/lib/bid-evaluation";
+import { parseEvaluatorScopesFromFormData } from "@/lib/evaluator-scopes";
 import {
   evaluatorCanReviewCategory,
   isEvaluatorAcceptingReviews,
@@ -30,10 +32,6 @@ async function requireCustomerId(): Promise<string> {
   return user.id;
 }
 
-function parseCategory(raw: string): BidEvaluationCategory {
-  return raw === "general" ? "general" : "heat_pump";
-}
-
 function parseVerdict(raw: string): BidEvaluationVerdict | null {
   if (["good", "fair", "ask_clarification", "caution"].includes(raw)) {
     return raw as BidEvaluationVerdict;
@@ -46,12 +44,17 @@ export async function createBidEvaluationRequest(
   formData: FormData,
 ): Promise<BidEvaluationActionState> {
   const customerId = await requireCustomerId();
-  const category = parseCategory(String(formData.get("category") ?? "heat_pump"));
+  const category = parseEvaluationCategory(
+    String(formData.get("category") ?? "lammitys"),
+  );
   const heatPumpType = String(formData.get("heat_pump_type") ?? "").trim() || null;
   const contextNotes = String(formData.get("context_notes") ?? "").trim() || null;
   const projectId = String(formData.get("project_id") ?? "").trim() || null;
 
-  if (category === "heat_pump" && heatPumpType) {
+  const isHeatPumpCategory =
+    category === "heat_pump" || category === "lammitys";
+
+  if (isHeatPumpCategory && heatPumpType) {
     if (!HEAT_PUMP_JOB_SLUGS.includes(heatPumpType as (typeof HEAT_PUMP_JOB_SLUGS)[number])) {
       return { error: "Valitse kelvollinen pumpputyyppi." };
     }
@@ -75,7 +78,7 @@ export async function createBidEvaluationRequest(
       customer_id: customerId,
       project_id: projectId,
       category,
-      heat_pump_type: category === "heat_pump" ? heatPumpType : null,
+      heat_pump_type: isHeatPumpCategory ? heatPumpType : null,
       context_notes: contextNotes,
       status: "draft",
     })
@@ -400,22 +403,35 @@ export async function setEvaluatorScopes(
   await requireAdmin();
 
   const userId = String(formData.get("user_id") ?? "");
-  const heatPump = formData.get("scope_heat_pump") === "on";
-  const general = formData.get("scope_general") === "on";
-
   if (!userId) return { error: "Käyttäjä puuttuu." };
 
+  const selectedScopes = parseEvaluatorScopesFromFormData(formData);
   const admin = createAdminClient();
 
-  await admin.from("evaluator_scopes").delete().eq("evaluator_id", userId);
+  const { error: deleteErr } = await admin
+    .from("evaluator_scopes")
+    .delete()
+    .eq("evaluator_id", userId);
 
-  const scopes: { evaluator_id: string; scope: string }[] = [];
-  if (heatPump) scopes.push({ evaluator_id: userId, scope: "heat_pump" });
-  if (general) scopes.push({ evaluator_id: userId, scope: "general" });
+  if (deleteErr) {
+    return {
+      error:
+        "Arvioijaoikeuksien poisto epäonnistui. Aja migraatio 20260913170000_evaluator_scope_areas.sql.",
+    };
+  }
 
-  if (scopes.length > 0) {
+  if (selectedScopes.length > 0) {
+    const scopes = selectedScopes.map((scope) => ({
+      evaluator_id: userId,
+      scope,
+    }));
     const { error } = await admin.from("evaluator_scopes").insert(scopes);
-    if (error) return { error: "Arvioijaoikeuksien tallennus epäonnistui." };
+    if (error) {
+      const hint = error.message.includes("evaluator_scopes")
+        ? " Aja migraatio 20260913170000_evaluator_scope_areas.sql Supabasessa."
+        : "";
+      return { error: `Arvioijaoikeuksien tallennus epäonnistui.${hint}` };
+    }
   }
 
   revalidatePath("/admin");

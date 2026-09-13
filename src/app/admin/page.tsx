@@ -18,6 +18,7 @@ import {
   profileRoleBadgeClass,
 } from "@/lib/profile-role-labels";
 import { brand } from "@/lib/brand-theme";
+import { ALL_EVALUATOR_SCOPE_SLUGS } from "@/lib/evaluator-scopes";
 
 export default async function AdminPage() {
   const user = await getSessionUser();
@@ -140,7 +141,7 @@ export default async function AdminPage() {
                   userId={row.id}
                   scopes={
                     scopesByUser.get(row.id) ??
-                    (row.role === "admin" ? ["heat_pump", "general"] : [])
+                    (row.role === "admin" ? [...ALL_EVALUATOR_SCOPE_SLUGS] : [])
                   }
                 />
                 <EvaluatorAvailabilityAdminForm

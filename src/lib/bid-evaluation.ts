@@ -1,5 +1,8 @@
+import type { ProjectAreaSlug } from "@/constants/project-areas";
+import { PROJECT_AREAS, areaForJobSlug } from "@/constants/project-areas";
 import type { HeatPumpSlug } from "@/constants/heat-pumps";
 import { HEAT_PUMP_MARKETING } from "@/constants/heat-pumps";
+import { evaluatorScopeLabel } from "@/lib/evaluator-scopes";
 
 export type BidEvaluationStatus =
   | "draft"
@@ -8,7 +11,8 @@ export type BidEvaluationStatus =
   | "completed"
   | "cancelled";
 
-export type BidEvaluationCategory = "heat_pump" | "general";
+/** Alue slug tai vanha arvo yhteensopivuutta varten. */
+export type BidEvaluationCategory = ProjectAreaSlug | "heat_pump" | "general";
 
 export type BidEvaluationVerdict =
   | "good"
@@ -88,13 +92,32 @@ export const BID_EVALUATION_STATUS_LABELS: Record<BidEvaluationStatus, string> =
   cancelled: "Peruttu",
 };
 
-export const BID_EVALUATION_CATEGORY_LABELS: Record<
-  BidEvaluationCategory,
-  string
-> = {
+export const BID_EVALUATION_CATEGORY_LABELS: Record<string, string> = {
   heat_pump: "Lämpöpumppu",
   general: "Yleinen remontti",
+  ...Object.fromEntries(PROJECT_AREAS.map((a) => [a.slug, a.title])),
 };
+
+export function evaluationCategoryForJobSlug(
+  jobSlug: string | null | undefined,
+): BidEvaluationCategory {
+  if (!jobSlug) return "general";
+  const area = areaForJobSlug(jobSlug);
+  return area?.slug ?? "general";
+}
+
+export function parseEvaluationCategory(raw: string): BidEvaluationCategory {
+  const slug = raw.trim();
+  if (slug === "heat_pump" || slug === "general") return slug;
+  if (PROJECT_AREAS.some((a) => a.slug === slug)) {
+    return slug as ProjectAreaSlug;
+  }
+  return "general";
+}
+
+export function formatEvaluationCategoryLabel(category: string): string {
+  return BID_EVALUATION_CATEGORY_LABELS[category] ?? evaluatorScopeLabel(category);
+}
 
 export const IMPARTIALITY_NOTICE =
   "Autamme ymmärtämään tarjouksen sisältöä ja hintaa. Päätös urakoitsijasta on aina sinun — emme suosittele tiettyä tekijää.";
