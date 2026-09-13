@@ -1,17 +1,31 @@
+import { PUBLIC_PROJECT_JOB_SLUGS } from "@/constants/project-areas";
 import { MAINTENANCE_JOB_SLUGS } from "@/constants/maintenance";
 import { HEAT_PUMP_JOB_SLUGS } from "@/constants/heat-pumps";
+import { SERVICE_JOB_SLUGS } from "@/constants/service-jobs";
 
 export const PRICE_ARCHIVE_MIN_SAMPLES = 3;
 
-/** Työlajit joista hinta-arkisto koostuu (MVP: lämpöpumput). */
-export const PRICE_ARCHIVE_JOB_SLUGS = [
-  ...HEAT_PUMP_JOB_SLUGS,
+/** Legacy slugit joita voi esiintyä vanhoissa riveissä. */
+const LEGACY_ARCHIVE_SLUGS = [
   "lampopumppu-ilma",
   "lampopumppu-ilmavesi",
-  ...MAINTENANCE_JOB_SLUGS,
 ] as const;
 
-export type PriceArchiveJobSlug = (typeof PRICE_ARCHIVE_JOB_SLUGS)[number];
+/**
+ * Kaikki remontti- ja huoltotyypit joista hinta-arkisto voi koostua.
+ * Näytetään vain työlajit joilla vähintään PRICE_ARCHIVE_MIN_SAMPLES hyväksyttyä urakkaa.
+ */
+export const PRICE_ARCHIVE_JOB_SLUGS = [
+  ...new Set([
+    ...PUBLIC_PROJECT_JOB_SLUGS,
+    ...HEAT_PUMP_JOB_SLUGS,
+    ...MAINTENANCE_JOB_SLUGS,
+    ...SERVICE_JOB_SLUGS,
+    ...LEGACY_ARCHIVE_SLUGS,
+  ]),
+] as readonly string[];
+
+export type PriceArchiveJobSlug = string;
 
 export const PRICE_ARCHIVE_JOB_LABELS: Record<string, string> = {
   ilmalampopumppu: "Ilmalämpöpumppu (asennus)",
@@ -21,6 +35,15 @@ export const PRICE_ARCHIVE_JOB_LABELS: Record<string, string> = {
   "lampopumppu-ilmavesi": "Ilmavesilämpöpumppu asennus",
   "lampopumppu-huolto": "Lämpöpumpun huolto",
   "lampopumppu-korjaus": "Lämpöpumpun korjaus",
+  keittio: "Keittiöremontti",
+  kylpyhuone: "Kylpyhuoneremontti",
+  "katto-pelti": "Kattoremontti (pelti)",
+  "wc-remontti": "WC-remontti",
+  sauna: "Saunaremontti",
+  ikkunat: "Ikkunoiden vaihto",
+  ulkomaalaus: "Ulkomaalaus",
+  aurinkopaneelit: "Aurinkopaneelit",
+  latauspiste: "Latauspiste",
 };
 
 export type PriceArchiveStat = {
@@ -56,17 +79,15 @@ export function normalizePostalFilter(value: string): string {
 }
 
 export function ctaHrefForJobSlug(slug: string): string {
-  if (slug === "lampopumppu-huolto" || slug === "lampopumppu-korjaus") {
+  if (
+    slug === "lampopumppu-huolto" ||
+    slug === "lampopumppu-korjaus" ||
+    (MAINTENANCE_JOB_SLUGS as readonly string[]).includes(slug)
+  ) {
     return `/huolto/uusi?tyyppi=${slug}`;
   }
-  const installMap: Record<string, string> = {
-    ilmalampopumppu: "ilmalampopumppu",
-    ilmavesilampopumppu: "ilmavesilampopumppu",
-    maalampopumppu: "maalampopumppu",
-    "lampopumppu-ilma": "lampopumppu-ilma",
-    "lampopumppu-ilmavesi": "lampopumppu-ilmavesi",
-  };
-  const tyyppi = installMap[slug];
-  if (tyyppi) return `/remontti/uusi?tyyppi=${tyyppi}`;
-  return "/remontti/uusi";
+  if ((SERVICE_JOB_SLUGS as readonly string[]).includes(slug)) {
+    return `/remontti/uusi?tyyppi=${slug}`;
+  }
+  return `/remontti/uusi?tyyppi=${slug}`;
 }

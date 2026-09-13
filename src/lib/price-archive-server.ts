@@ -2,7 +2,6 @@ import { bidResolvedAmountCents } from "@/lib/bid-accept-scope";
 import {
   medianCents,
   postalRegionPrefix,
-  PRICE_ARCHIVE_JOB_SLUGS,
   PRICE_ARCHIVE_MIN_SAMPLES,
   priceArchiveJobLabel,
   type PriceArchiveStat,
@@ -48,14 +47,13 @@ async function fetchRawPriceRows(): Promise<RawRow[]> {
 
   const jobById = new Map((jobTypes ?? []).map((j) => [j.id, j]));
   const bidById = new Map((bids ?? []).map((b) => [b.id, b]));
-  const allowedSlugs = new Set<string>(PRICE_ARCHIVE_JOB_SLUGS);
 
   const rows: RawRow[] = [];
 
   for (const project of projects) {
     const job = jobById.get(project.job_type_id);
     const bid = bidById.get(project.accepted_bid_id!);
-    if (!job || !bid || !allowedSlugs.has(job.slug)) continue;
+    if (!job || !bid || !job.slug) continue;
 
     const amountCents = bidResolvedAmountCents({
       amount_cents: bid.amount_cents,
@@ -128,12 +126,47 @@ export type PriceArchivePageData = {
   selectedJob: PriceArchiveStat | null;
 };
 
+export type BudgetGuidance = {
+  jobSlug: string;
+  jobName: string;
+  sampleCount: number;
+  medianCents: number;
+  minCents: number;
+  maxCents: number;
+  regionLabel: string | null;
+  scope: "regional" | "national";
+};
+
+export async function fetchBudgetGuidanceForJob(
+  jobSlug: string,
+  postalCode?: string | null,
+): Promise<BudgetGuidance | null> {
+  const data = await fetchPriceArchivePageData({
+    jobSlug,
+    postalFilter: postalCode?.trim() || null,
+  });
+
+  const regional = data.regional?.find((s) => s.jobSlug === jobSlug);
+  if (regional && regional.sampleCount >= PRICE_ARCHIVE_MIN_SAMPLES) {
+    return { ...regional, scope: "regional" };
+  }
+
+  const national = data.national.find((s) => s.jobSlug === jobSlug);
+  if (national && national.sampleCount >= PRICE_ARCHIVE_MIN_SAMPLES) {
+    return { ...national, scope: "national" };
+  }
+
+  return null;
+}
+
 export async function fetchPriceArchivePageData(options: {
   jobSlug?: string | null;
   postalFilter?: string | null;
 }): Promise<PriceArchivePageData> {
   const allRows = await fetchRawPriceRows();
-  const national = aggregateRows(allRows, null);
+  const national = aggregateRows(allRows, null).filter(
+    (s) => s.sampleCount >= PRICE_ARCHIVE_MIN_SAMPLES,
+  );
 
   const postal = options.postalFilter?.trim() ?? "";
   let regional: PriceArchiveStat[] | null = null;

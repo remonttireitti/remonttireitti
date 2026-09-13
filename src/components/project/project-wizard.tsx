@@ -19,8 +19,14 @@ import {
   formatBudgetSummaryLabel,
 } from "@/components/project/budget-preference-fields";
 import { genericDescriptionPlaceholder } from "@/constants/project-areas";
+import {
+  buildTemplateDescriptionSkeleton,
+  getProjectRequestTemplate,
+  isStructuredJobSlug,
+} from "@/constants/project-request-templates";
 import { isServiceJobSlug } from "@/constants/service-jobs";
 import { isFreeFormJobSlug } from "@/constants/free-form-job";
+import { BudgetGuidancePanel } from "@/components/project/budget-guidance-panel";
 import { IlmalampopumppuDetailsStep } from "@/components/project/ilmalampopumppu-details-step";
 import { ProjectPhotoUpload } from "@/components/project/project-photo-upload";
 import { IlmavesilampopumppuDetailsStep } from "@/components/project/ilmavesilampopumppu-details-step";
@@ -250,6 +256,14 @@ export function ProjectWizard({
     }
     if (isServiceJobSlug(jt.slug)) {
       setServiceEngagement(defaultServiceEngagementForJob(jt.slug));
+    }
+    if (
+      !isStructuredJobSlug(jt.slug) &&
+      !form.description.trim() &&
+      !prefill?.description
+    ) {
+      const template = getProjectRequestTemplate(jt.slug);
+      update("description", buildTemplateDescriptionSkeleton(template));
     }
   }
 
@@ -500,6 +514,17 @@ export function ProjectWizard({
               details={ilpDetails}
               onChange={setIlpDetails}
             />
+            <div className="mt-4">
+              <BudgetGuidancePanel
+                jobSlug="ilmalampopumppu"
+                budgetMax={
+                  ilpDetails.budget_max_eur != null
+                    ? String(ilpDetails.budget_max_eur)
+                    : ""
+                }
+                postalCode={form.postal_code}
+              />
+            </div>
             <div className="mt-6 rounded-2xl border border-stone-200 bg-white p-5">
               <p className="text-sm font-semibold text-stone-800">
                 Kuvat tarjouspyyntöön
@@ -544,6 +569,17 @@ export function ProjectWizard({
               details={ivlpDetails}
               onChange={setIvlpDetails}
             />
+            <div className="mt-4">
+              <BudgetGuidancePanel
+                jobSlug="ilmavesilampopumppu"
+                budgetMax={
+                  ivlpDetails.budget_max_eur != null
+                    ? String(ivlpDetails.budget_max_eur)
+                    : ""
+                }
+                postalCode={form.postal_code}
+              />
+            </div>
           </>
         )}
 
@@ -558,6 +594,17 @@ export function ProjectWizard({
               details={maalampDetails}
               onChange={setMaalampDetails}
             />
+            <div className="mt-4">
+              <BudgetGuidancePanel
+                jobSlug="maalampopumppu"
+                budgetMax={
+                  maalampDetails.budget_max_eur != null
+                    ? String(maalampDetails.budget_max_eur)
+                    : ""
+                }
+                postalCode={form.postal_code}
+              />
+            </div>
           </>
         )}
 
@@ -624,6 +671,11 @@ export function ProjectWizard({
               onAcceptOffersOverBudgetChange={(v) =>
                 update("accept_offers_over_budget", v)
               }
+            />
+            <BudgetGuidancePanel
+              jobSlug={selectedJobType?.slug ?? null}
+              budgetMax={form.budget_max}
+              postalCode={form.postal_code}
             />
             {isServiceJob && (
               <ServiceEngagementFields

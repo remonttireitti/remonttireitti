@@ -31,6 +31,7 @@ import {
   fetchUserNotifications,
 } from "@/lib/notifications-server";
 import { HomePlatformStats } from "@/components/marketing/home-platform-stats";
+import { HomeHeroVisual } from "@/components/marketing/home-hero-visual";
 import { HomeQualityRequest } from "@/components/marketing/home-quality-request";
 import {
   countPublicOpenProjects,
@@ -75,53 +76,58 @@ export default async function Home() {
 
       <main className="pb-16">
         <section className={`${brand.containerWide} pt-6 sm:pt-10`}>
-          <div className={`${brand.hero} text-center`}>
-            <div className="mb-6 flex justify-center">
-              <Logo href="/" size="lg" />
+          <div className={`${brand.hero} lg:grid lg:grid-cols-2 lg:items-center lg:gap-10 lg:text-left`}>
+            <div className="text-center lg:text-left">
+              <div className="mb-6 flex justify-center lg:justify-start">
+                <Logo href="/" size="lg" />
+              </div>
+              <p className="mb-3 text-sm font-medium uppercase tracking-widest text-sky-800">
+                Ilmainen kilpailutus
+              </p>
+              <h1 className="text-3xl font-bold tracking-tight text-stone-900 sm:text-5xl">
+                Tarvitsetko remontille{" "}
+                <span className="text-sky-800">tekijän?</span>
+              </h1>
+              <p className="mx-auto mt-5 max-w-2xl text-base leading-relaxed text-stone-600 sm:text-lg lg:mx-0">
+                Julkaise tarjouspyyntö ilmaiseksi — ohjattu lomake, laatupiste ja
+                oppiva pohja auttavat kuvaamaan työn selkeästi. Urakoitsijat saavat
+                tarpeeksi tietoa tarkkaan tarjoukseen. Vertaa ja tingaa
+                vastatarjouksella ennen valintaa.
+              </p>
+              <ul className="mx-auto mt-6 flex max-w-2xl flex-wrap justify-center gap-2 text-xs font-medium text-stone-700 sm:text-sm lg:mx-0 lg:justify-start">
+                <li className="rounded-full bg-violet-50 px-3 py-1.5 shadow-sm ring-1 ring-violet-200">
+                  Ohjattu tarjouspyyntö
+                </li>
+                <li className="rounded-full bg-emerald-50 px-3 py-1.5 shadow-sm ring-1 ring-emerald-200">
+                  Oppiva pohja työlajeittain
+                </li>
+                <li className="rounded-full bg-white/90 px-3 py-1.5 shadow-sm ring-1 ring-sky-100">
+                  Laadukas pyyntö urakoitsijalle
+                </li>
+                <li className="rounded-full bg-white/90 px-3 py-1.5 shadow-sm ring-1 ring-sky-100">
+                  Asiakkaalle ilmainen
+                </li>
+              </ul>
+              <div className="mx-auto mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row lg:mx-0 lg:justify-start">
+                <Link
+                  href="/remontti/uusi"
+                  className={`${brand.btnPrimary} ${brand.btnPrimaryBlock}`}
+                >
+                  Jätä tarjouspyyntö – maksutta
+                </Link>
+                <Link
+                  href="/asiakkaalle"
+                  className={`${brand.btnSecondary} ${brand.btnSecondaryBlock}`}
+                >
+                  Miten se toimii?
+                </Link>
+              </div>
+              <div className="mx-auto mt-8 lg:mx-0">
+                <HomeAudienceSplit />
+              </div>
             </div>
-            <p className="mb-3 text-sm font-medium uppercase tracking-widest text-sky-800">
-              Ilmainen kilpailutus
-            </p>
-            <h1 className="text-3xl font-bold tracking-tight text-stone-900 sm:text-5xl">
-              Tarvitsetko remontille{" "}
-              <span className="text-sky-800">tekijän?</span>
-            </h1>
-            <p className="mx-auto mt-5 max-w-2xl text-base leading-relaxed text-stone-600 sm:text-lg">
-              Julkaise tarjouspyyntö ilmaiseksi — ohjattu lomake, laatupiste ja
-              oppiva pohja auttavat kuvaamaan työn selkeästi. Urakoitsijat saavat
-              tarpeeksi tietoa tarkkaan tarjoukseen. Vertaa ja tingaa
-              vastatarjouksella ennen valintaa.
-            </p>
-            <ul className="mx-auto mt-6 flex max-w-2xl flex-wrap justify-center gap-2 text-xs font-medium text-stone-700 sm:text-sm">
-              <li className="rounded-full bg-violet-50 px-3 py-1.5 shadow-sm ring-1 ring-violet-200">
-                Ohjattu tarjouspyyntö
-              </li>
-              <li className="rounded-full bg-emerald-50 px-3 py-1.5 shadow-sm ring-1 ring-emerald-200">
-                Oppiva pohja työlajeittain
-              </li>
-              <li className="rounded-full bg-white/90 px-3 py-1.5 shadow-sm ring-1 ring-sky-100">
-                Laadukas pyyntö urakoitsijalle
-              </li>
-              <li className="rounded-full bg-white/90 px-3 py-1.5 shadow-sm ring-1 ring-sky-100">
-                Asiakkaalle ilmainen
-              </li>
-            </ul>
-            <div className="mx-auto mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-              <Link
-                href="/remontti/uusi"
-                className={`${brand.btnPrimary} ${brand.btnPrimaryBlock}`}
-              >
-                Jätä tarjouspyyntö – maksutta
-              </Link>
-              <Link
-                href="/asiakkaalle"
-                className={`${brand.btnSecondary} ${brand.btnSecondaryBlock}`}
-              >
-                Miten se toimii?
-              </Link>
-            </div>
-            <div className="mx-auto mt-8">
-              <HomeAudienceSplit />
+            <div className="mt-10 lg:mt-0">
+              <HomeHeroVisual />
             </div>
           </div>
         </section>
