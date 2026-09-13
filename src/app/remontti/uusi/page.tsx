@@ -7,7 +7,10 @@ import { getProfile, getSessionUser } from "@/lib/auth";
 import { fetchProjectCatalog } from "@/lib/job-catalog-server";
 import { parseRemonttiPrefillFromSearchParams } from "@/lib/remontti-prefill";
 import { brand } from "@/lib/brand-theme";
-import { fetchAllEmphasizedCriteria } from "@/lib/template-criterion-stats";
+import {
+  fetchAllEmphasizedCriteria,
+  fetchAllLearnedCriteria,
+} from "@/lib/template-criterion-stats";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function NewProjectPage({
@@ -32,9 +35,10 @@ export default async function NewProjectPage({
   }
 
   const supabase = await createClient();
-  const [catalog, emphasizedCriteria] = await Promise.all([
+  const [catalog, emphasizedCriteria, learnedCriteria] = await Promise.all([
     fetchProjectCatalog(),
     fetchAllEmphasizedCriteria(supabase),
+    fetchAllLearnedCriteria(supabase),
   ]);
 
   if (catalog.jobTypes.length === 0) {
@@ -90,6 +94,7 @@ export default async function NewProjectPage({
             defaultPhone={profile?.phone ?? ""}
             prefill={prefill}
             emphasizedCriteria={emphasizedCriteria}
+            learnedCriteria={learnedCriteria}
           />
         </div>
       </main>

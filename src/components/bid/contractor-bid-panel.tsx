@@ -63,7 +63,7 @@ export function ContractorBidPanel({
 
   if (!bid) {
     return (
-      <div className="mt-8">
+      <div id="tarjouslomake" className="mt-8 scroll-mt-24">
         <h2 className="text-lg font-semibold">Jätä tarjous</h2>
         <div className="mt-4">
           <BidForm {...bidFormProps} mode="create" />

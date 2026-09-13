@@ -30,8 +30,11 @@ import {
 import { fetchContractorRatings } from "@/lib/reviews";
 import { fetchPlatformFeedbackForProject } from "@/lib/platform-feedback-server";
 import { CustomerCompletionRequestBanner } from "@/components/project/customer-completion-request-banner";
+import { LearnedCriteriaWarnings } from "@/components/project/learned-criteria-warnings";
 import { ProjectQualityScorePanel } from "@/components/project/project-quality-score-panel";
+import { fetchLearnedCriteria } from "@/lib/template-criterion-stats";
 import { fetchOpenCompletionRequestsForProject } from "@/lib/project-completion-requests-server";
+import { countProjectViews } from "@/lib/project-views-server";
 import { brand } from "@/lib/brand-theme";
 import { scoreProjectFromRow } from "@/lib/project-request-quality";
 import { createClient } from "@/lib/supabase/server";
@@ -51,6 +54,7 @@ export default async function ProjectPage({
     julkaistu?: string;
     auto_suljettu?: string;
     taydenna?: string;
+    taydennetty?: string;
   }>;
 }) {
   const { id } = await params;
@@ -63,6 +67,7 @@ export default async function ProjectPage({
     julkaistu,
     auto_suljettu,
     taydenna,
+    taydennetty,
   } = await searchParams;
   const user = await getSessionUser();
   if (!user) redirect(`/kirjaudu?redirect=/remontti/${id}`);
@@ -198,6 +203,11 @@ export default async function ProjectPage({
     ? await fetchOpenCompletionRequestsForProject(supabase, id)
     : [];
 
+  const contractorViewCount =
+    taydennetty === "1"
+      ? await countProjectViews(supabase, id)
+      : 0;
+
   if (openCompletionRequests.length > 0) {
     const contractorIds = [...new Set(openCompletionRequests.map((r) => r.contractor_id))];
     const { data: companies } = await supabase
@@ -253,6 +263,15 @@ export default async function ProjectPage({
     : (sc?.name_fi ?? "Remontti");
 
   const status = project.status as ProjectStatus;
+
+  const learnedCriteria =
+    status === "draft"
+      ? (await fetchLearnedCriteria(supabase, jobSlug)).map((r) => ({
+          ...r,
+          jobSlug: jobSlug ?? "generic",
+        }))
+      : [];
+
   const platformFeedback =
     status === "completed"
       ? await fetchPlatformFeedbackForProject(supabase, user.id, id)
@@ -429,6 +448,23 @@ export default async function ProjectPage({
           />
         )}
 
+        {taydennetty === "1" && (
+          <p
+            className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-950"
+            role="status"
+          >
+            <span className="font-semibold">Tarjouspyyntö päivitetty.</span>
+            {contractorViewCount > 0 && (
+              <>
+                {" "}
+                {contractorViewCount}{" "}
+                {contractorViewCount === 1 ? "yritys on" : "yritystä on"} jo tutustunut
+                pyyntöön. Uudet tiedot on toimitettu niille automaattisesti.
+              </>
+            )}
+          </p>
+        )}
+
         {taydenna === "1" && openCompletionRequests.length === 0 && biddingPhase && (
           <p className="mt-4 rounded-lg border border-violet-200 bg-violet-50 p-3 text-sm text-violet-950">
             Täydennä tarjouspyyntöä alla olevasta linkistä — urakoitsijat saavat tarkempia
@@ -442,6 +478,13 @@ export default async function ProjectPage({
               quality={projectQuality}
               compact={biddingPhase && status !== "draft"}
             />
+            {status === "draft" && learnedCriteria.length > 0 && (
+              <LearnedCriteriaWarnings
+                learned={learnedCriteria}
+                quality={projectQuality}
+                jobSlug={jobSlug}
+              />
+            )}
           </div>
         )}
 

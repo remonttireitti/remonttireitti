@@ -18,7 +18,8 @@ export type NotificationType =
   | "huoltokirja_sync"
   | "project_inactivity_warning"
   | "project_auto_closed"
-  | "project_completion_requested";
+  | "project_completion_requested"
+  | "project_completion_updated";
 
 export type AppNotification = {
   id: string;
@@ -52,4 +53,5 @@ export const notificationTypeLabels: Record<NotificationType, string> = {
   project_inactivity_warning: "Tarjouspyyntö",
   project_auto_closed: "Tarjouspyyntö",
   project_completion_requested: "Täydennä pyyntöä",
+  project_completion_updated: "Pyyntö täydennetty",
 };

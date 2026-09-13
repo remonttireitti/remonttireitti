@@ -28,6 +28,7 @@ import { serviceEngagementFromDetails } from "@/lib/service-engagement";
 import { ContractorCompletionRequestPanel } from "@/components/project/contractor-completion-request-panel";
 import { brand } from "@/lib/brand-theme";
 import { fetchContractorSentCompletionRequest } from "@/lib/project-completion-requests-server";
+import { recordProjectView } from "@/lib/project-views-server";
 import { scoreProjectFromRow } from "@/lib/project-request-quality";
 import { createClient } from "@/lib/supabase/server";
 
@@ -64,6 +65,8 @@ export default async function ContractorProjectPage({
     .single();
 
   if (!project) notFound();
+
+  await recordProjectView(supabase, id, user.id);
 
   const projectPhotos = await fetchProjectPhotos(supabase, id);
 
@@ -273,6 +276,7 @@ export default async function ContractorProjectPage({
               qualityScore={projectQuality.score}
               missingItems={projectQuality.items}
               alreadySent={sentCompletionRequest != null}
+              hasBid={existingBid != null && existingBid.status !== "withdrawn"}
             />
 
             {chatData && (
@@ -292,7 +296,7 @@ export default async function ContractorProjectPage({
             <ValuePromoBanner variant="contractor-pay-on-win" className="lg:hidden" />
           </div>
 
-          <div className={brand.detailSplitSticky}>
+          <div id="tarjouslomake" className={`${brand.detailSplitSticky} scroll-mt-24`}>
             <ValuePromoBanner
               variant="contractor-pay-on-win"
               className="mb-6 hidden lg:block"
