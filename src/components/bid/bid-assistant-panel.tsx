@@ -4,8 +4,10 @@ import { useMemo, useState } from "react";
 import { scopeCheckItemsForJob } from "@/lib/bid-comparison-insights";
 import {
   analyzeBidAssistant,
+  assistantActionLabel,
+  assistantTargetForItem,
+  assistantTimelineHint,
   missingScopeItemIds,
-  scopeSuggestionForItem,
 } from "@/lib/bid-assistant";
 import type { BidFormFields } from "@/lib/bid-form";
 import type { ProjectQualityResult } from "@/lib/project-request-quality";
@@ -28,14 +30,15 @@ export function BidAssistantPanel({
   fields,
   jobTypeSlug,
   projectQuality,
-  onAppendScope,
+  onAppendItem,
 }: {
   fields: BidFormFields;
   jobTypeSlug?: string | null;
   projectQuality?: ProjectQualityResult | null;
-  onAppendScope: (text: string) => void;
+  onAppendItem: (itemId: string, label: string) => void;
 }) {
   const [expanded, setExpanded] = useState(true);
+  const [recentlyAdded, setRecentlyAdded] = useState<Set<string>>(() => new Set());
 
   const assistant = useMemo(
     () => analyzeBidAssistant(fields, jobTypeSlug ?? null, projectQuality),
@@ -52,6 +55,49 @@ export function BidAssistantPanel({
     assistant.insight.missingItems.length > 0 ||
     assistant.insight.partialItems.length > 0 ||
     assistant.projectGaps.length > 0;
+
+  function markAdded(key: string) {
+    setRecentlyAdded((prev) => new Set(prev).add(key));
+    window.setTimeout(() => {
+      setRecentlyAdded((prev) => {
+        const next = new Set(prev);
+        next.delete(key);
+        return next;
+      });
+    }, 2500);
+  }
+
+  function handleAppend(itemId: string, label: string) {
+    onAppendItem(itemId, label);
+    markAdded(itemId);
+  }
+
+  function renderAppendAction(itemId: string, label: string) {
+    const target = assistantTargetForItem(itemId);
+
+    if (target === null) {
+      return (
+        <p className="mt-2 text-xs text-stone-600">{assistantTimelineHint()}</p>
+      );
+    }
+
+    const actionLabel = assistantActionLabel(target);
+    if (recentlyAdded.has(itemId)) {
+      return (
+        <p className="mt-2 text-xs font-medium text-emerald-700">✓ Lisätty</p>
+      );
+    }
+
+    return (
+      <button
+        type="button"
+        onClick={() => handleAppend(itemId, label)}
+        className="mt-2 text-xs font-medium text-indigo-800 hover:underline"
+      >
+        {actionLabel}
+      </button>
+    );
+  }
 
   return (
     <aside className="rounded-2xl border border-indigo-100 bg-indigo-50/40 p-4">
@@ -140,15 +186,7 @@ export function BidAssistantPanel({
                       <p className="mt-0.5 text-xs text-stone-600">
                         Ei näy tarjouksen teksteissä — asiakas voi kysyä erikseen.
                       </p>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          onAppendScope(scopeSuggestionForItem(itemId, label))
-                        }
-                        className="mt-2 text-xs font-medium text-indigo-800 hover:underline"
-                      >
-                        Lisää laajuuskenttään →
-                      </button>
+                      {renderAppendAction(itemId, label)}
                     </li>
                   );
                 })}
@@ -164,15 +202,7 @@ export function BidAssistantPanel({
                       <p className="mt-0.5 text-xs text-stone-600">
                         Mainittu vain osittain — tarkenna laajuuskentässä.
                       </p>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          onAppendScope(scopeSuggestionForItem(itemId, label))
-                        }
-                        className="mt-2 text-xs font-medium text-indigo-800 hover:underline"
-                      >
-                        Täydennä laajuuskenttään →
-                      </button>
+                      {renderAppendAction(itemId, label)}
                     </li>
                   );
                 })}
@@ -191,11 +221,13 @@ export function BidAssistantPanel({
             <button
               type="button"
               onClick={() => {
-                const lines = missingIds.map((id) => {
+                for (const id of missingIds) {
                   const item = scopeItems.find((i) => i.id === id);
-                  return scopeSuggestionForItem(id, item?.label ?? id);
-                });
-                onAppendScope(lines.join("\n"));
+                  if (assistantTargetForItem(id) !== null) {
+                    onAppendItem(id, item?.label ?? id);
+                    markAdded(id);
+                  }
+                }
               }}
               className="text-xs font-medium text-indigo-800 hover:underline"
             >

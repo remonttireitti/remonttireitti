@@ -23,6 +23,10 @@ import {
 } from "@/lib/bid-form";
 import { BidCommitmentNotice } from "@/components/bid/bid-commitment-notice";
 import { BidAssistantPanel } from "@/components/bid/bid-assistant-panel";
+import {
+  assistantTargetForItem,
+  scopeSuggestionForItem,
+} from "@/lib/bid-assistant";
 import { BidTermsTemplatePicker } from "@/components/bid/bid-terms-template-picker";
 import {
   applyBidDefaultsToFields,
@@ -156,13 +160,10 @@ export function BidForm({
     });
   }
 
-  function appendScopeSuggestion(text: string) {
-    applyTemplate("scope_terms", text, "append");
-    document.getElementById("scope_terms")?.scrollIntoView({
-      behavior: "smooth",
-      block: "center",
-    });
-    document.getElementById("scope_terms")?.focus();
+  function appendAssistantItem(itemId: string, label: string) {
+    const target = assistantTargetForItem(itemId);
+    if (!target) return;
+    applyTemplate(target, scopeSuggestionForItem(itemId, label), "append");
   }
 
   function update<K extends BidFormFieldKey>(key: K, value: BidFormFields[K]) {
@@ -674,6 +675,15 @@ export function BidForm({
             </p>
           )}
         </div>
+
+        <div className="border-t border-stone-200 pt-4">
+          <BidAssistantPanel
+            fields={fields}
+            jobTypeSlug={jobTypeSlug}
+            projectQuality={projectQuality}
+            onAppendItem={appendAssistantItem}
+          />
+        </div>
       </fieldset>
 
       {allowOptionalEquipmentOffer && !requiresDeviceAndInstallation && (
@@ -801,13 +811,6 @@ export function BidForm({
           tarjoa laitetta yllä.
         </p>
       )}
-
-      <BidAssistantPanel
-        fields={fields}
-        jobTypeSlug={jobTypeSlug}
-        projectQuality={projectQuality}
-        onAppendScope={appendScopeSuggestion}
-      />
 
       <div>
         <label htmlFor="message" className="block text-sm font-medium">

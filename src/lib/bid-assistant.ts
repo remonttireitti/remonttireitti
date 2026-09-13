@@ -78,6 +78,32 @@ export function scopeSuggestionForItem(itemId: string, label: string): string {
   return SCOPE_SUGGESTIONS[itemId] ?? `• ${label}`;
 }
 
+export type BidAssistantTargetField =
+  | "scope_terms"
+  | "warranty_work"
+  | "contract_terms";
+
+/** Mihin kenttään avustajan ehdotus lisätään (timeline = oma lomakekenttä yllä). */
+export function assistantTargetForItem(itemId: string): BidAssistantTargetField | null {
+  if (itemId === "warranty") return "warranty_work";
+  if (itemId === "terms") return "contract_terms";
+  if (itemId === "timeline") return null;
+  return "scope_terms";
+}
+
+export function assistantActionLabel(
+  target: BidAssistantTargetField | null,
+): string | null {
+  if (target === "warranty_work") return "Lisää takuukenttään →";
+  if (target === "contract_terms") return "Lisää sopimusehtoihin →";
+  if (target === "scope_terms") return "Lisää laajuuskenttään →";
+  return null;
+}
+
+export function assistantTimelineHint(): string {
+  return "Täytä arvioitu kesto ja aloituspäivä lomakkeen yläosassa.";
+}
+
 export function analyzeBidAssistant(
   fields: BidFormFields,
   jobSlug: string | null,
