@@ -11,10 +11,12 @@ const inputClass =
 
 export function RegisterForm({
   defaultRole,
+  defaultEmail = "",
   trades = [],
   heatPumpJobTypes = [],
 }: {
   defaultRole?: "customer" | "contractor";
+  defaultEmail?: string;
   trades?: Pick<Trade, "id" | "slug" | "name_fi">[];
   heatPumpJobTypes?: Pick<JobType, "id" | "slug">[];
 }) {
@@ -97,6 +99,7 @@ export function RegisterForm({
           type="email"
           required
           autoComplete="email"
+          defaultValue={defaultEmail}
           className={inputClass}
         />
       </div>

@@ -51,7 +51,7 @@ export function HomeSeoContent() {
 
         <p className="mt-8 text-center">
           <Link href="/remontti/uusi" className={`${brand.btnPrimary} ${brand.btnPrimaryBlock} inline-flex`}>
-            Aloita ilmainen tarjouspyyntö
+            Jätä tarjouspyyntö – maksutta
           </Link>
         </p>
       </div>

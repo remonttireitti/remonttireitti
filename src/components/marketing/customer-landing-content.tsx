@@ -78,7 +78,7 @@ export function CustomerLandingContent() {
             href="/remontti/uusi"
             className={`${brand.btnPrimary} ${brand.btnPrimaryBlock}`}
           >
-            Aloita ilmainen tarjouspyyntö
+            Jätä tarjouspyyntö – maksutta
           </Link>
           <Link
             href="/palvelut"
@@ -150,15 +150,15 @@ export function CustomerLandingContent() {
       <section className="mt-10 rounded-2xl border border-emerald-100 bg-emerald-50/50 p-6 text-center">
         <h2 className="text-lg font-bold text-stone-900">Valmis aloittamaan?</h2>
         <p className="mx-auto mt-2 max-w-lg text-sm text-stone-600">
-          Rekisteröidy tai kirjaudu, jotta voit tallentaa pyynnön ja vertailla
-          tarjouksia. Itse palvelu pysyy ilmaisena.
+          Ei tiliä tarvita alussa. Sähköpostiin tulee henkilökohtainen linkki — voit
+          luoda tunnuksen myöhemmin, kun olet saanut tarjouksia.
         </p>
         <div className="mt-5 flex flex-col items-center justify-center gap-3 sm:flex-row">
-          <Link href="/rekisteroidy" className={`${brand.btnPrimary} ${brand.btnPrimaryBlock}`}>
-            Luo ilmainen tili
+          <Link href="/remontti/uusi" className={`${brand.btnPrimary} ${brand.btnPrimaryBlock}`}>
+            Jätä tarjouspyyntö – maksutta
           </Link>
-          <Link href="/remontti/uusi" className={`${brand.btnSecondary} ${brand.btnSecondaryBlock}`}>
-            Jatka ilman tiliä → pyyntö
+          <Link href="/rekisteroidy" className={`${brand.btnSecondary} ${brand.btnSecondaryBlock}`}>
+            Luo tunnus (valinnainen)
           </Link>
         </div>
       </section>

@@ -19,8 +19,14 @@ import {
   formatBudgetSummaryLabel,
 } from "@/components/project/budget-preference-fields";
 import { genericDescriptionPlaceholder } from "@/constants/project-areas";
+import {
+  buildTemplateDescriptionSkeleton,
+  getProjectRequestTemplate,
+  isStructuredJobSlug,
+} from "@/constants/project-request-templates";
 import { isServiceJobSlug } from "@/constants/service-jobs";
 import { isFreeFormJobSlug } from "@/constants/free-form-job";
+import { BudgetGuidancePanel } from "@/components/project/budget-guidance-panel";
 import { IlmalampopumppuDetailsStep } from "@/components/project/ilmalampopumppu-details-step";
 import { ProjectPhotoUpload } from "@/components/project/project-photo-upload";
 import { IlmavesilampopumppuDetailsStep } from "@/components/project/ilmavesilampopumppu-details-step";
@@ -123,6 +129,7 @@ type ProjectWizardProps = {
   prefill?: RemonttiPrefill;
   emphasizedCriteria?: EmphasizedCriterion[];
   learnedCriteria?: LearnedCriterionWithJob[];
+  isGuest?: boolean;
 };
 
 export function ProjectWizard({
@@ -134,6 +141,7 @@ export function ProjectWizard({
   prefill,
   emphasizedCriteria = [],
   learnedCriteria = [],
+  isGuest = false,
 }: ProjectWizardProps) {
   const isEdit = Boolean(editSnapshot);
   const prefillApplied = !isEdit && prefill
@@ -248,6 +256,14 @@ export function ProjectWizard({
     }
     if (isServiceJobSlug(jt.slug)) {
       setServiceEngagement(defaultServiceEngagementForJob(jt.slug));
+    }
+    if (
+      !isStructuredJobSlug(jt.slug) &&
+      !form.description.trim() &&
+      !prefill?.description
+    ) {
+      const template = getProjectRequestTemplate(jt.slug);
+      update("description", buildTemplateDescriptionSkeleton(template));
     }
   }
 
@@ -498,6 +514,17 @@ export function ProjectWizard({
               details={ilpDetails}
               onChange={setIlpDetails}
             />
+            <div className="mt-4">
+              <BudgetGuidancePanel
+                jobSlug="ilmalampopumppu"
+                budgetMax={
+                  ilpDetails.budget_max_eur != null
+                    ? String(ilpDetails.budget_max_eur)
+                    : ""
+                }
+                postalCode={form.postal_code}
+              />
+            </div>
             <div className="mt-6 rounded-2xl border border-stone-200 bg-white p-5">
               <p className="text-sm font-semibold text-stone-800">
                 Kuvat tarjouspyyntöön
@@ -542,6 +569,17 @@ export function ProjectWizard({
               details={ivlpDetails}
               onChange={setIvlpDetails}
             />
+            <div className="mt-4">
+              <BudgetGuidancePanel
+                jobSlug="ilmavesilampopumppu"
+                budgetMax={
+                  ivlpDetails.budget_max_eur != null
+                    ? String(ivlpDetails.budget_max_eur)
+                    : ""
+                }
+                postalCode={form.postal_code}
+              />
+            </div>
           </>
         )}
 
@@ -556,6 +594,17 @@ export function ProjectWizard({
               details={maalampDetails}
               onChange={setMaalampDetails}
             />
+            <div className="mt-4">
+              <BudgetGuidancePanel
+                jobSlug="maalampopumppu"
+                budgetMax={
+                  maalampDetails.budget_max_eur != null
+                    ? String(maalampDetails.budget_max_eur)
+                    : ""
+                }
+                postalCode={form.postal_code}
+              />
+            </div>
           </>
         )}
 
@@ -623,6 +672,11 @@ export function ProjectWizard({
                 update("accept_offers_over_budget", v)
               }
             />
+            <BudgetGuidancePanel
+              jobSlug={selectedJobType?.slug ?? null}
+              budgetMax={form.budget_max}
+              postalCode={form.postal_code}
+            />
             {isServiceJob && (
               <ServiceEngagementFields
                 engagement={serviceEngagement}
@@ -683,9 +737,16 @@ export function ProjectWizard({
 
         {step === 2 && (
           <div className="space-y-4">
+            {isGuest && (
+              <p className="rounded-xl border border-sky-200 bg-sky-50/70 px-4 py-3 text-sm text-sky-950">
+                <span className="font-medium">Mihin lähetämme tarjouspyynnön ja tarjoukset?</span>{" "}
+                Sähköpostiin tulee vahvistuslinkki ja henkilökohtainen linkki pyyntöösi.
+                Kirjautumista ei tarvita.
+              </p>
+            )}
             <div>
               <label htmlFor="contact_email" className="block text-sm font-medium">
-                Sähköpostiosoite *
+                {isGuest ? "Sähköpostiosoite *" : "Sähköpostiosoite *"}
               </label>
               <input
                 id="contact_email"
@@ -850,6 +911,17 @@ export function ProjectWizard({
               className={`${brand.btnPrimary} disabled:opacity-60`}
             >
               {pending ? "Tallennetaan…" : "Tallenna muutokset"}
+            </button>
+          ) : isGuest ? (
+            <button
+              type="submit"
+              name="publish"
+              value="true"
+              disabled={pending}
+              onClick={() => setSubmitIntent("publish")}
+              className={`${brand.btnPrimary} disabled:opacity-60`}
+            >
+              {pending ? "Lähetetään…" : "Jätä tarjouspyyntö – maksutta"}
             </button>
           ) : (
             <>
