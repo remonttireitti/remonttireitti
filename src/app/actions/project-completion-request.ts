@@ -25,7 +25,7 @@ import {
   fetchGuestProjectByToken,
   isGuestProject,
   resolveGuestProjectAccess,
-  rotateGuestProjectAccessToken,
+  tryRotateGuestProjectAccessToken,
 } from "@/lib/project-guest-access";
 
 export type CompletionRequestActionState = { error?: string; ok?: string };
@@ -36,200 +36,228 @@ export async function requestProjectCompletion(
   _prev: CompletionRequestActionState,
   formData: FormData,
 ): Promise<CompletionRequestActionState> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { error: "Kirjaudu sisään." };
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return { error: "Kirjaudu sisään." };
 
-  const projectId = String(formData.get("project_id") ?? "");
-  const note = String(formData.get("note") ?? "").trim();
-  const suggestTemplate = formData.get("suggest_template") === "on";
-  const criterionIds = formData
-    .getAll("criterion_id")
-    .map((v) => String(v))
-    .filter(Boolean);
-  const gapTypes = parseGapTypes(
-    formData.getAll("gap_type").map((v) => String(v)),
-  );
-
-  const prelimMinRaw = String(formData.get("preliminary_min_euros") ?? "").trim();
-  const prelimMaxRaw = String(formData.get("preliminary_max_euros") ?? "").trim();
-  const preliminaryNote =
-    String(formData.get("preliminary_note") ?? "").trim() || null;
-
-  let preliminaryMinCents: number | null = null;
-  let preliminaryMaxCents: number | null = null;
-  if (prelimMinRaw) {
-    const v = Number(prelimMinRaw);
-    if (!Number.isFinite(v) || v <= 0) return { error: "Alustava min-hinta virheellinen." };
-    preliminaryMinCents = Math.round(v * 100);
-  }
-  if (prelimMaxRaw) {
-    const v = Number(prelimMaxRaw);
-    if (!Number.isFinite(v) || v <= 0) return { error: "Alustava max-hinta virheellinen." };
-    preliminaryMaxCents = Math.round(v * 100);
-  }
-
-  if (!projectId) return { error: "Pyyntö puuttuu." };
-  if (gapTypes.length === 0 && criterionIds.length === 0) {
-    return { error: "Valitse vähintään yksi puuttuva tieto." };
-  }
-  if (note.length < 10) {
-    return { error: "Kerro mitä tarvitset tarjouksen tekemiseen (väh. 10 merkkiä)." };
-  }
-
-  const { data: project } = await supabase
-    .from("projects")
-    .select(
-      "id, title, status, customer_id, guest_email, job_type_id, details, job_types ( slug )",
-    )
-    .eq("id", projectId)
-    .maybeSingle();
-
-  if (!project) return { error: "Tarjouspyyntöä ei löydy." };
-  if (
-    !(BIDDING_STATUSES as readonly string[]).includes(project.status as string)
-  ) {
-    return { error: "Pyyntö ei ole enää avoinna." };
-  }
-
-  const jobSlug =
-    resolveProjectJobTypeSlug({
-      job_type_id: project.job_type_id as string,
-      job_types: project.job_types as
-        | { slug: string }
-        | { slug: string }[]
-        | null,
-      details: project.details as Record<string, unknown> | null,
-    }) ?? "generic";
-
-  const template = getProjectRequestTemplate(jobSlug);
-  const lines: string[] = [];
-  for (const g of gapTypes) {
-    lines.push(`• ${gapTypeLabel(g)}`);
-  }
-  for (const id of criterionIds) {
-    const { label } = criterionLabelFromTemplate(template, id);
-    if (!lines.some((l) => l.includes(label))) {
-      lines.push(`• ${label}`);
-    }
-  }
-
-  const { data: contractorProfile } = await supabase
-    .from("contractor_profiles")
-    .select("company_name")
-    .eq("id", user.id)
-    .maybeSingle();
-
-  const company = contractorProfile?.company_name ?? "Urakoitsija";
-
-  let messageBody = `[Tarjouspyynnön täydennys]\n${company} tarvitsee lisätietoja tarkempaa tarjousta varten:\n\n${lines.join("\n")}\n\nMitä tarvitset tarjouksen tekemiseen?\n${note}`;
-
-  if (preliminaryMinCents || preliminaryMaxCents) {
-    const min = preliminaryMinCents ? Math.round(preliminaryMinCents / 100) : null;
-    const max = preliminaryMaxCents ? Math.round(preliminaryMaxCents / 100) : null;
-    messageBody += `\n\nAlustava arvio: ${min ?? "?"}–${max ?? "?"} €`;
-    if (preliminaryNote) messageBody += `\n${preliminaryNote}`;
-  }
-
-  messageBody +=
-    "\n\nAsiakas voi täydentää pyyntöä Remonttireitin täydennyssivulla. Voit silti tarjota nykyisillä tiedoilla.";
-
-  if (messageBody.length > 4000) {
-    return { error: "Pyyntö on liian pitkä. Lyhennä tekstiä." };
-  }
-
-  const guestProject = isGuestProject(project);
-  let messageId: string | null = null;
-
-  if (!guestProject) {
-    await ensureProjectConversation(
-      supabase,
-      projectId,
-      project.customer_id as string,
-      user.id,
+    const projectId = String(formData.get("project_id") ?? "");
+    const note = String(formData.get("note") ?? "").trim();
+    const suggestTemplate = formData.get("suggest_template") === "on";
+    const criterionIds = formData
+      .getAll("criterion_id")
+      .map((v) => String(v))
+      .filter(Boolean);
+    const gapTypes = parseGapTypes(
+      formData.getAll("gap_type").map((v) => String(v)),
     );
 
-    const { data: conversation } = await supabase
-      .from("conversations")
-      .select("id")
-      .eq("project_id", projectId)
-      .eq("contractor_id", user.id)
+    const prelimMinRaw = String(formData.get("preliminary_min_euros") ?? "").trim();
+    const prelimMaxRaw = String(formData.get("preliminary_max_euros") ?? "").trim();
+    const preliminaryNote =
+      String(formData.get("preliminary_note") ?? "").trim() || null;
+
+    let preliminaryMinCents: number | null = null;
+    let preliminaryMaxCents: number | null = null;
+    if (prelimMinRaw) {
+      const v = Number(prelimMinRaw);
+      if (!Number.isFinite(v) || v <= 0) {
+        return { error: "Alustava min-hinta virheellinen." };
+      }
+      preliminaryMinCents = Math.round(v * 100);
+    }
+    if (prelimMaxRaw) {
+      const v = Number(prelimMaxRaw);
+      if (!Number.isFinite(v) || v <= 0) {
+        return { error: "Alustava max-hinta virheellinen." };
+      }
+      preliminaryMaxCents = Math.round(v * 100);
+    }
+
+    if (!projectId) return { error: "Pyyntö puuttuu." };
+    if (gapTypes.length === 0 && criterionIds.length === 0) {
+      return { error: "Valitse vähintään yksi puuttuva tieto." };
+    }
+    if (note.length < 10) {
+      return {
+        error: "Kerro mitä tarvitset tarjouksen tekemiseen (väh. 10 merkkiä).",
+      };
+    }
+
+    const { data: project } = await supabase
+      .from("projects")
+      .select(
+        "id, title, status, customer_id, guest_email, job_type_id, details, job_types ( slug )",
+      )
+      .eq("id", projectId)
       .maybeSingle();
 
-    if (!conversation) return { error: "Keskustelua ei voitu avata." };
-
-    const { data: message, error: messageErr } = await supabase
-      .from("messages")
-      .insert({
-        conversation_id: conversation.id,
-        sender_id: user.id,
-        body: messageBody,
-      })
-      .select("id")
-      .single();
-
-    if (messageErr || !message) {
-      return { error: "Viestin lähetys epäonnistui." };
+    if (!project) return { error: "Tarjouspyyntöä ei löydy." };
+    if (
+      !(BIDDING_STATUSES as readonly string[]).includes(project.status as string)
+    ) {
+      return { error: "Pyyntö ei ole enää avoinna." };
     }
 
-    messageId = message.id as string;
-  }
+    const jobSlug =
+      resolveProjectJobTypeSlug({
+        job_type_id: project.job_type_id as string,
+        job_types: project.job_types as
+          | { slug: string }
+          | { slug: string }[]
+          | null,
+        details: project.details as Record<string, unknown> | null,
+      }) ?? "generic";
 
-  const { error: insertErr } = await persistCompletionRequest(supabase, {
-    project_id: projectId,
-    contractor_id: user.id,
-    criterion_ids: criterionIds.length > 0 ? criterionIds : ["gap:other"],
-    gap_types: gapTypes,
-    note,
-    suggest_template: suggestTemplate,
-    preliminary_min_cents: preliminaryMinCents,
-    preliminary_max_cents: preliminaryMaxCents,
-    preliminary_note: preliminaryNote,
-    message_id: messageId,
-  });
-
-  if (insertErr) {
-    return { error: completionRequestInsertErrorMessage(insertErr) };
-  }
-
-  await incrementCompletionTemplateStats(supabase, {
-    jobSlug,
-    criterionIds,
-    gapTypes,
-    asSuggestion: suggestTemplate,
-  });
-
-  const criterionCount = gapTypes.length + criterionIds.length;
-
-  try {
-    if (guestProject && project.guest_email) {
-      const rawToken = await rotateGuestProjectAccessToken(projectId);
-      await sendGuestCompletionRequestEmail({
-        to: project.guest_email as string,
-        projectTitle: project.title as string,
-        projectId,
-        rawToken,
-        contractorCompany: company,
-        criterionCount,
-      });
-    } else {
-      await userNotifyProjectCompletionRequested({
-        customerId: project.customer_id as string,
-        projectId,
-        projectTitle: project.title as string,
-        contractorCompany: company,
-        criterionCount,
-      });
+    const template = getProjectRequestTemplate(jobSlug);
+    const lines: string[] = [];
+    for (const g of gapTypes) {
+      lines.push(`• ${gapTypeLabel(g)}`);
     }
+    for (const id of criterionIds) {
+      const { label } = criterionLabelFromTemplate(template, id);
+      if (!lines.some((l) => l.includes(label))) {
+        lines.push(`• ${label}`);
+      }
+    }
+
+    const { data: contractorProfile } = await supabase
+      .from("contractor_profiles")
+      .select("company_name")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    const company = contractorProfile?.company_name ?? "Urakoitsija";
+
+    let messageBody = `[Tarjouspyynnön täydennys]\n${company} tarvitsee lisätietoja tarkempaa tarjousta varten:\n\n${lines.join("\n")}\n\nMitä tarvitset tarjouksen tekemiseen?\n${note}`;
+
+    if (preliminaryMinCents || preliminaryMaxCents) {
+      const min = preliminaryMinCents ? Math.round(preliminaryMinCents / 100) : null;
+      const max = preliminaryMaxCents ? Math.round(preliminaryMaxCents / 100) : null;
+      messageBody += `\n\nAlustava arvio: ${min ?? "?"}–${max ?? "?"} €`;
+      if (preliminaryNote) messageBody += `\n${preliminaryNote}`;
+    }
+
+    messageBody +=
+      "\n\nAsiakas voi täydentää pyyntöä Remonttireitin täydennyssivulla. Voit silti tarjota nykyisillä tiedoilla.";
+
+    if (messageBody.length > 4000) {
+      return { error: "Pyyntö on liian pitkä. Lyhennä tekstiä." };
+    }
+
+    const guestProject = isGuestProject(project);
+    let messageId: string | null = null;
+
+    if (!guestProject && project.customer_id) {
+      const convResult = await ensureProjectConversation(
+        supabase,
+        projectId,
+        project.customer_id as string,
+        user.id,
+      );
+      if (convResult.error) {
+        console.warn("[requestProjectCompletion] conversation:", convResult.error);
+      }
+
+      const { data: conversation } = await supabase
+        .from("conversations")
+        .select("id")
+        .eq("project_id", projectId)
+        .eq("contractor_id", user.id)
+        .maybeSingle();
+
+      if (conversation) {
+        const { data: message, error: messageErr } = await supabase
+          .from("messages")
+          .insert({
+            conversation_id: conversation.id,
+            sender_id: user.id,
+            body: messageBody,
+          })
+          .select("id")
+          .single();
+
+        if (messageErr || !message) {
+          console.warn("[requestProjectCompletion] message insert:", messageErr?.message);
+        } else {
+          messageId = message.id as string;
+        }
+      }
+    }
+
+    const { error: insertErr } = await persistCompletionRequest(supabase, {
+      project_id: projectId,
+      contractor_id: user.id,
+      criterion_ids: criterionIds.length > 0 ? criterionIds : ["gap:other"],
+      gap_types: gapTypes,
+      note,
+      suggest_template: suggestTemplate,
+      preliminary_min_cents: preliminaryMinCents,
+      preliminary_max_cents: preliminaryMaxCents,
+      preliminary_note: preliminaryNote,
+      message_id: messageId,
+    });
+
+    if (insertErr) {
+      return { error: completionRequestInsertErrorMessage(insertErr) };
+    }
+
+    try {
+      await incrementCompletionTemplateStats(supabase, {
+        jobSlug,
+        criterionIds,
+        gapTypes,
+        asSuggestion: suggestTemplate,
+      });
+    } catch (err) {
+      console.warn("[requestProjectCompletion] template stats:", err);
+    }
+
+    const criterionCount = gapTypes.length + criterionIds.length;
+
+    try {
+      if (guestProject && project.guest_email) {
+        const rawToken = await tryRotateGuestProjectAccessToken(projectId);
+        if (rawToken) {
+          await sendGuestCompletionRequestEmail({
+            to: project.guest_email as string,
+            projectTitle: project.title as string,
+            projectId,
+            rawToken,
+            contractorCompany: company,
+            criterionCount,
+          });
+        } else {
+          console.warn(
+            "[requestProjectCompletion] guest email skipped — token rotation failed",
+            projectId,
+          );
+        }
+      } else if (project.customer_id) {
+        await userNotifyProjectCompletionRequested({
+          customerId: project.customer_id as string,
+          projectId,
+          projectTitle: project.title as string,
+          contractorCompany: company,
+          criterionCount,
+        });
+      }
+    } catch (err) {
+      console.warn("[requestProjectCompletion] notify failed:", err);
+    }
+
+    // Älä kutsu revalidatePath tässä — useActionState + revalidate voi kaataa sivun.
+    // ContractorCompletionRequestPanel tekee router.refresh() onnistumisen jälkeen.
+    return { ok: "Hinta-arvio ja täydennyspyyntö lähetetty asiakkaalle." };
   } catch (err) {
-    console.warn("[requestProjectCompletion] notify failed:", err);
+    console.error("[requestProjectCompletion]", err);
+    return {
+      error:
+        "Täydennyspyynnön lähetys epäonnistui. Yritä uudelleen — jos ongelma jatkuu, ota yhteyttä tukeen.",
+    };
   }
-
-  revalidatePath(`/tarjoukset/${projectId}`);
-  revalidatePath(`/remontti/${projectId}`);
-  return { ok: "Täydennäpyyntö lähetetty asiakkaalle." };
 }
 
 export async function submitProjectCompletionUpdate(

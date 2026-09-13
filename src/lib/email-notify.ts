@@ -168,6 +168,23 @@ export async function notifyCounterOfferDeclined(params: {
   );
 }
 
+export async function notifyProjectCompletionRequested(params: {
+  customerId: string;
+  projectTitle: string;
+  projectId: string;
+  contractorCompany: string;
+  criterionCount: number;
+}) {
+  await sendUserEmail(
+    params.customerId,
+    `Täydennä tarjouspyyntöä: ${params.projectTitle}`,
+    "Urakoitsija pyytää lisätietoja",
+    `<p><strong>${escapeHtml(params.contractorCompany)}</strong> tarvitsee ${params.criterionCount} lisätietoa tarkempaa tarjousta varten: <em>${escapeHtml(params.projectTitle)}</em>.</p><p>Avaa linkki ja täydennä pyyntö.</p>`,
+    `/remontti/${params.projectId}/taydenna`,
+    "Täydennä tarjouspyyntö",
+  );
+}
+
 export async function notifyProjectUpdated(params: {
   contractorId: string;
   projectTitle: string;
