@@ -789,3 +789,28 @@ COMMENT ON COLUMN public.projects.access_token_hash IS
   'SHA-256 hash henkilökohtaisesta linkistä (raakaa tokenia ei tallenneta)';
 COMMENT ON COLUMN public.projects.pending_publish IS
   'True kun asiakas halusi julkaista — julkaistaan sähköpostivahvistuksen jälkeen';
+
+
+-- ========== 20260913190000_bid_trade_scope.sql ==========
+
+ALTER TABLE public.bids
+  ADD COLUMN IF NOT EXISTS offered_trade_ids uuid[] DEFAULT NULL;
+
+ALTER TABLE public.bids
+  ADD COLUMN IF NOT EXISTS turnkey_coordination text;
+
+ALTER TABLE public.bids
+  DROP CONSTRAINT IF EXISTS bids_turnkey_coordination_check;
+
+ALTER TABLE public.bids
+  ADD CONSTRAINT bids_turnkey_coordination_check
+  CHECK (
+    turnkey_coordination IS NULL
+    OR turnkey_coordination IN ('subcontract', 'customer_sources')
+  );
+
+COMMENT ON COLUMN public.bids.offered_trade_ids IS
+  'Urakoitsijan tarjoamat ammatit (own_trade). Tyhjä = kaikki omat osumat.';
+
+COMMENT ON COLUMN public.bids.turnkey_coordination IS
+  'turnkey: subcontract = alihankkijat, customer_sources = asiakas hankkii puuttuvat.';

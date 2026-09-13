@@ -47,6 +47,7 @@ import {
 } from "@/lib/service-engagement";
 import type { ProjectQualityResult } from "@/lib/project-request-quality";
 import type { ProjectTradeContext } from "@/lib/project-trades-server";
+import { TURNKEY_COORDINATION_LABELS } from "@/lib/bid-trade-offer";
 
 const inputClass =
   "mt-1 w-full rounded-lg border border-stone-300 px-3 py-2 focus:border-sky-600 focus:outline-none focus:ring-1 focus:ring-sky-600";
@@ -187,6 +188,7 @@ export function BidForm({
       requiresDeviceAndInstallation,
       requiresOfferScope: tradeContext?.isMultiTrade ?? false,
       requiresServicePricing: isServiceProject,
+      matchingTradeCount: tradeContext?.matchingTrades.length ?? 0,
     });
     if (!validation.ok) {
       setClientError(validation.error);
@@ -230,7 +232,44 @@ export function BidForm({
   const isMultiTrade = tradeContext?.isMultiTrade ?? false;
 
   function setOfferScope(scope: BidOfferScope) {
-    update("offer_scope", scope);
+    setFields((prev) => {
+      const next = { ...prev, offer_scope: scope };
+      if (scope === "own_trade" && tradeContext?.matchingTrades.length === 1) {
+        next.offered_trade_ids = [tradeContext.matchingTrades[0]!.id];
+        next.turnkey_coordination = "";
+      } else if (scope === "turnkey") {
+        next.offered_trade_ids = [];
+      } else if (scope === "own_trade") {
+        next.turnkey_coordination = "";
+      }
+      return next;
+    });
+    setFieldErrors((prev) => {
+      const next = { ...prev };
+      delete next.offer_scope;
+      delete next.offered_trade_ids;
+      delete next.turnkey_coordination;
+      return next;
+    });
+    setClientError(null);
+  }
+
+  function toggleOfferedTrade(tradeId: string) {
+    setFields((prev) => {
+      const selected = prev.offered_trade_ids.includes(tradeId);
+      return {
+        ...prev,
+        offered_trade_ids: selected
+          ? prev.offered_trade_ids.filter((id) => id !== tradeId)
+          : [...prev.offered_trade_ids, tradeId],
+      };
+    });
+    setFieldErrors((prev) => {
+      if (!prev.offered_trade_ids) return prev;
+      const next = { ...prev };
+      delete next.offered_trade_ids;
+      return next;
+    });
   }
 
   const amountLabel = isServiceProject && fields.service_pricing_model
@@ -251,6 +290,20 @@ export function BidForm({
       <input type="hidden" name="project_id" value={projectId} />
       {fields.offer_scope && (
         <input type="hidden" name="offer_scope" value={fields.offer_scope} />
+      )}
+      {fields.offered_trade_ids.length > 0 && (
+        <input
+          type="hidden"
+          name="offered_trade_ids"
+          value={JSON.stringify(fields.offered_trade_ids)}
+        />
+      )}
+      {fields.turnkey_coordination && (
+        <input
+          type="hidden"
+          name="turnkey_coordination"
+          value={fields.turnkey_coordination}
+        />
       )}
       <input
         type="hidden"
@@ -293,8 +346,8 @@ export function BidForm({
                   Kokonaisurakka
                 </span>
                 <span className="mt-0.5 block text-xs text-stone-600">
-                  Vastaat koko remontista tai koordinoit alihankkijat. Hinta
-                  koskee koko urakkaa.
+                  Vastaat koko remontista. Hinta koskee koko urakkaa — kerro
+                  alla miten puuttuvat ammatit hoidetaan.
                 </span>
               </span>
             </label>
@@ -308,15 +361,90 @@ export function BidForm({
               />
               <span className="min-w-0">
                 <span className="block text-sm font-medium text-stone-900">
-                  Vain oman ammattini osuus
+                  Vain valitsemieni ammattien osuus
                 </span>
                 <span className="mt-0.5 block text-xs text-stone-600">
-                  Tarjoat vain oman ammattisi työt. Kuvaa rajaukset selkeästi
-                  laajuuskentässä — asiakas voi yhdistää useita tarjouksia.
+                  Tarjoat vain osan työstä. Asiakas voi yhdistää useita
+                  tarjouksia tai tilata puuttuvat ammatit erikseen.
                 </span>
               </span>
             </label>
           </div>
+
+          {fields.offer_scope === "turnkey" && (
+            <div className="space-y-2 border-t border-sky-200/80 pt-3">
+              <p className="text-xs font-medium text-sky-950">
+                Miten puuttuvat ammatit hoidetaan? *
+              </p>
+              {(
+                [
+                  ["subcontract", TURNKEY_COORDINATION_LABELS.subcontract],
+                  ["customer_sources", TURNKEY_COORDINATION_LABELS.customer_sources],
+                ] as const
+              ).map(([value, label]) => (
+                <label
+                  key={value}
+                  className="flex cursor-pointer items-start gap-3 rounded-lg border border-transparent bg-white/80 px-3 py-2.5 has-[:checked]:border-sky-400 has-[:checked]:bg-white"
+                >
+                  <input
+                    type="radio"
+                    name="turnkey_coordination_choice"
+                    checked={fields.turnkey_coordination === value}
+                    onChange={() => update("turnkey_coordination", value)}
+                    className="mt-0.5"
+                  />
+                  <span className="text-sm text-stone-800">{label}</span>
+                </label>
+              ))}
+              {fieldErrors.turnkey_coordination && (
+                <p className="text-sm text-red-600" role="alert">
+                  {fieldErrors.turnkey_coordination}
+                </p>
+              )}
+            </div>
+          )}
+
+          {fields.offer_scope === "own_trade" &&
+            tradeContext.matchingTrades.length > 1 && (
+              <div className="space-y-2 border-t border-sky-200/80 pt-3">
+                <p className="text-xs font-medium text-sky-950">
+                  Mitä ammatteja tarjoat? *
+                </p>
+                <ul className="space-y-2">
+                  {tradeContext.matchingTrades.map((trade) => (
+                    <li key={trade.id}>
+                      <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-transparent bg-white/80 px-3 py-2.5 has-[:checked]:border-sky-400 has-[:checked]:bg-white">
+                        <input
+                          type="checkbox"
+                          checked={fields.offered_trade_ids.includes(trade.id)}
+                          onChange={() => toggleOfferedTrade(trade.id)}
+                          className="size-4 rounded border-stone-300 text-sky-700"
+                        />
+                        <span className="text-sm font-medium text-stone-900">
+                          {trade.name}
+                        </span>
+                      </label>
+                    </li>
+                  ))}
+                </ul>
+                {fieldErrors.offered_trade_ids && (
+                  <p className="text-sm text-red-600" role="alert">
+                    {fieldErrors.offered_trade_ids}
+                  </p>
+                )}
+              </div>
+            )}
+
+          {fields.offer_scope === "own_trade" &&
+            tradeContext.matchingTrades.length === 1 && (
+              <p className="border-t border-sky-200/80 pt-3 text-xs text-sky-900">
+                Tarjoat:{" "}
+                <span className="font-medium">
+                  {tradeContext.matchingTrades[0]!.name}
+                </span>
+              </p>
+            )}
+
           {fieldErrors.offer_scope && (
             <p className="text-sm text-red-600" role="alert">
               {fieldErrors.offer_scope}

@@ -20,10 +20,12 @@ import {
   bidResolvedAmountCents,
   formatBidAcceptScopeShort,
 } from "@/lib/bid-accept-scope";
+import { parseBidOfferScope } from "@/lib/bid-offer-scope";
 import {
-  BID_OFFER_SCOPE_LABELS,
-  parseBidOfferScope,
-} from "@/lib/bid-offer-scope";
+  formatBidTradeScopeSummary,
+  formatOfferedTradeNames,
+  parseTurnkeyCoordination,
+} from "@/lib/bid-trade-offer";
 import { bidTotalAmountCents } from "@/lib/bid-amounts";
 import {
   bidStatusLabels,
@@ -52,6 +54,8 @@ export type BidWithContractor = {
   vat_included: boolean;
   scope_terms: string | null;
   offer_scope?: string | null;
+  offered_trade_ids?: string[] | null;
+  turnkey_coordination?: string | null;
   contract_terms: string | null;
   warranty_work: string | null;
   warranty_equipment: string | null;
@@ -203,6 +207,7 @@ export function CustomerBids({
   contractorRatings = {},
   acceptedBidId = null,
   jobSlug = null,
+  projectTradeNamesById = {},
 }: {
   projectId: string;
   projectStatus: ProjectStatus;
@@ -211,7 +216,9 @@ export function CustomerBids({
   contractorRatings?: Record<string, ContractorRatingSummary>;
   acceptedBidId?: string | null;
   jobSlug?: string | null;
+  projectTradeNamesById?: Record<string, string>;
 }) {
+  const tradeNameMap = new Map(Object.entries(projectTradeNamesById));
   const canAccept = ["published", "receiving_bids"].includes(projectStatus);
   const finalizing =
     projectStatus === "bid_accepted" && acceptedBidId != null;
@@ -461,14 +468,22 @@ export function CustomerBids({
                 </th>
                 {sorted.map((bid) => {
                   const scope = parseBidOfferScope(bid.offer_scope);
+                  const summary = formatBidTradeScopeSummary({
+                    offerScope: scope,
+                    offeredTradeNames: formatOfferedTradeNames(
+                      bid.offered_trade_ids,
+                      tradeNameMap,
+                    ),
+                    turnkeyCoordination: parseTurnkeyCoordination(
+                      bid.turnkey_coordination,
+                    ),
+                  });
                   return (
                     <td
                       key={bid.id}
                       className={`${dataCell} border-l ${columnClass(bid.status, isPendingWinner(bid))}`}
                     >
-                      {scope ? (
-                        BID_OFFER_SCOPE_LABELS[scope]
-                      ) : (
+                      {summary ?? (
                         <span className="text-stone-400">—</span>
                       )}
                     </td>

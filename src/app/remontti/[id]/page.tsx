@@ -44,6 +44,7 @@ import { fetchOpenCompletionRequestsForProject } from "@/lib/project-completion-
 import { countProjectViews } from "@/lib/project-views-server";
 import { brand } from "@/lib/brand-theme";
 import { scoreProjectFromRow } from "@/lib/project-request-quality";
+import { fetchProjectTradeNamesById } from "@/lib/project-trades-server";
 import { createClient } from "@/lib/supabase/server";
 import type { ProjectStatus } from "@/types/database";
 
@@ -167,6 +168,8 @@ export default async function ProjectPage({
           vat_included,
           scope_terms,
           offer_scope,
+          offered_trade_ids,
+          turnkey_coordination,
           contract_terms,
           warranty_work,
           warranty_equipment,
@@ -202,7 +205,11 @@ export default async function ProjectPage({
     project = (await fetchCustomerProjectById(supabase, id, user.id)) ?? project;
   }
 
-  const { platformInvoice, bids } = await loadBidsAndInvoice();
+  const [{ platformInvoice, bids }, projectTradeNamesById] = await Promise.all([
+    loadBidsAndInvoice(),
+    fetchProjectTradeNamesById(dataClient, id),
+  ]);
+  const projectTradeNamesRecord = Object.fromEntries(projectTradeNamesById);
 
   const contractorIds = [
     ...new Set((bids ?? []).map((b) => b.contractor_id as string)),
@@ -621,6 +628,7 @@ export default async function ProjectPage({
             contractorRatings={ratingsMap}
             acceptedBidId={acceptedBidId}
             jobSlug={jobSlug}
+            projectTradeNamesById={projectTradeNamesRecord}
           />
           {submittedBidCount > 0 && biddingPhase && (
             <BidEvaluationPromo projectId={id} />
