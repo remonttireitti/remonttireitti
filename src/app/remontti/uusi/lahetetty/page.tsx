@@ -24,8 +24,9 @@ export default async function ProjectSubmittedPage({
           linkin tarjouksiin.
         </p>
         <p className="mx-auto mt-3 max-w-lg text-xs text-stone-500">
-          Ei kirjautumista tarvita. Säilytä sähköposti — linkistä pääset aina takaisin
-          pyyntöösi.
+          Vahvistuslinkki on voimassa 24 tuntia. Julkaisu urakoitsijoille tapahtuu vasta
+          linkin avaamisen jälkeen — ennen sitä pyyntöä ei näytetä eikä siitä lähetetä
+          ilmoituksia. Vahvistamatta jääneet tiedot poistetaan automaattisesti.
         </p>
         <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
           <Link href="/" className={`${brand.btnSecondary} ${brand.btnSecondaryBlock}`}>

@@ -42,8 +42,10 @@ export async function sendGuestProjectVerificationEmail(params: {
 
   const body = params.pendingPublish
     ? `<p>Vahvista sähköpostiosoitteesi, jotta voimme julkaista tarjouspyyntösi <em>${escapeHtml(params.projectTitle)}</em> urakoitsijoille.</p>
-       <p>Julkaisu tapahtuu vasta vahvistuksen jälkeen — näin estämme roskapyynnöt.</p>`
-    : `<p>Vahvista sähköpostiosoitteesi ja avaa tarjouspyyntösi <em>${escapeHtml(params.projectTitle)}</em>.</p>`;
+       <p>Julkaisu tapahtuu vasta vahvistuksen jälkeen — urakoitsijoille ei lähetetä ilmoituksia ennen sitä.</p>
+       <p>Linkki on voimassa 24 tuntia. Vahvistamatta jääneet tiedot poistetaan automaattisesti.</p>`
+    : `<p>Vahvista sähköpostiosoitteesi ja avaa tarjouspyyntösi <em>${escapeHtml(params.projectTitle)}</em>.</p>
+       <p>Linkki on voimassa 24 tuntia.</p>`;
 
   const result = await sendEmail({
     to: params.to,
