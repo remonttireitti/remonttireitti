@@ -602,12 +602,16 @@ export function ProjectWizard({
               <label htmlFor="description" className="block text-sm font-medium">
                 Kuvaus *
               </label>
+              <p className="mt-1 text-xs text-stone-600">
+                Yllä olevan ohjeen napista lisätty teksti tulee tähän kenttään. Täydennä
+                kohdat omilla tiedoillasi — korvaa ___ .
+              </p>
               <textarea
                 id="description"
                 rows={5}
                 value={form.description}
                 onChange={(e) => update("description", e.target.value)}
-                className={inputClass}
+                className={`${inputClass} mt-2 scroll-mt-24`}
                 placeholder={genericDescriptionPlaceholder(selectedJobType?.slug ?? null)}
               />
             </div>
