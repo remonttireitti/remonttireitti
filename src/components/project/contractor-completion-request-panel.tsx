@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useActionState, useEffect, useState } from "react";
 import {
   requestProjectCompletion,
   type CompletionRequestActionState,
@@ -21,11 +22,18 @@ export function ContractorCompletionRequestPanel({
   alreadySent: boolean;
   hasBid?: boolean;
 }) {
+  const router = useRouter();
   const [expanded, setExpanded] = useState(!alreadySent && qualityScore < 75);
   const [state, action, pending] = useActionState<
     CompletionRequestActionState,
     FormData
   >(requestProjectCompletion, {});
+
+  useEffect(() => {
+    if (state.ok) {
+      router.refresh();
+    }
+  }, [state.ok, router]);
 
   const actionable = missingItems.filter((i) => i.status !== "done");
 

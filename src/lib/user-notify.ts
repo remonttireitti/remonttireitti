@@ -13,6 +13,7 @@ import {
   notifyOrderFinalizing,
   notifyProjectMessage,
   notifyProjectCancelled,
+  notifyProjectCompletionRequested,
   notifyProjectUpdated,
   notifyProjectInactivityWarning,
   notifyProjectAutoClosed,
@@ -394,6 +395,7 @@ export async function userNotifyProjectCompletionRequested(params: {
     `${params.contractorCompany} pyytää ${params.criterionCount} lisätietoa: ${params.projectTitle}`,
     `/remontti/${params.projectId}/taydenna`,
   );
+  await notifyProjectCompletionRequested(params);
 }
 
 export async function userNotifyProjectCompletionUpdated(params: {
