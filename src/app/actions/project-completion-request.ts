@@ -1,7 +1,5 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 import { ensureProjectConversation } from "@/app/actions/messages";
 import { parseGapTypes, gapTypeLabel } from "@/constants/completion-gap-types";
 import { getProjectRequestTemplate } from "@/constants/project-request-templates";
@@ -14,6 +12,7 @@ import {
   persistCompletionRequest,
 } from "@/lib/completion-request-persist";
 import { tryCreateAdminClient } from "@/lib/supabase/admin";
+import { scheduleNotification } from "@/lib/schedule-notification";
 import { createClient } from "@/lib/supabase/server";
 import {
   userNotifyProjectCompletionRequested,
@@ -28,7 +27,11 @@ import {
   tryRotateGuestProjectAccessToken,
 } from "@/lib/project-guest-access";
 
-export type CompletionRequestActionState = { error?: string; ok?: string };
+export type CompletionRequestActionState = {
+  error?: string;
+  ok?: string;
+  redirectPath?: string;
+};
 
 const BIDDING_STATUSES = ["published", "receiving_bids"] as const;
 
@@ -260,111 +263,13 @@ export async function requestProjectCompletion(
   }
 }
 
-export async function submitProjectCompletionUpdate(
-  _prev: CompletionRequestActionState,
-  formData: FormData,
-): Promise<CompletionRequestActionState> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  const projectId = String(formData.get("project_id") ?? "");
-  const descriptionAppend = String(formData.get("description_append") ?? "").trim();
-
-  if (!projectId) return { error: "Pyyntö puuttuu." };
-
-  let project: Record<string, unknown> | null = null;
-  let isGuestUpdate = false;
-
-  if (user) {
-    const { data } = await supabase
-      .from("projects")
-      .select(
-        "id, title, description, status, customer_id, content_revision, job_type_id, job_types ( slug ), details",
-      )
-      .eq("id", projectId)
-      .eq("customer_id", user.id)
-      .maybeSingle();
-    project = data;
-  } else {
-    const guestToken = String(formData.get("guest_token") ?? "").trim() || null;
-    const guestRow = guestToken
-      ? await fetchGuestProjectByToken(projectId, guestToken)
-      : await resolveGuestProjectAccess(projectId);
-    if (guestRow) {
-      project = guestRow;
-      isGuestUpdate = true;
-    }
-  }
-
-  if (!project) return { error: "Pyyntöä ei löydy." };
-
-  const editable = ["draft", "published", "receiving_bids"].includes(
-    project.status as string,
-  );
-  if (!editable) return { error: "Pyyntöä ei voi enää täydentää." };
-
-  const adminForGuest = isGuestUpdate ? tryCreateAdminClient() : null;
-  if (isGuestUpdate && !adminForGuest) {
-    return { error: "Vieraslinkin päivitys ei ole juuri nyt käytettävissä." };
-  }
-  const dataClient = adminForGuest ?? supabase;
-
-  const { count: bidCount } = await dataClient
-    .from("bids")
-    .select("id", { count: "exact", head: true })
-    .eq("project_id", projectId)
-    .eq("status", "submitted");
-
-  const hasSubmittedBids = (bidCount ?? 0) > 0;
-  const nextRevision = hasSubmittedBids
-    ? (project.content_revision as number) + 1
-    : (project.content_revision as number);
-
-  let newDescription = project.description as string;
-  if (descriptionAppend) {
-    newDescription = `${newDescription.trim()}\n\n--- Täydennys ---\n${descriptionAppend}`.trim();
-  }
-
-  const { error: updateErr } = await dataClient
-    .from("projects")
-    .update({
-      description: newDescription,
-      content_revision: nextRevision,
-    })
-    .eq("id", projectId);
-
-  if (updateErr) return { error: "Päivitys epäonnistui." };
-
-  try {
-    await uploadProjectPhotosFromFormData(projectId, formData);
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : "Kuvien lataus epäonnistui.";
-    if (!msg.includes("Bucket not found") && !msg.includes("SUPABASE_SERVICE_ROLE")) {
-      return { error: msg };
-    }
-  }
-
-  await resolveProjectCompletionRequests(projectId);
-
-  const summaryParts: string[] = [];
-  if (descriptionAppend) summaryParts.push("päivitetty kuvaus");
-  const files = formData
-    .getAll("project_photos")
-    .filter((f) => f instanceof File && f.size > 0);
-  if (files.length > 0) summaryParts.push(`${files.length} uutta kuvaa`);
-
-  const summary = summaryParts.length > 0 ? summaryParts.join(", ") : "tiedot täydennetty";
-
+async function notifyContractorsAboutCompletionUpdate(
+  projectId: string,
+  projectTitle: string,
+  summary: string,
+): Promise<void> {
   const admin = tryCreateAdminClient();
-  if (!admin) {
-    revalidatePath(`/remontti/${projectId}`);
-    revalidatePath(`/remontti/${projectId}/taydenna`);
-    revalidatePath("/tarjoukset");
-    revalidatePath(`/tarjoukset/${projectId}`);
-    redirect(`/remontti/${projectId}?taydennetty=1`);
-  }
+  if (!admin) return;
 
   const { data: bidders } = await admin
     .from("bids")
@@ -387,19 +292,162 @@ export async function submitProjectCompletionUpdate(
   ]);
 
   for (const contractorId of notifyIds) {
-    await userNotifyProjectCompletionUpdated({
-      contractorId,
-      projectId,
-      projectTitle: project.title as string,
-      summary,
-    });
+    try {
+      await userNotifyProjectCompletionUpdated({
+        contractorId,
+        projectId,
+        projectTitle,
+        summary,
+      });
+    } catch (err) {
+      console.warn(
+        "[submitProjectCompletionUpdate] contractor notify failed:",
+        contractorId,
+        err,
+      );
+    }
   }
+}
 
-  revalidatePath(`/remontti/${projectId}`);
-  revalidatePath(`/remontti/${projectId}/taydenna`);
-  revalidatePath("/tarjoukset");
-  revalidatePath(`/tarjoukset/${projectId}`);
-  redirect(`/remontti/${projectId}?taydennetty=1`);
+function completionUpdateRedirectPath(
+  projectId: string,
+  guestToken?: string | null,
+): string {
+  if (guestToken) {
+    const qs = new URLSearchParams({
+      from: "auth",
+      token: guestToken,
+      taydennetty: "1",
+    });
+    return `/remontti/${projectId}?${qs}`;
+  }
+  return `/remontti/${projectId}?taydennetty=1`;
+}
+
+export async function submitProjectCompletionUpdate(
+  _prev: CompletionRequestActionState,
+  formData: FormData,
+): Promise<CompletionRequestActionState> {
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    const projectId = String(formData.get("project_id") ?? "");
+    const descriptionAppend = String(formData.get("description_append") ?? "").trim();
+    const guestTokenFromForm =
+      String(formData.get("guest_token") ?? "").trim() || null;
+
+    if (!projectId) return { error: "Pyyntö puuttuu." };
+
+    let project: Record<string, unknown> | null = null;
+    let isGuestUpdate = false;
+    let guestToken = guestTokenFromForm;
+
+    if (user) {
+      const { data } = await supabase
+        .from("projects")
+        .select(
+          "id, title, description, status, customer_id, content_revision, job_type_id, job_types ( slug ), details",
+        )
+        .eq("id", projectId)
+        .eq("customer_id", user.id)
+        .maybeSingle();
+      project = data;
+    } else {
+      const guestRow = guestToken
+        ? await fetchGuestProjectByToken(projectId, guestToken)
+        : await resolveGuestProjectAccess(projectId);
+      if (guestRow) {
+        project = guestRow;
+        isGuestUpdate = true;
+      }
+    }
+
+    if (!project) return { error: "Pyyntöä ei löydy." };
+
+    const editable = ["draft", "published", "receiving_bids"].includes(
+      project.status as string,
+    );
+    if (!editable) return { error: "Pyyntöä ei voi enää täydentää." };
+
+    const adminForGuest = isGuestUpdate ? tryCreateAdminClient() : null;
+    if (isGuestUpdate && !adminForGuest) {
+      return { error: "Vieraslinkin päivitys ei ole juuri nyt käytettävissä." };
+    }
+    const dataClient = adminForGuest ?? supabase;
+
+    const { count: bidCount } = await dataClient
+      .from("bids")
+      .select("id", { count: "exact", head: true })
+      .eq("project_id", projectId)
+      .eq("status", "submitted");
+
+    const hasSubmittedBids = (bidCount ?? 0) > 0;
+    const nextRevision = hasSubmittedBids
+      ? (project.content_revision as number) + 1
+      : (project.content_revision as number);
+
+    let newDescription = project.description as string;
+    if (descriptionAppend) {
+      newDescription =
+        `${newDescription.trim()}\n\n--- Täydennys ---\n${descriptionAppend}`.trim();
+    }
+
+    const { error: updateErr } = await dataClient
+      .from("projects")
+      .update({
+        description: newDescription,
+        content_revision: nextRevision,
+      })
+      .eq("id", projectId);
+
+    if (updateErr) return { error: "Päivitys epäonnistui." };
+
+    try {
+      await uploadProjectPhotosFromFormData(projectId, formData);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Kuvien lataus epäonnistui.";
+      if (
+        !msg.includes("Bucket not found") &&
+        !msg.includes("SUPABASE_SERVICE_ROLE")
+      ) {
+        return { error: msg };
+      }
+    }
+
+    await resolveProjectCompletionRequests(projectId);
+
+    const summaryParts: string[] = [];
+    if (descriptionAppend) summaryParts.push("päivitetty kuvaus");
+    const files = formData
+      .getAll("project_photos")
+      .filter((f) => f instanceof File && f.size > 0);
+    if (files.length > 0) summaryParts.push(`${files.length} uutta kuvaa`);
+
+    const summary =
+      summaryParts.length > 0 ? summaryParts.join(", ") : "tiedot täydennetty";
+    const projectTitle = project.title as string;
+
+    scheduleNotification(() =>
+      notifyContractorsAboutCompletionUpdate(projectId, projectTitle, summary),
+    );
+
+    return {
+      ok: "Tarjouspyyntö päivitetty — urakoitsijat saavat ilmoituksen.",
+      redirectPath: completionUpdateRedirectPath(
+        projectId,
+        isGuestUpdate ? guestToken : null,
+      ),
+    };
+  } catch (err) {
+    console.error("[submitProjectCompletionUpdate]", err);
+    return {
+      error:
+        "Täydennyksen tallennus epäonnistui. Yritä uudelleen — jos ongelma jatkuu, pyydä uusi linkki urakoitsijalta.",
+    };
+  }
 }
 
 export async function resolveProjectCompletionRequests(projectId: string): Promise<void> {
