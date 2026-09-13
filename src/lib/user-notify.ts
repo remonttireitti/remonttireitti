@@ -390,6 +390,21 @@ export async function userNotifyProjectCompletionRequested(params: {
     "project_completion_requested",
     "Täydennä tarjouspyyntöä",
     `${params.contractorCompany} pyytää ${params.criterionCount} lisätietoa: ${params.projectTitle}`,
-    `/remontti/${params.projectId}?taydenna=1`,
+    `/remontti/${params.projectId}/taydenna`,
+  );
+}
+
+export async function userNotifyProjectCompletionUpdated(params: {
+  contractorId: string;
+  projectId: string;
+  projectTitle: string;
+  summary: string;
+}) {
+  await inApp(
+    params.contractorId,
+    "project_completion_updated",
+    "Asiakas täydensi tarjouspyyntöä",
+    `${params.projectTitle}: ${params.summary}`,
+    `/tarjoukset/${params.projectId}`,
   );
 }

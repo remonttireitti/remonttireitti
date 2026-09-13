@@ -1,6 +1,8 @@
 "use client";
 
 import { useActionState, useMemo, useState } from "react";
+import { LearnedCriteriaWarnings } from "@/components/project/learned-criteria-warnings";
+import type { LearnedCriterionWithJob } from "@/components/project/learned-criteria-warnings";
 import { ProjectQualityScorePanel } from "@/components/project/project-quality-score-panel";
 import { ProjectRequestGuide } from "@/components/project/project-request-guide";
 import { scoreProjectRequest } from "@/lib/project-request-quality";
@@ -120,6 +122,7 @@ type ProjectWizardProps = {
   submittedBidCount?: number;
   prefill?: RemonttiPrefill;
   emphasizedCriteria?: EmphasizedCriterion[];
+  learnedCriteria?: LearnedCriterionWithJob[];
 };
 
 export function ProjectWizard({
@@ -130,6 +133,7 @@ export function ProjectWizard({
   submittedBidCount = 0,
   prefill,
   emphasizedCriteria = [],
+  learnedCriteria = [],
 }: ProjectWizardProps) {
   const isEdit = Boolean(editSnapshot);
   const prefillApplied = !isEdit && prefill
@@ -768,6 +772,11 @@ export function ProjectWizard({
         {step === 3 && (
           <>
           <ProjectQualityScorePanel quality={quality} />
+          <LearnedCriteriaWarnings
+            learned={learnedCriteria}
+            quality={quality}
+            jobSlug={selectedJobType?.slug ?? null}
+          />
           <div className="mt-6">
           <ProjectSummaryReview
             jobTypeName={
