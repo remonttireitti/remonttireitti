@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { PriceArchiveJsonLd } from "@/components/seo/price-archive-json-ld";
 import { SiteHeader } from "@/components/site-header";
 import { brand } from "@/lib/brand-theme";
 import { formatEurosFromCents } from "@/lib/bids";
@@ -14,12 +15,14 @@ import { seoDefByPath } from "@/lib/seo-pages";
 
 const seo = seoDefByPath("/hinta-arkisto")!;
 
-export const metadata: Metadata = pageMetadata({
-  title: seo.title,
-  description: seo.description,
-  path: "/hinta-arkisto",
-  keywords: seo.keywords,
-});
+export function generateMetadata(): Metadata {
+  return pageMetadata({
+    title: seo.title,
+    description: seo.description,
+    path: "/hinta-arkisto",
+    keywords: seo.keywords,
+  });
+}
 
 function StatCard({
   label,
@@ -60,6 +63,11 @@ export default async function PriceArchivePage({
 
   return (
     <div className={brand.page}>
+      <PriceArchiveJsonLd
+        stats={displayStats}
+        scopeLabel={scopeLabel ?? "Koko Suomi"}
+        totalSamples={data.totalSamples}
+      />
       <SiteHeader />
       <main className={brand.mainWide}>
         <Link href="/" className="text-sm text-sky-700 hover:underline">

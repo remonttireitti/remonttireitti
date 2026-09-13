@@ -50,6 +50,24 @@ export function SiteFooter() {
                   Hinta-arkisto
                 </Link>
               </li>
+              <li>
+                <Link href="/tarjouspyynnot" className="text-stone-600 hover:text-sky-700">
+                  Avoimet pyynnöt
+                </Link>
+              </li>
+              <li>
+                <Link href="/tarjousarvio" className="text-stone-600 hover:text-sky-700">
+                  Tarjousvahti
+                </Link>
+              </li>
+              <li>
+                <a
+                  href="/tarjouspyynnot/feed.xml"
+                  className="text-stone-600 hover:text-sky-700"
+                >
+                  RSS-syöte
+                </a>
+              </li>
             </ul>
           </div>
 

@@ -11,7 +11,8 @@ Remonttireitti yhdistää asiakkaan ja urakoitsijat. Asiakas luo tarjouspyynnön
 - [Asiakkaalle](https://remonttireitti.fi/asiakkaalle): ilmainen kilpailutus remontille
 - [Avoimet tarjouspyynnöt](https://remonttireitti.fi/tarjouspyynnot): selaa ilman kirjautumista
 - [Tarjousvahti](https://remonttireitti.fi/tarjousarvio): ilmainen puolueeton tarjousarvio
-- [Hinta-arkisto](https://remonttireitti.fi/hinta-arkisto): anonymisoituja lämpöpumppuhintoja
+- [Hinta-arkisto](https://remonttireitti.fi/hinta-arkisto): anonymisoituja remontti- ja asennushintoja
+- [RSS — avoimet pyynnöt](https://remonttireitti.fi/tarjouspyynnot/feed.xml)
 - [Lämpöpumpun vian selvitys](https://remonttireitti.fi/vian-selvitys): itse-apu ennen huoltopyyntöä
 - [Urakoitsijaksi](https://remonttireitti.fi/urakoitsijaksi): rekisteröityminen ja provisiot
 - [Remonttitori](https://remonttireitti.fi/markkinapaikka): osta ja myy remonttiin liittyviä laitteita (lanseerataan myöhemmin)

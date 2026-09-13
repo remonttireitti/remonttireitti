@@ -8,6 +8,7 @@ export type PublicOpenProject = {
   budget_min: number | null;
   budget_max: number | null;
   created_at: string;
+  bid_deadline: string | null;
   job_type_name: string | null;
   category_name: string;
   bid_count: number;
@@ -60,7 +61,7 @@ export async function fetchPublicOpenProjects(
   const { data: projectsRaw, error } = await admin
     .from("projects")
     .select(
-      `id, title, description, municipality, budget_min, budget_max, created_at,
+      `id, title, description, municipality, budget_min, budget_max, created_at, bid_deadline,
        service_categories ( name_fi ),
        job_types ( name_fi )`,
     )
@@ -81,6 +82,7 @@ export async function fetchPublicOpenProjects(
     budget_min: number | null;
     budget_max: number | null;
     created_at: string;
+    bid_deadline: string | null;
     service_categories: { name_fi: string } | { name_fi: string }[] | null;
     job_types: { name_fi: string } | { name_fi: string }[] | null;
   };
@@ -116,6 +118,7 @@ export async function fetchPublicOpenProjects(
       budget_min: p.budget_min,
       budget_max: p.budget_max,
       created_at: p.created_at,
+      bid_deadline: p.bid_deadline ?? null,
       job_type_name: jobTypeName ?? null,
       category_name: categoryName,
       bid_count: bidCounts.get(p.id) ?? 0,
@@ -133,7 +136,7 @@ export async function fetchPublicOpenProject(
   const { data: project, error } = await admin
     .from("projects")
     .select(
-      `id, title, description, municipality, budget_min, budget_max, created_at,
+      `id, title, description, municipality, budget_min, budget_max, created_at, bid_deadline,
        service_categories ( name_fi ),
        job_types ( name_fi )`,
     )
@@ -160,6 +163,7 @@ export async function fetchPublicOpenProject(
     budget_min: number | null;
     budget_max: number | null;
     created_at: string;
+    bid_deadline: string | null;
     service_categories: { name_fi: string } | { name_fi: string }[] | null;
     job_types: { name_fi: string } | { name_fi: string }[] | null;
   };
@@ -180,6 +184,7 @@ export async function fetchPublicOpenProject(
     budget_min: p.budget_min,
     budget_max: p.budget_max,
     created_at: p.created_at,
+    bid_deadline: p.bid_deadline ?? null,
     job_type_name: jobTypeName ?? null,
     category_name: categoryName,
     bid_count: count ?? 0,

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { ProjectJsonLd } from "@/components/seo/project-json-ld";
 import { SiteHeader } from "@/components/site-header";
 import { getSessionUser, isContractor } from "@/lib/auth";
 import { brand } from "@/lib/brand-theme";
@@ -54,6 +55,7 @@ export default async function PublicProjectPage({
 
   return (
     <div className={brand.page}>
+      <ProjectJsonLd project={project} />
       <SiteHeader />
       <main className={brand.mainStandard}>
         <Link

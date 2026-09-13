@@ -5,17 +5,25 @@ import { getSessionUser, isContractor } from "@/lib/auth";
 import { brand } from "@/lib/brand-theme";
 import { formatBudget } from "@/lib/projects";
 import { fetchPublicOpenProjects } from "@/lib/public-projects-server";
-import { pageMetadata } from "@/lib/seo";
+import { getSiteUrl, pageMetadata } from "@/lib/seo";
 import { seoDefByPath } from "@/lib/seo-pages";
 
 const seo = seoDefByPath("/tarjouspyynnot")!;
 
-export const metadata: Metadata = pageMetadata({
-  title: seo.title,
-  description: seo.description,
-  path: "/tarjouspyynnot",
-  keywords: seo.keywords,
-});
+export const metadata: Metadata = {
+  ...pageMetadata({
+    title: seo.title,
+    description: seo.description,
+    path: "/tarjouspyynnot",
+    keywords: seo.keywords,
+  }),
+  alternates: {
+    canonical: `${getSiteUrl()}/tarjouspyynnot`,
+    types: {
+      "application/rss+xml": `${getSiteUrl()}/tarjouspyynnot/feed.xml`,
+    },
+  },
+};
 
 function formatWhen(iso: string): string {
   return new Date(iso).toLocaleDateString("fi-FI", {
@@ -29,12 +37,34 @@ function projectLabel(p: Awaited<ReturnType<typeof fetchPublicOpenProjects>>[num
   return p.job_type_name ?? p.category_name;
 }
 
-export default async function PublicProjectsPage() {
+function filterProjects(
+  projects: Awaited<ReturnType<typeof fetchPublicOpenProjects>>,
+  query: string,
+) {
+  const q = query.trim().toLowerCase();
+  if (!q) return projects;
+  return projects.filter(
+    (p) =>
+      p.title.toLowerCase().includes(q) ||
+      p.summary.toLowerCase().includes(q) ||
+      p.municipality.toLowerCase().includes(q) ||
+      (p.job_type_name?.toLowerCase().includes(q) ?? false) ||
+      p.category_name.toLowerCase().includes(q),
+  );
+}
+
+export default async function PublicProjectsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>;
+}) {
+  const { q = "" } = await searchParams;
   const user = await getSessionUser();
-  const [projects, contractor] = await Promise.all([
+  const [allProjects, contractor] = await Promise.all([
     fetchPublicOpenProjects(),
     user ? isContractor() : Promise.resolve(false),
   ]);
+  const projects = filterProjects(allProjects, q);
 
   return (
     <div className={brand.page}>
@@ -45,6 +75,34 @@ export default async function PublicProjectsPage() {
           Selaa julkisia pyyntöjä ilman kirjautumista. Yhteystiedot, kuvat ja
           tarjouksen jättö avautuvat urakoitsijatilillä.
         </p>
+
+        <form method="get" className="mt-6 flex flex-col gap-2 sm:flex-row">
+          <label htmlFor="project-search" className="sr-only">
+            Hae tarjouspyyntöjä
+          </label>
+          <input
+            id="project-search"
+            type="search"
+            name="q"
+            defaultValue={q}
+            placeholder="Hae otsikolla, paikkakunnalla tai työlajilla…"
+            className="min-h-[2.75rem] flex-1 rounded-lg border border-stone-300 px-3 py-2 text-sm"
+          />
+          <button
+            type="submit"
+            className={`${brand.btnPrimary} touch-target shrink-0 px-5 py-2.5`}
+          >
+            Hae
+          </button>
+        </form>
+        {q.trim() && (
+          <p className="mt-2 text-sm text-stone-600">
+            {projects.length} tulosta haulle &ldquo;{q.trim()}&rdquo;.{" "}
+            <Link href="/tarjouspyynnot" className="text-sky-800 hover:underline">
+              Tyhjennä haku
+            </Link>
+          </p>
+        )}
 
         {!contractor && (
           <div className="mt-6 flex flex-col gap-3 sm:flex-row">
@@ -74,7 +132,11 @@ export default async function PublicProjectsPage() {
 
         {!projects.length ? (
           <div className="mt-8 rounded-xl border border-stone-200 bg-white p-6 text-stone-600">
-            <p>Ei avoimia tarjouspyyntöjä juuri nyt.</p>
+            <p>
+              {q.trim()
+                ? "Hakuun ei löytynyt avoimia pyyntöjä."
+                : "Ei avoimia tarjouspyyntöjä juuri nyt."}
+            </p>
             <p className="mt-2 text-sm">
               Seuraa sivua uudelleen tai{" "}
               <Link href="/urakoitsijaksi" className="text-sky-800 hover:underline">

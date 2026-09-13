@@ -33,6 +33,14 @@ export function JsonLd() {
         publisher: { "@id": `${base}/#organization` },
         description:
           "Kilpailuta remontit ilmaiseksi, vertaa tarjouksia ja tingaa vastatarjouksella. Lämpöpumpun vian selvitys ja huolto.",
+        potentialAction: {
+          "@type": "SearchAction",
+          target: {
+            "@type": "EntryPoint",
+            urlTemplate: `${base}/tarjouspyynnot?q={search_term_string}`,
+          },
+          "query-input": "required name=search_term_string",
+        },
       },
       {
         "@type": "Service",

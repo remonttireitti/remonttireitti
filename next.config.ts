@@ -52,6 +52,24 @@ const nextConfig: NextConfig = {
           },
         ],
       },
+      {
+        source: "/opengraph-image.png",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=86400, stale-while-revalidate=604800",
+          },
+        ],
+      },
+      {
+        source: "/tarjouspyynnot/feed.xml",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=3600, stale-while-revalidate=86400",
+          },
+        ],
+      },
     ];
   },
 };

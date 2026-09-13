@@ -34,6 +34,25 @@ export function ContractorJsonLd({ profile }: { profile: PublicContractorProfile
     };
   }
 
+  if (profile.reviews.length > 0) {
+    graph.review = profile.reviews.slice(0, 10).map((r) => ({
+      "@type": "Review",
+      reviewRating: {
+        "@type": "Rating",
+        ratingValue: r.rating,
+        bestRating: 5,
+        worstRating: 1,
+      },
+      author: { "@type": "Person", name: "Asiakas" },
+      datePublished: r.created_at,
+      ...(r.body?.trim() ? { reviewBody: r.body.trim() } : {}),
+      itemReviewed: {
+        "@type": "LocalBusiness",
+        name: profile.company_name,
+      },
+    }));
+  }
+
   return (
     <script
       type="application/ld+json"
