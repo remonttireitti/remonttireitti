@@ -26,7 +26,13 @@ import { loadContractorMatchProfile } from "@/lib/contractor-projects-server";
 import { projectDistanceKm } from "@/lib/geo-distance";
 import { fetchProjectTradeContextForContractor } from "@/lib/project-trades-server";
 import { serviceEngagementFromDetails } from "@/lib/service-engagement";
+import { ContractorCompanyFactsBanner } from "@/components/contractor/contractor-company-facts-banner";
 import { ContractorCompletionRequestPanel } from "@/components/project/contractor-completion-request-panel";
+import {
+  companyFactsEnforcementActive,
+  companyFactsFromRow,
+  isCompanyFactsComplete,
+} from "@/lib/contractor-company-facts";
 import { brand } from "@/lib/brand-theme";
 import { fetchContractorSentCompletionRequest } from "@/lib/project-completion-requests-server";
 import { recordProjectView } from "@/lib/project-views-server";
@@ -138,7 +144,17 @@ export default async function ContractorProjectPage({
   );
   const serviceEngagement = serviceEngagementFromDetails(project.details);
 
-  const contractorProfile = await loadContractorMatchProfile(supabase, user.id);
+  const [contractorProfile, { data: companyFactsRow }] = await Promise.all([
+    loadContractorMatchProfile(supabase, user.id),
+    supabase
+      .from("contractor_profiles")
+      .select("founded_year, company_size_band")
+      .eq("id", user.id)
+      .maybeSingle(),
+  ]);
+  const companyFacts = companyFactsFromRow(companyFactsRow);
+  const companyFactsBlocked =
+    companyFactsEnforcementActive() && !isCompanyFactsComplete(companyFacts);
   const { data: projectTrades } = await supabase
     .from("project_trades")
     .select("trade_id, trades ( slug )")
@@ -311,7 +327,15 @@ export default async function ContractorProjectPage({
 
         <section id="tarjouslomake" className="mt-8 scroll-mt-24">
           <ValuePromoBanner variant="contractor-pay-on-win" className="mb-4" />
-          <ContractorBidPanel {...bidPanelProps} />
+          <ContractorCompanyFactsBanner facts={companyFacts} />
+          {companyFactsBlocked ? (
+            <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+              Tarjouslomake avautuu, kun yritystiedot on täydennetty Oma tili
+              -sivulla.
+            </p>
+          ) : (
+            <ContractorBidPanel {...bidPanelProps} />
+          )}
         </section>
 
         <details className="mt-8 rounded-xl border border-stone-200 bg-white p-4">

@@ -9,6 +9,7 @@ import {
   parseTradeIds,
   validateContractorQualifications,
 } from "@/lib/contractor-qualifications";
+import { validateCompanyFactsForm } from "@/lib/contractor-company-facts";
 import { resolveContractorTradeIdsFromForm } from "@/lib/resolve-contractor-trades";
 import { saveContractorQualifications } from "@/lib/save-contractor-qualifications";
 import { notifyAdminsNewRegistration } from "@/lib/admin-user-notify";
@@ -58,9 +59,12 @@ export async function signUp(
     return { error: "Urakoitsijana rekisteröityessä yrityksen nimi vaaditaan." };
   }
 
+  let contractorFacts: ReturnType<typeof validateCompanyFactsForm> | null = null;
   if (role === "contractor") {
     const qualErr = validateContractorQualifications(formData);
     if (qualErr) return { error: qualErr };
+    contractorFacts = validateCompanyFactsForm(formData);
+    if (!contractorFacts.ok) return { error: contractorFacts.error };
   }
 
   const supabase = await createClient();
@@ -113,6 +117,24 @@ export async function signUp(
 
     if (saveRes.error) {
       return { error: `Tilin luonti onnistui, mutta pätevyydet epäonnistuivat: ${saveRes.error}` };
+    }
+
+    if (contractorFacts?.ok) {
+      const { founded_year, company_size_band } = contractorFacts.facts;
+      const { error: factsErr } = await supabase
+        .from("contractor_profiles")
+        .update({
+          founded_year,
+          company_size_band,
+          years_in_business: new Date().getFullYear() - founded_year,
+        })
+        .eq("id", data.user.id);
+
+      if (factsErr) {
+        return {
+          error: `Tilin luonti onnistui, mutta yritystietojen tallennus epäonnistui: ${factsErr.message}`,
+        };
+      }
     }
 
     await syncContractorAccount(data.user);

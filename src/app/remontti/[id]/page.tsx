@@ -143,6 +143,8 @@ export default async function ProjectPage({
           paid_at,
           contractor_profiles (
             company_name,
+            founded_year,
+            company_size_band,
             refrigerant_license,
             electrical_qualification,
             lvi_qualifications
@@ -186,6 +188,8 @@ export default async function ProjectPage({
           rejected_at,
           contractor_profiles (
             company_name,
+            founded_year,
+            company_size_band,
             refrigerant_license,
             electrical_qualification,
             lvi_qualifications

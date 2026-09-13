@@ -50,6 +50,12 @@ import {
   isServicePricingModel,
 } from "@/lib/service-engagement";
 import { fetchProjectTradeContextForContractor } from "@/lib/project-trades-server";
+import {
+  companyFactsEnforcementActive,
+  companyFactsFromRow,
+  companyFactsMissingMessage,
+  isCompanyFactsComplete,
+} from "@/lib/contractor-company-facts";
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -317,6 +323,18 @@ export async function submitBid(
   } = await supabase.auth.getUser();
 
   if (!user) return bidError(formData, "Kirjaudu sisään.");
+
+  if (companyFactsEnforcementActive()) {
+    const { data: cp } = await supabase
+      .from("contractor_profiles")
+      .select("founded_year, company_size_band")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (!isCompanyFactsComplete(companyFactsFromRow(cp))) {
+      return bidError(formData, companyFactsMissingMessage());
+    }
+  }
 
   const parsed = await parseBidSubmission(supabase, formData, user.id);
   if (!("project" in parsed)) return parsed;
