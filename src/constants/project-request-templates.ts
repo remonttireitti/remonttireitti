@@ -371,13 +371,6 @@ const GENERIC_TEMPLATE: ProjectRequestTemplate = {
       keywords: ["kohde", "huone", "rakennus", "nyky"],
       promptLine: "Kohde ja nykytila: ___.",
     },
-    {
-      id: "gen_when",
-      question: "Milloin työ pitäisi tehdä?",
-      hint: "Kiire / joustava / tietty ajankohta.",
-      keywords: ["aloitus", "aikataulu", "kuukaus", "viikko"],
-      promptLine: "Toivottu aikataulu: ___.",
-    },
   ],
   qualityCriteria: [
     {
@@ -396,7 +389,7 @@ const GENERIC_TEMPLATE: ProjectRequestTemplate = {
     {
       id: "gen_schedule",
       label: "Aikataulu",
-      tip: "Milloin haluat aloittaa?",
+      tip: "Täytä toivottu aloitus kenttä kuvauksen alla (valinnainen).",
       weight: 15,
       keywords: ["aloitus", "aikataulu"],
     },
