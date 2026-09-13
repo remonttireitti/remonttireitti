@@ -46,7 +46,7 @@ export function criterionLabelFromTemplate(
       tip: "Omakotitalo, rivitalo tms.",
     },
     structured_budget: {
-      label: "Hintatoive",
+      label: "Budjetti",
       tip: "Auttaa sopivien tarjousten löytymistä.",
     },
     structured_schedule: {

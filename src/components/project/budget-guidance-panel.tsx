@@ -23,19 +23,19 @@ function budgetCompareMessage(
   if (budgetEuros < min * 0.85) {
     return {
       tone: "low",
-      text: `Hintatoive on selvästi alle tyypillisen (${formatEurosFromCents(guidance.minCents)}–${formatEurosFromCents(guidance.maxCents)}). Saatat saada vähemmän tarjouksia.`,
+      text: `Budjetti on selvästi alle tyypillisen (${formatEurosFromCents(guidance.minCents)}–${formatEurosFromCents(guidance.maxCents)}). Saatat saada vähemmän tarjouksia.`,
     };
   }
   if (budgetEuros > max * 1.15) {
     return {
       tone: "high",
-      text: `Hintatoive on korkeampi kuin useimmat hyväksytyt tarjoukset (mediaani ${formatEurosFromCents(guidance.medianCents)}).`,
+      text: `Budjetti on korkeampi kuin useimmat hyväksytyt tarjoukset (mediaani ${formatEurosFromCents(guidance.medianCents)}).`,
     };
   }
   if (budgetEuros >= min && budgetEuros <= max) {
     return {
       tone: "ok",
-      text: `Hintatoive on tyypillisen vaihtelun sisällä (mediaani ${formatEurosFromCents(guidance.medianCents)}).`,
+      text: `Budjetti on tyypillisen vaihtelun sisällä (mediaani ${formatEurosFromCents(guidance.medianCents)}).`,
     };
   }
   if (Math.abs(budgetEuros - median) / median <= 0.2) {
