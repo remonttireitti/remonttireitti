@@ -1,6 +1,9 @@
 "use client";
 
 import { useActionState, useMemo, useState } from "react";
+import { ProjectQualityScorePanel } from "@/components/project/project-quality-score-panel";
+import { ProjectRequestGuide } from "@/components/project/project-request-guide";
+import { scoreProjectRequest } from "@/lib/project-request-quality";
 import {
   createProject,
   updateProject,
@@ -365,6 +368,46 @@ export function ProjectWizard({
           ? JSON.stringify(serviceEngagement)
           : "";
 
+  const quality = useMemo(
+    () =>
+      scoreProjectRequest({
+        jobSlug: selectedJobType?.slug ?? null,
+        title: form.title,
+        description: submitDescription,
+        budgetMax:
+          structuredBudgetMax ??
+          (form.budget_max ? Number(form.budget_max) : null),
+        budgetMin: form.budget_min ? Number(form.budget_min) : null,
+        desiredStart: submitDesiredStart || null,
+        flexibilityWeeks: Number(submitFlexibility) || null,
+        photoCount: photoFiles.length,
+        tradeCount: form.trade_ids.length,
+        hasStructuredForm,
+        ilpDetails: isIlp ? ilpDetails : null,
+        ivlpDetails: isIvlp ? ivlpDetails : null,
+        maalampDetails: isMaalamp ? maalampDetails : null,
+      }),
+    [
+      selectedJobType?.slug,
+      form.title,
+      submitDescription,
+      structuredBudgetMax,
+      form.budget_max,
+      form.budget_min,
+      submitDesiredStart,
+      submitFlexibility,
+      photoFiles.length,
+      form.trade_ids.length,
+      hasStructuredForm,
+      isIlp,
+      ilpDetails,
+      isIvlp,
+      ivlpDetails,
+      isMaalamp,
+      maalampDetails,
+    ],
+  );
+
   const summaryBudgetMax =
     isIlp && ilpDetails.budget_max_eur
       ? `n. ${ilpDetails.budget_max_eur} €`
@@ -439,6 +482,11 @@ export function ProjectWizard({
 
         {step === 1 && isIlp && (
           <>
+            <ProjectRequestGuide
+              jobSlug="ilmalampopumppu"
+              description={form.description}
+              onDescriptionChange={() => {}}
+            />
             <IlmalampopumppuDetailsStep
               details={ilpDetails}
               onChange={setIlpDetails}
@@ -468,22 +516,49 @@ export function ProjectWizard({
           />
         )}
 
-        {step === 1 && isIvlp && (
-          <IlmavesilampopumppuDetailsStep
-            details={ivlpDetails}
-            onChange={setIvlpDetails}
+        {!hasStructuredForm && step !== 1 && (
+          <ProjectPhotoUpload
+            files={photoFiles}
+            onFilesChange={setPhotoFiles}
+            showUi={false}
           />
         )}
 
+        {step === 1 && isIvlp && (
+          <>
+            <ProjectRequestGuide
+              jobSlug="ilmavesilampopumppu"
+              description={form.description}
+              onDescriptionChange={() => {}}
+            />
+            <IlmavesilampopumppuDetailsStep
+              details={ivlpDetails}
+              onChange={setIvlpDetails}
+            />
+          </>
+        )}
+
         {step === 1 && isMaalamp && (
-          <MaalampopumppuDetailsStep
-            details={maalampDetails}
-            onChange={setMaalampDetails}
-          />
+          <>
+            <ProjectRequestGuide
+              jobSlug="maalampopumppu"
+              description={form.description}
+              onDescriptionChange={() => {}}
+            />
+            <MaalampopumppuDetailsStep
+              details={maalampDetails}
+              onChange={setMaalampDetails}
+            />
+          </>
         )}
 
         {step === 1 && !hasStructuredForm && (
           <div className="space-y-4">
+            <ProjectRequestGuide
+              jobSlug={selectedJobType?.slug ?? null}
+              description={form.description}
+              onDescriptionChange={(value) => update("description", value)}
+            />
             {isFreeForm && (
               <ProjectAllTradesPicker
                 catalog={catalog}
@@ -543,6 +618,22 @@ export function ProjectWizard({
                 onChange={setServiceEngagement}
               />
             )}
+            <div className="rounded-2xl border border-stone-200 bg-white p-5">
+              <p className="text-sm font-semibold text-stone-800">Kuvat (valinnainen)</p>
+              <p className="mt-1 text-xs text-stone-500">
+                Nykytila, vaurio tai kohde — parantaa tarjouspyynnön laatupisteitä.
+              </p>
+              <div className="mt-3">
+                <ProjectPhotoUpload
+                  files={photoFiles}
+                  onFilesChange={setPhotoFiles}
+                  showUi
+                />
+              </div>
+            </div>
+
+            <ProjectQualityScorePanel quality={quality} compact />
+
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
                 <label htmlFor="desired_start" className="block text-sm font-medium">
@@ -671,6 +762,9 @@ export function ProjectWizard({
         )}
 
         {step === 3 && (
+          <>
+          <ProjectQualityScorePanel quality={quality} />
+          <div className="mt-6">
           <ProjectSummaryReview
             jobTypeName={
               isFreeForm ? "Vapaa tarjouspyyntö" : (selectedJobType?.name_fi ?? "—")
@@ -698,6 +792,8 @@ export function ProjectWizard({
             budgetMaxLabel={summaryBudgetMax}
             photoCount={photoFiles.length}
           />
+          </div>
+          </>
         )}
 
         {stepValidationError && (

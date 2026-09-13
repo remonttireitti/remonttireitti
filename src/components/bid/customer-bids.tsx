@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { BidComparisonInsightsPanel } from "@/components/bid/bid-comparison-insights-panel";
 import { CounterOfferBadge } from "@/components/bid/counter-offer-badge";
 import {
   ContractorQualificationsCell,
@@ -31,6 +32,10 @@ import {
   sortBidsForComparison,
 } from "@/lib/bids";
 import type { ContractorRatingSummary } from "@/lib/reviews";
+import {
+  analyzeBidComparison,
+  bidInsightInputFromRow,
+} from "@/lib/bid-comparison-insights";
 import type { BidStatus, ProjectStatus } from "@/types/database";
 
 export type BidWithContractor = {
@@ -197,6 +202,7 @@ export function CustomerBids({
   bids,
   contractorRatings = {},
   acceptedBidId = null,
+  jobSlug = null,
 }: {
   projectId: string;
   projectStatus: ProjectStatus;
@@ -204,6 +210,7 @@ export function CustomerBids({
   bids: BidWithContractor[];
   contractorRatings?: Record<string, ContractorRatingSummary>;
   acceptedBidId?: string | null;
+  jobSlug?: string | null;
 }) {
   const canAccept = ["published", "receiving_bids"].includes(projectStatus);
   const finalizing =
@@ -258,6 +265,17 @@ export function CustomerBids({
     "sticky left-0 z-10 border-r border-stone-200 bg-stone-50 px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-stone-600";
   const dataCell = "border-stone-200 px-3 py-2.5 align-top text-sm";
 
+  const bidLabels = Object.fromEntries(
+    sorted.map((b) => [b.id, getBidContractorName(b.contractor_profiles)]),
+  );
+  const comparisonInsights = analyzeBidComparison(
+    sorted
+      .filter((b) => b.status === "submitted" || b.status === "accepted")
+      .map((b) => bidInsightInputFromRow(b)),
+    bidLabels,
+    jobSlug,
+  );
+
   return (
     <section className="mt-8">
       <h2 className="text-lg font-semibold">Tarjoukset ({visibleBids.length})</h2>
@@ -273,6 +291,10 @@ export function CustomerBids({
 
       {canAccept && (
         <ValuePromoBanner variant="customer-negotiate" className="mt-4" />
+      )}
+
+      {comparisonInsights && (
+        <BidComparisonInsightsPanel insights={comparisonInsights} />
       )}
 
       <div className="-mx-1 overflow-x-auto px-1">
