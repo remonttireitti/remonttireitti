@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 520" role="img" aria-labelledby="title desc">
+  <title id="title">Kilpailuta remontti  tarjouspyyntö omakotitaloon</title>
+  <desc id="desc">Kuvitus: talo, tarjouspyyntölomake ja kamerakuvat remontin kilpailutukseen.</desc>
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#e0f2fe"/>
+      <stop offset="100%" stop-color="#f8fafc"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="520" fill="url(#sky)"/>
+  <rect x="80" y="180" width="220" height="180" rx="8" fill="#fff" stroke="#cbd5e1" stroke-width="2"/>
+  <polygon points="80,180 190,100 300,180" fill="#0369a1"/>
+  <rect x="120" y="240" width="50" height="50" fill="#bae6fd" stroke="#0284c7"/>
+  <rect x="210" y="240" width="50" height="50" fill="#bae6fd" stroke="#0284c7"/>
+  <rect x="165" y="300" width="50" height="60" fill="#fed7aa" stroke="#ea580c"/>
+  <rect x="360" y="120" width="340" height="300" rx="16" fill="#fff" stroke="#cbd5e1" stroke-width="2"/>
+  <text x="390" y="165" font-family="system-ui,sans-serif" font-size="22" font-weight="700" fill="#0f172a">Tarjouspyyntö</text>
+  <rect x="390" y="185" width="280" height="14" rx="4" fill="#e2e8f0"/>
+  <rect x="390" y="215" width="240" height="14" rx="4" fill="#e2e8f0"/>
+  <rect x="390" y="245" width="200" height="14" rx="4" fill="#e2e8f0"/>
+  <rect x="390" y="285" width="120" height="36" rx="8" fill="#ea580c"/>
+  <text x="410" y="308" font-family="system-ui,sans-serif" font-size="14" font-weight="600" fill="#fff">Julkaise</text>
+  <circle cx="620" cy="380" r="44" fill="#fef3c7" stroke="#f59e0b" stroke-width="2"/>
+  <text x="605" y="388" font-family="system-ui,sans-serif" font-size="28">=÷</text>
+  <text x="80" y="420" font-family="system-ui,sans-serif" font-size="18" font-weight="600" fill="#0369a1">Kilpailuta remontti ilmaiseksi</text>
+  <text x="80" y="450" font-family="system-ui,sans-serif" font-size="15" fill="#475569">Kuvaile kohde kerran  saat vertailukelpoiset tarjoukset</text>
+</svg>

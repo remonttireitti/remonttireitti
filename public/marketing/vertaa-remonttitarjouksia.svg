@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 520" role="img" aria-labelledby="title desc">
+  <title id="title">Vertaa remonttitarjouksia ja tingaa hintaa</title>
+  <desc id="desc">Kolme vertailukelpoista remonttitarjousta: hinta, takuu ja aikataulu.</desc>
+  <rect width="800" height="520" fill="#f8fafc"/>
+  <text x="80" y="70" font-family="system-ui,sans-serif" font-size="24" font-weight="700" fill="#0f172a">Vertaa tarjouksia samassa muodossa</text>
+  <g transform="translate(60,100)">
+    <rect width="200" height="320" rx="12" fill="#fff" stroke="#cbd5e1" stroke-width="2"/>
+    <text x="20" y="40" font-family="system-ui,sans-serif" font-size="16" font-weight="600" fill="#0369a1">Tarjous A</text>
+    <text x="20" y="90" font-family="system-ui,sans-serif" font-size="28" font-weight="700" fill="#0f172a">8 400 ¬</text>
+    <text x="20" y="130" font-family="system-ui,sans-serif" font-size="13" fill="#64748b">Takuu 24 kk</text>
+    <text x="20" y="155" font-family="system-ui,sans-serif" font-size="13" fill="#64748b">Aloitus 3 vk</text>
+  </g>
+  <g transform="translate(300,100)">
+    <rect width="200" height="320" rx="12" fill="#fff" stroke="#7c3aed" stroke-width="3"/>
+    <text x="20" y="40" font-family="system-ui,sans-serif" font-size="16" font-weight="600" fill="#7c3aed">Vastatarjous</text>
+    <text x="20" y="90" font-family="system-ui,sans-serif" font-size="28" font-weight="700" fill="#0f172a">7 800 ¬</text>
+    <text x="20" y="130" font-family="system-ui,sans-serif" font-size="13" fill="#64748b">Ehdotuksesi</text>
+    <text x="20" y="155" font-family="system-ui,sans-serif" font-size="13" fill="#64748b">Neuvottele alustalla</text>
+  </g>
+  <g transform="translate(540,100)">
+    <rect width="200" height="320" rx="12" fill="#fff" stroke="#cbd5e1" stroke-width="2"/>
+    <text x="20" y="40" font-family="system-ui,sans-serif" font-size="16" font-weight="600" fill="#0369a1">Tarjous B</text>
+    <text x="20" y="90" font-family="system-ui,sans-serif" font-size="28" font-weight="700" fill="#0f172a">9 100 ¬</text>
+    <text x="20" y="130" font-family="system-ui,sans-serif" font-size="13" fill="#64748b">Takuu 36 kk</text>
+    <text x="20" y="155" font-family="system-ui,sans-serif" font-size="13" fill="#64748b">Materiaalit mukana</text>
+  </g>
+  <text x="80" y="470" font-family="system-ui,sans-serif" font-size="15" fill="#475569">Tingaa vastatarjouksella  eri kuin perinteiset kilpailutuspalvelut</text>
+</svg>

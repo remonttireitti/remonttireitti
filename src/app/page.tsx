@@ -14,8 +14,11 @@ export const metadata: Metadata = pageMetadata({
 import { HomeAudienceSplit } from "@/components/marketing/home-audience-split";
 import { Logo } from "@/components/brand/logo";
 import { HomeDifferentiators } from "@/components/marketing/home-differentiators";
+import { HomeFaq } from "@/components/marketing/home-faq";
 import { HomeHowItWorks } from "@/components/marketing/home-how-it-works";
 import { HomeOpenProjects } from "@/components/marketing/home-open-projects";
+import { HomePageJsonLd } from "@/components/marketing/home-page-json-ld";
+import { HomeSeoContent } from "@/components/marketing/home-seo-content";
 import { HomeTrust } from "@/components/marketing/home-trust";
 import { ServiceCards } from "@/components/marketing/service-cards";
 import { HomeNotifications } from "@/components/notifications/home-notifications";
@@ -54,6 +57,7 @@ export default async function Home() {
 
   return (
     <div className={brand.page}>
+      <HomePageJsonLd />
       <SiteHeader />
 
       <main className="pb-16">
@@ -137,6 +141,10 @@ export default async function Home() {
             <HomeHowItWorks />
           </div>
         </section>
+
+        <HomeSeoContent />
+
+        <HomeFaq />
 
         <section className="border-t border-stone-200 bg-white py-12">
           <div className={brand.containerWide}>
