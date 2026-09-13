@@ -283,6 +283,15 @@ export default async function ContractorProjectPage({
           </p>
         )}
 
+        <div className="sticky bottom-0 z-30 -mx-4 border-t border-stone-200 bg-white/95 px-4 py-3 backdrop-blur-md lg:hidden">
+          <a
+            href="#tarjouslomake"
+            className={`${brand.btnPrimary} ${brand.btnPrimaryBlock} touch-target flex min-h-[2.75rem] items-center justify-center`}
+          >
+            Siirry tarjouslomakkeeseen
+          </a>
+        </div>
+
         <div className={brand.detailSplit}>
           <div className={brand.detailSplitMain}>
             <ProjectOverviewCards

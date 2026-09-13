@@ -19,7 +19,7 @@ type Props = {
 };
 
 const chipBase =
-  "inline-flex shrink-0 items-center rounded-lg px-3 py-2 text-sm font-medium transition-colors";
+  "inline-flex shrink-0 items-center rounded-lg px-3 py-2 text-sm font-medium transition-colors touch-target min-h-[2.75rem]";
 
 function chipClass(active: boolean) {
   return active
@@ -102,7 +102,7 @@ export function SiteHeaderMobileNav({
       {ctaHref && ctaLabel && (
         <Link
           href={ctaHref}
-          className="flex w-full items-center justify-center rounded-xl bg-orange-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-orange-800"
+          className="touch-target flex w-full min-h-[2.75rem] items-center justify-center rounded-xl bg-orange-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-orange-800"
         >
           <NavLinkPendingContent>
             <span className="sm:hidden">{ctaLabelShort}</span>
@@ -113,7 +113,7 @@ export function SiteHeaderMobileNav({
 
       <div className="flex items-center gap-1 rounded-xl border border-stone-200/80 bg-white/90 px-2 py-1.5 shadow-sm ring-1 ring-stone-200/50">
         <nav
-          className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto scroll-smooth [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [mask-image:linear-gradient(to_right,black_85%,transparent)]"
           aria-label="Pikavalikko"
         >
           {SHOW_MARKETPLACE_IN_MARKETING && (
@@ -139,6 +139,8 @@ export function SiteHeaderMobileNav({
             </>
           ) : (
             <>
+              <NavChip href="/remontti/uusi">Kilpailuta</NavChip>
+              <NavChip href="/tarjousarvio">Tarjousvahti</NavChip>
               <NavChip href="/asiakkaalle">Asiakkaalle</NavChip>
               <NavChip href="/tarjouspyynnot">Pyynnöt</NavChip>
               <NavChip href="/kirjaudu">Kirjaudu</NavChip>
@@ -153,7 +155,7 @@ export function SiteHeaderMobileNav({
           <div ref={moreRef} className="relative shrink-0 border-l border-stone-100 pl-1">
             <button
               type="button"
-              className={`${chipBase} px-2.5 text-stone-600`}
+              className={`${chipBase} min-w-[2.75rem] justify-center px-2.5 text-stone-600`}
               aria-expanded={moreOpen}
               aria-haspopup="menu"
               aria-label="Lisää toimintoja"
