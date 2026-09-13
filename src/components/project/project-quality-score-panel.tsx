@@ -4,14 +4,14 @@ function scoreColor(score: number): string {
   if (score >= 90) return "text-emerald-700";
   if (score >= 75) return "text-sky-700";
   if (score >= 55) return "text-amber-700";
-  return "text-red-700";
+  return "text-stone-600";
 }
 
 function ringColor(score: number): string {
   if (score >= 90) return "stroke-emerald-500";
   if (score >= 75) return "stroke-sky-500";
   if (score >= 55) return "stroke-amber-500";
-  return "stroke-red-500";
+  return "stroke-stone-400";
 }
 
 export function ProjectQualityScorePanel({
@@ -60,6 +60,9 @@ export function ProjectQualityScorePanel({
             {quality.label}
           </p>
           <p className="mt-1 text-sm leading-relaxed text-stone-600">{quality.summary}</p>
+          <p className="mt-2 text-xs leading-relaxed text-stone-500">
+            Laatupiste on vinkki, ei este — voit julkaista myös suppeammalla pyynnöllä.
+          </p>
         </div>
       </div>
 
@@ -67,8 +70,8 @@ export function ProjectQualityScorePanel({
         <div className="mt-4 space-y-3 border-t border-stone-100 pt-4">
           {missing.length > 0 && (
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-red-800">
-                Puuttuu
+              <p className="text-xs font-semibold uppercase tracking-wide text-stone-600">
+                Voisi vielä täydentää
               </p>
               <ul className="mt-2 space-y-1.5">
                 {missing.map((item) => (

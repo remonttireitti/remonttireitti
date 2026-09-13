@@ -355,7 +355,7 @@ const GENERIC_TEMPLATE: ProjectRequestTemplate = {
   areaSlug: "generic",
   title: "Tarjouspyyntö",
   intro:
-    "Mitä enemmän kerrot nykytilasta, toiveista ja aikataulusta, sitä parempia tarjouksia saat.",
+    "Voit julkaista vähälläkin — kaikki kentät eivät ole pakollisia. Mitä selkeämmin kuvaat työn, sitä tarkempia tarjouksia yleensä saat.",
   questions: [
     {
       id: "gen_what",

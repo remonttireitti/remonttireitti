@@ -117,8 +117,8 @@ export function ProjectRequestGuide({
       <aside className="rounded-2xl border border-sky-100 bg-sky-50/60 p-4">
         <p className="text-sm font-semibold text-sky-950">Ohjattu lomake</p>
         <p className="mt-1 text-sm text-sky-900">
-          Lämpöpumpun tiedot kerätään vaiheittain. Täytä kaikki kohdat — laatupiste
-          päivittyy yhteenvedossa.
+          Lämpöpumpun tiedot kerätään vaiheittain. Täytä sen verran kuin tiedät —
+          laatupiste kertoo, mitä vielä kannattaisi lisätä.
         </p>
       </aside>
     );
@@ -199,7 +199,8 @@ export function ProjectRequestGuide({
       <p className="mt-3 rounded-lg border border-violet-200/80 bg-white/70 px-3 py-2 text-xs leading-relaxed text-violet-950">
         <span className="font-medium">Näin täydennät:</span> valitse kohta → teksti
         lisätään <span className="font-medium">Kuvaus-kenttään</span> alle → täydennä
-        tiedot siellä (korvaa ___).
+        tiedot siellä (korvaa ___). Kaikki kohdat eivät ole pakollisia — täydennä sen
+        verran kuin jaksat.
       </p>
 
       {flash && (

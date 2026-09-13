@@ -43,8 +43,8 @@ export function LearnedCriteriaWarnings({
           </p>
           <p className="mt-1 text-xs text-amber-900">
             Urakoitsijat ovat usein pyytäneet näitä tietoja{" "}
-            {slug !== "generic" ? "tälle työlajille" : ""}. Täydennä ennen julkaisua —
-            saat tarkempia tarjouksia heti.
+            {slug !== "generic" ? "tälle työlajille" : ""}. Suosittelemme täydentämään —
+            saat yleensä tarkempia tarjouksia.
           </p>
           <ul className="mt-3 space-y-1.5">
             {strongMissing.map((c) => (
