@@ -19,7 +19,7 @@ export function formatBudgetOfferPreference(
   budgetMaxEur: number | null,
   acceptOverBudget: boolean,
 ): string {
-  if (!budgetMaxEur) return "Hintatoivetta ei ilmoitettu";
+  if (!budgetMaxEur) return "Budjettia ei ilmoitettu";
   const formatted = budgetMaxEur.toLocaleString("fi-FI");
   if (acceptOverBudget) {
     return `Suosin tarjouksia alle ${formatted} € — korkeammat sallittu`;

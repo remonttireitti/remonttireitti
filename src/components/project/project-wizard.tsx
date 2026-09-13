@@ -692,12 +692,16 @@ export function ProjectWizard({
                 <label htmlFor="desired_start" className="block text-sm font-medium">
                   {isServiceJob ? "Toivottu aloitus / ensimmäinen käynti" : "Toivottu aloitus"}
                 </label>
+                <p className="mt-1 text-xs text-stone-500">
+                  Valinnainen. Jätä tyhjäksi, jos aikataulu on joustava — kerro kiireestä
+                  kuvauksessa, jos se on tärkeää.
+                </p>
                 <input
                   id="desired_start"
                   type="date"
                   value={form.desired_start}
                   onChange={(e) => update("desired_start", e.target.value)}
-                  className={inputClass}
+                  className={`${inputClass} mt-2`}
                 />
               </div>
               <div>

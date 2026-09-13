@@ -138,7 +138,7 @@ export function ProjectOverviewCards({
             title="Budjetti ja aikataulu"
             rows={[
               {
-                label: "Hintatoive",
+                label: "Budjetti",
                 value: formatBudget(budgetMin ?? null, budgetMax ?? null),
               },
               ...(desiredStart

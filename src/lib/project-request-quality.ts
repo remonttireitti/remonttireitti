@@ -107,7 +107,7 @@ function structuredHeatPumpItems(
     ilp?.budget_max_eur ?? ivlp?.budget_max_eur ?? maal?.budget_max_eur ?? null;
   items.push({
     id: "structured_budget",
-    label: "Hintatoive",
+    label: "Budjetti",
     tip: "Auttaa sopivien tarjousten löytymistä.",
     weight: 10,
     status: budget != null && budget > 0 ? "done" : "partial",

@@ -161,7 +161,7 @@ export function ProjectSummaryReview({
           <DetailItem label="Otsikko" value={title} />
           {scopeLabel && <DetailItem label="Tarjouksen laajuus" value={scopeLabel} />}
           {budgetMaxLabel && (
-            <DetailItem label="Hintatoive" value={budgetMaxLabel} />
+            <DetailItem label="Budjetti" value={budgetMaxLabel} />
           )}
           {photoCount > 0 && (
             <DetailItem

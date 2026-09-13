@@ -97,7 +97,7 @@ const HEAT_PUMP_TEMPLATE: ProjectRequestTemplate = {
     },
     {
       id: "hp_budget",
-      label: "Budjetti tai hintatoive",
+      label: "Budjetti",
       tip: "Urakoitsijat voivat suodattaa tarjouksia.",
       weight: 10,
       keywords: ["budjetti", "€", "euro", "hinta"],
@@ -371,20 +371,6 @@ const GENERIC_TEMPLATE: ProjectRequestTemplate = {
       keywords: ["kohde", "huone", "rakennus", "nyky"],
       promptLine: "Kohde ja nykytila: ___.",
     },
-    {
-      id: "gen_when",
-      question: "Milloin työ pitäisi tehdä?",
-      hint: "Kiire / joustava / tietty ajankohta.",
-      keywords: ["aloitus", "aikataulu", "kuukaus", "viikko"],
-      promptLine: "Toivottu aikataulu: ___.",
-    },
-    {
-      id: "gen_budget",
-      question: "Onko budjettia tai hintakattoa?",
-      hint: "Valinnainen — auttaa sopivien tarjousten löytymistä.",
-      keywords: ["budjetti", "€", "euro", "hinta"],
-      promptLine: "Budjetti / hintakatto: n. ___ €.",
-    },
   ],
   qualityCriteria: [
     {
@@ -403,14 +389,14 @@ const GENERIC_TEMPLATE: ProjectRequestTemplate = {
     {
       id: "gen_schedule",
       label: "Aikataulu",
-      tip: "Milloin haluat aloittaa?",
+      tip: "Täytä toivottu aloitus kenttä kuvauksen alla (valinnainen).",
       weight: 15,
       keywords: ["aloitus", "aikataulu"],
     },
     {
       id: "gen_budget",
       label: "Budjetti",
-      tip: "Auttaa urakoitsijoita arvioimaan sopivuutta.",
+      tip: "Täytä budjettikenttä kuvauksen alla (valinnainen).",
       weight: 10,
       keywords: ["budjetti", "€"],
     },
