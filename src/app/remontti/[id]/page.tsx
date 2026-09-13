@@ -29,7 +29,9 @@ import {
 } from "@/lib/messages-server";
 import { fetchContractorRatings } from "@/lib/reviews";
 import { fetchPlatformFeedbackForProject } from "@/lib/platform-feedback-server";
+import { ProjectQualityScorePanel } from "@/components/project/project-quality-score-panel";
 import { brand } from "@/lib/brand-theme";
+import { scoreProjectFromRow } from "@/lib/project-request-quality";
 import { createClient } from "@/lib/supabase/server";
 import type { ProjectStatus } from "@/types/database";
 
@@ -160,6 +162,34 @@ export default async function ProjectPage({
     contractorIds,
   );
   const projectPhotos = await fetchProjectPhotos(supabase, id);
+
+  const { data: jobTypeRow } = await supabase
+    .from("projects")
+    .select("job_types ( slug )")
+    .eq("id", id)
+    .maybeSingle();
+
+  const jobSlugRaw = jobTypeRow?.job_types as
+    | { slug: string }
+    | { slug: string }[]
+    | null;
+  const jobSlug = Array.isArray(jobSlugRaw)
+    ? (jobSlugRaw[0]?.slug ?? null)
+    : (jobSlugRaw?.slug ?? null);
+
+  const projectQuality =
+    project.status === "draft"
+      ? scoreProjectFromRow({
+          jobSlug,
+          title: project.title,
+          description: project.description,
+          budgetMax: project.budget_max,
+          budgetMin: project.budget_min,
+          desiredStart: project.desired_start,
+          details: project.details,
+          photoCount: projectPhotos.length,
+        })
+      : null;
 
   const { data: review } = await supabase
     .from("reviews")
@@ -370,7 +400,16 @@ export default async function ProjectPage({
           </p>
         )}
 
-        {status === "draft" && <ProjectDraftPublishPanel projectId={id} />}
+        {status === "draft" && (
+          <>
+            {projectQuality && (
+              <div className="mt-6">
+                <ProjectQualityScorePanel quality={projectQuality} />
+              </div>
+            )}
+            <ProjectDraftPublishPanel projectId={id} />
+          </>
+        )}
 
         {acceptedCompany && (
           <>
@@ -443,6 +482,7 @@ export default async function ProjectPage({
             bids={(bids ?? []) as BidWithContractor[]}
             contractorRatings={ratingsMap}
             acceptedBidId={acceptedBidId}
+            jobSlug={jobSlug}
           />
           {submittedBidCount > 0 && biddingPhase && (
             <BidEvaluationPromo projectId={id} />
