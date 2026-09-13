@@ -101,6 +101,7 @@ export function analyzeBidAssistant(
 export function missingScopeItemIds(
   jobSlug: string | null,
   insight: BidInsightResult,
+  fields?: BidFormFields,
 ): string[] {
   const items = scopeCheckItemsForJob(jobSlug);
   const missingLabels = new Set([
@@ -109,5 +110,17 @@ export function missingScopeItemIds(
   ]);
   return items
     .filter((item) => missingLabels.has(item.label))
+    .filter((item) => {
+      if (!fields) return true;
+      if (item.id === "timeline") {
+        return (
+          !(fields.estimated_days && Number(fields.estimated_days) > 0) &&
+          !fields.earliest_start_date.trim()
+        );
+      }
+      if (item.id === "warranty") return !fields.warranty_work.trim();
+      if (item.id === "terms") return !fields.contract_terms.trim();
+      return true;
+    })
     .map((item) => item.id);
 }

@@ -585,13 +585,6 @@ export function BidForm({
         )}
       </div>
 
-      <BidAssistantPanel
-        fields={fields}
-        jobTypeSlug={jobTypeSlug}
-        projectQuality={projectQuality}
-        onAppendScope={appendScopeSuggestion}
-      />
-
       <fieldset className="space-y-4 rounded-xl border border-stone-200 bg-stone-50/80 p-4">
         <legend className="px-1 text-sm font-semibold text-stone-800">
           Ehdot ja laajuus
@@ -809,18 +802,29 @@ export function BidForm({
         </p>
       )}
 
+      <BidAssistantPanel
+        fields={fields}
+        jobTypeSlug={jobTypeSlug}
+        projectQuality={projectQuality}
+        onAppendScope={appendScopeSuggestion}
+      />
+
       <div>
         <label htmlFor="message" className="block text-sm font-medium">
-          Viesti asiakkaalle *
+          Viesti asiakkaalle{" "}
+          <span className="font-normal text-stone-500">(valinnainen)</span>
         </label>
+        <p className="mt-0.5 text-xs text-stone-500">
+          Laajuus ja ehdot näkyvät vertailussa erikseen — viesti on lisähuomioille.
+        </p>
         <textarea
           id="message"
           name="message"
-          rows={4}
+          rows={3}
           value={fields.message}
           onChange={(e) => update("message", e.target.value)}
           className={fieldClass(!!fieldErrors.message)}
-          placeholder="Kerro mitä hinta sisältää ja muut huomiot…"
+          placeholder="Esim. voin aloittaa viikon sisällä tai teen kartoituksen ensin…"
           aria-invalid={!!fieldErrors.message}
           aria-describedby={fieldErrors.message ? "message-error" : undefined}
         />

@@ -118,13 +118,8 @@ async function parseBidSubmission(
   const estimatedDaysRaw = String(formData.get("estimated_days") ?? "");
   const vatIncluded = formData.get("vat_included") === "on";
 
-  if (!projectId || !message) {
-    return bidError(formData, "Täytä viesti ja hinta.", {
-      ...(!message.trim() ? { message: "Kirjoita viesti asiakkaalle." } : {}),
-      ...(!workEuros || workEuros <= 0
-        ? { amount_euros: "Anna kelvollinen hinta euroina." }
-        : {}),
-    });
+  if (!projectId) {
+    return bidError(formData, "Puuttuva kohde.", {});
   }
 
   if (!workEuros || workEuros <= 0) {
