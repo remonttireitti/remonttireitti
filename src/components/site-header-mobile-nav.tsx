@@ -141,12 +141,9 @@ export function SiteHeaderMobileNav({
             <>
               <NavChip href="/asiakkaalle">Asiakkaalle</NavChip>
               <NavChip href="/tarjouspyynnot">Pyynnöt</NavChip>
-              <NavChip href="/urakoitsijaksi" onNavigate={closeMore}>
-                Urakoitsijalle
-              </NavChip>
               <NavChip href="/kirjaudu">Kirjaudu</NavChip>
-              <Link href="/rekisteroidy?rooli=urakoitsija" className={ctaChip}>
-                <NavLinkPendingContent>Rekisteröidy</NavLinkPendingContent>
+              <Link href="/urakoitsijaksi" className={ctaChip}>
+                <NavLinkPendingContent>Urakoitsijalle</NavLinkPendingContent>
               </Link>
             </>
           )}

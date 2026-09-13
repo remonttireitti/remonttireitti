@@ -112,7 +112,6 @@ export function SiteHeaderNav({
           <>
             <NavItem href="/tarjousarvio">Tarjousvahti</NavItem>
             <NavItem href="/tarjouspyynnot">Tarjouspyynnöt</NavItem>
-            <NavItem href="/urakoitsijaksi">Urakoitsijalle</NavItem>
             <NavItem href="/kirjaudu">Kirjaudu</NavItem>
           </>
         )}
@@ -134,8 +133,8 @@ export function SiteHeaderNav({
             <Link href="/remontti/uusi" className={navLinkClass(false)}>
               <NavLinkPendingContent>Kilpailuta</NavLinkPendingContent>
             </Link>
-            <Link href="/rekisteroidy?rooli=urakoitsija" className={ctaClass}>
-              <NavLinkPendingContent>Rekisteröidy</NavLinkPendingContent>
+            <Link href="/urakoitsijaksi" className={ctaClass}>
+              <NavLinkPendingContent>Urakoitsijalle</NavLinkPendingContent>
             </Link>
           </>
         )}
