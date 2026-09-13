@@ -50,6 +50,7 @@ export function UserRowActions({
             <option value="customer">{profileRoleLabels.customer}</option>
             <option value="contractor">{profileRoleLabels.contractor}</option>
             <option value="admin">{profileRoleLabels.admin}</option>
+            <option value="evaluator">{profileRoleLabels.evaluator}</option>
           </select>
         </label>
         <input

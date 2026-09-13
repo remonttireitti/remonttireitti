@@ -14,6 +14,7 @@ type Props = {
   isCustomer: boolean;
   isContractor: boolean;
   isAdmin: boolean;
+  isEvaluator: boolean;
   unreadNotifications?: number;
 };
 
@@ -55,6 +56,7 @@ export function SiteHeaderMobileNav({
   isCustomer,
   isContractor,
   isAdmin,
+  isEvaluator,
   unreadNotifications = 0,
 }: Props) {
   const [moreOpen, setMoreOpen] = useState(false);
@@ -167,6 +169,16 @@ export function SiteHeaderMobileNav({
                 role="menu"
                 className="absolute right-0 top-full z-50 mt-1.5 min-w-[11rem] rounded-xl border border-stone-200 bg-white py-1 shadow-lg"
               >
+                {isEvaluator && (
+                  <Link
+                    href="/arvioija"
+                    role="menuitem"
+                    className="block px-4 py-2.5 text-sm text-stone-800 hover:bg-stone-50"
+                    onClick={closeMore}
+                  >
+                    <NavLinkPendingContent>Arvioija</NavLinkPendingContent>
+                  </Link>
+                )}
                 {isAdmin && (
                   <Link
                     href="/admin"

@@ -3,6 +3,7 @@ import { SiteHeaderMobileNav } from "@/components/site-header-mobile-nav";
 import { SiteHeaderNav } from "@/components/site-header-nav";
 import { getProfile, getSessionUser, isContractor } from "@/lib/auth";
 import { isAdmin } from "@/lib/admin";
+import { isEvaluator } from "@/lib/evaluator";
 import { countUnreadNotifications } from "@/lib/notifications-server";
 import { createClient } from "@/lib/supabase/server";
 
@@ -11,6 +12,7 @@ export async function SiteHeader() {
   const profile = user ? await getProfile() : null;
   const contractor = user ? await isContractor() : false;
   const admin = user ? await isAdmin() : false;
+  const evaluator = user ? await isEvaluator() : false;
   let unreadNotifications = 0;
 
   if (user) {
@@ -23,6 +25,7 @@ export async function SiteHeader() {
     isCustomer: profile?.role === "customer",
     isContractor: contractor,
     isAdmin: admin,
+    isEvaluator: evaluator,
     unreadNotifications,
   };
 

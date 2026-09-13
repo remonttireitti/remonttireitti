@@ -17,7 +17,7 @@ export async function setUserRole(
   const userId = String(formData.get("user_id") ?? "");
   const role = String(formData.get("role") ?? "") as UserRole;
 
-  if (!userId || !["customer", "contractor", "admin"].includes(role)) {
+  if (!userId || !["customer", "contractor", "admin", "evaluator"].includes(role)) {
     return { error: "Virheelliset tiedot." };
   }
 
