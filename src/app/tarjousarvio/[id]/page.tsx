@@ -4,7 +4,7 @@ import { EvaluationResultDisplay } from "@/components/bid-evaluation/evaluation-
 import { SiteHeader } from "@/components/site-header";
 import { brand } from "@/lib/brand-theme";
 import {
-  BID_EVALUATION_CATEGORY_LABELS,
+  formatEvaluationCategoryLabel,
   BID_EVALUATION_STATUS_LABELS,
   formatHeatPumpType,
 } from "@/lib/bid-evaluation";
@@ -74,7 +74,7 @@ export default async function EvaluationDetailPage({
 
         <h1 className="mt-4 text-2xl font-bold">Tarjousarvio</h1>
         <p className="mt-2 text-sm text-stone-600">
-          {BID_EVALUATION_CATEGORY_LABELS[request.category]}
+          {formatEvaluationCategoryLabel(request.category)}
           {request.heat_pump_type &&
             ` · ${formatHeatPumpType(request.heat_pump_type)}`}{" "}
           · {BID_EVALUATION_STATUS_LABELS[request.status]}

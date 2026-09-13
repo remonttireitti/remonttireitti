@@ -5,8 +5,8 @@ import { EvaluatorAvailabilityForm } from "@/components/bid-evaluation/evaluator
 import { SiteHeader } from "@/components/site-header";
 import { brand } from "@/lib/brand-theme";
 import {
-  BID_EVALUATION_CATEGORY_LABELS,
   BID_EVALUATION_STATUS_LABELS,
+  formatEvaluationCategoryLabel,
   formatHeatPumpType,
 } from "@/lib/bid-evaluation";
 import {
@@ -14,6 +14,10 @@ import {
   fetchEvaluatorQueue,
 } from "@/lib/bid-evaluation-server";
 import { fetchEvaluatorScopes, requireEvaluator } from "@/lib/evaluator";
+import {
+  evaluatorScopeLabel,
+  expandEvaluatorScopesForQueue,
+} from "@/lib/evaluator-scopes";
 import { getSessionUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 
@@ -28,8 +32,9 @@ export default async function EvaluatorQueuePage({
 
   const { valmis, palautettu } = await searchParams;
   const scopes = await fetchEvaluatorScopes(user.id);
+  const queueCategories = expandEvaluatorScopesForQueue(scopes);
   const supabase = await createClient();
-  const queue = await fetchEvaluatorQueue(supabase, scopes);
+  const queue = await fetchEvaluatorQueue(supabase, queueCategories);
   const profile = await fetchEvaluatorProfile(supabase, user.id);
 
   return (
@@ -38,7 +43,10 @@ export default async function EvaluatorQueuePage({
       <main className={brand.mainContent}>
         <h1 className="text-2xl font-bold">Tarjousvahti — arvioijalle</h1>
         <p className="mt-2 text-sm text-stone-600">
-          Alueet: {scopes.join(", ") || "ei määritelty"}
+          Alueet:{" "}
+          {scopes.length > 0
+            ? scopes.map((s) => evaluatorScopeLabel(s)).join(", ")
+            : "ei määritelty"}
         </p>
 
         {valmis === "1" && (
@@ -75,7 +83,7 @@ export default async function EvaluatorQueuePage({
               >
                 <div>
                   <p className="font-medium text-stone-900">
-                    {BID_EVALUATION_CATEGORY_LABELS[r.category]}
+                    {formatEvaluationCategoryLabel(r.category)}
                     {r.heat_pump_type && ` · ${formatHeatPumpType(r.heat_pump_type)}`}
                   </p>
                   <p className="text-sm text-stone-600">

@@ -5,6 +5,7 @@ import {
   createBidEvaluationRequest,
   type BidEvaluationActionState,
 } from "@/app/actions/bid-evaluation";
+import { EVALUATOR_SCOPE_AREAS } from "@/lib/evaluator-scopes";
 import { HEAT_PUMP_JOB_SLUGS, HEAT_PUMP_MARKETING } from "@/constants/heat-pumps";
 import { brand } from "@/lib/brand-theme";
 import { IMPARTIALITY_NOTICE } from "@/lib/bid-evaluation";
@@ -14,10 +15,10 @@ const inputClass =
 
 export function EvaluationRequestForm({
   projectId,
-  defaultCategory = "heat_pump",
+  defaultCategory = "lammitys",
 }: {
   projectId?: string;
-  defaultCategory?: "heat_pump" | "general";
+  defaultCategory?: string;
 }) {
   const [state, action, pending] = useActionState<
     BidEvaluationActionState,
@@ -33,17 +34,20 @@ export function EvaluationRequestForm({
       </p>
 
       <label className="mt-5 block text-sm font-medium text-stone-800">
-        Aihe
+        Remontin alue
         <select name="category" defaultValue={defaultCategory} className={inputClass}>
-          <option value="heat_pump">Lämpöpumppu</option>
-          <option value="general">Muu remontti</option>
+          {EVALUATOR_SCOPE_AREAS.map((area) => (
+            <option key={area.slug} value={area.slug}>
+              {area.title}
+            </option>
+          ))}
         </select>
       </label>
 
       <label className="mt-4 block text-sm font-medium text-stone-800">
-        Pumpputyyppi (lämpöpumpuille)
+        Pumpputyyppi (vain lämpöpumpuille)
         <select name="heat_pump_type" className={inputClass} defaultValue="">
-          <option value="">Valitse tarvittaessa</option>
+          <option value="">Ei lämpöpumppua / valitse tarvittaessa</option>
           {HEAT_PUMP_JOB_SLUGS.map((slug) => (
             <option key={slug} value={slug}>
               {HEAT_PUMP_MARKETING[slug].title}

@@ -2,6 +2,10 @@ import { getProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import type { BidEvaluationCategory } from "@/lib/bid-evaluation";
+import {
+  ALL_EVALUATOR_SCOPE_SLUGS,
+  expandEvaluatorScopesForQueue,
+} from "@/lib/evaluator-scopes";
 
 export async function isEvaluator(): Promise<boolean> {
   const profile = await getProfile();
@@ -30,7 +34,7 @@ export async function fetchEvaluatorScopes(userId: string): Promise<string[]> {
     .eq("id", userId)
     .maybeSingle();
 
-  if (profile?.role === "admin") return ["heat_pump", "general"];
+  if (profile?.role === "admin") return [...ALL_EVALUATOR_SCOPE_SLUGS, "heat_pump", "general"];
 
   const { data } = await supabase
     .from("evaluator_scopes")
@@ -44,7 +48,7 @@ export async function evaluatorCanReviewCategory(
   userId: string,
   category: BidEvaluationCategory,
 ): Promise<boolean> {
-  const scopes = await fetchEvaluatorScopes(userId);
+  const scopes = expandEvaluatorScopesForQueue(await fetchEvaluatorScopes(userId));
   return scopes.includes(category);
 }
 

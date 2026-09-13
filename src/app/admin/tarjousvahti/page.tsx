@@ -9,7 +9,7 @@ import { getSessionUser } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { brand } from "@/lib/brand-theme";
 import {
-  BID_EVALUATION_CATEGORY_LABELS,
+  formatEvaluationCategoryLabel,
   BID_EVALUATION_STATUS_LABELS,
 } from "@/lib/bid-evaluation";
 
@@ -89,7 +89,7 @@ export default async function AdminTarjousvahtiPage() {
                 {(requests ?? []).map((r) => (
                   <li key={r.id as string} className="flex justify-between gap-2 py-2">
                     <span>
-                      {BID_EVALUATION_CATEGORY_LABELS[r.category as keyof typeof BID_EVALUATION_CATEGORY_LABELS]}
+                      {formatEvaluationCategoryLabel(r.category as string)}
                       {" · "}
                       {BID_EVALUATION_STATUS_LABELS[r.status as keyof typeof BID_EVALUATION_STATUS_LABELS]}
                     </span>
