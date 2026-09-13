@@ -6,7 +6,12 @@ import {
   ContractorQualificationsCell,
   type ContractorQualificationSummary,
 } from "@/components/bid/contractor-qualifications-cell";
+import { ContractorCompanyFactsCell } from "@/components/bid/contractor-company-facts-cell";
 import { ContractorTrustBanner } from "@/components/bid/contractor-trust-banner";
+import {
+  companyFactsFromRow,
+  type ContractorCompanyFacts,
+} from "@/lib/contractor-company-facts";
 import { CustomerBidActions } from "@/components/bid/customer-bid-actions";
 import { ValuePromoBanner } from "@/components/promo/value-promo-banner";
 import { StarRatingDisplay } from "@/components/review/star-rating-display";
@@ -73,16 +78,29 @@ export type BidWithContractor = {
   rejected_at: string | null;
   contractor_profiles: {
     company_name: string;
+    founded_year?: number | null;
+    company_size_band?: string | null;
     refrigerant_license?: string | null;
     electrical_qualification?: string | null;
     lvi_qualifications?: string[] | null;
   } | {
     company_name: string;
+    founded_year?: number | null;
+    company_size_band?: string | null;
     refrigerant_license?: string | null;
     electrical_qualification?: string | null;
     lvi_qualifications?: string[] | null;
   }[] | null;
 };
+
+function contractorCompanyFactsFromBid(
+  bid: BidWithContractor,
+): ContractorCompanyFacts | null {
+  const cp = bid.contractor_profiles;
+  const profile = Array.isArray(cp) ? cp[0] : cp;
+  if (!profile) return null;
+  return companyFactsFromRow(profile);
+}
 
 function contractorQualificationsFromBid(
   bid: BidWithContractor,
@@ -320,6 +338,12 @@ function MobileBidCard({
           )}
         </Row>
 
+        <Row label="Yritys">
+          <ContractorCompanyFactsCell
+            facts={contractorCompanyFactsFromBid(bid)}
+          />
+        </Row>
+
         {showOfferScope && (
           <Row label="Tarjouksen tyyppi">
             {tradeSummary ?? <span className="text-stone-400">—</span>}
@@ -479,6 +503,10 @@ export function CustomerBids({
   const showQualificationsRow = sorted.some(
     (b) => contractorQualificationsFromBid(b) != null,
   );
+  const showCompanyFactsRow = sorted.some((b) => {
+    const facts = contractorCompanyFactsFromBid(b);
+    return facts?.founded_year != null || facts?.company_size_band != null;
+  });
 
   if (visibleBids.length === 0) {
     return (
@@ -702,6 +730,24 @@ export function CustomerBids({
                 </td>
               ))}
             </tr>
+
+            {showCompanyFactsRow && (
+              <tr className="border-b border-stone-100 bg-stone-50/50">
+                <th className={labelCell} scope="row">
+                  Yritys
+                </th>
+                {sorted.map((bid) => (
+                  <td
+                    key={bid.id}
+                    className={`${dataCell} border-l ${columnClass(bid.status, isPendingWinner(bid))}`}
+                  >
+                    <ContractorCompanyFactsCell
+                      facts={contractorCompanyFactsFromBid(bid)}
+                    />
+                  </td>
+                ))}
+              </tr>
+            )}
 
             {showOfferScope && (
               <tr className="border-b border-stone-100 bg-stone-50/50">

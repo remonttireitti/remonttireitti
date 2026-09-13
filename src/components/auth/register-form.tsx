@@ -2,6 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { signUp, type AuthState } from "@/app/actions/auth";
+import { ContractorCompanyFactsFields } from "@/components/contractor/contractor-company-facts-fields";
 import { ContractorQualificationFields } from "@/components/contractor/qualification-fields";
 import type { SelectableTrade } from "@/lib/contractor-trade-options";
 import type { JobType } from "@/types/job-catalog";
@@ -81,6 +82,7 @@ export function RegisterForm({
               className={inputClass}
             />
           </div>
+          <ContractorCompanyFactsFields required inputClassName={inputClass} />
           {trades.length > 0 && (
             <ContractorQualificationFields
               trades={trades}

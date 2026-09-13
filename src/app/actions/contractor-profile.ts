@@ -17,6 +17,10 @@ import {
 } from "@/lib/contractor-bid-defaults-shared";
 import { HEAT_PUMP_MARKETING } from "@/constants/heat-pumps";
 import { resolveContractorTradeIdsFromForm } from "@/lib/resolve-contractor-trades";
+import {
+  companyFactsEnforcementActive,
+  validateCompanyFactsForm,
+} from "@/lib/contractor-company-facts";
 import { saveContractorQualifications, getContractorQualifications } from "@/lib/save-contractor-qualifications";
 import { createClient } from "@/lib/supabase/server";
 
@@ -39,6 +43,22 @@ export async function updateContractorQualifications(
   const companyName = String(formData.get("company_name") ?? "").trim();
   if (!companyName) return { error: "Yrityksen nimi vaaditaan." };
 
+  const shouldValidateFacts =
+    companyFactsEnforcementActive() ||
+    String(formData.get("founded_year") ?? "").trim() !== "" ||
+    String(formData.get("company_size_band") ?? "").trim() !== "";
+
+  let factsToSave: {
+    founded_year: number;
+    company_size_band: string;
+  } | null = null;
+
+  if (shouldValidateFacts) {
+    const factsResult = validateCompanyFactsForm(formData);
+    if (!factsResult.ok) return { error: factsResult.error };
+    factsToSave = factsResult.facts;
+  }
+
   const resolvedTrades = await resolveContractorTradeIdsFromForm(formData, user.id);
   if (resolvedTrades.error) return { error: resolvedTrades.error };
 
@@ -54,9 +74,29 @@ export async function updateContractorQualifications(
 
   if (saveRes.error) return { error: saveRes.error };
 
+  if (factsToSave) {
+    const { error: factsErr } = await supabase
+      .from("contractor_profiles")
+      .update({
+        founded_year: factsToSave.founded_year,
+        company_size_band: factsToSave.company_size_band,
+        years_in_business:
+          new Date().getFullYear() - factsToSave.founded_year,
+      })
+      .eq("id", user.id);
+
+    if (factsErr) {
+      const msg = factsErr.message.includes("founded_year")
+        ? "Aja Supabase-migraatio 20260913210000_contractor_company_facts.sql"
+        : factsErr.message;
+      return { error: msg };
+    }
+  }
+
   revalidatePath("/oma-tili");
   revalidatePath("/tarjoukset");
-  return { ok: "Pätevyydet tallennettu." };
+  revalidatePath("/remontti");
+  return { ok: "Profiili ja yritystiedot tallennettu." };
 }
 
 export async function updateContractorBidDefaults(

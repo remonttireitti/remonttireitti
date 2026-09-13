@@ -5,7 +5,9 @@ import {
   updateContractorQualifications,
   type ContractorProfileState,
 } from "@/app/actions/contractor-profile";
+import { ContractorCompanyFactsFields } from "@/components/contractor/contractor-company-facts-fields";
 import { ContractorQualificationFields } from "@/components/contractor/qualification-fields";
+import type { CompanySizeBand } from "@/lib/contractor-company-facts";
 import { brand, formInputClass } from "@/lib/brand-theme";
 import type { SelectableTrade } from "@/lib/contractor-trade-options";
 import type { JobType } from "@/types/job-catalog";
@@ -26,6 +28,9 @@ type Props = {
   refrigerantLicense: RefrigerantLicense | null;
   electricalQualification: ElectricalQualification | null;
   lviQualifications: LviQualification[];
+  foundedYear?: number | null;
+  companySizeBand?: CompanySizeBand | null;
+  requireCompanyFacts?: boolean;
 };
 
 export function ContractorProfileForm({
@@ -37,8 +42,12 @@ export function ContractorProfileForm({
   refrigerantLicense,
   electricalQualification,
   lviQualifications,
+  foundedYear = null,
+  companySizeBand = null,
+  requireCompanyFacts = false,
   className = "",
-}: Props & { className?: string }) {
+  id,
+}: Props & { className?: string; id?: string }) {
   const [state, action, pending] = useActionState<
     ContractorProfileState,
     FormData
@@ -46,6 +55,7 @@ export function ContractorProfileForm({
 
   return (
     <form
+      id={id}
       action={action}
       className={`${brand.section} space-y-4 p-5 sm:p-6 ${className}`}
     >
@@ -67,6 +77,22 @@ export function ContractorProfileForm({
           defaultValue={companyName}
           className={inputClass}
         />
+      </div>
+
+      <div className="rounded-xl border border-stone-200 bg-stone-50/60 p-4">
+        <h3 className="text-sm font-semibold text-stone-900">Yritystiedot</h3>
+        <p className="mt-1 text-xs text-stone-600">
+          Näkyvät asiakkaalle tarjousvertailussa — sama tyyppinen tieto kuin
+          tarjouspyynnön laadussa.
+        </p>
+        <div className="mt-3">
+          <ContractorCompanyFactsFields
+            foundedYear={foundedYear}
+            companySizeBand={companySizeBand}
+            required={requireCompanyFacts}
+            inputClassName={inputClass}
+          />
+        </div>
       </div>
 
       <ContractorQualificationFields
