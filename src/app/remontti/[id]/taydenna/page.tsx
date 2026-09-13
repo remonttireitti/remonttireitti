@@ -11,7 +11,12 @@ import { resolveProjectJobTypeSlug } from "@/lib/project-job-type";
 import { brand } from "@/lib/brand-theme";
 import { createClient } from "@/lib/supabase/server";
 import { tryCreateAdminClient } from "@/lib/supabase/admin";
-import { resolveGuestProjectAccess } from "@/lib/project-guest-access";
+import {
+  readProjectAccessToken,
+  resolveGuestProjectAccess,
+} from "@/lib/project-guest-access";
+
+export const dynamic = "force-dynamic";
 
 type ProjectRow = {
   id: string;
@@ -73,16 +78,16 @@ function GuestAccessError({
 function NoOpenRequestsMessage({
   projectId,
   title,
-  token,
+  guestAccessToken,
   isGuestAccess,
 }: {
   projectId: string;
   title: string;
-  token?: string;
+  guestAccessToken?: string;
   isGuestAccess: boolean;
 }) {
-  const backHref = token
-    ? `/remontti/${projectId}?token=${encodeURIComponent(token)}`
+  const backHref = guestAccessToken
+    ? `/remontti/${projectId}?from=auth&token=${encodeURIComponent(guestAccessToken)}`
     : `/remontti/${projectId}`;
 
   return (
@@ -117,143 +122,164 @@ export default async function ProjectCompletionPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ token?: string; virhe?: string }>;
+  searchParams: Promise<{ token?: string; virhe?: string; from?: string }>;
 }) {
   const { id } = await params;
-  const { token, virhe } = await searchParams;
+  const { token, virhe, from } = await searchParams;
 
   if (virhe === "linkki") {
     return <GuestAccessError projectId={id} token={token} />;
   }
 
-  if (token) {
+  if (token && from !== "auth") {
     redirect(
       `/auth/guest-access?project=${id}&token=${encodeURIComponent(token)}&to=taydenna`,
     );
   }
 
-  const user = await getSessionUser();
-  const profile = user ? await getProfile() : null;
-  if (profile?.role === "contractor") {
-    redirect("/oma-tili");
-  }
-
-  const supabase = await createClient();
-  let isGuestAccess = false;
-  let guestRow: Record<string, unknown> | null = null;
-
-  let project: ProjectRow | null = null;
-
-  if (user) {
-    const { data } = await supabase
-      .from("projects")
-      .select(
-        "id, title, status, customer_id, job_type_id, details, job_types ( slug )",
-      )
-      .eq("id", id)
-      .eq("customer_id", user.id)
-      .maybeSingle();
-    project = data;
-  }
-
-  if (!project && !guestRow) {
-    guestRow = await resolveGuestProjectAccess(id);
-    if (guestRow) {
-      isGuestAccess = true;
+  try {
+    const user = await getSessionUser();
+    const profile = user ? await getProfile() : null;
+    if (profile?.role === "contractor") {
+      redirect("/oma-tili");
     }
-  }
 
-  if (!project && guestRow) {
-    project = guestRowToProject(guestRow);
-  }
+    const guestAccessToken =
+      token ?? (await readProjectAccessToken(id)) ?? undefined;
 
-  if (!project) {
-    redirect(`/kirjaudu?redirect=/remontti/${id}/taydenna`);
-  }
+    const supabase = await createClient();
+    let isGuestAccess = false;
+    let guestRow: Record<string, unknown> | null = null;
 
-  const editable = ["draft", "published", "receiving_bids"].includes(
-    project.status,
-  );
-  if (!editable) redirect(`/remontti/${id}`);
+    let project: ProjectRow | null = null;
 
-  let dataClient = supabase;
-  if (isGuestAccess) {
-    const admin = tryCreateAdminClient();
-    if (!admin) {
-      return <GuestAccessError projectId={id} token={token} />;
+    if (user) {
+      const { data } = await supabase
+        .from("projects")
+        .select(
+          "id, title, status, customer_id, job_type_id, details, job_types ( slug )",
+        )
+        .eq("id", id)
+        .eq("customer_id", user.id)
+        .maybeSingle();
+      project = data;
     }
-    dataClient = admin;
-  }
 
-  const requests = await fetchOpenCompletionRequestsForProject(dataClient, id);
-  if (requests.length === 0) {
+    if (!project) {
+      guestRow = await resolveGuestProjectAccess(id, guestAccessToken);
+      if (guestRow) {
+        isGuestAccess = true;
+      }
+    }
+
+    if (!project && guestRow) {
+      project = guestRowToProject(guestRow);
+    }
+
+    if (!project) {
+      if (guestAccessToken || from === "auth") {
+        return <GuestAccessError projectId={id} token={guestAccessToken} />;
+      }
+      redirect(`/kirjaudu?redirect=/remontti/${id}/taydenna`);
+    }
+
+    const editable = ["draft", "published", "receiving_bids"].includes(
+      project.status,
+    );
+    if (!editable) redirect(`/remontti/${id}`);
+
+    let dataClient = supabase;
+    if (isGuestAccess) {
+      const admin = tryCreateAdminClient();
+      if (!admin) {
+        return <GuestAccessError projectId={id} token={guestAccessToken} />;
+      }
+      dataClient = admin;
+    }
+
+    const requests = await fetchOpenCompletionRequestsForProject(dataClient, id);
+    if (requests.length === 0) {
+      return (
+        <NoOpenRequestsMessage
+          projectId={id}
+          title={project.title}
+          guestAccessToken={isGuestAccess ? guestAccessToken : undefined}
+          isGuestAccess={isGuestAccess}
+        />
+      );
+    }
+
+    const contractorIds = [...new Set(requests.map((r) => r.contractor_id))];
+    if (contractorIds.length > 0) {
+      const { data: companies, error: companiesErr } = await dataClient
+        .from("contractor_profiles")
+        .select("id, company_name")
+        .in("id", contractorIds);
+      if (companiesErr) {
+        console.error("[taydenna] contractor_profiles:", companiesErr.message);
+      }
+      const companyById = new Map(
+        (companies ?? []).map((c) => [c.id as string, c.company_name as string]),
+      );
+      for (const req of requests) {
+        req.contractorCompany = companyById.get(req.contractor_id) ?? null;
+      }
+    }
+
+    const jobSlug = resolveProjectJobTypeSlug({
+      job_type_id: project.job_type_id,
+      job_types: project.job_types,
+      details: project.details as Record<string, unknown> | null,
+    });
+
+    const needs = aggregateCompletionNeeds(requests, jobSlug);
+
+    const backHref = guestAccessToken
+      ? `/remontti/${id}?from=auth&token=${encodeURIComponent(guestAccessToken)}`
+      : `/remontti/${id}`;
+
     return (
-      <NoOpenRequestsMessage
-        projectId={id}
-        title={project.title}
-        token={token}
-        isGuestAccess={isGuestAccess}
-      />
-    );
-  }
-
-  const contractorIds = [...new Set(requests.map((r) => r.contractor_id))];
-  if (contractorIds.length > 0) {
-    const { data: companies } = await dataClient
-      .from("contractor_profiles")
-      .select("id, company_name")
-      .in("id", contractorIds);
-    const companyById = new Map(
-      (companies ?? []).map((c) => [c.id as string, c.company_name as string]),
-    );
-    for (const req of requests) {
-      req.contractorCompany = companyById.get(req.contractor_id) ?? null;
-    }
-  }
-
-  const jobSlug = resolveProjectJobTypeSlug({
-    job_type_id: project.job_type_id,
-    job_types: project.job_types,
-    details: project.details as Record<string, unknown> | null,
-  });
-
-  const needs = aggregateCompletionNeeds(requests, jobSlug);
-
-  return (
-    <div className={brand.page}>
-      <SiteHeader />
-      <main className={brand.mainForm}>
-        <Link
-          href={
-            token
-              ? `/remontti/${id}?token=${encodeURIComponent(token)}`
-              : `/remontti/${id}`
-          }
-          className="text-sm text-sky-700 hover:underline"
-        >
-          ← Takaisin tarjouspyyntöön
-        </Link>
-        <h1 className="mt-4 text-2xl font-bold sm:text-3xl">Täydennä tarjouspyyntöä</h1>
-        <p className="mt-2 max-w-2xl text-stone-600">
-          <span className="font-medium text-stone-900">{project.title}</span> — urakoitsijat
-          tarvitsevat lisätietoja tarkempia tarjouksia varten. Remonttireitti toimittaa
-          päivityksen automaattisesti kiinnostuneille yrityksille.
-        </p>
-        {isGuestAccess && (
-          <p className="mt-3 max-w-2xl text-xs text-stone-500">
-            Ei kirjautumista tarvita — täydennät pyynnön suoraan sähköpostilinkistä.
+      <div className={brand.page}>
+        <SiteHeader />
+        <main className={brand.mainForm}>
+          <Link href={backHref} className="text-sm text-sky-700 hover:underline">
+            ← Takaisin tarjouspyyntöön
+          </Link>
+          <h1 className="mt-4 text-2xl font-bold sm:text-3xl">
+            Täydennä tarjouspyyntöä
+          </h1>
+          <p className="mt-2 max-w-2xl text-stone-600">
+            <span className="font-medium text-stone-900">{project.title}</span> —
+            urakoitsijat tarvitsevat lisätietoja tarkempia tarjouksia varten.
+            Remonttireitti toimittaa päivityksen automaattisesti kiinnostuneille
+            yrityksille.
           </p>
-        )}
+          {isGuestAccess && (
+            <p className="mt-3 max-w-2xl text-xs text-stone-500">
+              Ei kirjautumista tarvita — täydennät pyynnön suoraan sähköpostilinkistä.
+            </p>
+          )}
 
-        <div className="mt-8 max-w-2xl">
-          <CustomerCompletionForm
-            projectId={id}
-            needs={needs}
-            requestCount={requests.length}
-            guestToken={isGuestAccess ? token : undefined}
-          />
-        </div>
-      </main>
-    </div>
-  );
+          <div className="mt-8 max-w-2xl">
+            <CustomerCompletionForm
+              projectId={id}
+              needs={needs}
+              requestCount={requests.length}
+              guestToken={isGuestAccess ? guestAccessToken : undefined}
+            />
+          </div>
+        </main>
+      </div>
+    );
+  } catch (err) {
+    const digest =
+      err instanceof Error && "digest" in err
+        ? String((err as Error & { digest?: string }).digest)
+        : undefined;
+    if (digest?.startsWith("NEXT_REDIRECT")) {
+      throw err;
+    }
+    console.error("[taydenna/page]", err);
+    return <GuestAccessError projectId={id} token={token} />;
+  }
 }

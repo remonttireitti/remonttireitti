@@ -32,10 +32,16 @@ export async function GET(request: Request) {
   }
   const suffix = qs.toString() ? `?${qs}` : "";
 
+  const destParams = new URLSearchParams(suffix ? suffix.slice(1) : undefined);
+  // Token URL-param varmuudeksi: eväste ei aina välity heti uudelleenohjauksen jälkeen
+  // (Safari / Cloudflare). from=auth estää uuden kierroksen guest-accessiin.
+  destParams.set("from", "auth");
+  destParams.set("token", token);
+
   const dest =
     to === "taydenna"
-      ? `/remontti/${projectId}/taydenna${suffix}`
-      : `/remontti/${projectId}${suffix}`;
+      ? `/remontti/${projectId}/taydenna?${destParams}`
+      : `/remontti/${projectId}?${destParams}`;
 
   const response = NextResponse.redirect(siteUrl(dest));
   return appendProjectAccessCookie(response, projectId, token);
