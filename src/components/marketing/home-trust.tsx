@@ -14,11 +14,6 @@ export function HomeTrust() {
       <h2 className="mt-1 text-xl font-bold tracking-tight text-stone-900 sm:text-2xl">
         Luottamusta kertyy toteutuneista urakoista
       </h2>
-      <p className="mt-2 max-w-2xl text-sm leading-relaxed text-stone-700">
-        Remonttireitti kokoaa valmiit tarjouspyynnöt ja vertailukelpoiset
-        tarjoukset yhteen paikkaan. Urakoitsijat eivät ole anonyymejä —
-        pätevyystiedot ja arvostelut auttavat valintaa.
-      </p>
       <ul className="mt-6 grid gap-4 sm:grid-cols-2">
         {CONTRACTOR_TRUST_POINTS.map((item, i) => (
           <li

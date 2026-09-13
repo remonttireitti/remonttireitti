@@ -5,17 +5,17 @@ const steps = [
   {
     step: "1",
     title: "Kuvaile työ ja kohde",
-    body: "Valitse remontti tai palvelu, lisää kuvat ja tarvittavat tiedot — urakoitsija voi tarjota tarkasti.",
+    body: "Kuvaile kohde ja liitä kuvat.",
   },
   {
     step: "2",
     title: "Vertaile ja tingaa",
-    body: "Useita tarjouksia samassa muodossa. Voit ehdottaa omaa hintaa vastatarjouksella ennen hyväksyntää.",
+    body: "Sama muoto — tingaa vastatarjouksella.",
   },
   {
     step: "3",
     title: "Valitse tekijä",
-    body: "Hyväksy tarjous tai vastatarjous. Yhteystiedot avautuvat, kun urakoitsija on maksanut välityspalkkion.",
+    body: "Hyväksy tarjous. Yhteystiedot avautuvat maksun jälkeen.",
   },
 ] as const;
 
@@ -31,12 +31,7 @@ export function HomeHowItWorks() {
       <h2 className="mt-1 text-xl font-bold tracking-tight text-stone-900 sm:text-2xl">
         Pyyntö → tarjoukset → vertailu → valinta
       </h2>
-      <p className="mt-2 max-w-2xl text-sm leading-relaxed text-stone-600">
-        Sama malli remonteissa, palveluissa ja huolloissa. Lämpöpumpun vian
-        selvitys on ilmainen lisäpolku ennen huoltopyyntöä.
-      </p>
-
-      <ol className="mt-8 space-y-4">
+      <ol className="mt-6 space-y-4">
         {steps.map((s) => (
           <li key={s.step} className="flex gap-3">
             <span

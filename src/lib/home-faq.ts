@@ -4,42 +4,30 @@ export type HomeFaqItem = {
   answer: string;
 };
 
-/** Etusivun FAQ — vastaa yleisiin remontin kilpailutuskysymyksiin (FAQPage-schema). */
+/** Etusivun FAQ — tiivis, FAQPage-schema. */
 export const HOME_FAQ_ITEMS: HomeFaqItem[] = [
   {
-    id: "miten-kilpailuttaa",
-    question: "Miten remontti kannattaa kilpailuttaa?",
-    answer:
-      "Kuvaile työn sisältö, kohde ja aikataulu samalla tavalla kaikille urakoitsijoille. Liitä kuvat ja budjetti-arvio. Vertaa tarjouksista hintaa, laajuutta, materiaaleja, takuuta ja aikataulua — pelkkä loppusumma ei riitä.",
-  },
-  {
     id: "maksaa-ko",
-    question: "Maksaako remontin kilpailutus minulle?",
+    question: "Maksaako palvelu minulle?",
     answer:
-      "Remonttireitissä tarjouspyynnön tekeminen, tarjousten vertailu ja vastatarjoukset ovat asiakkaalle ilmaisia. Maksat vain valitsemallesi urakoitsijalle sovitun työn hinnan.",
-  },
-  {
-    id: "montako-tarjousta",
-    question: "Kuinka monta remonttitarjousta kannattaa pyytää?",
-    answer:
-      "Tavoite on 2–4 vertailukelpoista tarjousta samoilla lähtötiedoilla. Olennaisempaa kuin suuri määrä on se, että tarjoukset tulevat kohteeseen ja alueeseen sopivilta urakoitsijoilta.",
-  },
-  {
-    id: "halvin-paras",
-    question: "Onko halvin remonttitarjous aina paras?",
-    answer:
-      "Ei välttämättä. Tarkista mitkä työt, materiaalit ja lisätyöt sisältyvät hintaan. Remonttireitissä voit ehdottaa alhaisempaa hintaa vastatarjouksella ennen hyväksyntää.",
+      "Ei. Tarjouspyyntö, vertailu ja vastatarjoukset ovat ilmaisia. Maksat vain valitsemallesi urakoitsijalle.",
   },
   {
     id: "vastatarjous",
-    question: "Voiko remontin hinnasta neuvotella?",
+    question: "Voiko hinnasta neuvotella?",
     answer:
-      "Kyllä. Jos tarjous tuntuu korkealta, voit ehdottaa omaa hintaa vastatarjouksella. Urakoitsija voi hyväksyä sen (hinta päivittyy) tai hylätä sen (alkuperäinen hinta säilyy). Voit myös jättää uuden vastatarjouksen hylkäyksen jälkeen.",
+      "Kyllä — ehdota alempaa vastatarjouksella. Urakoitsija hyväksyy tai hylkää sen alustalla.",
+  },
+  {
+    id: "halvin-paras",
+    question: "Onko halvin tarjous aina paras?",
+    answer:
+      "Ei. Vertaa laajuutta, materiaaleja ja takuuta. Voit myös tingata vastatarjouksella.",
   },
   {
     id: "lampopumppu",
-    question: "Entä jos lämpöpumppu oireilee?",
+    question: "Lämpöpumppu oireilee?",
     answer:
-      "Aloita ilmaisella vian selvityksellä: valitse pumpputyyppi ja oire, saat tarkistuslistan. Jos vika jää, voit kilpailuttaa huollon samalla palvelulla.",
+      "Kokeile ilmaista vian selvitystä. Tarvittaessa kilpailuta huolto samalla palvelulla.",
   },
 ];
