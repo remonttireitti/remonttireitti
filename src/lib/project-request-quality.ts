@@ -55,7 +55,7 @@ function scoreLabel(score: number): string {
   if (score >= 90) return "Erinomainen";
   if (score >= 75) return "Hyvä";
   if (score >= 55) return "Kohtalainen";
-  return "Täydennä ennen julkaisua";
+  return "Riittää julkaisuun";
 }
 
 function scoreSummary(score: number): string {
@@ -63,12 +63,12 @@ function scoreSummary(score: number): string {
     return "Tarjouspyyntö on kattava — urakoitsijat voivat tarjota tarkasti.";
   }
   if (score >= 75) {
-    return "Hyvä pohja. Muutama lisätieto parantaa tarjousten laatua.";
+    return "Hyvä pohja. Lisätiedot voivat vielä parantaa tarjousten tarkkuutta.";
   }
   if (score >= 55) {
-    return "Perustiedot ok. Täydennä puuttuvat kohdat parempien tarjousten saamiseksi.";
+    return "Perustiedot riittävät julkaisuun. Lisätiedot auttavat saamaan tarkempia tarjouksia.";
   }
-  return "Pyyntö on vielä suppea. Täydennä kuvaus, kuvat tai aikataulu ennen julkaisua.";
+  return "Voit julkaista näinkin. Mitä enemmän kerrot, sitä helpompi urakoitsijalle on tarjota tarkasti.";
 }
 
 function structuredHeatPumpItems(

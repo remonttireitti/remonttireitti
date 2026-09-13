@@ -597,6 +597,11 @@ export function ProjectWizard({
 
         {step === 1 && !hasStructuredForm && (
           <div className="space-y-4">
+            <p className="rounded-xl border border-sky-100 bg-sky-50/70 px-4 py-3 text-sm leading-relaxed text-sky-950">
+              <span className="font-medium">Ei tarvitse täyttää kaikkea.</span> Riittää
+              lyhyt kuvaus ja sijainti — voit julkaista heti. Mitä enemmän kerrot, sitä
+              tarkempia tarjouksia yleensä saat.
+            </p>
             <ProjectRequestGuide
               jobSlug={selectedJobType?.slug ?? null}
               description={form.description}
