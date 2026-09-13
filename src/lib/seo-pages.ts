@@ -162,17 +162,19 @@ export const STATIC_SEO_PAGES: SeoPageDef[] = [
   },
   {
     path: "/hinta-arkisto",
-    title: "Hinta-arkisto — toteutuneet lämpöpumppuhinnat",
+    title: "Hinta-arkisto — toteutuneet remontti- ja asennushinnat",
     description:
-      "Anonymisoitu yhteenveto hyväksytyistä tarjouksista: lämpöpumpun asennus, huolto ja korjaus. Vertaa alueen hintoja ennen kilpailutusta.",
-    keywords: mergeKeywords(HEAT_PUMP_KEYWORDS, [
-      "hinta",
+      "Anonymisoitu yhteenveto hyväksytyistä tarjouksista: keittiö, kylpyhuone, katto, lämpöpumput ja muut työlajit. Vertaa alueen mediaanihintoja ennen kilpailutusta.",
+    keywords: mergeKeywords(SERVICE_KEYWORDS, HEAT_PUMP_KEYWORDS, [
+      "remontti hinta",
+      "keittiöremontti hinta",
+      "kylpyhuoneremontti hinta",
+      "kattoremontti hinta",
       "hinta-arvio",
-      "asennushinta",
-      "huoltohinta",
+      "mediaanihinta",
     ]),
     changeFrequency: "weekly",
-    priority: 0.75,
+    priority: 0.78,
   },
   {
     path: "/tietosuoja",
