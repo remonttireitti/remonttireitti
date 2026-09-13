@@ -8,8 +8,13 @@ import { getProjectRequestTemplate } from "@/constants/project-request-templates
 import { criterionLabelFromTemplate } from "@/lib/template-criterion-stats";
 import { uploadProjectPhotosFromFormData } from "@/lib/project-photos";
 import { fetchProjectViewContractorIds } from "@/lib/project-views-server";
+import {
+  completionRequestInsertErrorMessage,
+  incrementCompletionTemplateStats,
+  persistCompletionRequest,
+  tryCreateAdminClient,
+} from "@/lib/completion-request-persist";
 import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
 import {
   userNotifyProjectCompletionRequested,
   userNotifyProjectCompletionUpdated,
@@ -171,8 +176,7 @@ export async function requestProjectCompletion(
     messageId = message.id as string;
   }
 
-  const admin = createAdminClient();
-  const { error: insertErr } = await admin.from("project_completion_requests").insert({
+  const { error: insertErr } = await persistCompletionRequest(supabase, {
     project_id: projectId,
     contractor_id: user.id,
     criterion_ids: criterionIds.length > 0 ? criterionIds : ["gap:other"],
@@ -186,45 +190,40 @@ export async function requestProjectCompletion(
   });
 
   if (insertErr) {
-    return { error: "Täydennäpyynnön tallennus epäonnistui." };
+    return { error: completionRequestInsertErrorMessage(insertErr) };
   }
 
-  const asSuggestion = suggestTemplate;
-  if (criterionIds.length > 0) {
-    await admin.rpc("increment_template_criterion_stats", {
-      p_job_slug: jobSlug,
-      p_criterion_ids: criterionIds,
-      p_as_suggestion: asSuggestion,
-    });
-  }
-  if (gapTypes.length > 0) {
-    await admin.rpc("increment_template_gap_stats", {
-      p_job_slug: jobSlug,
-      p_gap_types: gapTypes,
-      p_as_suggestion: asSuggestion,
-    });
-  }
+  await incrementCompletionTemplateStats(supabase, {
+    jobSlug,
+    criterionIds,
+    gapTypes,
+    asSuggestion: suggestTemplate,
+  });
 
   const criterionCount = gapTypes.length + criterionIds.length;
 
-  if (guestProject && project.guest_email) {
-    const rawToken = await rotateGuestProjectAccessToken(projectId);
-    await sendGuestCompletionRequestEmail({
-      to: project.guest_email as string,
-      projectTitle: project.title as string,
-      projectId,
-      rawToken,
-      contractorCompany: company,
-      criterionCount,
-    });
-  } else {
-    await userNotifyProjectCompletionRequested({
-      customerId: project.customer_id as string,
-      projectId,
-      projectTitle: project.title as string,
-      contractorCompany: company,
-      criterionCount,
-    });
+  try {
+    if (guestProject && project.guest_email) {
+      const rawToken = await rotateGuestProjectAccessToken(projectId);
+      await sendGuestCompletionRequestEmail({
+        to: project.guest_email as string,
+        projectTitle: project.title as string,
+        projectId,
+        rawToken,
+        contractorCompany: company,
+        criterionCount,
+      });
+    } else {
+      await userNotifyProjectCompletionRequested({
+        customerId: project.customer_id as string,
+        projectId,
+        projectTitle: project.title as string,
+        contractorCompany: company,
+        criterionCount,
+      });
+    }
+  } catch (err) {
+    console.warn("[requestProjectCompletion] notify failed:", err);
   }
 
   revalidatePath(`/tarjoukset/${projectId}`);
@@ -274,7 +273,11 @@ export async function submitProjectCompletionUpdate(
   );
   if (!editable) return { error: "Pyyntöä ei voi enää täydentää." };
 
-  const dataClient = isGuestUpdate ? createAdminClient() : supabase;
+  const adminForGuest = isGuestUpdate ? tryCreateAdminClient() : null;
+  if (isGuestUpdate && !adminForGuest) {
+    return { error: "Vieraslinkin päivitys ei ole juuri nyt käytettävissä." };
+  }
+  const dataClient = adminForGuest ?? supabase;
 
   const { count: bidCount } = await dataClient
     .from("bids")
@@ -322,7 +325,15 @@ export async function submitProjectCompletionUpdate(
 
   const summary = summaryParts.length > 0 ? summaryParts.join(", ") : "tiedot täydennetty";
 
-  const admin = createAdminClient();
+  const admin = tryCreateAdminClient();
+  if (!admin) {
+    revalidatePath(`/remontti/${projectId}`);
+    revalidatePath(`/remontti/${projectId}/taydenna`);
+    revalidatePath("/tarjoukset");
+    revalidatePath(`/tarjoukset/${projectId}`);
+    redirect(`/remontti/${projectId}?taydennetty=1`);
+  }
+
   const { data: bidders } = await admin
     .from("bids")
     .select("contractor_id")
@@ -360,7 +371,9 @@ export async function submitProjectCompletionUpdate(
 }
 
 export async function resolveProjectCompletionRequests(projectId: string): Promise<void> {
-  const admin = createAdminClient();
+  const admin = tryCreateAdminClient();
+  if (!admin) return;
+
   await admin
     .from("project_completion_requests")
     .update({ resolved_at: new Date().toISOString() })

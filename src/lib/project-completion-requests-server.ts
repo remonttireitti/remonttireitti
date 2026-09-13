@@ -2,22 +2,13 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { gapTypeLabel } from "@/constants/completion-gap-types";
 import { criterionLabelFromTemplate } from "@/lib/template-criterion-stats";
 import { getProjectRequestTemplate } from "@/constants/project-request-templates";
+import {
+  fetchContractorOpenCompletionRequest,
+  fetchOpenCompletionRequests,
+  type ProjectCompletionRequestRow,
+} from "@/lib/completion-request-persist";
 
-export type ProjectCompletionRequestRow = {
-  id: string;
-  project_id: string;
-  contractor_id: string;
-  criterion_ids: string[];
-  gap_types: string[];
-  note: string | null;
-  suggest_template: boolean;
-  preliminary_min_cents: number | null;
-  preliminary_max_cents: number | null;
-  preliminary_note: string | null;
-  resolved_at: string | null;
-  created_at: string;
-  contractorCompany?: string | null;
-};
+export type { ProjectCompletionRequestRow };
 
 export type AggregatedCompletionNeed = {
   gapTypes: string[];
@@ -31,21 +22,7 @@ export async function fetchOpenCompletionRequestsForProject(
   supabase: SupabaseClient,
   projectId: string,
 ): Promise<ProjectCompletionRequestRow[]> {
-  const { data } = await supabase
-    .from("project_completion_requests")
-    .select(
-      "id, project_id, contractor_id, criterion_ids, gap_types, note, suggest_template, preliminary_min_cents, preliminary_max_cents, preliminary_note, resolved_at, created_at",
-    )
-    .eq("project_id", projectId)
-    .is("resolved_at", null)
-    .order("created_at", { ascending: false });
-
-  return (data ?? []).map((row) => ({
-    ...(row as Omit<ProjectCompletionRequestRow, "gap_types">),
-    gap_types: (row.gap_types as string[] | null) ?? [],
-    criterion_ids: (row.criterion_ids as string[] | null) ?? [],
-    suggest_template: (row.suggest_template as boolean) ?? false,
-  }));
+  return fetchOpenCompletionRequests(supabase, projectId);
 }
 
 export async function fetchContractorSentCompletionRequest(
@@ -53,25 +30,7 @@ export async function fetchContractorSentCompletionRequest(
   projectId: string,
   contractorId: string,
 ): Promise<ProjectCompletionRequestRow | null> {
-  const { data } = await supabase
-    .from("project_completion_requests")
-    .select(
-      "id, project_id, contractor_id, criterion_ids, gap_types, note, suggest_template, preliminary_min_cents, preliminary_max_cents, preliminary_note, resolved_at, created_at",
-    )
-    .eq("project_id", projectId)
-    .eq("contractor_id", contractorId)
-    .is("resolved_at", null)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (!data) return null;
-  return {
-    ...(data as Omit<ProjectCompletionRequestRow, "gap_types">),
-    gap_types: (data.gap_types as string[] | null) ?? [],
-    criterion_ids: (data.criterion_ids as string[] | null) ?? [],
-    suggest_template: (data.suggest_template as boolean) ?? false,
-  };
+  return fetchContractorOpenCompletionRequest(supabase, projectId, contractorId);
 }
 
 export function aggregateCompletionNeeds(
