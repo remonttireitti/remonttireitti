@@ -7,8 +7,8 @@ import {
   assistantActionLabel,
   assistantTargetForItem,
   assistantTimelineHint,
-  missingScopeItemIds,
 } from "@/lib/bid-assistant";
+import type { BidScopeLine } from "@/lib/bid-scope-lines";
 import type { BidFormFields } from "@/lib/bid-form";
 import type { ProjectQualityResult } from "@/lib/project-request-quality";
 
@@ -28,26 +28,33 @@ function ringColor(score: number): string {
 
 export function BidAssistantPanel({
   fields,
+  scopeLines,
   jobTypeSlug,
   projectQuality,
-  onAppendItem,
+  onFocusItem,
+  scopeLineStatus,
 }: {
   fields: BidFormFields;
+  scopeLines?: BidScopeLine[];
   jobTypeSlug?: string | null;
   projectQuality?: ProjectQualityResult | null;
-  onAppendItem: (itemId: string, label: string) => void;
+  onFocusItem: (itemId: string, label: string) => void;
+  scopeLineStatus?: (
+    itemId: string,
+    label: string,
+  ) => "missing" | "pending" | "done";
 }) {
   const [expanded, setExpanded] = useState(true);
-  const [recentlyAdded, setRecentlyAdded] = useState<Set<string>>(() => new Set());
 
   const assistant = useMemo(
-    () => analyzeBidAssistant(fields, jobTypeSlug ?? null, projectQuality),
-    [fields, jobTypeSlug, projectQuality],
-  );
-
-  const missingIds = useMemo(
-    () => missingScopeItemIds(jobTypeSlug ?? null, assistant.insight, fields),
-    [jobTypeSlug, assistant.insight, fields],
+    () =>
+      analyzeBidAssistant(
+        fields,
+        jobTypeSlug ?? null,
+        projectQuality,
+        scopeLines,
+      ),
+    [fields, jobTypeSlug, projectQuality, scopeLines],
   );
 
   const scopeItems = scopeCheckItemsForJob(jobTypeSlug ?? null);
@@ -56,23 +63,7 @@ export function BidAssistantPanel({
     assistant.insight.partialItems.length > 0 ||
     assistant.projectGaps.length > 0;
 
-  function markAdded(key: string) {
-    setRecentlyAdded((prev) => new Set(prev).add(key));
-    window.setTimeout(() => {
-      setRecentlyAdded((prev) => {
-        const next = new Set(prev);
-        next.delete(key);
-        return next;
-      });
-    }, 2500);
-  }
-
-  function handleAppend(itemId: string, label: string) {
-    onAppendItem(itemId, label);
-    markAdded(itemId);
-  }
-
-  function renderAppendAction(itemId: string, label: string) {
+  function renderItemAction(itemId: string, label: string) {
     const target = assistantTargetForItem(itemId);
 
     if (target === null) {
@@ -81,17 +72,40 @@ export function BidAssistantPanel({
       );
     }
 
-    const actionLabel = assistantActionLabel(target);
-    if (recentlyAdded.has(itemId)) {
+    const status = scopeLineStatus?.(itemId, label);
+    if (status === "done") {
       return (
-        <p className="mt-2 text-xs font-medium text-emerald-700">✓ Lisätty</p>
+        <p className="mt-2 text-xs font-medium text-emerald-700">✓ Kunnossa</p>
+      );
+    }
+    if (status === "pending") {
+      return (
+        <button
+          type="button"
+          onClick={() => onFocusItem(itemId, label)}
+          className="mt-2 text-xs font-medium text-sky-800 hover:underline"
+        >
+          Täydennä kenttää ↑
+        </button>
       );
     }
 
+    if (target !== "scope_terms") {
+      const filled =
+        (target === "warranty_work" && fields.warranty_work.trim().length >= 4) ||
+        (target === "contract_terms" && fields.contract_terms.trim().length >= 4);
+      if (filled) {
+        return (
+          <p className="mt-2 text-xs font-medium text-emerald-700">✓ Kunnossa</p>
+        );
+      }
+    }
+
+    const actionLabel = assistantActionLabel(target);
     return (
       <button
         type="button"
-        onClick={() => handleAppend(itemId, label)}
+        onClick={() => onFocusItem(itemId, label)}
         className="mt-2 text-xs font-medium text-indigo-800 hover:underline"
       >
         {actionLabel}
@@ -109,8 +123,8 @@ export function BidAssistantPanel({
         <div>
           <p className="text-sm font-semibold text-indigo-950">Tarjousavustaja</p>
           <p className="mt-1 text-xs leading-relaxed text-indigo-900/90">
-            Tarkistaa tarjouksen selkeyden ennen lähetystä — asiakas vertailee
-            helpommin, kun laajuus on kuvattu.
+            Kentät ovat valmiina — täytä ne yksi kerrallaan. Eteneminen päivittyy
+            automaattisesti, kuten tarjouspyynnössä.
           </p>
         </div>
         <div className="relative flex size-14 shrink-0 items-center justify-center">
@@ -161,7 +175,7 @@ export function BidAssistantPanel({
                 ))}
                 {assistant.insight.coveredItems.map((s) => (
                   <li key={s} className="text-xs text-emerald-900">
-                    ✓ {s} mainittu
+                    ✓ {s}
                   </li>
                 ))}
               </ul>
@@ -184,9 +198,9 @@ export function BidAssistantPanel({
                     >
                       <p className="text-xs font-medium text-stone-900">{label}</p>
                       <p className="mt-0.5 text-xs text-stone-600">
-                        Ei näy tarjouksen teksteissä — asiakas voi kysyä erikseen.
+                        Kenttä on tyhjä — täytä se yllä olevasta listasta.
                       </p>
-                      {renderAppendAction(itemId, label)}
+                      {renderItemAction(itemId, label)}
                     </li>
                   );
                 })}
@@ -200,9 +214,9 @@ export function BidAssistantPanel({
                     >
                       <p className="text-xs font-medium text-stone-900">{label}</p>
                       <p className="mt-0.5 text-xs text-stone-600">
-                        Mainittu vain osittain — tarkenna laajuuskentässä.
+                        Aloitettu — tarkenna vielä lyhyesti.
                       </p>
-                      {renderAppendAction(itemId, label)}
+                      {renderItemAction(itemId, label)}
                     </li>
                   );
                 })}
@@ -215,24 +229,6 @@ export function BidAssistantPanel({
               Tarjous näyttää selkeältä — voit lähettää kun hinta ja ehdot ovat
               kunnossa.
             </p>
-          )}
-
-          {missingIds.length > 0 && assistant.completenessScore < 90 && (
-            <button
-              type="button"
-              onClick={() => {
-                for (const id of missingIds) {
-                  const item = scopeItems.find((i) => i.id === id);
-                  if (assistantTargetForItem(id) !== null) {
-                    onAppendItem(id, item?.label ?? id);
-                    markAdded(id);
-                  }
-                }
-              }}
-              className="text-xs font-medium text-indigo-800 hover:underline"
-            >
-              Lisää kaikki puuttuvat kohdat kerralla →
-            </button>
           )}
         </div>
       )}
