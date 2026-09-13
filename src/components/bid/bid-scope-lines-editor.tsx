@@ -148,12 +148,6 @@ export const BidScopeLinesEditor = forwardRef(function BidScopeLinesEditor(
         )}
       </div>
 
-      <p className="rounded-lg border border-sky-100 bg-sky-50/60 px-3 py-2 text-xs leading-relaxed text-sky-950">
-        <span className="font-medium">Sama idea kuin tarjouspyynnössä:</span> jokaisella
-        kohdalla on oma kenttä — täytä ne yksi kerrallaan, eteneminen päivittyy
-        automaattisesti.
-      </p>
-
       <ol className="space-y-3">
         {lines.map((line, index) => {
           const done = scopeLineFilled(line);
