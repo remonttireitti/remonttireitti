@@ -41,6 +41,10 @@ import {
 import { bidFormTotalEuros } from "@/lib/bid-form";
 import { parseBidOfferScope } from "@/lib/bid-offer-scope";
 import {
+  parseOfferedTradeIds,
+  parseTurnkeyCoordination,
+} from "@/lib/bid-trade-offer";
+import {
   formatServicePricingScopeLine,
   isServicePricingModel,
 } from "@/lib/service-engagement";
@@ -82,6 +86,8 @@ type ParsedBidPayload = {
     { ok: true }
   >["data"];
   offerScope: ReturnType<typeof parseBidOfferScope>;
+  offeredTradeIds: string[] | null;
+  turnkeyCoordination: ReturnType<typeof parseTurnkeyCoordination>;
   project: {
     id: string;
     status: string;
@@ -216,6 +222,32 @@ async function parseBidSubmission(
     });
   }
 
+  const offeredTradeIdsRaw = parseOfferedTradeIds(formData.get("offered_trade_ids"));
+  const matchingIds = new Set(tradeContext.matchingTrades.map((t) => t.id));
+  let offeredTradeIds: string[] | null = null;
+  const turnkeyCoordination = parseTurnkeyCoordination(
+    String(formData.get("turnkey_coordination") ?? ""),
+  );
+
+  if (tradeContext.isMultiTrade && offerScope === "own_trade") {
+    if (tradeContext.matchingTrades.length === 1) {
+      offeredTradeIds = [tradeContext.matchingTrades[0]!.id];
+    } else if (tradeContext.matchingTrades.length > 1) {
+      offeredTradeIds = offeredTradeIdsRaw.filter((id) => matchingIds.has(id));
+      if (offeredTradeIds.length === 0) {
+        return bidError(formData, "Valitse vähintään yksi tarjoamasi ammatti.", {
+          offered_trade_ids: "Valitse vähintään yksi ammatti.",
+        });
+      }
+    }
+  }
+
+  if (tradeContext.isMultiTrade && offerScope === "turnkey" && !turnkeyCoordination) {
+    return bidError(formData, "Kerro miten puuttuvat ammatit hoidetaan.", {
+      turnkey_coordination: "Valitse alihankinta tai asiakkaan hankinta.",
+    });
+  }
+
   return {
     projectId,
     message,
@@ -229,6 +261,14 @@ async function parseBidSubmission(
     vatIncluded,
     terms: terms.data,
     offerScope: tradeContext.isMultiTrade ? offerScope : null,
+    offeredTradeIds:
+      tradeContext.isMultiTrade && offerScope === "own_trade"
+        ? offeredTradeIds
+        : null,
+    turnkeyCoordination:
+      tradeContext.isMultiTrade && offerScope === "turnkey"
+        ? turnkeyCoordination
+        : null,
     project,
   };
 }
@@ -254,6 +294,8 @@ function bidRowFromPayload(
     confirms_licenses: payload.terms.confirms_licenses,
     confirms_building_standards: payload.terms.confirms_building_standards,
     offer_scope: payload.offerScope,
+    offered_trade_ids: payload.offeredTradeIds,
+    turnkey_coordination: payload.turnkeyCoordination,
     submitted_at: new Date().toISOString(),
     confirmed_content_revision: payload.project.content_revision,
     rejection_message: null,

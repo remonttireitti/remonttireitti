@@ -1,11 +1,15 @@
 import { formatBidDate } from "@/lib/bid-terms";
+import { parseBidOfferScope } from "@/lib/bid-offer-scope";
 import {
-  BID_OFFER_SCOPE_LABELS,
-  parseBidOfferScope,
-} from "@/lib/bid-offer-scope";
+  formatBidTradeScopeSummary,
+  formatOfferedTradeNames,
+  parseTurnkeyCoordination,
+} from "@/lib/bid-trade-offer";
 
 export type BidDetailsView = {
   offer_scope?: string | null;
+  offered_trade_ids?: string[] | null;
+  turnkey_coordination?: string | null;
   scope_terms?: string | null;
   contract_terms?: string | null;
   warranty_work?: string | null;
@@ -16,15 +20,30 @@ export type BidDetailsView = {
   confirms_building_standards?: boolean | null;
 };
 
-export function BidDetailsDisplay({ bid }: { bid: BidDetailsView }) {
+export function BidDetailsDisplay({
+  bid,
+  projectTradeNamesById = {},
+}: {
+  bid: BidDetailsView;
+  projectTradeNamesById?: Record<string, string>;
+}) {
   const offerScope = parseBidOfferScope(bid.offer_scope);
+  const tradeScopeSummary = formatBidTradeScopeSummary({
+    offerScope,
+    offeredTradeNames: formatOfferedTradeNames(
+      bid.offered_trade_ids,
+      new Map(Object.entries(projectTradeNamesById)),
+    ),
+    turnkeyCoordination: parseTurnkeyCoordination(bid.turnkey_coordination),
+  });
   const hasTerms =
     bid.warranty_work ||
     bid.warranty_equipment ||
     bid.earliest_start_date ||
     bid.confirms_licenses ||
     bid.confirms_building_standards ||
-    offerScope;
+    offerScope ||
+    tradeScopeSummary;
 
   if (!hasTerms) return null;
 
@@ -46,12 +65,10 @@ export function BidDetailsDisplay({ bid }: { bid: BidDetailsView }) {
           <dd className="mt-0.5 text-stone-800">{bid.estimated_days} päivää</dd>
         </div>
       )}
-      {offerScope && (
+      {tradeScopeSummary && (
         <div>
-          <dt className="font-medium text-stone-600">Tarjouksen tyyppi</dt>
-          <dd className="mt-0.5 text-stone-800">
-            {BID_OFFER_SCOPE_LABELS[offerScope]}
-          </dd>
+          <dt className="font-medium text-stone-600">Tarjouksen laajuus</dt>
+          <dd className="mt-0.5 text-stone-800">{tradeScopeSummary}</dd>
         </div>
       )}
       {bid.scope_terms && (

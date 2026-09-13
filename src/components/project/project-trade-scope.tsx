@@ -33,9 +33,16 @@ export function ProjectTradeScopeEditor({
         Mitä ammattilaisia tarvitaan?
       </p>
       <p className="mt-1 text-xs leading-relaxed text-sky-900/80">
-        Valitse yksi päätyö (esim. kylpyhuone) — ilmoitus menee valittujen
-        ammattien tekijöille. Poista valinta, jos kyseistä työtä ei tarvita.
+        Valitse tarvittavat ammatit — ilmoitus menee niitä edustaville
+        urakoitsijoille. Poista valinta, jos kyseistä työtä ei tarvita.
       </p>
+      {tradeIds.length >= 2 && (
+        <p className="mt-2 rounded-lg border border-sky-200/80 bg-white/70 px-3 py-2 text-xs leading-relaxed text-sky-950">
+          <span className="font-medium">Useita ammatteja:</span> voit saada erillisiä
+          tarjouksia ammateittain tai yhden kokonaisurakan. Urakoitsija kertoo
+          tarjouksessa, mitä se tarjoaa.
+        </p>
+      )}
       <ul className="mt-3 space-y-2">
         {trades.map((trade) => {
           const selected = tradeIds.includes(trade.id);
