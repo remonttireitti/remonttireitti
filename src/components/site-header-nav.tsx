@@ -93,7 +93,7 @@ export function SiteHeaderNav({
         )}
         {loggedIn ? (
           <>
-            <NavItem href="/#ilmoitukset">
+            <NavItem href={isContractor ? "/tarjoukset#ilmoitukset" : "/#ilmoitukset"}>
               <span className="inline-flex items-center gap-1.5">
                 Ilmoitukset
                 {unreadNotifications > 0 && (
