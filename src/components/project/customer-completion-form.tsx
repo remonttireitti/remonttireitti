@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useActionState, useEffect, useState } from "react";
 import {
   submitProjectCompletionUpdate,
   type CompletionRequestActionState,
@@ -20,11 +21,18 @@ export function CustomerCompletionForm({
   requestCount: number;
   guestToken?: string;
 }) {
+  const router = useRouter();
   const [photos, setPhotos] = useState<File[]>([]);
   const [state, action, pending] = useActionState<
     CompletionRequestActionState,
     FormData
   >(submitProjectCompletionUpdate, {});
+
+  useEffect(() => {
+    if (state.ok && state.redirectPath) {
+      router.push(state.redirectPath);
+    }
+  }, [state.ok, state.redirectPath, router]);
 
   return (
     <form action={action} className="space-y-6">
@@ -128,6 +136,11 @@ export function CustomerCompletionForm({
       {state.error && (
         <p className="text-sm text-red-600" role="alert">
           {state.error}
+        </p>
+      )}
+      {state.ok && (
+        <p className="text-sm text-emerald-800" role="status">
+          {state.ok}
         </p>
       )}
 
