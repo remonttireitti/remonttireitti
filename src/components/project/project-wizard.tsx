@@ -19,11 +19,6 @@ import {
   formatBudgetSummaryLabel,
 } from "@/components/project/budget-preference-fields";
 import { genericDescriptionPlaceholder } from "@/constants/project-areas";
-import {
-  buildTemplateDescriptionSkeleton,
-  getProjectRequestTemplate,
-  isStructuredJobSlug,
-} from "@/constants/project-request-templates";
 import { isServiceJobSlug } from "@/constants/service-jobs";
 import { isFreeFormJobSlug } from "@/constants/free-form-job";
 import { BudgetGuidancePanel } from "@/components/project/budget-guidance-panel";
@@ -256,14 +251,6 @@ export function ProjectWizard({
     }
     if (isServiceJobSlug(jt.slug)) {
       setServiceEngagement(defaultServiceEngagementForJob(jt.slug));
-    }
-    if (
-      !isStructuredJobSlug(jt.slug) &&
-      !form.description.trim() &&
-      !prefill?.description
-    ) {
-      const template = getProjectRequestTemplate(jt.slug);
-      update("description", buildTemplateDescriptionSkeleton(template));
     }
   }
 
