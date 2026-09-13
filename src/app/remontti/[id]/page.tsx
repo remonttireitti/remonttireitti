@@ -64,6 +64,7 @@ export default async function ProjectPage({
     taydennetty?: string;
     token?: string;
     vahvistettu?: string;
+    from?: string;
   }>;
 }) {
   const { id } = await params;
@@ -80,9 +81,10 @@ export default async function ProjectPage({
     taydennetty,
     token,
     vahvistettu,
+    from,
   } = sp;
 
-  if (token) {
+  if (token && from !== "auth") {
     const qs = new URLSearchParams();
     qs.set("project", id);
     qs.set("token", token);
@@ -101,7 +103,7 @@ export default async function ProjectPage({
     : null;
 
   if (!project) {
-    const guestRow = await resolveGuestProjectAccess(id);
+    const guestRow = await resolveGuestProjectAccess(id, token);
     if (guestRow) {
       project = guestProjectToCustomerRow(guestRow);
       guestEmail = (guestRow.guest_email as string | null) ?? null;
