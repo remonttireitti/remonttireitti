@@ -21,9 +21,7 @@ import { ContractorProjectInterestButtons } from "@/components/contractor/contra
 import { ProjectMatchBadges } from "@/components/contractor/contractor-service-area-form";
 import { fetchProjectInterest } from "@/lib/contractor-project-interest-server";
 import { budgetBelowMin } from "@/lib/contractor-work-filter";
-import {
-  evaluateProjectMatch,
-} from "@/lib/contractor-project-match";
+import { evaluateProjectMatch } from "@/lib/contractor-project-match";
 import { loadContractorMatchProfile } from "@/lib/contractor-projects-server";
 import { projectDistanceKm } from "@/lib/geo-distance";
 import { fetchProjectTradeContextForContractor } from "@/lib/project-trades-server";
@@ -219,49 +217,35 @@ export default async function ContractorProjectPage({
     project.budget_max as number | null,
   );
 
+  const bidPanelProps = {
+    projectId: id,
+    bid: existingBid,
+    requiresDeviceAndInstallation,
+    allowOptionalEquipmentOffer,
+    budgetInfo,
+    bidStale,
+    defaultBidTerms,
+    jobTypeSlug,
+    tradeContext,
+    serviceEngagement,
+    projectQuality,
+  };
+
   return (
     <div className={brand.page}>
       <SiteHeader />
-      <main className={brand.mainDetail}>
+      <main className={brand.mainStandard}>
         <Link href="/tarjoukset" className="text-sm text-sky-700 hover:underline">
           ← Pyynnöt
         </Link>
 
-        <h1 className="mt-4 text-2xl font-bold tracking-tight sm:text-3xl">
-          {project.title}
-        </h1>
-        <p className="text-stone-500">{categoryName}</p>
-        <ProjectMatchBadges match={projectMatch} />
-        <div className="mt-4 rounded-xl border border-stone-200 bg-stone-50/80 p-4">
-          <p className="text-sm font-medium text-stone-900">Työfiltteri</p>
-          <p className="mt-1 text-xs text-stone-600">
-            Merkitse onko pyyntö sinulle relevantti. Piilotetut pyynnöt eivät näy
-            oletuslistassa.
-          </p>
-          <div className="mt-3">
-            <ContractorProjectInterestButtons
-              projectId={id}
-              currentInterest={projectInterest}
-            />
-          </div>
-          {belowMinBudget && (
-            <>
-              <p className="mt-3 text-xs font-medium text-amber-800">
-                Budjetti on alle profiilisi minimin (
-                {contractorProfile.minBudgetEur?.toLocaleString("fi-FI")} €).
-              </p>
-              <p className="mt-1 text-xs text-stone-500">
-                Voit silti tarjota — minimibudjetti vaikuttaa vain oletussuodattimeen.
-              </p>
-            </>
-          )}
-        </div>
-        {projectMatch.qualificationFit === "none" && (
-          <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-            Profiilisi pätevyydet eivät täysin vastaa pyyntöä. Voit silti jättää
-            tarjouksen, jos hoidat puuttuvat työt alihankkijalla tai muulla tavalla.
-          </p>
-        )}
+        <header className="mt-4">
+          <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
+            {project.title}
+          </h1>
+          <p className="mt-1 text-stone-500">{categoryName}</p>
+          <ProjectMatchBadges match={projectMatch} />
+        </header>
 
         {tarjous === "lahetetty" && (
           <p
@@ -283,17 +267,18 @@ export default async function ContractorProjectPage({
           </p>
         )}
 
-        <div className="sticky bottom-0 z-30 -mx-4 border-t border-stone-200 bg-white/95 px-4 py-3 backdrop-blur-md lg:hidden">
-          <a
-            href="#tarjouslomake"
-            className={`${brand.btnPrimary} ${brand.btnPrimaryBlock} touch-target flex min-h-[2.75rem] items-center justify-center`}
-          >
-            Siirry tarjouslomakkeeseen
-          </a>
-        </div>
+        {projectMatch.qualificationFit === "none" && (
+          <p className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+            Profiilisi pätevyydet eivät täysin vastaa pyyntöä. Voit silti jättää
+            tarjouksen, jos hoidat puuttuvat työt alihankkijalla tai muulla tavalla.
+          </p>
+        )}
 
-        <div className={brand.detailSplit}>
-          <div className={brand.detailSplitMain}>
+        <section className="mt-6">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-stone-500">
+            Tarjouspyyntö
+          </h2>
+          <div className="mt-3">
             <ProjectOverviewCards
               description={project.description}
               details={
@@ -313,52 +298,60 @@ export default async function ContractorProjectPage({
               showLocationOnly
               bidDeadline={project.bid_deadline}
             />
+          </div>
+        </section>
 
-            <ContractorCompletionRequestPanel
+        <ContractorCompletionRequestPanel
+          projectId={id}
+          qualityScore={projectQuality.score}
+          missingItems={projectQuality.items}
+          alreadySent={sentCompletionRequest != null}
+          hasBid={existingBid != null && existingBid.status !== "withdrawn"}
+        />
+
+        <section id="tarjouslomake" className="mt-8 scroll-mt-24">
+          <ValuePromoBanner variant="contractor-pay-on-win" className="mb-4" />
+          <ContractorBidPanel {...bidPanelProps} />
+        </section>
+
+        <details className="mt-8 rounded-xl border border-stone-200 bg-white p-4">
+          <summary className="cursor-pointer text-sm font-medium text-stone-800">
+            Työfiltteri ja merkinnät
+          </summary>
+          <div className="mt-4 space-y-3 border-t border-stone-100 pt-4">
+            <p className="text-xs text-stone-600">
+              Merkitse onko pyyntö sinulle relevantti. Piilotetut pyynnöt eivät näy
+              oletuslistassa.
+            </p>
+            <ContractorProjectInterestButtons
               projectId={id}
-              qualityScore={projectQuality.score}
-              missingItems={projectQuality.items}
-              alreadySent={sentCompletionRequest != null}
-              hasBid={existingBid != null && existingBid.status !== "withdrawn"}
+              currentInterest={projectInterest}
             />
-
-            {chatData && (
-              <ProjectChat
-                conversationId={chatData.conversation.id}
-                messages={chatData.messages}
-                currentUserId={user.id}
-                customerId={chatData.conversation.customer_id}
-                customerLabel="Asiakas"
-                contractorLabel="Sinä"
-                revalidatePaths={[`/tarjoukset/${id}`]}
-                perspective="contractor"
-                contactRestricted
-              />
+            {belowMinBudget && (
+              <p className="text-xs font-medium text-amber-800">
+                Budjetti on alle profiilisi minimin (
+                {contractorProfile.minBudgetEur?.toLocaleString("fi-FI")} €). Voit silti
+                tarjota.
+              </p>
             )}
-
-            <ValuePromoBanner variant="contractor-pay-on-win" className="lg:hidden" />
           </div>
+        </details>
 
-          <div id="tarjouslomake" className={`${brand.detailSplitSticky} scroll-mt-24`}>
-            <ValuePromoBanner
-              variant="contractor-pay-on-win"
-              className="mb-6 hidden lg:block"
-            />
-            <ContractorBidPanel
-              projectId={id}
-              bid={existingBid}
-              requiresDeviceAndInstallation={requiresDeviceAndInstallation}
-              allowOptionalEquipmentOffer={allowOptionalEquipmentOffer}
-              budgetInfo={budgetInfo}
-              bidStale={bidStale}
-              defaultBidTerms={defaultBidTerms}
-              jobTypeSlug={jobTypeSlug}
-              tradeContext={tradeContext}
-              serviceEngagement={serviceEngagement}
-              projectQuality={projectQuality}
+        {chatData && (
+          <div className="mt-8">
+            <ProjectChat
+              conversationId={chatData.conversation.id}
+              messages={chatData.messages}
+              currentUserId={user.id}
+              customerId={chatData.conversation.customer_id}
+              customerLabel="Asiakas"
+              contractorLabel="Sinä"
+              revalidatePaths={[`/tarjoukset/${id}`]}
+              perspective="contractor"
+              contactRestricted
             />
           </div>
-        </div>
+        )}
       </main>
     </div>
   );

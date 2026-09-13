@@ -257,10 +257,6 @@ export function validateBidFormClient(
     }
   }
 
-  if (!fields.message.trim()) {
-    fieldErrors.message = "Kirjoita viesti asiakkaalle.";
-  }
-
   const requiresEquipmentWarranty =
     options.requiresDeviceAndInstallation ||
     (options.allowOptionalEquipmentOffer && fields.offers_equipment);

@@ -149,6 +149,13 @@ function checkScopeItem(
   bid: BidInsightInput,
   item: BidScopeCheckItem,
 ): "covered" | "missing" | "partial" {
+  if (item.id === "timeline") {
+    if (bid.estimatedDays != null && bid.estimatedDays > 0) return "covered";
+    if (bid.earliestStartDate?.trim()) return "covered";
+  }
+  if (item.id === "warranty" && bid.warrantyWork?.trim()) return "covered";
+  if (item.id === "terms" && bid.contractTerms?.trim()) return "covered";
+
   const texts = [
     bid.scopeTerms ?? "",
     bid.message ?? "",

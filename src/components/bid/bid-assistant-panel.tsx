@@ -43,8 +43,8 @@ export function BidAssistantPanel({
   );
 
   const missingIds = useMemo(
-    () => missingScopeItemIds(jobTypeSlug ?? null, assistant.insight),
-    [jobTypeSlug, assistant.insight],
+    () => missingScopeItemIds(jobTypeSlug ?? null, assistant.insight, fields),
+    [jobTypeSlug, assistant.insight, fields],
   );
 
   const scopeItems = scopeCheckItemsForJob(jobTypeSlug ?? null);
@@ -180,35 +180,9 @@ export function BidAssistantPanel({
             </div>
           )}
 
-          {assistant.projectGaps.length > 0 && (
-            <div className="rounded-lg border border-violet-200 bg-violet-50/70 px-3 py-3">
-              <p className="text-xs font-semibold text-violet-950">
-                Tarjouspyynnössä puuttuu tietoja
-              </p>
-              <p className="mt-1 text-xs text-violet-900">
-                Pyyntö on {projectQuality?.score ?? "—"} % valmis. Voit tarjota
-                silti — tai pyytää asiakasta täydentämään alla olevia kohtia.
-              </p>
-              <ul className="mt-2 space-y-1">
-                {assistant.projectGaps.map((gap) => (
-                  <li key={gap.id} className="text-xs text-violet-900">
-                    • {gap.label}
-                    {gap.status === "partial" ? " (osittain)" : ""}
-                  </li>
-                ))}
-              </ul>
-              <a
-                href="#taydenna-pyynto"
-                className="mt-2 inline-flex text-xs font-medium text-violet-800 hover:underline"
-              >
-                Pyydä täydennystä asiakkaalta ↓
-              </a>
-            </div>
-          )}
-
           {!hasIssues && assistant.completenessScore >= 90 && (
             <p className="text-xs text-emerald-800">
-              Tarjous näyttää selkeältä — voit lähettää kun hinta ja viesti ovat
+              Tarjous näyttää selkeältä — voit lähettää kun hinta ja ehdot ovat
               kunnossa.
             </p>
           )}

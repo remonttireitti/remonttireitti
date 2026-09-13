@@ -1,7 +1,6 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import Link from "next/link";
 import {
   requestProjectCompletion,
   type CompletionRequestActionState,
@@ -33,40 +32,22 @@ export function ContractorCompletionRequestPanel({
   return (
     <section
       id="taydenna-pyynto"
-      className="mt-6 scroll-mt-24 rounded-2xl border border-stone-200 bg-white p-5"
+      className="mt-6 scroll-mt-24 rounded-2xl border border-violet-100 bg-violet-50/30 p-5"
     >
-      <h2 className="font-semibold text-stone-900">Tarjous tai täydennäpyyntö</h2>
-      <p className="mt-1 text-sm text-stone-600">
-        Pyyntö on {qualityScore} % valmis. Voit tarjota heti — tai pyytää asiakasta
-        täydentämään puuttuvat tiedot tarkempaa tarjousta varten.
-      </p>
-
-      <div className="mt-4 grid gap-3 sm:grid-cols-2">
-        <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 p-4">
-          <p className="text-sm font-semibold text-emerald-950">Tee tarjous</p>
-          <p className="mt-1 text-xs leading-relaxed text-emerald-900">
-            Pystyn arvioimaan työn nykyisillä tiedoilla.
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="font-semibold text-stone-900">Puuttuuko tietoja?</h2>
+          <p className="mt-1 text-sm text-stone-600">
+            Pyyntö on {qualityScore} % valmis. Voit tarjota heti alla — tai pyytää
+            asiakasta täydentämään ennen tarkkaa hintaa.
           </p>
-          <a
-            href="#tarjouslomake"
-            className="mt-3 inline-flex text-sm font-medium text-emerald-800 hover:underline"
-          >
-            {hasBid ? "Muokkaa tarjousta →" : "Siirry tarjouslomakkeeseen →"}
-          </a>
         </div>
-
         <button
           type="button"
           onClick={() => setExpanded((v) => !v)}
-          className="rounded-xl border border-violet-200 bg-violet-50/70 p-4 text-left transition hover:border-violet-300"
+          className="touch-target shrink-0 rounded-lg border border-violet-300 bg-white px-4 py-2 text-sm font-medium text-violet-900 hover:bg-violet-50"
         >
-          <p className="text-sm font-semibold text-violet-950">Pyydä täydennystä</p>
-          <p className="mt-1 text-xs leading-relaxed text-violet-900">
-            Tarvitsen lisätietoja tarkan tarjouksen tekemiseen.
-          </p>
-          <span className="mt-3 inline-flex text-sm font-medium text-violet-800">
-            {expanded ? "Piilota lomake ↑" : "Avaa täydennäpyyntö →"}
-          </span>
+          {expanded ? "Piilota" : "Pyydä täydennystä"}
         </button>
       </div>
 
@@ -217,12 +198,14 @@ export function ContractorCompletionRequestPanel({
         </form>
       )}
 
-      <p className="mt-4 text-xs text-stone-500">
-        Tarjouslomake on oikealla.{" "}
-        <Link href="#tarjouslomake" className="text-sky-700 hover:underline">
-          Siirry tarjoamaan
-        </Link>
-      </p>
+      {!expanded && !alreadySent && qualityScore < 90 && (
+        <p className="mt-4 text-xs text-stone-500">
+          Tarjouslomake on heti tämän osion alla.{" "}
+          <a href="#tarjouslomake" className="text-sky-700 hover:underline">
+            Siirry tarjoamaan ↓
+          </a>
+        </p>
+      )}
     </section>
   );
 }
