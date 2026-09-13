@@ -20,13 +20,33 @@ import { extendBidDeadlineFromNow } from "@/lib/project-inactivity";
 import { recordCustomJobDemand, fetchJobTypeSlug } from "@/lib/custom-job-demand";
 import { isFreeFormJobSlug } from "@/constants/free-form-job";
 import type { DeviceCategory } from "@/constants/maintenance";
+import { isUnverifiedGuestProjectExpired } from "@/lib/guest-project-verification";
+import { deleteUnverifiedGuestProject } from "@/lib/expire-unverified-guest-projects";
 
 export async function publishGuestProjectAfterVerification(
   projectId: string,
   rawToken: string,
 ): Promise<{ error?: string; published?: boolean }> {
   const project = await fetchGuestProjectByToken(projectId, rawToken);
-  if (!project) return { error: "Linkki ei ole voimassa." };
+  if (!project) {
+    return {
+      error:
+        "Vahvistuslinkki on vanhentunut tai virheellinen. Luo tarjouspyyntö uudelleen.",
+    };
+  }
+
+  if (
+    isUnverifiedGuestProjectExpired({
+      email_verified_at: project.email_verified_at as string | null,
+      created_at: project.created_at as string,
+    })
+  ) {
+    await deleteUnverifiedGuestProject(projectId);
+    return {
+      error:
+        "Vahvistuslinkki on vanhentunut (24 h). Luo tarjouspyyntö uudelleen.",
+    };
+  }
 
   const admin = createAdminClient();
   const now = new Date().toISOString();

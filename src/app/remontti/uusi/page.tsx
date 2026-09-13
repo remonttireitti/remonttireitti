@@ -71,7 +71,7 @@ export default async function NewProjectPage({
         </h1>
         <p className="mt-2 max-w-2xl text-stone-600">
           {isGuest
-            ? "Täytä pyyntö ilman tiliä. Lähetämme vahvistuslinkin sähköpostiisi — julkaisu urakoitsijoille tapahtuu vasta vahvistuksen jälkeen."
+            ? "Täytä pyyntö ilman tiliä. Lähetämme vahvistuslinkin sähköpostiisi — julkaisu ja urakoitsijailmoitukset tapahtuvat vasta vahvistuksen jälkeen. Linkki on voimassa 24 tuntia."
             : "Valitse remontin tyyppi ja täytä pyyntö. Julkaise tarjouspyyntö ilmaiseksi."}
         </p>
         <div className="mt-6 grid max-w-3xl gap-4 sm:grid-cols-2">

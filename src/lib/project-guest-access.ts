@@ -1,6 +1,8 @@
 import { createHash, randomBytes } from "crypto";
 import { cookies } from "next/headers";
 import type { NextResponse } from "next/server";
+import { deleteUnverifiedGuestProject } from "@/lib/expire-unverified-guest-projects";
+import { isUnverifiedGuestProjectExpired } from "@/lib/guest-project-verification";
 import { tryCreateAdminClient } from "@/lib/supabase/admin";
 import type { CustomerProjectRow } from "@/lib/projects-server";
 
@@ -90,6 +92,17 @@ export async function fetchGuestProjectByToken(
 
   if (error) {
     console.error("[fetchGuestProjectByToken]", error.code, error.message);
+    return null;
+  }
+
+  if (
+    data &&
+    isUnverifiedGuestProjectExpired({
+      email_verified_at: data.email_verified_at as string | null,
+      created_at: data.created_at as string,
+    })
+  ) {
+    await deleteUnverifiedGuestProject(projectId);
     return null;
   }
 

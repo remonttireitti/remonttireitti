@@ -2,6 +2,7 @@ name: Scheduled cron jobs
 
 on:
   schedule:
+    - cron: "0 3 * * *"
     - cron: "0 4 * * *"
     - cron: "0 5 * * *"
     - cron: "0 6 * * *"
@@ -12,6 +13,12 @@ jobs:
   run:
     runs-on: ubuntu-latest
     steps:
+      - name: Expire unverified guest projects (03:00 UTC)
+        if: github.event.schedule == '0 3 * * *' || github.event_name == 'workflow_dispatch'
+        run: |
+          curl -fsS -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "${{ vars.SITE_URL }}/api/cron/expire-unverified-guest-projects"
+
       - name: Expire marketplace listings (04:00 UTC)
         if: github.event.schedule == '0 4 * * *' || github.event_name == 'workflow_dispatch'
         run: |

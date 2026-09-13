@@ -337,6 +337,8 @@ export async function createProject(
   }
 
   if (isGuest) {
+    // Vieras: tallennetaan luonnoksena (draft). Julkaisu + urakoitsijailmoitukset
+    // vasta sähköpostivahvistuksen jälkeen. Vahvistamaton poistuu 24 h kuluttua.
     await issueGuestProjectAccess({
       projectId: data.id,
       guestEmail: contactEmail.toLowerCase(),
