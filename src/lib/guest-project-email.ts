@@ -126,18 +126,21 @@ export async function sendGuestBidUpdatedEmail(params: {
   projectId: string;
   rawToken: string;
   contractorCompany: string;
+  afterCompletion?: boolean;
 }): Promise<void> {
   const projectUrl = siteUrl(
-    `/remontti/${params.projectId}?token=${encodeURIComponent(params.rawToken)}`,
+    `/auth/guest-access?project=${params.projectId}&token=${encodeURIComponent(params.rawToken)}`,
   );
+  const extra = params.afterCompletion
+    ? "<p>Urakoitsija on päivittänyt tarjouksen täydennettyjen tietojen jälkeen — voit nyt tarkastella ja hyväksyä tarjouksen.</p>"
+    : "<p>Avaa linkki nähdäksesi muutokset — ei kirjautumista tarvita.</p>";
 
   const result = await sendEmail({
     to: params.to,
     subject: `Tarjous päivitetty: ${params.projectTitle}`,
     html: emailLayout(
       "Tarjous päivitetty",
-      `<p><strong>${escapeHtml(params.contractorCompany)}</strong> päivitti tarjoustaan urakkaan <em>${escapeHtml(params.projectTitle)}</em>.</p>
-       <p>Avaa linkki nähdäksesi muutokset — ei kirjautumista tarvita.</p>`,
+      `<p><strong>${escapeHtml(params.contractorCompany)}</strong> päivitti tarjoustaan urakkaan <em>${escapeHtml(params.projectTitle)}</em>.</p>${extra}`,
       projectUrl,
       "Avaa tarjoukset",
     ),
@@ -145,6 +148,34 @@ export async function sendGuestBidUpdatedEmail(params: {
 
   if (!result.ok && !result.skipped) {
     console.error("[guest-project-email] bid updated failed:", result.error);
+  }
+}
+
+export async function sendGuestBidWithdrawnEmail(params: {
+  to: string;
+  projectTitle: string;
+  projectId: string;
+  rawToken: string;
+  contractorCompany: string;
+}): Promise<void> {
+  const projectUrl = siteUrl(
+    `/auth/guest-access?project=${params.projectId}&token=${encodeURIComponent(params.rawToken)}`,
+  );
+
+  const result = await sendEmail({
+    to: params.to,
+    subject: `Tarjous peruttu: ${params.projectTitle}`,
+    html: emailLayout(
+      "Urakoitsija perui tarjouksen",
+      `<p><strong>${escapeHtml(params.contractorCompany)}</strong> perui tarjouksensa urakkaan <em>${escapeHtml(params.projectTitle)}</em>.</p>
+       <p>Muut tarjoukset ovat edelleen näkyvissä. Avaa linkki tarkastellaksesi tilannetta — ei kirjautumista tarvita.</p>`,
+      projectUrl,
+      "Avaa tarjoukset",
+    ),
+  });
+
+  if (!result.ok && !result.skipped) {
+    console.error("[guest-project-email] bid withdrawn failed:", result.error);
   }
 }
 

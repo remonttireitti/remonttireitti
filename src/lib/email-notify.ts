@@ -107,12 +107,34 @@ export async function notifyBidUpdated(params: {
   projectId: string;
   contractorCompany: string;
   contactEmail?: string | null;
+  afterCompletion?: boolean;
 }) {
+  const extra = params.afterCompletion
+    ? "<p>Urakoitsija on päivittänyt tarjouksen täydennettyjen tietojen jälkeen — voit nyt hyväksyä tarjouksen.</p>"
+    : "";
   await sendUserEmail(
     params.customerId,
     `Tarjous päivitetty: ${params.projectTitle}`,
     "Tarjous päivitetty",
-    `<p><strong>${escapeHtml(params.contractorCompany)}</strong> päivitti tarjoustaan urakkaan <em>${escapeHtml(params.projectTitle)}</em>.</p>`,
+    `<p><strong>${escapeHtml(params.contractorCompany)}</strong> päivitti tarjoustaan urakkaan <em>${escapeHtml(params.projectTitle)}</em>.</p>${extra}`,
+    `/remontti/${params.projectId}`,
+    "Avaa tarjoukset",
+    params.contactEmail,
+  );
+}
+
+export async function notifyBidWithdrawn(params: {
+  customerId: string;
+  projectTitle: string;
+  projectId: string;
+  contractorCompany: string;
+  contactEmail?: string | null;
+}) {
+  await sendUserEmail(
+    params.customerId,
+    `Tarjous peruttu: ${params.projectTitle}`,
+    "Urakoitsija perui tarjouksen",
+    `<p><strong>${escapeHtml(params.contractorCompany)}</strong> perui tarjouksensa urakkaan <em>${escapeHtml(params.projectTitle)}</em>.</p><p>Muut tarjoukset ovat edelleen näkyvissä.</p>`,
     `/remontti/${params.projectId}`,
     "Avaa tarjoukset",
     params.contactEmail,
@@ -195,6 +217,22 @@ export async function notifyProjectUpdated(params: {
     `Tarjouspyyntö päivitetty: ${params.projectTitle}`,
     "Tarjouspyyntö muuttui",
     `<p>Asiakas muokkasi tarjouspyyntöä <em>${escapeHtml(params.projectTitle)}</em>.</p><p>Päivitä tarjouksesi, jotta asiakas voi hyväksyä sen.</p>`,
+    `/tarjoukset/${params.projectId}`,
+    "Päivitä tarjous",
+  );
+}
+
+export async function notifyProjectCompletionUpdated(params: {
+  contractorId: string;
+  projectTitle: string;
+  projectId: string;
+  summary: string;
+}) {
+  await sendUserEmail(
+    params.contractorId,
+    `Asiakas täydensi pyyntöä: ${params.projectTitle}`,
+    "Asiakas täydensi tarjouspyyntöä",
+    `<p>Asiakas täydensi tarjouspyyntöä <em>${escapeHtml(params.projectTitle)}</em>: ${escapeHtml(params.summary)}.</p><p>Päivitä tarjouksesi uusien tietojen perusteella.</p>`,
     `/tarjoukset/${params.projectId}`,
     "Päivitä tarjous",
   );
