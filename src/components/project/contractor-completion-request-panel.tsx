@@ -44,10 +44,13 @@ export function ContractorCompletionRequestPanel({
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="font-semibold text-stone-900">Puuttuuko tietoja?</h2>
+          <h2 className="font-semibold text-stone-900">
+            Puuttuuko tarjouksesta tärkeä tieto?
+          </h2>
           <p className="mt-1 text-sm text-stone-600">
-            Pyyntö on {qualityScore} % valmis. Voit tarjota heti alla — tai pyytää
-            asiakasta täydentämään ennen tarkkaa hintaa.
+            Pyyntö on {qualityScore} % valmis. Voit lähettää hinta-arvion nykyisillä
+            tiedoilla ja pyytää asiakasta täydentämään puuttuvat tiedot — tai tarjota
+            suoraan alla.
           </p>
         </div>
         <button
@@ -55,14 +58,15 @@ export function ContractorCompletionRequestPanel({
           onClick={() => setExpanded((v) => !v)}
           className="touch-target shrink-0 rounded-lg border border-violet-300 bg-white px-4 py-2 text-sm font-medium text-violet-900 hover:bg-violet-50"
         >
-          {expanded ? "Piilota" : "Pyydä täydennystä"}
+          {expanded ? "Piilota" : "Hinta-arvio + täydennyspyyntö"}
         </button>
       </div>
 
       {alreadySent && (
         <p className="mt-4 rounded-lg border border-violet-100 bg-violet-50 px-3 py-2 text-xs text-violet-900">
-          Olet jo lähettänyt täydennäpyynnön. Asiakas saa ilmoituksen ja voi päivittää
-          pyyntöä — voit silti tarjota milloin tahansa.
+          Olet jo lähettänyt hinta-arvion ja täydennyspyynnön. Asiakas saa ilmoituksen
+          ja voi päivittää pyyntöä — voit silti tarjota tai päivittää tarjousta milloin
+          tahansa.
         </p>
       )}
 
@@ -70,9 +74,52 @@ export function ContractorCompletionRequestPanel({
         <form action={action} className="mt-5 space-y-4 border-t border-stone-100 pt-5">
           <input type="hidden" name="project_id" value={projectId} />
 
+          <fieldset className="rounded-xl border border-amber-100 bg-amber-50/50 p-4">
+            <legend className="px-1 text-sm font-medium text-amber-950">
+              Hinta-arvio nykyisillä tiedoilla
+            </legend>
+            <p className="text-xs text-amber-900">
+              Anna hintahaarukan olemassa olevien tietojen perusteella. Asiakas näkee
+              arvion yhdessä täydennyspyynnön kanssa.
+            </p>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <label className="block text-sm text-stone-700">
+                Min €
+                <input
+                  type="number"
+                  name="preliminary_min_euros"
+                  min={1}
+                  step={1}
+                  className="mt-1 w-full rounded-lg border border-stone-300 px-3 py-2 text-sm"
+                  placeholder="2500"
+                />
+              </label>
+              <label className="block text-sm text-stone-700">
+                Max €
+                <input
+                  type="number"
+                  name="preliminary_max_euros"
+                  min={1}
+                  step={1}
+                  className="mt-1 w-full rounded-lg border border-stone-300 px-3 py-2 text-sm"
+                  placeholder="3000"
+                />
+              </label>
+            </div>
+            <label className="mt-3 block text-sm text-stone-700">
+              Huomio hinta-arviosta
+              <input
+                type="text"
+                name="preliminary_note"
+                className="mt-1 w-full rounded-lg border border-stone-300 px-3 py-2 text-sm"
+                placeholder="Tarkka tarjous edellyttää kattopinta-alaa ja kuvia."
+              />
+            </label>
+          </fieldset>
+
           <fieldset>
             <legend className="text-sm font-medium text-stone-900">
-              Tarjouspyynnöstä puuttuu tietoja
+              Mitä tietoja tarvitset tarkempaan tarjoukseen?
             </legend>
             <div className="mt-2 space-y-2">
               {COMPLETION_GAP_TYPES.map((gap) => (
@@ -118,7 +165,7 @@ export function ContractorCompletionRequestPanel({
           )}
 
           <label className="block text-sm text-stone-800">
-            Mitä tarvitset tarjouksen tekemiseen? *
+            Kerro asiakkaalle mitä tarvitset *
             <textarea
               name="note"
               rows={3}
@@ -128,49 +175,6 @@ export function ContractorCompletionRequestPanel({
               placeholder='Esim. "Tarvitsen kuvat nykyisestä katosta, kattopinta-alan sekä tiedon siitä, uusitaanko aluskatetta."'
             />
           </label>
-
-          <fieldset className="rounded-xl border border-amber-100 bg-amber-50/50 p-4">
-            <legend className="px-1 text-sm font-medium text-amber-950">
-              Alustava tarjous + täydennäpyyntö (valinnainen)
-            </legend>
-            <p className="text-xs text-amber-900">
-              Voit antaa hintahaarukan nykyisillä tiedoilla ja kertoa mitä tarvitset
-              tarkempaan tarjoukseen.
-            </p>
-            <div className="mt-3 grid gap-3 sm:grid-cols-2">
-              <label className="block text-sm text-stone-700">
-                Min €
-                <input
-                  type="number"
-                  name="preliminary_min_euros"
-                  min={1}
-                  step={1}
-                  className="mt-1 w-full rounded-lg border border-stone-300 px-3 py-2 text-sm"
-                  placeholder="2500"
-                />
-              </label>
-              <label className="block text-sm text-stone-700">
-                Max €
-                <input
-                  type="number"
-                  name="preliminary_max_euros"
-                  min={1}
-                  step={1}
-                  className="mt-1 w-full rounded-lg border border-stone-300 px-3 py-2 text-sm"
-                  placeholder="3000"
-                />
-              </label>
-            </div>
-            <label className="mt-3 block text-sm text-stone-700">
-              Huomio alustavasta arviosta
-              <input
-                type="text"
-                name="preliminary_note"
-                className="mt-1 w-full rounded-lg border border-stone-300 px-3 py-2 text-sm"
-                placeholder="Tarkka tarjous edellyttää kattopinta-alaa ja kuvia."
-              />
-            </label>
-          </fieldset>
 
           <label className="flex cursor-pointer items-start gap-2 text-sm text-stone-700">
             <input type="checkbox" name="suggest_template" className="mt-1" />
@@ -201,7 +205,7 @@ export function ContractorCompletionRequestPanel({
             disabled={pending}
             className="rounded-lg bg-violet-800 px-4 py-2 text-sm font-medium text-white hover:bg-violet-900 disabled:opacity-60"
           >
-            {pending ? "Lähetetään…" : "Lähetä täydennäpyyntö asiakkaalle"}
+            {pending ? "Lähetetään…" : "Lähetä hinta-arvio ja täydennyspyyntö"}
           </button>
         </form>
       )}
