@@ -17,7 +17,10 @@ import { fetchContractorProjectConversation } from "@/lib/messages-server";
 import { fetchProjectPhotos } from "@/lib/project-photos";
 import { fetchContractorBidDefaults } from "@/lib/contractor-bid-defaults-server";
 import { resolveProjectJobTypeSlug } from "@/lib/project-job-type";
+import { ContractorProjectInterestButtons } from "@/components/contractor/contractor-project-interest-buttons";
 import { ProjectMatchBadges } from "@/components/contractor/contractor-service-area-form";
+import { fetchProjectInterest } from "@/lib/contractor-project-interest-server";
+import { budgetBelowMin } from "@/lib/contractor-work-filter";
 import {
   evaluateProjectMatch,
 } from "@/lib/contractor-project-match";
@@ -206,6 +209,13 @@ export default async function ContractorProjectPage({
     user.id,
   );
 
+  const projectInterest = await fetchProjectInterest(supabase, user.id, id);
+  const belowMinBudget = budgetBelowMin(
+    contractorProfile.minBudgetEur,
+    project.budget_min as number | null,
+    project.budget_max as number | null,
+  );
+
   return (
     <div className={brand.page}>
       <SiteHeader />
@@ -219,6 +229,30 @@ export default async function ContractorProjectPage({
         </h1>
         <p className="text-stone-500">{categoryName}</p>
         <ProjectMatchBadges match={projectMatch} />
+        <div className="mt-4 rounded-xl border border-stone-200 bg-stone-50/80 p-4">
+          <p className="text-sm font-medium text-stone-900">Työfiltteri</p>
+          <p className="mt-1 text-xs text-stone-600">
+            Merkitse onko pyyntö sinulle relevantti. Piilotetut pyynnöt eivät näy
+            oletuslistassa.
+          </p>
+          <div className="mt-3">
+            <ContractorProjectInterestButtons
+              projectId={id}
+              currentInterest={projectInterest}
+            />
+          </div>
+          {belowMinBudget && (
+            <>
+              <p className="mt-3 text-xs font-medium text-amber-800">
+                Budjetti on alle profiilisi minimin (
+                {contractorProfile.minBudgetEur?.toLocaleString("fi-FI")} €).
+              </p>
+              <p className="mt-1 text-xs text-stone-500">
+                Voit silti tarjota — minimibudjetti vaikuttaa vain oletussuodattimeen.
+              </p>
+            </>
+          )}
+        </div>
         {projectMatch.qualificationFit === "none" && (
           <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
             Profiilisi pätevyydet eivät täysin vastaa pyyntöä. Voit silti jättää

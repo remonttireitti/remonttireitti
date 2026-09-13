@@ -1,17 +1,19 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import {
-  ContractorProjectFilterBar,
-  ProjectMatchBadges,
-} from "@/components/contractor/contractor-service-area-form";
+import { ContractorProjectFilterBar } from "@/components/contractor/contractor-service-area-form";
+import { ContractorProjectListItem } from "@/components/contractor/contractor-project-list-item";
 import { ValuePromoBanner } from "@/components/promo/value-promo-banner";
 import { SiteHeader } from "@/components/site-header";
 import {
   fetchContractorOpenProjects,
   loadContractorMatchProfile,
 } from "@/lib/contractor-projects-server";
+import {
+  countByFilter,
+  filterContractorProjects,
+  parseContractorListFilter,
+} from "@/lib/contractor-work-filter";
 import { getSessionUser, isContractor } from "@/lib/auth";
-import { formatBudget } from "@/lib/projects";
 import { brand } from "@/lib/brand-theme";
 import { createClient } from "@/lib/supabase/server";
 
@@ -29,15 +31,13 @@ export default async function ContractorProjectsPage({
   }
 
   const { nayta } = await searchParams;
-  const showAll = nayta === "kaikki";
+  const activeFilter = parseContractorListFilter(nayta);
 
   const supabase = await createClient();
   const profile = await loadContractorMatchProfile(supabase, user.id);
-  const allProjects = await fetchContractorOpenProjects(supabase, profile);
-
-  const projects = showAll
-    ? allProjects
-    : allProjects.filter((p) => p.match.recommended);
+  const allProjects = await fetchContractorOpenProjects(supabase, user.id, profile);
+  const counts = countByFilter(allProjects);
+  const projects = filterContractorProjects(allProjects, activeFilter);
 
   const locationConfigured = Boolean(
     profile.servicePostalCode?.trim() || profile.serviceMunicipality?.trim(),
@@ -65,9 +65,23 @@ export default async function ContractorProjectsPage({
     .eq("contractor_id", user.id)
     .order("created_at", { ascending: false });
 
-  function label(p: (typeof allProjects)[number]) {
-    return p.job_type_name ?? p.category_name;
-  }
+  const emptyMessages: Record<typeof activeFilter, { text: string; link?: string }> = {
+    "oma-alue": {
+      text: "Ei suodatettuja pyyntöjä juuri nyt.",
+      link: "/tarjoukset?nayta=kaikki",
+    },
+    kaikki: { text: "Ei avoimia pyyntöjä juuri nyt." },
+    kiinnostavat: {
+      text: "Et ole vielä merkinnyt yhtään pyyntöä kiinnostavaksi.",
+      link: "/tarjoukset?nayta=kaikki",
+    },
+    piilotetut: {
+      text: "Ei piilotettuja pyyntöjä.",
+      link: "/tarjoukset",
+    },
+  };
+
+  const empty = emptyMessages[activeFilter];
 
   return (
     <div className={brand.page}>
@@ -75,15 +89,15 @@ export default async function ContractorProjectsPage({
       <main className={brand.mainStandard}>
         <h1 className="text-2xl font-bold">Avoimet tarjouspyynnöt</h1>
         <p className="mt-2 text-stone-600">
-          Oletuksena näytetään oman ammatin pyynnöt valitsemaltasi alueelta.
+          Suodata työt alueen, budjetin ja oman kiinnostuksen mukaan.
         </p>
 
         <ContractorProjectFilterBar
-          showAll={showAll}
-          recommendedCount={allProjects.filter((p) => p.match.recommended).length}
-          totalCount={allProjects.length}
+          activeFilter={activeFilter}
+          counts={counts}
           locationConfigured={locationConfigured}
           maxTravelKm={profile.maxTravelKm}
+          minBudgetEur={profile.minBudgetEur}
         />
 
         <ValuePromoBanner variant="contractor-pay-on-win" className="mt-6" />
@@ -120,45 +134,29 @@ export default async function ContractorProjectsPage({
 
         {!projects.length ? (
           <div className="mt-8 rounded-xl border border-stone-200 bg-white p-6 text-stone-600">
-            {showAll ? (
-              <p>Ei avoimia pyyntöjä juuri nyt.</p>
-            ) : (
-              <>
-                <p>Ei suodatettuja pyyntöjä juuri nyt.</p>
-                <Link
-                  href="/tarjoukset?nayta=kaikki"
-                  className="mt-3 inline-block text-sm font-medium text-sky-800 hover:underline"
-                >
-                  Näytä kaikki avoimet pyynnöt
-                </Link>
-              </>
+            <p>{empty.text}</p>
+            {empty.link && (
+              <Link
+                href={empty.link}
+                className="mt-3 inline-block text-sm font-medium text-sky-800 hover:underline"
+              >
+                {activeFilter === "oma-alue"
+                  ? "Näytä kaikki avoimet pyynnöt"
+                  : activeFilter === "kiinnostavat"
+                    ? "Selaa avoimia pyyntöjä"
+                    : "Palaa oletusnäkymään"}
+              </Link>
             )}
           </div>
         ) : (
           <ul className="mt-8 space-y-3">
             {projects.map((p) => (
-              <li key={p.id}>
-                <Link
-                  href={`/tarjoukset/${p.id}`}
-                  className="block rounded-xl border border-stone-200 bg-white p-4 hover:border-sky-300"
-                >
-                  <div className="flex justify-between gap-2">
-                    <span className="font-medium">{p.title}</span>
-                    {bidProjectIds.has(p.id) && (
-                      <span className="text-xs font-medium text-sky-700">
-                        Tarjous jätetty
-                      </span>
-                    )}
-                  </div>
-                  <p className="mt-1 text-sm text-stone-500">
-                    {label(p)} · {p.municipality}
-                  </p>
-                  <p className="mt-1 text-sm text-stone-600">
-                    Budjetti: {formatBudget(p.budget_min, p.budget_max)}
-                  </p>
-                  <ProjectMatchBadges match={p.match} />
-                </Link>
-              </li>
+              <ContractorProjectListItem
+                key={p.id}
+                project={p}
+                hasBid={bidProjectIds.has(p.id)}
+                showBudgetWarning={activeFilter === "kaikki"}
+              />
             ))}
           </ul>
         )}

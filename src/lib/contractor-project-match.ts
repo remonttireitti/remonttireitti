@@ -16,6 +16,7 @@ export type ContractorMatchProfile = {
   servicePostalCode: string | null;
   serviceMunicipality: string | null;
   maxTravelKm: number;
+  minBudgetEur: number | null;
 };
 
 export type ProjectMatchInput = {

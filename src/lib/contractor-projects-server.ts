@@ -5,6 +5,11 @@ import {
   type ProjectMatchInput,
   type ProjectMatchResult,
 } from "@/lib/contractor-project-match";
+import { fetchContractorProjectInterests } from "@/lib/contractor-project-interest-server";
+import {
+  meetsMinBudget,
+  type ProjectInterest,
+} from "@/lib/contractor-work-filter";
 import { projectDistanceKm } from "@/lib/geo-distance";
 
 export type ContractorOpenProject = {
@@ -23,10 +28,13 @@ export type ContractorOpenProject = {
   trade_ids: string[];
   trade_slugs: string[];
   match: ProjectMatchResult;
+  interest: ProjectInterest | null;
+  meetsMinBudget: boolean;
 };
 
 export async function fetchContractorOpenProjects(
   supabase: SupabaseClient,
+  contractorId: string,
   contractor: ContractorMatchProfile,
 ): Promise<ContractorOpenProject[]> {
   const { data: projectsRaw } = await supabase
@@ -60,6 +68,11 @@ export async function fetchContractorOpenProjects(
   if (rows.length === 0) return [];
 
   const projectIds = rows.map((p) => p.id);
+  const interestByProject = await fetchContractorProjectInterests(
+    supabase,
+    contractorId,
+    projectIds,
+  );
   const { data: projectTrades } = await supabase
     .from("project_trades")
     .select("project_id, trade_id, trades ( slug )")
@@ -127,10 +140,21 @@ export async function fetchContractorOpenProjects(
       trade_ids: trades.ids,
       trade_slugs: trades.slugs,
       match: evaluateProjectMatch(contractor, projectInput, distanceKm),
+      interest: interestByProject.get(p.id) ?? null,
+      meetsMinBudget: meetsMinBudget(
+        contractor.minBudgetEur,
+        p.budget_min,
+        p.budget_max,
+      ),
     });
   }
 
   withMatch.sort((a, b) => {
+    const interestRank = (i: ProjectInterest | null) =>
+      i === "interested" ? 0 : i === "not_interested" ? 2 : 1;
+    if (interestRank(a.interest) !== interestRank(b.interest)) {
+      return interestRank(a.interest) - interestRank(b.interest);
+    }
     if (a.match.recommended !== b.match.recommended) {
       return a.match.recommended ? -1 : 1;
     }
@@ -155,7 +179,7 @@ export async function loadContractorMatchProfile(
     supabase
       .from("contractor_profiles")
       .select(
-        "service_postal_code, service_municipality, max_travel_km, refrigerant_license, electrical_qualification, lvi_qualifications",
+        "service_postal_code, service_municipality, max_travel_km, min_budget_eur, refrigerant_license, electrical_qualification, lvi_qualifications",
       )
       .eq("id", contractorId)
       .maybeSingle(),
@@ -175,5 +199,6 @@ export async function loadContractorMatchProfile(
     servicePostalCode: cp?.service_postal_code ?? null,
     serviceMunicipality: cp?.service_municipality ?? null,
     maxTravelKm: cp?.max_travel_km ?? 100,
+    minBudgetEur: (cp?.min_budget_eur as number | null) ?? null,
   };
 }

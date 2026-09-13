@@ -7,6 +7,12 @@ import {
   type ContractorProfileState,
 } from "@/app/actions/contractor-profile";
 import { brand, formInputClass } from "@/lib/brand-theme";
+import type { ContractorListFilter } from "@/lib/contractor-work-filter";
+
+function filterHref(filter: ContractorListFilter): string {
+  if (filter === "oma-alue") return "/tarjoukset";
+  return `/tarjoukset?nayta=${filter}`;
+}
 
 type Props = {
   servicePostalCode: string;
@@ -111,41 +117,41 @@ export function ContractorServiceAreaForm({
 }
 
 export function ContractorProjectFilterBar({
-  showAll,
-  recommendedCount,
-  totalCount,
+  activeFilter,
+  counts,
   locationConfigured,
   maxTravelKm,
+  minBudgetEur,
 }: {
-  showAll: boolean;
-  recommendedCount: number;
-  totalCount: number;
+  activeFilter: ContractorListFilter;
+  counts: Record<ContractorListFilter, number>;
   locationConfigured: boolean;
   maxTravelKm: number;
+  minBudgetEur: number | null;
 }) {
+  const tabs: { id: ContractorListFilter; label: string }[] = [
+    { id: "oma-alue", label: "Oma alue" },
+    { id: "kaikki", label: "Kaikki" },
+    { id: "kiinnostavat", label: "Kiinnostavat" },
+    { id: "piilotetut", label: "Piilotetut" },
+  ];
+
   return (
     <div className="mt-6 space-y-3 rounded-2xl border border-stone-200 bg-white p-4">
       <div className="flex flex-wrap items-center gap-2">
-        <Link
-          href="/tarjoukset"
-          className={`rounded-full px-3 py-1.5 text-sm font-medium ${
-            !showAll
-              ? "bg-sky-700 text-white"
-              : "bg-stone-100 text-stone-700 hover:bg-stone-200"
-          }`}
-        >
-          Oma alue ({recommendedCount})
-        </Link>
-        <Link
-          href="/tarjoukset?nayta=kaikki"
-          className={`rounded-full px-3 py-1.5 text-sm font-medium ${
-            showAll
-              ? "bg-sky-700 text-white"
-              : "bg-stone-100 text-stone-700 hover:bg-stone-200"
-          }`}
-        >
-          Kaikki ({totalCount})
-        </Link>
+        {tabs.map((tab) => (
+          <Link
+            key={tab.id}
+            href={filterHref(tab.id)}
+            className={`rounded-full px-3 py-1.5 text-sm font-medium ${
+              activeFilter === tab.id
+                ? "bg-sky-700 text-white"
+                : "bg-stone-100 text-stone-700 hover:bg-stone-200"
+            }`}
+          >
+            {tab.label} ({counts[tab.id]})
+          </Link>
+        ))}
       </div>
       <p className="text-xs leading-relaxed text-stone-600">
         {!locationConfigured ? (
@@ -157,10 +163,14 @@ export function ContractorProjectFilterBar({
             rajataksesi etäisyyden.
           </>
         ) : (
-          <>Näytetään oletuksena oman ammatin pyynnöt enintään {maxTravelKm} km päästä.</>
+          <>Oma alue: oman ammatin pyynnöt enintään {maxTravelKm} km päästä.</>
         )}{" "}
-        Pätevyysmerkinnät ovat suosituksia — voit avata pyynnön myös ilman täyttä
-        pätevyyttä.
+        {minBudgetEur != null && minBudgetEur > 0 && (
+          <>Minimibudjetti {minBudgetEur.toLocaleString("fi-FI")} €. </>
+        )}
+        Merkitse pyyntöjä <span className="font-medium">Kiinnostaa</span> /{" "}
+        <span className="font-medium">Ei kiinnosta</span> — piilotetut löytyvät omasta
+        välilehdestään.
       </p>
     </div>
   );

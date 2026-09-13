@@ -1,5 +1,6 @@
 import { installSlugForDevice, type DeviceCategory } from "@/constants/maintenance";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { meetsMinBudget } from "@/lib/contractor-work-filter";
 import { createNotification } from "@/lib/notifications-server";
 import { sendEmail, siteUrl } from "@/lib/email";
 import { getNotificationPrefs } from "@/lib/notification-prefs";
@@ -24,6 +25,8 @@ export async function notifyContractorsNewPublishedProject(params: {
   jobTypeId: string;
   municipality: string;
   postalCode: string;
+  budgetMin?: number | null;
+  budgetMax?: number | null;
 }): Promise<void> {
   const admin = createAdminClient();
 
@@ -67,10 +70,27 @@ export async function notifyContractorsNewPublishedProject(params: {
 
   if (contractorIds.length === 0) return;
 
+  const { data: profiles } = await admin
+    .from("contractor_profiles")
+    .select("id, min_budget_eur")
+    .in("id", contractorIds);
+
+  const eligibleIds = (profiles ?? [])
+    .filter((p) =>
+      meetsMinBudget(
+        (p.min_budget_eur as number | null) ?? null,
+        params.budgetMin ?? null,
+        params.budgetMax ?? null,
+      ),
+    )
+    .map((p) => p.id as string);
+
+  if (eligibleIds.length === 0) return;
+
   const { data: contractors } = await admin
     .from("profiles")
     .select("id, role")
-    .in("id", contractorIds)
+    .in("id", eligibleIds)
     .eq("role", "contractor");
 
   const title = "Uusi tarjouspyyntö";

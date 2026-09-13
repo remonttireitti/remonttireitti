@@ -167,3 +167,42 @@ export async function updateContractorServiceArea(
   revalidatePath("/tarjoukset");
   return { ok: "Toimipaikka tallennettu." };
 }
+
+export async function updateContractorWorkPreferences(
+  _prev: ContractorProfileState,
+  formData: FormData,
+): Promise<ContractorProfileState> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) redirect("/kirjaudu");
+
+  const raw = String(formData.get("min_budget_eur") ?? "").trim();
+  let minBudgetEur: number | null = null;
+
+  if (raw) {
+    const value = Number(raw);
+    if (!Number.isFinite(value) || value < 0) {
+      return { error: "Minimibudjetin tulee olla nolla tai suurempi." };
+    }
+    minBudgetEur = Math.round(value);
+  }
+
+  const { error } = await supabase
+    .from("contractor_profiles")
+    .update({ min_budget_eur: minBudgetEur })
+    .eq("id", user.id);
+
+  if (error) {
+    const msg = error.message.includes("min_budget_eur")
+      ? "Aja Supabase-migraatio 20260913160000_contractor_work_filter.sql"
+      : error.message;
+    return { error: msg };
+  }
+
+  revalidatePath("/oma-tili");
+  revalidatePath("/tarjoukset");
+  return { ok: "Työfiltteri tallennettu." };
+}

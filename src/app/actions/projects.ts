@@ -350,6 +350,8 @@ export async function createProject(
           jobTypeId,
           municipality,
           postalCode,
+          budgetMin,
+          budgetMax,
         }),
       );
     }
@@ -388,7 +390,7 @@ export async function publishProject(
   const { data: project } = await supabase
     .from("projects")
     .select(
-      "id, customer_id, status, title, job_type_id, municipality, postal_code, details",
+      "id, customer_id, status, title, job_type_id, municipality, postal_code, budget_min, budget_max, details",
     )
     .eq("id", projectId)
     .single();
@@ -439,6 +441,8 @@ export async function publishProject(
         jobTypeId: project.job_type_id,
         municipality: project.municipality,
         postalCode: project.postal_code,
+        budgetMin: project.budget_min,
+        budgetMax: project.budget_max,
       }),
     );
   }

@@ -14,6 +14,7 @@ import { ContractorBillingForm } from "@/components/contractor/contractor-billin
 import { ContractorBidDefaultsForm } from "@/components/contractor/contractor-bid-defaults-form";
 import { ContractorProfileForm } from "@/components/contractor/contractor-profile-form";
 import { ContractorServiceAreaForm } from "@/components/contractor/contractor-service-area-form";
+import { ContractorWorkPreferencesForm } from "@/components/contractor/contractor-work-preferences-form";
 import { fetchContractorBidDefaultsBundle } from "@/lib/contractor-bid-defaults-server";
 import { PUBLIC_CONTRACTOR_TRADE_SLUGS } from "@/constants/contractor-trades";
 import { fetchHeatPumpCatalog, fetchJobCatalog } from "@/lib/job-catalog-server";
@@ -66,6 +67,7 @@ export default async function AccountPage({
     serviceMunicipality: "",
     maxTravelKm: 100,
   };
+  let minBudgetEur: number | null = null;
   let billingFields = {
     businessId: "",
     billingEmail: "",
@@ -96,7 +98,7 @@ export default async function AccountPage({
     const { data: billingRow } = await supabase
       .from("contractor_profiles")
       .select(
-        "business_id, billing_email, billing_address_line, billing_postal_code, billing_city, service_postal_code, service_municipality, max_travel_km",
+        "business_id, billing_email, billing_address_line, billing_postal_code, billing_city, service_postal_code, service_municipality, max_travel_km, min_budget_eur",
       )
       .eq("id", user.id)
       .maybeSingle();
@@ -113,6 +115,7 @@ export default async function AccountPage({
         serviceMunicipality: billingRow.service_municipality ?? "",
         maxTravelKm: billingRow.max_travel_km ?? 100,
       };
+      minBudgetEur = (billingRow.min_budget_eur as number | null) ?? null;
     }
   }
 
@@ -432,6 +435,11 @@ export default async function AccountPage({
               servicePostalCode={serviceAreaFields.servicePostalCode}
               serviceMunicipality={serviceAreaFields.serviceMunicipality}
               maxTravelKm={serviceAreaFields.maxTravelKm}
+            />
+
+            <ContractorWorkPreferencesForm
+              className="mt-0"
+              minBudgetEur={minBudgetEur}
             />
 
             <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
