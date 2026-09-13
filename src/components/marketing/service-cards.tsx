@@ -7,7 +7,7 @@ const services = [
     description:
       "Keittiö, kylpyhuone, katto, lämmitys, sähkö… Julkaise tarjouspyyntö ilmaiseksi ja vertaa tarjouksia.",
     href: "/remontti/uusi",
-    cta: "Aloita tarjouspyyntö",
+    cta: "Jätä tarjouspyyntö – maksutta",
     accent: "border-sky-200 bg-sky-50/80",
   },
   {

@@ -123,6 +123,7 @@ type ProjectWizardProps = {
   prefill?: RemonttiPrefill;
   emphasizedCriteria?: EmphasizedCriterion[];
   learnedCriteria?: LearnedCriterionWithJob[];
+  isGuest?: boolean;
 };
 
 export function ProjectWizard({
@@ -134,6 +135,7 @@ export function ProjectWizard({
   prefill,
   emphasizedCriteria = [],
   learnedCriteria = [],
+  isGuest = false,
 }: ProjectWizardProps) {
   const isEdit = Boolean(editSnapshot);
   const prefillApplied = !isEdit && prefill
@@ -683,9 +685,16 @@ export function ProjectWizard({
 
         {step === 2 && (
           <div className="space-y-4">
+            {isGuest && (
+              <p className="rounded-xl border border-sky-200 bg-sky-50/70 px-4 py-3 text-sm text-sky-950">
+                <span className="font-medium">Mihin lähetämme tarjouspyynnön ja tarjoukset?</span>{" "}
+                Sähköpostiin tulee vahvistuslinkki ja henkilökohtainen linkki pyyntöösi.
+                Kirjautumista ei tarvita.
+              </p>
+            )}
             <div>
               <label htmlFor="contact_email" className="block text-sm font-medium">
-                Sähköpostiosoite *
+                {isGuest ? "Sähköpostiosoite *" : "Sähköpostiosoite *"}
               </label>
               <input
                 id="contact_email"
@@ -850,6 +859,17 @@ export function ProjectWizard({
               className={`${brand.btnPrimary} disabled:opacity-60`}
             >
               {pending ? "Tallennetaan…" : "Tallenna muutokset"}
+            </button>
+          ) : isGuest ? (
+            <button
+              type="submit"
+              name="publish"
+              value="true"
+              disabled={pending}
+              onClick={() => setSubmitIntent("publish")}
+              className={`${brand.btnPrimary} disabled:opacity-60`}
+            >
+              {pending ? "Lähetetään…" : "Jätä tarjouspyyntö – maksutta"}
             </button>
           ) : (
             <>

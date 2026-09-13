@@ -16,7 +16,14 @@ import { ReviewDisplay } from "@/components/review/review-display";
 import { ReviewForm } from "@/components/review/review-form";
 import { PlatformFeedbackPanel } from "@/components/feedback/platform-feedback-panel";
 import { SiteHeader } from "@/components/site-header";
+import { GuestClaimBanner } from "@/components/project/guest-claim-banner";
 import { getSessionUser } from "@/lib/auth";
+import { createAdminClient } from "@/lib/supabase/admin";
+import {
+  guestProjectToCustomerRow,
+  resolveGuestProjectAccess,
+  setProjectAccessCookie,
+} from "@/lib/project-guest-access";
 import { expirePendingAcceptanceForProject } from "@/lib/expire-pending-acceptance";
 import { expireStaleProjectIfNeeded } from "@/lib/expire-stale-projects";
 import { ProjectInactivityBanner } from "@/components/project/project-inactivity-banner";
@@ -55,9 +62,12 @@ export default async function ProjectPage({
     auto_suljettu?: string;
     taydenna?: string;
     taydennetty?: string;
+    token?: string;
+    vahvistettu?: string;
   }>;
 }) {
   const { id } = await params;
+  const sp = await searchParams;
   const {
     hyvaksytty,
     virhe,
@@ -68,14 +78,45 @@ export default async function ProjectPage({
     auto_suljettu,
     taydenna,
     taydennetty,
-  } = await searchParams;
+    token,
+    vahvistettu,
+  } = sp;
+
+  if (token) {
+    const guestRow = await resolveGuestProjectAccess(id, token);
+    if (guestRow) {
+      await setProjectAccessCookie(id, token);
+      const qs = new URLSearchParams();
+      if (julkaistu) qs.set("julkaistu", julkaistu);
+      if (vahvistettu) qs.set("vahvistettu", vahvistettu);
+      const suffix = qs.toString() ? `?${qs}` : "";
+      redirect(`/remontti/${id}${suffix}`);
+    }
+  }
+
   const user = await getSessionUser();
-  if (!user) redirect(`/kirjaudu?redirect=/remontti/${id}`);
-
   const supabase = await createClient();
-  let project = await fetchCustomerProjectById(supabase, id, user.id);
 
-  if (!project) notFound();
+  let isGuestAccess = false;
+  let guestEmail: string | null = null;
+  let project = user
+    ? await fetchCustomerProjectById(supabase, id, user.id)
+    : null;
+
+  if (!project) {
+    const guestRow = await resolveGuestProjectAccess(id);
+    if (guestRow) {
+      project = guestProjectToCustomerRow(guestRow);
+      guestEmail = (guestRow.guest_email as string | null) ?? null;
+      isGuestAccess = true;
+    }
+  }
+
+  if (!project) {
+    redirect(`/kirjaudu?redirect=/remontti/${id}`);
+  }
+
+  const dataClient = isGuestAccess ? createAdminClient() : supabase;
 
   const expireResult = await expirePendingAcceptanceForProject(id);
   const acceptanceExpired = expireResult === "expired";
@@ -85,13 +126,13 @@ export default async function ProjectPage({
     redirect(`/remontti/${id}?auto_suljettu=1`);
   }
 
-  if (staleResult === "warned") {
+  if (staleResult === "warned" && user) {
     project = (await fetchCustomerProjectById(supabase, id, user.id)) ?? project;
   }
 
   async function loadBidsAndInvoice() {
     const [invoiceRes, bidsRes] = await Promise.all([
-      supabase
+      dataClient
         .from("platform_invoices")
         .select(
           `
@@ -109,7 +150,7 @@ export default async function ProjectPage({
         )
         .eq("project_id", id)
         .maybeSingle(),
-      supabase
+      dataClient
         .from("bids")
         .select(
           `
@@ -157,7 +198,7 @@ export default async function ProjectPage({
     };
   }
 
-  if (acceptanceExpired) {
+  if (acceptanceExpired && user) {
     project = (await fetchCustomerProjectById(supabase, id, user.id)) ?? project;
   }
 
@@ -167,12 +208,12 @@ export default async function ProjectPage({
     ...new Set((bids ?? []).map((b) => b.contractor_id as string)),
   ];
   const contractorRatings = await fetchContractorRatings(
-    supabase,
+    dataClient,
     contractorIds,
   );
-  const projectPhotos = await fetchProjectPhotos(supabase, id);
+  const projectPhotos = await fetchProjectPhotos(dataClient, id);
 
-  const { data: jobTypeRow } = await supabase
+  const { data: jobTypeRow } = await dataClient
     .from("projects")
     .select("job_types ( slug )")
     .eq("id", id)
@@ -200,17 +241,17 @@ export default async function ProjectPage({
   const openCompletionRequests = ["published", "receiving_bids", "draft"].includes(
     project.status,
   )
-    ? await fetchOpenCompletionRequestsForProject(supabase, id)
+    ? await fetchOpenCompletionRequestsForProject(dataClient, id)
     : [];
 
   const contractorViewCount =
     taydennetty === "1"
-      ? await countProjectViews(supabase, id)
+      ? await countProjectViews(dataClient, id)
       : 0;
 
   if (openCompletionRequests.length > 0) {
     const contractorIds = [...new Set(openCompletionRequests.map((r) => r.contractor_id))];
-    const { data: companies } = await supabase
+    const { data: companies } = await dataClient
       .from("contractor_profiles")
       .select("id, company_name")
       .in("id", contractorIds);
@@ -222,7 +263,7 @@ export default async function ProjectPage({
     }
   }
 
-  const { data: review } = await supabase
+  const { data: review } = await dataClient
     .from("reviews")
     .select("rating, body, would_recommend, created_at")
     .eq("project_id", id)
@@ -266,14 +307,14 @@ export default async function ProjectPage({
 
   const learnedCriteria =
     status === "draft"
-      ? (await fetchLearnedCriteria(supabase, jobSlug)).map((r) => ({
+      ? (await fetchLearnedCriteria(dataClient, jobSlug)).map((r) => ({
           ...r,
           jobSlug: jobSlug ?? "generic",
         }))
       : [];
 
   const platformFeedback =
-    status === "completed"
+    status === "completed" && user
       ? await fetchPlatformFeedbackForProject(supabase, user.id, id)
       : null;
   const pendingFinalization =
@@ -283,9 +324,10 @@ export default async function ProjectPage({
   });
   const ratingsMap = Object.fromEntries(contractorRatings);
 
-  const canCancelProject = ["draft", "published", "receiving_bids"].includes(
-    status,
-  );
+  const canCancelProject =
+    !isGuestAccess &&
+    Boolean(user) &&
+    ["draft", "published", "receiving_bids"].includes(status);
   const submittedBidCount = (bids ?? []).filter(
     (b) => b.status === "submitted",
   ).length;
@@ -296,12 +338,13 @@ export default async function ProjectPage({
     "completed",
   ].includes(status);
 
-  const biddingConversations = biddingPhase
-    ? await fetchCustomerProjectConversations(supabase, id, user.id)
-    : [];
+  const biddingConversations =
+    biddingPhase && user
+      ? await fetchCustomerProjectConversations(supabase, id, user.id)
+      : [];
 
   let chatData =
-    chatEnabled && acceptedBid
+    chatEnabled && acceptedBid && user
       ? await fetchContractorProjectConversation(
           supabase,
           id,
@@ -310,7 +353,7 @@ export default async function ProjectPage({
         )
       : null;
 
-  if (chatEnabled && !chatData && acceptedBid) {
+  if (chatEnabled && !chatData && acceptedBid && user) {
     await ensureProjectConversation(
       supabase,
       id,
@@ -329,8 +372,11 @@ export default async function ProjectPage({
     <div className={brand.page}>
       <SiteHeader />
       <main className={brand.mainDetail}>
-        <Link href="/oma-tili" className="text-sm text-sky-700 hover:underline">
-          ← Oma tili
+        <Link
+          href={isGuestAccess ? "/" : "/oma-tili"}
+          className="text-sm text-sky-700 hover:underline"
+        >
+          {isGuestAccess ? "← Etusivu" : "← Oma tili"}
         </Link>
 
         <div className="mt-4 flex flex-wrap items-start justify-between gap-3">
@@ -373,6 +419,15 @@ export default async function ProjectPage({
             role="status"
           >
             Tarjouspyyntö julkaistu — urakoitsijat voivat nyt jättää tarjouksia.
+          </p>
+        )}
+        {vahvistettu === "1" && (
+          <p
+            className="mt-4 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-950"
+            role="status"
+          >
+            Sähköposti vahvistettu. Henkilökohtainen linkki toimii tästä eteenpäin
+            tässä selaimessa.
           </p>
         )}
         {peruttu === "1" && (
@@ -551,7 +606,11 @@ export default async function ProjectPage({
           />
         </div>
 
-        <ProjectLifecyclePanel projectId={id} status={status} />
+        {isGuestAccess && guestEmail && (
+          <GuestClaimBanner guestEmail={guestEmail} projectId={id} />
+        )}
+
+        {!isGuestAccess && <ProjectLifecyclePanel projectId={id} status={status} />}
 
         <div id="tarjoukset">
           <CustomerBids
@@ -568,7 +627,7 @@ export default async function ProjectPage({
           )}
         </div>
 
-        {biddingPhase && (
+        {biddingPhase && user && (
           <ProjectBiddingChats
             conversations={biddingConversations}
             currentUserId={user.id}
@@ -577,7 +636,7 @@ export default async function ProjectPage({
           />
         )}
 
-        {chatData && (
+        {chatData && user && (
           <ProjectChat
             conversationId={chatData.conversation.id}
             messages={chatData.messages}
@@ -590,7 +649,7 @@ export default async function ProjectPage({
           />
         )}
 
-        {status === "completed" && (
+        {status === "completed" && user && (
           <CompletedHuoltokirjaLink projectId={id} userId={user.id} />
         )}
 

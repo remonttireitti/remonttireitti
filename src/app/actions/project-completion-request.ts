@@ -15,6 +15,12 @@ import {
   userNotifyProjectCompletionUpdated,
 } from "@/lib/user-notify";
 import { resolveProjectJobTypeSlug } from "@/lib/project-job-type";
+import { sendGuestCompletionRequestEmail } from "@/lib/guest-project-email";
+import {
+  isGuestProject,
+  resolveGuestProjectAccess,
+  rotateGuestProjectAccessToken,
+} from "@/lib/project-guest-access";
 
 export type CompletionRequestActionState = { error?: string; ok?: string };
 
@@ -70,7 +76,7 @@ export async function requestProjectCompletion(
   const { data: project } = await supabase
     .from("projects")
     .select(
-      "id, title, status, customer_id, job_type_id, details, job_types ( slug )",
+      "id, title, status, customer_id, guest_email, job_type_id, details, job_types ( slug )",
     )
     .eq("id", projectId)
     .maybeSingle();
@@ -128,34 +134,41 @@ export async function requestProjectCompletion(
     return { error: "Pyyntö on liian pitkä. Lyhennä tekstiä." };
   }
 
-  await ensureProjectConversation(
-    supabase,
-    projectId,
-    project.customer_id as string,
-    user.id,
-  );
+  const guestProject = isGuestProject(project);
+  let messageId: string | null = null;
 
-  const { data: conversation } = await supabase
-    .from("conversations")
-    .select("id")
-    .eq("project_id", projectId)
-    .eq("contractor_id", user.id)
-    .maybeSingle();
+  if (!guestProject) {
+    await ensureProjectConversation(
+      supabase,
+      projectId,
+      project.customer_id as string,
+      user.id,
+    );
 
-  if (!conversation) return { error: "Keskustelua ei voitu avata." };
+    const { data: conversation } = await supabase
+      .from("conversations")
+      .select("id")
+      .eq("project_id", projectId)
+      .eq("contractor_id", user.id)
+      .maybeSingle();
 
-  const { data: message, error: messageErr } = await supabase
-    .from("messages")
-    .insert({
-      conversation_id: conversation.id,
-      sender_id: user.id,
-      body: messageBody,
-    })
-    .select("id")
-    .single();
+    if (!conversation) return { error: "Keskustelua ei voitu avata." };
 
-  if (messageErr || !message) {
-    return { error: "Viestin lähetys epäonnistui." };
+    const { data: message, error: messageErr } = await supabase
+      .from("messages")
+      .insert({
+        conversation_id: conversation.id,
+        sender_id: user.id,
+        body: messageBody,
+      })
+      .select("id")
+      .single();
+
+    if (messageErr || !message) {
+      return { error: "Viestin lähetys epäonnistui." };
+    }
+
+    messageId = message.id as string;
   }
 
   const admin = createAdminClient();
@@ -169,7 +182,7 @@ export async function requestProjectCompletion(
     preliminary_min_cents: preliminaryMinCents,
     preliminary_max_cents: preliminaryMaxCents,
     preliminary_note: preliminaryNote,
-    message_id: message.id,
+    message_id: messageId,
   });
 
   if (insertErr) {
@@ -192,13 +205,27 @@ export async function requestProjectCompletion(
     });
   }
 
-  await userNotifyProjectCompletionRequested({
-    customerId: project.customer_id as string,
-    projectId,
-    projectTitle: project.title as string,
-    contractorCompany: company,
-    criterionCount: gapTypes.length + criterionIds.length,
-  });
+  const criterionCount = gapTypes.length + criterionIds.length;
+
+  if (guestProject && project.guest_email) {
+    const rawToken = await rotateGuestProjectAccessToken(projectId);
+    await sendGuestCompletionRequestEmail({
+      to: project.guest_email as string,
+      projectTitle: project.title as string,
+      projectId,
+      rawToken,
+      contractorCompany: company,
+      criterionCount,
+    });
+  } else {
+    await userNotifyProjectCompletionRequested({
+      customerId: project.customer_id as string,
+      projectId,
+      projectTitle: project.title as string,
+      contractorCompany: company,
+      criterionCount,
+    });
+  }
 
   revalidatePath(`/tarjoukset/${projectId}`);
   revalidatePath(`/remontti/${projectId}`);
@@ -213,21 +240,32 @@ export async function submitProjectCompletionUpdate(
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) redirect("/kirjaudu");
 
   const projectId = String(formData.get("project_id") ?? "");
   const descriptionAppend = String(formData.get("description_append") ?? "").trim();
 
   if (!projectId) return { error: "Pyyntö puuttuu." };
 
-  const { data: project } = await supabase
-    .from("projects")
-    .select(
-      "id, title, description, status, customer_id, content_revision, job_type_id, job_types ( slug ), details",
-    )
-    .eq("id", projectId)
-    .eq("customer_id", user.id)
-    .maybeSingle();
+  let project: Record<string, unknown> | null = null;
+  let isGuestUpdate = false;
+
+  if (user) {
+    const { data } = await supabase
+      .from("projects")
+      .select(
+        "id, title, description, status, customer_id, content_revision, job_type_id, job_types ( slug ), details",
+      )
+      .eq("id", projectId)
+      .eq("customer_id", user.id)
+      .maybeSingle();
+    project = data;
+  } else {
+    const guestRow = await resolveGuestProjectAccess(projectId);
+    if (guestRow) {
+      project = guestRow;
+      isGuestUpdate = true;
+    }
+  }
 
   if (!project) return { error: "Pyyntöä ei löydy." };
 
@@ -236,7 +274,9 @@ export async function submitProjectCompletionUpdate(
   );
   if (!editable) return { error: "Pyyntöä ei voi enää täydentää." };
 
-  const { count: bidCount } = await supabase
+  const dataClient = isGuestUpdate ? createAdminClient() : supabase;
+
+  const { count: bidCount } = await dataClient
     .from("bids")
     .select("id", { count: "exact", head: true })
     .eq("project_id", projectId)
@@ -252,7 +292,7 @@ export async function submitProjectCompletionUpdate(
     newDescription = `${newDescription.trim()}\n\n--- Täydennys ---\n${descriptionAppend}`.trim();
   }
 
-  const { error: updateErr } = await supabase
+  const { error: updateErr } = await dataClient
     .from("projects")
     .update({
       description: newDescription,

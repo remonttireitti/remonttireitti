@@ -55,7 +55,7 @@ export function HomeHowItWorks() {
           href="/remontti/uusi"
           className={`${brand.btnPrimary} ${brand.btnPrimaryBlock}`}
         >
-          Aloita tarjouspyyntö
+          Jätä tarjouspyyntö – maksutta
         </Link>
         <Link href="/vian-selvitys" className={`${brand.btnSecondary} ${brand.btnSecondaryBlock}`}>
           Lämpöpumppu oireilee?

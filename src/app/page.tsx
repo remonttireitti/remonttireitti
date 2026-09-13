@@ -111,13 +111,13 @@ export default async function Home() {
                 href="/remontti/uusi"
                 className={`${brand.btnPrimary} ${brand.btnPrimaryBlock}`}
               >
-                Aloita ilmainen tarjouspyyntö
+                Jätä tarjouspyyntö – maksutta
               </Link>
               <Link
                 href="/asiakkaalle"
                 className={`${brand.btnSecondary} ${brand.btnSecondaryBlock}`}
               >
-                Mitä saat ilmaiseksi?
+                Miten se toimii?
               </Link>
             </div>
             <div className="mx-auto mt-8">
