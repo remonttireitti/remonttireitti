@@ -104,7 +104,7 @@ export default async function PublicProjectsPage({
           </p>
         )}
 
-        {!contractor && (
+        {!user && (
           <div className="mt-6 flex flex-col gap-3 sm:flex-row">
             <Link
               href="/rekisteroidy?rooli=urakoitsija"
@@ -113,12 +113,21 @@ export default async function PublicProjectsPage({
               Rekisteröidy urakoitsijaksi
             </Link>
             <Link
-              href={user ? "/tarjoukset" : "/kirjaudu?redirect=/tarjoukset"}
+              href="/kirjaudu?redirect=/tarjoukset"
               className={`${brand.btnSecondary} ${brand.btnSecondaryBlock}`}
             >
-              {user ? "Siirry urakoitsijan näkymään" : "Kirjaudu urakoitsijana"}
+              Kirjaudu urakoitsijana
             </Link>
           </div>
+        )}
+
+        {user && !contractor && (
+          <p className="mt-6 text-sm text-stone-600">
+            Olet kirjautuneena asiakkaana.{" "}
+            <Link href="/oma-tili" className="font-medium text-sky-800 hover:underline">
+              Oma tili →
+            </Link>
+          </p>
         )}
 
         {contractor && (
@@ -138,11 +147,23 @@ export default async function PublicProjectsPage({
                 : "Ei avoimia tarjouspyyntöjä juuri nyt."}
             </p>
             <p className="mt-2 text-sm">
-              Seuraa sivua uudelleen tai{" "}
-              <Link href="/urakoitsijaksi" className="text-sky-800 hover:underline">
-                rekisteröidy urakoitsijaksi
-              </Link>{" "}
-              saadaksesi ilmoituksen uusista pyynnöistä.
+              {user && !contractor ? (
+                <>
+                  Seuraa sivua uudelleen tai{" "}
+                  <Link href="/remontti/uusi" className="text-sky-800 hover:underline">
+                    jätä uusi tarjouspyyntö
+                  </Link>
+                  .
+                </>
+              ) : (
+                <>
+                  Seuraa sivua uudelleen tai{" "}
+                  <Link href="/urakoitsijaksi" className="text-sky-800 hover:underline">
+                    rekisteröidy urakoitsijaksi
+                  </Link>{" "}
+                  saadaksesi ilmoituksen uusista pyynnöistä.
+                </>
+              )}
             </p>
           </div>
         ) : (

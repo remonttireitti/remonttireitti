@@ -135,6 +135,9 @@ export function SiteHeaderMobileNav({
               {isCustomer && (
                 <NavChip href="/oma-tili/huoltokirja">Huoltokirja</NavChip>
               )}
+              {isContractor && (
+                <NavChip href="/oma-tili#yritystiedot">Yritystiedot</NavChip>
+              )}
               <NavChip href="/oma-tili">Oma tili</NavChip>
             </>
           ) : (

@@ -17,7 +17,9 @@ export function AppShell({ children }: { children: ReactNode }) {
         <SessionIdleGuard />
       </Suspense>
       {children}
-      <SiteFooter />
+      <Suspense fallback={null}>
+        <SiteFooter />
+      </Suspense>
       <CookieConsentBanner />
       {siteConfig.gaId ? (
         <GoogleAnalytics measurementId={siteConfig.gaId} />

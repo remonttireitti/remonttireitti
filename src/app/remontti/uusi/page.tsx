@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { ValuePromoBanner } from "@/components/promo/value-promo-banner";
 import { SiteHeader } from "@/components/site-header";
 import { ProjectWizard } from "@/components/project/project-wizard";
-import { getProfile, getSessionUser } from "@/lib/auth";
+import { getProfile, getSessionUser, isContractor } from "@/lib/auth";
 import { fetchProjectCatalog } from "@/lib/job-catalog-server";
 import { parseRemonttiPrefillFromSearchParams } from "@/lib/remontti-prefill";
 import { brand } from "@/lib/brand-theme";
@@ -24,8 +24,8 @@ export default async function NewProjectPage({
   const user = await getSessionUser();
   const profile = user ? await getProfile() : null;
 
-  if (profile?.role === "contractor") {
-    redirect("/oma-tili");
+  if (await isContractor()) {
+    redirect("/tarjoukset");
   }
 
   const supabase = await createClient();
