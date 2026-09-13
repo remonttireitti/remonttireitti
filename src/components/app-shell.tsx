@@ -1,3 +1,4 @@
+import { SessionIdleGuard } from "@/components/auth/session-idle-guard";
 import { CookieConsentBanner } from "@/components/cookie-consent";
 import { GoogleAnalytics } from "@/components/google-analytics";
 import { NavigationProgress } from "@/components/navigation/navigation-progress";
@@ -13,6 +14,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       <Suspense fallback={null}>
         <NavigationProgress />
         <PageViewTracker />
+        <SessionIdleGuard />
       </Suspense>
       {children}
       <SiteFooter />
