@@ -25,7 +25,10 @@ import { loadContractorMatchProfile } from "@/lib/contractor-projects-server";
 import { projectDistanceKm } from "@/lib/geo-distance";
 import { fetchProjectTradeContextForContractor } from "@/lib/project-trades-server";
 import { serviceEngagementFromDetails } from "@/lib/service-engagement";
+import { ContractorCompletionRequestPanel } from "@/components/project/contractor-completion-request-panel";
 import { brand } from "@/lib/brand-theme";
+import { fetchContractorSentCompletionRequest } from "@/lib/project-completion-requests-server";
+import { scoreProjectFromRow } from "@/lib/project-request-quality";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function ContractorProjectPage({
@@ -186,6 +189,23 @@ export default async function ContractorProjectPage({
     user.id,
   );
 
+  const projectQuality = scoreProjectFromRow({
+    jobSlug: jobTypeSlug,
+    title: project.title as string,
+    description: project.description as string,
+    budgetMax: project.budget_max as number | null,
+    budgetMin: project.budget_min as number | null,
+    desiredStart: project.desired_start as string | null,
+    details: project.details,
+    photoCount: projectPhotos.length,
+  });
+
+  const sentCompletionRequest = await fetchContractorSentCompletionRequest(
+    supabase,
+    id,
+    user.id,
+  );
+
   return (
     <div className={brand.page}>
       <SiteHeader />
@@ -246,6 +266,13 @@ export default async function ContractorProjectPage({
               showContact={false}
               showLocationOnly
               bidDeadline={project.bid_deadline}
+            />
+
+            <ContractorCompletionRequestPanel
+              projectId={id}
+              qualityScore={projectQuality.score}
+              missingItems={projectQuality.items}
+              alreadySent={sentCompletionRequest != null}
             />
 
             {chatData && (

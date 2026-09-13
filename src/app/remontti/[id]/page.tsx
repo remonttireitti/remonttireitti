@@ -29,7 +29,9 @@ import {
 } from "@/lib/messages-server";
 import { fetchContractorRatings } from "@/lib/reviews";
 import { fetchPlatformFeedbackForProject } from "@/lib/platform-feedback-server";
+import { CustomerCompletionRequestBanner } from "@/components/project/customer-completion-request-banner";
 import { ProjectQualityScorePanel } from "@/components/project/project-quality-score-panel";
+import { fetchOpenCompletionRequestsForProject } from "@/lib/project-completion-requests-server";
 import { brand } from "@/lib/brand-theme";
 import { scoreProjectFromRow } from "@/lib/project-request-quality";
 import { createClient } from "@/lib/supabase/server";
@@ -48,6 +50,7 @@ export default async function ProjectPage({
     luonnos?: string;
     julkaistu?: string;
     auto_suljettu?: string;
+    taydenna?: string;
   }>;
 }) {
   const { id } = await params;
@@ -59,6 +62,7 @@ export default async function ProjectPage({
     luonnos,
     julkaistu,
     auto_suljettu,
+    taydenna,
   } = await searchParams;
   const user = await getSessionUser();
   if (!user) redirect(`/kirjaudu?redirect=/remontti/${id}`);
@@ -177,19 +181,36 @@ export default async function ProjectPage({
     ? (jobSlugRaw[0]?.slug ?? null)
     : (jobSlugRaw?.slug ?? null);
 
-  const projectQuality =
-    project.status === "draft"
-      ? scoreProjectFromRow({
-          jobSlug,
-          title: project.title,
-          description: project.description,
-          budgetMax: project.budget_max,
-          budgetMin: project.budget_min,
-          desiredStart: project.desired_start,
-          details: project.details,
-          photoCount: projectPhotos.length,
-        })
-      : null;
+  const projectQuality = scoreProjectFromRow({
+    jobSlug,
+    title: project.title,
+    description: project.description,
+    budgetMax: project.budget_max,
+    budgetMin: project.budget_min,
+    desiredStart: project.desired_start,
+    details: project.details,
+    photoCount: projectPhotos.length,
+  });
+
+  const openCompletionRequests = ["published", "receiving_bids", "draft"].includes(
+    project.status,
+  )
+    ? await fetchOpenCompletionRequestsForProject(supabase, id)
+    : [];
+
+  if (openCompletionRequests.length > 0) {
+    const contractorIds = [...new Set(openCompletionRequests.map((r) => r.contractor_id))];
+    const { data: companies } = await supabase
+      .from("contractor_profiles")
+      .select("id, company_name")
+      .in("id", contractorIds);
+    const companyById = new Map(
+      (companies ?? []).map((c) => [c.id as string, c.company_name as string]),
+    );
+    for (const req of openCompletionRequests) {
+      req.contractorCompany = companyById.get(req.contractor_id) ?? null;
+    }
+  }
 
   const { data: review } = await supabase
     .from("reviews")
@@ -400,16 +421,31 @@ export default async function ProjectPage({
           </p>
         )}
 
-        {status === "draft" && (
-          <>
-            {projectQuality && (
-              <div className="mt-6">
-                <ProjectQualityScorePanel quality={projectQuality} />
-              </div>
-            )}
-            <ProjectDraftPublishPanel projectId={id} />
-          </>
+        {openCompletionRequests.length > 0 && (
+          <CustomerCompletionRequestBanner
+            projectId={id}
+            requests={openCompletionRequests}
+            jobSlug={jobSlug}
+          />
         )}
+
+        {taydenna === "1" && openCompletionRequests.length === 0 && biddingPhase && (
+          <p className="mt-4 rounded-lg border border-violet-200 bg-violet-50 p-3 text-sm text-violet-950">
+            Täydennä tarjouspyyntöä alla olevasta linkistä — urakoitsijat saavat tarkempia
+            tietoja tarjousta varten.
+          </p>
+        )}
+
+        {(status === "draft" || biddingPhase) && projectQuality.score < 90 && (
+          <div className="mt-6">
+            <ProjectQualityScorePanel
+              quality={projectQuality}
+              compact={biddingPhase && status !== "draft"}
+            />
+          </div>
+        )}
+
+        {status === "draft" && <ProjectDraftPublishPanel projectId={id} />}
 
         {acceptedCompany && (
           <>

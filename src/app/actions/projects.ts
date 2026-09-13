@@ -906,6 +906,11 @@ export async function updateProject(
     }
   }
 
+  const { resolveProjectCompletionRequests } = await import(
+    "@/app/actions/project-completion-request"
+  );
+  await resolveProjectCompletionRequests(projectId);
+
   revalidatePath("/oma-tili");
   revalidatePath(`/remontti/${projectId}`);
   revalidatePath(`/remontti/${projectId}/muokkaa`);
