@@ -17,6 +17,7 @@ import {
   type BidFormFields,
 } from "@/lib/bid-form";
 import { formatBidSaveError } from "@/lib/bid-save-errors";
+import { insertBidRow, updateBidRow } from "@/lib/bid-save-persist";
 import {
   userNotifyBidAccepted,
   userNotifyContactsRevealedCustomer,
@@ -280,7 +281,7 @@ function bidRowFromPayload(
     equipment_description: payload.equipmentDescription,
     vat_included: payload.vatIncluded,
     estimated_days: payload.estimatedDays,
-    message: payload.message,
+    message: payload.message || "",
     scope_terms: payload.terms.scope_terms,
     contract_terms: payload.terms.contract_terms,
     warranty_work: payload.terms.warranty_work,
@@ -342,11 +343,12 @@ export async function submitBid(
     existing?.status === "withdrawn" || existing?.status === "rejected";
 
   if (isResubmission) {
-    const { error } = await supabase
-      .from("bids")
-      .update(row)
-      .eq("id", existing!.id)
-      .eq("contractor_id", user.id);
+    const { error } = await updateBidRow(
+      supabase,
+      row,
+      existing!.id,
+      user.id,
+    );
 
     if (error) {
       console.error("[submitBid/resubmit]", error.code, error.message);
@@ -355,7 +357,7 @@ export async function submitBid(
   } else if (existing) {
     return bidError(formData, "Tähän pyyntöön et voi enää jättää tarjousta.");
   } else {
-    const { error } = await supabase.from("bids").insert({
+    const { error } = await insertBidRow(supabase, {
       project_id: payload.projectId,
       contractor_id: user.id,
       ...row,
@@ -431,10 +433,12 @@ export async function updateBid(
     );
   }
 
-  const { error } = await supabase
-    .from("bids")
-    .update(bidRowFromPayload(payload, "submitted"))
-    .eq("id", bidId);
+  const { error } = await updateBidRow(
+    supabase,
+    bidRowFromPayload(payload, "submitted"),
+    bidId,
+    user.id,
+  );
 
   if (error) {
     console.error("[updateBid]", error.code, error.message);
