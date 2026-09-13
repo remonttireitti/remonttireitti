@@ -126,6 +126,12 @@ export default async function ProjectCompletionPage({
     return <GuestAccessError projectId={id} token={token} />;
   }
 
+  if (token) {
+    redirect(
+      `/auth/guest-access?project=${id}&token=${encodeURIComponent(token)}&to=taydenna`,
+    );
+  }
+
   const user = await getSessionUser();
   const profile = user ? await getProfile() : null;
   if (profile?.role === "contractor") {
@@ -135,15 +141,6 @@ export default async function ProjectCompletionPage({
   const supabase = await createClient();
   let isGuestAccess = false;
   let guestRow: Record<string, unknown> | null = null;
-
-  if (token) {
-    guestRow = await resolveGuestProjectAccess(id, token);
-    if (guestRow) {
-      isGuestAccess = true;
-    } else {
-      return <GuestAccessError projectId={id} token={token} />;
-    }
-  }
 
   let project: ProjectRow | null = null;
 

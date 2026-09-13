@@ -1,5 +1,15 @@
--- Remonttireitti: täydennyspyynnöt (urakoitsija → asiakas)
--- Aja KERRAN Supabase SQL Editorissa jos täydennyspyyntö epäonnistuu tai sivu kaatuu lähetyksen jälkeen.
+-- Remonttireitti: täydennyspyynnöt + vieraslinkki (urakoitsija → asiakas)
+-- Aja KERRAN Supabase SQL Editorissa jos täydennyspyyntö / sähköpostilinkki epäonnistuu.
+
+-- Vieraslinkki (tarvitaan sähköpostilinkin avaukseen)
+ALTER TABLE public.projects
+  ALTER COLUMN customer_id DROP NOT NULL;
+
+ALTER TABLE public.projects
+  ADD COLUMN IF NOT EXISTS guest_email text,
+  ADD COLUMN IF NOT EXISTS access_token_hash text,
+  ADD COLUMN IF NOT EXISTS email_verified_at timestamptz,
+  ADD COLUMN IF NOT EXISTS pending_publish boolean NOT NULL DEFAULT false;
 
 -- v1: taulu + perus-RLS + criterion stats
 CREATE TABLE IF NOT EXISTS public.project_completion_requests (

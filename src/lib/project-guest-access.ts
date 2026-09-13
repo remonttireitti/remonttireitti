@@ -1,5 +1,6 @@
 import { createHash, randomBytes } from "crypto";
 import { cookies } from "next/headers";
+import type { NextResponse } from "next/server";
 import { tryCreateAdminClient } from "@/lib/supabase/admin";
 import type { CustomerProjectRow } from "@/lib/projects-server";
 
@@ -23,18 +24,39 @@ export function projectAccessCookieName(projectId: string): string {
   return `${COOKIE_PREFIX}${projectId}`;
 }
 
+export function projectAccessCookieOptions() {
+  return {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax" as const,
+    path: "/",
+    maxAge: COOKIE_MAX_AGE,
+  };
+}
+
+export function appendProjectAccessCookie(
+  response: NextResponse,
+  projectId: string,
+  rawToken: string,
+): NextResponse {
+  response.cookies.set(
+    projectAccessCookieName(projectId),
+    rawToken,
+    projectAccessCookieOptions(),
+  );
+  return response;
+}
+
 export async function setProjectAccessCookie(
   projectId: string,
   rawToken: string,
 ): Promise<void> {
   const jar = await cookies();
-  jar.set(projectAccessCookieName(projectId), rawToken, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/",
-    maxAge: COOKIE_MAX_AGE,
-  });
+  jar.set(
+    projectAccessCookieName(projectId),
+    rawToken,
+    projectAccessCookieOptions(),
+  );
 }
 
 export async function readProjectAccessToken(
@@ -52,7 +74,7 @@ export async function fetchGuestProjectByToken(
   if (!admin) return null;
 
   const hash = hashProjectAccessToken(rawToken);
-  const { data } = await admin
+  const { data, error } = await admin
     .from("projects")
     .select(
       `
@@ -65,6 +87,11 @@ export async function fetchGuestProjectByToken(
     .eq("access_token_hash", hash)
     .is("customer_id", null)
     .maybeSingle();
+
+  if (error) {
+    console.error("[fetchGuestProjectByToken]", error.code, error.message);
+    return null;
+  }
 
   return data;
 }

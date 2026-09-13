@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import {
+  appendProjectAccessCookie,
   fetchGuestProjectByToken,
-  setProjectAccessCookie,
 } from "@/lib/project-guest-access";
 import { siteUrl } from "@/lib/email";
 
@@ -25,8 +25,6 @@ export async function GET(request: Request) {
     return NextResponse.redirect(siteUrl(errorPath));
   }
 
-  await setProjectAccessCookie(projectId, token);
-
   const qs = new URLSearchParams();
   for (const key of ["julkaistu", "vahvistettu"] as const) {
     const value = url.searchParams.get(key);
@@ -39,5 +37,6 @@ export async function GET(request: Request) {
       ? `/remontti/${projectId}/taydenna${suffix}`
       : `/remontti/${projectId}${suffix}`;
 
-  return NextResponse.redirect(siteUrl(dest));
+  const response = NextResponse.redirect(siteUrl(dest));
+  return appendProjectAccessCookie(response, projectId, token);
 }
