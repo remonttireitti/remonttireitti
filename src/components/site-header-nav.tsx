@@ -13,6 +13,7 @@ type NavProps = {
   isCustomer: boolean;
   isContractor: boolean;
   isAdmin: boolean;
+  isEvaluator: boolean;
   unreadNotifications?: number;
 };
 
@@ -53,6 +54,7 @@ export function SiteHeaderNav({
   isCustomer,
   isContractor,
   isAdmin,
+  isEvaluator,
   unreadNotifications = 0,
 }: NavProps) {
   const ctaLabel = isCustomer
@@ -103,10 +105,12 @@ export function SiteHeaderNav({
             </NavItem>
             {isCustomer && <NavItem href="/oma-tili/huoltokirja">Huoltokirja</NavItem>}
             <NavItem href="/oma-tili">Oma tili</NavItem>
+            {isEvaluator && <NavItem href="/arvioija">Arvioija</NavItem>}
             {isAdmin && <NavItem href="/admin">Admin</NavItem>}
           </>
         ) : (
           <>
+            <NavItem href="/tarjousarvio">Tarjousvahti</NavItem>
             <NavItem href="/tarjouspyynnot">Tarjouspyynnöt</NavItem>
             <NavItem href="/urakoitsijaksi">Urakoitsijalle</NavItem>
             <NavItem href="/kirjaudu">Kirjaudu</NavItem>

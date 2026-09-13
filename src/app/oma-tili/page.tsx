@@ -36,11 +36,7 @@ import { countCustomerPropertyStats } from "@/lib/property-log";
 import { createClient } from "@/lib/supabase/server";
 import type { ProjectStatus } from "@/types/database";
 
-const roleLabels = {
-  customer: "Asiakas",
-  contractor: "Urakoitsija",
-  admin: "Ylläpitäjä",
-} as const;
+import { getProfileRoleLabel } from "@/lib/profile-role-labels";
 
 export default async function AccountPage({
   searchParams,
@@ -270,9 +266,9 @@ export default async function AccountPage({
                 label="Rooli"
                 value={
                   profile
-                    ? roleLabels[profile.role]
+                    ? getProfileRoleLabel(profile.role)
                     : contractor
-                      ? roleLabels.contractor
+                      ? getProfileRoleLabel("contractor")
                       : "—"
                 }
               />

@@ -19,6 +19,7 @@ import { HomeHowItWorks } from "@/components/marketing/home-how-it-works";
 import { HomeOpenProjects } from "@/components/marketing/home-open-projects";
 import { HomePageJsonLd } from "@/components/marketing/home-page-json-ld";
 import { HomeSeoContent } from "@/components/marketing/home-seo-content";
+import { HomeTarjousvahti } from "@/components/marketing/home-tarjousvahti";
 import { HomeTrust } from "@/components/marketing/home-trust";
 import { ServiceCards } from "@/components/marketing/service-cards";
 import { HomeNotifications } from "@/components/notifications/home-notifications";
@@ -152,6 +153,8 @@ export default async function Home() {
         </section>
 
         <HomeSeoContent />
+
+        <HomeTarjousvahti />
 
         <HomeFaq />
 

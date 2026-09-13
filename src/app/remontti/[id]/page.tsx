@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { BidEvaluationPromo } from "@/components/bid-evaluation/bid-evaluation-promo";
 import { CustomerBids, type BidWithContractor } from "@/components/bid/customer-bids";
 import { OrderFinalizationStatus } from "@/components/bid/order-finalization-status";
 import { ProjectBiddingChats } from "@/components/messaging/project-bidding-chats";
@@ -443,6 +444,9 @@ export default async function ProjectPage({
             contractorRatings={ratingsMap}
             acceptedBidId={acceptedBidId}
           />
+          {submittedBidCount > 0 && biddingPhase && (
+            <BidEvaluationPromo projectId={id} />
+          )}
         </div>
 
         {biddingPhase && (

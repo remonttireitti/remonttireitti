@@ -2,6 +2,7 @@ export const profileRoleLabels = {
   customer: "Asiakas",
   contractor: "Urakoitsija",
   admin: "Ylläpitäjä",
+  evaluator: "Arvioija",
 } as const;
 
 export type ProfileRole = keyof typeof profileRoleLabels;
@@ -21,6 +22,8 @@ export function profileRoleBadgeClass(role: string): string {
       return "bg-sky-100 text-sky-900 ring-1 ring-sky-200";
     case "customer":
       return "bg-stone-100 text-stone-700 ring-1 ring-stone-200";
+    case "evaluator":
+      return "bg-emerald-100 text-emerald-900 ring-1 ring-emerald-200";
     default:
       return "bg-stone-100 text-stone-600 ring-1 ring-stone-200";
   }

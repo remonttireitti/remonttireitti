@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AdminNav } from "@/components/admin/admin-nav";
+import { EvaluatorScopeForm } from "@/components/admin/evaluator-scope-form";
 import { UserRowActions } from "@/components/admin/user-row-actions";
 import { SiteHeader } from "@/components/site-header";
 import { requireAdmin } from "@/lib/admin";
@@ -35,6 +36,17 @@ export default async function AdminPage() {
     .select(
       "id, company_name, refrigerant_license, electrical_qualification, lvi_qualifications",
     );
+
+  const { data: evaluatorScopeRows } = await admin
+    .from("evaluator_scopes")
+    .select("evaluator_id, scope");
+
+  const scopesByUser = new Map<string, string[]>();
+  for (const row of evaluatorScopeRows ?? []) {
+    const list = scopesByUser.get(row.evaluator_id as string) ?? [];
+    list.push(row.scope as string);
+    scopesByUser.set(row.evaluator_id as string, list);
+  }
 
   const contractorByUser = new Map((contractors ?? []).map((c) => [c.id, c]));
 
@@ -114,6 +126,13 @@ export default async function AdminPage() {
                   email={row.email}
                   currentRole={row.role}
                   companyName={row.contractor?.company_name ?? null}
+                />
+                <EvaluatorScopeForm
+                  userId={row.id}
+                  scopes={
+                    scopesByUser.get(row.id) ??
+                    (row.role === "admin" ? ["heat_pump", "general"] : [])
+                  }
                 />
               </article>
             ))
