@@ -26,15 +26,15 @@ export async function getRequestSiteUrl(): Promise<string> {
 
 const defaultTitle = `${siteConfig.name} — Kilpailuta remontti ja palvelut`;
 const defaultDescription =
-  "Kilpailuta remontit, asennukset, huolto ja kunnossapito omakotitaloon. Siivous, piha, muutto — myös jatkuva palvelu. Remonttitori laitteille. Ilmainen tarjouspyyntö, vertaa tarjouksia.";
+  "Kilpailuta remontti ilmaiseksi omakotitaloon. Vertaa tarjouksia samassa muodossa ja tingaa vastatarjouksella. Lämpöpumpun vian selvitys ja huolto.";
 
 const defaultKeywords = mergeKeywords(SITE_KEYWORDS, [
   "lämpöpumppu",
   "kylpyhuoneremontti",
   "keittiöremontti",
   "remontin kilpailutus",
-  "nurmikon leikkuu",
-  "remonttitori",
+  "kattoremontti",
+  "ilmalämpöpumppu ei lämmitä",
 ]);
 
 const defaultOgImage = "/opengraph-image.png";

@@ -32,15 +32,7 @@ export function JsonLd() {
         inLanguage: "fi-FI",
         publisher: { "@id": `${base}/#organization` },
         description:
-          "Kilpailuta remontit, asennukset, huolto ja kunnossapito omakotitaloon. Siivous, piha, muutto — myös jatkuva palvelu. Remonttitori laitteille.",
-        potentialAction: {
-          "@type": "SearchAction",
-          target: {
-            "@type": "EntryPoint",
-            urlTemplate: `${base}/palvelut/{search_term_string}`,
-          },
-          "query-input": "required name=search_term_string",
-        },
+          "Kilpailuta remontit ilmaiseksi, vertaa tarjouksia ja tingaa vastatarjouksella. Lämpöpumpun vian selvitys ja huolto.",
       },
       {
         "@type": "Service",

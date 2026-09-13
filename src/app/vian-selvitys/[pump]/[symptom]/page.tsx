@@ -12,7 +12,13 @@ import {
   buildTroubleshootingHuoltoQuery,
   resolveGuideSummaryForPump,
 } from "@/lib/troubleshooting-guides";
+import { TroubleshootingJsonLd } from "@/components/seo/troubleshooting-json-ld";
 import { pageMetadata } from "@/lib/seo";
+import {
+  troubleshootingSymptomDescription,
+  troubleshootingSymptomKeywords,
+  troubleshootingSymptomTitle,
+} from "@/lib/troubleshooting-seo";
 import { brand } from "@/lib/brand-theme";
 
 export function generateStaticParams() {
@@ -36,9 +42,10 @@ export async function generateMetadata({
   const guide = getTroubleshootingGuide(symptom);
   if (!guide) return {};
   return pageMetadata({
-    title: `${guide.title} — ${pumpLabel(pump)}`,
-    description: resolveGuideSummaryForPump(guide, pump),
+    title: troubleshootingSymptomTitle(guide, pump),
+    description: troubleshootingSymptomDescription(guide, pump),
     path: `/vian-selvitys/${pump}/${symptom}`,
+    keywords: troubleshootingSymptomKeywords(guide, pump),
   });
 }
 
@@ -65,8 +72,11 @@ export default async function TroubleshootingGuidePage({
     ? undefined
     : `/kirjaudu?redirect=${encodeURIComponent(huoltoPath)}`;
 
+  const path = `/vian-selvitys/${pump}/${symptom}`;
+
   return (
     <div className={brand.page}>
+      <TroubleshootingJsonLd guide={guide} pump={pump} path={path} />
       <SiteHeader />
       <main className={brand.mainContent}>
         <Link

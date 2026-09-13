@@ -1,5 +1,6 @@
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { fetchPublicOpenProjects } from "@/lib/public-projects-server";
 
 /** Julkaistut torin ilmoitukset sitemapiin — ei käytä cookies()/headers(). */
 export async function fetchSitemapListings(): Promise<
@@ -34,6 +35,19 @@ export async function fetchSitemapListings(): Promise<
     return (data ?? []) as { id: string; updated_at: string }[];
   } catch (err) {
     console.error("[sitemap listings]", err);
+    return [];
+  }
+}
+
+/** Avoimet tarjouspyynnöt sitemapiin — UGC long-tail (esim. kattoremontti Espoo). */
+export async function fetchSitemapProjects(): Promise<
+  { id: string; created_at: string }[]
+> {
+  try {
+    const projects = await fetchPublicOpenProjects(100);
+    return projects.map((p) => ({ id: p.id, created_at: p.created_at }));
+  } catch (err) {
+    console.error("[sitemap projects]", err);
     return [];
   }
 }

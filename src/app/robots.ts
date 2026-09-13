@@ -14,6 +14,7 @@ export default function robots(): MetadataRoute.Robots {
         "/kirjaudu",
         "/rekisteroidy",
         "/remontti/",
+        "/huolto/uusi",
         "/tarjoukset/",
         "/auth/",
         "/api/",

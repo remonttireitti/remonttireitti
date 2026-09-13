@@ -20,6 +20,7 @@ export const metadata: Metadata = pageMetadata({
   description: seo.description,
   path: "/huolto/uusi",
   keywords: seo.keywords,
+  noIndex: true,
 });
 
 export default async function NewMaintenanceRequestPage({

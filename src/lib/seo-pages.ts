@@ -138,9 +138,9 @@ export const STATIC_SEO_PAGES: SeoPageDef[] = [
   },
   {
     path: "/vian-selvitys",
-    title: "Lämpöpumpun vian selvitys",
+    title: "Lämpöpumpun vian selvitys — tarkista itse ennen huoltoa",
     description:
-      "Tarkista lämpöpumpun yleisimmät viat itse — ilmalämpö, vesi-ilmalämpö ja maalämpö. Jos ongelma ei ratkea, kilpailuta huolto ammattilaiselta.",
+      "Lämpöpumppu ei lämmitä, virhekoodi tai vuoto? Ilmainen tarkistuslista ilmalämpö-, vesi-ilmalämpö- ja maalämpöpumpuille. Jos vika jää, kilpailuta huolto ilmaiseksi.",
     keywords: mergeKeywords(HEAT_PUMP_KEYWORDS, [
       "vianmääritys",
       "vika",
@@ -203,7 +203,7 @@ export function troubleshootingSitemapEntries(
           url: `${base}/vian-selvitys/${pump}/${symptom}`,
           lastModified: now,
           changeFrequency: "monthly",
-          priority: 0.7,
+          priority: 0.85,
         });
       }
     }
