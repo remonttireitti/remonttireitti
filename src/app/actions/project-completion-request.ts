@@ -12,8 +12,8 @@ import {
   completionRequestInsertErrorMessage,
   incrementCompletionTemplateStats,
   persistCompletionRequest,
-  tryCreateAdminClient,
 } from "@/lib/completion-request-persist";
+import { tryCreateAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import {
   userNotifyProjectCompletionRequested,

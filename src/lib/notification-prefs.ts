@@ -1,4 +1,4 @@
-import { createAdminClient } from "@/lib/supabase/admin";
+import { tryCreateAdminClient } from "@/lib/supabase/admin";
 
 export type NotificationPrefs = {
   notifyInApp: boolean;
@@ -17,7 +17,9 @@ const defaults: NotificationPrefs = {
 export async function getNotificationPrefs(
   userId: string,
 ): Promise<NotificationPrefs> {
-  const admin = createAdminClient();
+  const admin = tryCreateAdminClient();
+  if (!admin) return defaults;
+
   const { data } = await admin
     .from("profiles")
     .select(

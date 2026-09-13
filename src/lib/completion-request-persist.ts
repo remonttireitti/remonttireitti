@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { tryCreateAdminClient } from "@/lib/supabase/admin";
 import { isMissingColumnError } from "@/lib/bid-save-persist";
 
 export type ProjectCompletionRequestRow = {
@@ -79,15 +79,6 @@ function stripV2InsertColumns(
     delete copy[key];
   }
   return copy;
-}
-
-export function tryCreateAdminClient(): SupabaseClient | null {
-  try {
-    return createAdminClient();
-  } catch (err) {
-    console.warn("[tryCreateAdminClient]", err);
-    return null;
-  }
 }
 
 export async function insertCompletionRequestRow(

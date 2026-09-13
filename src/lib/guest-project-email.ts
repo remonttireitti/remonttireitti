@@ -92,6 +92,62 @@ export async function sendGuestCompletionRequestEmail(params: {
   }
 }
 
+export async function sendGuestNewBidEmail(params: {
+  to: string;
+  projectTitle: string;
+  projectId: string;
+  rawToken: string;
+  contractorCompany: string;
+}): Promise<void> {
+  const projectUrl = siteUrl(
+    `/remontti/${params.projectId}?token=${encodeURIComponent(params.rawToken)}`,
+  );
+
+  const result = await sendEmail({
+    to: params.to,
+    subject: `Uusi tarjous: ${params.projectTitle}`,
+    html: emailLayout(
+      "Uusi tarjous",
+      `<p><strong>${escapeHtml(params.contractorCompany)}</strong> jätti tarjouksen pyyntöösi <em>${escapeHtml(params.projectTitle)}</em>.</p>
+       <p>Avaa linkki nähdäksesi tarjouksen — ei kirjautumista tarvita.</p>`,
+      projectUrl,
+      "Avaa tarjoukset",
+    ),
+  });
+
+  if (!result.ok && !result.skipped) {
+    console.error("[guest-project-email] new bid failed:", result.error);
+  }
+}
+
+export async function sendGuestBidUpdatedEmail(params: {
+  to: string;
+  projectTitle: string;
+  projectId: string;
+  rawToken: string;
+  contractorCompany: string;
+}): Promise<void> {
+  const projectUrl = siteUrl(
+    `/remontti/${params.projectId}?token=${encodeURIComponent(params.rawToken)}`,
+  );
+
+  const result = await sendEmail({
+    to: params.to,
+    subject: `Tarjous päivitetty: ${params.projectTitle}`,
+    html: emailLayout(
+      "Tarjous päivitetty",
+      `<p><strong>${escapeHtml(params.contractorCompany)}</strong> päivitti tarjoustaan urakkaan <em>${escapeHtml(params.projectTitle)}</em>.</p>
+       <p>Avaa linkki nähdäksesi muutokset — ei kirjautumista tarvita.</p>`,
+      projectUrl,
+      "Avaa tarjoukset",
+    ),
+  });
+
+  if (!result.ok && !result.skipped) {
+    console.error("[guest-project-email] bid updated failed:", result.error);
+  }
+}
+
 export async function sendGuestProjectAccessEmail(params: {
   to: string;
   projectTitle: string;

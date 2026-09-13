@@ -43,6 +43,7 @@ export async function userNotifyNewBid(params: {
   projectId: string;
   projectTitle: string;
   contractorCompany: string;
+  contactEmail?: string | null;
 }) {
   await inApp(
     params.customerId,
@@ -59,6 +60,7 @@ export async function userNotifyBidUpdated(params: {
   projectId: string;
   projectTitle: string;
   contractorCompany: string;
+  contactEmail?: string | null;
 }) {
   await inApp(
     params.customerId,

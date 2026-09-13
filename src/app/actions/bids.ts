@@ -23,12 +23,11 @@ import {
   userNotifyContactsRevealedCustomer,
   userNotifyOrderFinalizing,
   userNotifyBidRejected,
-  userNotifyBidUpdated,
   userNotifyCounterOffer,
   userNotifyCounterOfferAccepted,
   userNotifyCounterOfferDeclined,
-  userNotifyNewBid,
 } from "@/lib/user-notify";
+import { notifyCustomerAboutBid } from "@/lib/bid-customer-notify";
 import { scheduleNotification } from "@/lib/schedule-notification";
 import { isBidStale, STALE_BID_CUSTOMER_MESSAGE } from "@/lib/bid-staleness";
 import {
@@ -99,7 +98,9 @@ type ParsedBidPayload = {
     id: string;
     status: string;
     title: string;
-    customer_id: string;
+    customer_id: string | null;
+    guest_email: string | null;
+    contact_email: string | null;
     details: unknown;
     content_revision: number;
   };
@@ -148,7 +149,7 @@ async function parseBidSubmission(
   const { data: project } = await supabase
     .from("projects")
     .select(
-      "id, status, title, customer_id, details, budget_min, budget_max, content_revision",
+      "id, status, title, customer_id, guest_email, contact_email, details, budget_min, budget_max, content_revision",
     )
     .eq("id", projectId)
     .single();
@@ -395,16 +396,17 @@ export async function submitBid(
 
   const notifyPayload = {
     customerId: payload.project.customer_id,
+    guestEmail: payload.project.guest_email,
+    contactEmail: payload.project.contact_email,
     projectTitle: payload.project.title,
     projectId: payload.projectId,
     contractorCompany: contractor?.company_name ?? "Urakoitsija",
+    kind: (isResubmission && existing?.status === "rejected"
+      ? "updated"
+      : "new") as "new" | "updated",
   };
 
-  if (isResubmission && existing?.status === "rejected") {
-    scheduleNotification(() => userNotifyBidUpdated(notifyPayload));
-  } else {
-    scheduleNotification(() => userNotifyNewBid(notifyPayload));
-  }
+  scheduleNotification(() => notifyCustomerAboutBid(notifyPayload));
 
   if (payload.project.status === "published") {
     await supabase
@@ -471,11 +473,14 @@ export async function updateBid(
       .single();
 
     scheduleNotification(() =>
-      userNotifyBidUpdated({
+      notifyCustomerAboutBid({
         customerId: payload.project.customer_id,
+        guestEmail: payload.project.guest_email,
+        contactEmail: payload.project.contact_email,
         projectTitle: payload.project.title,
         projectId: payload.projectId,
         contractorCompany: contractor?.company_name ?? "Urakoitsija",
+        kind: "updated",
       }),
     );
   }

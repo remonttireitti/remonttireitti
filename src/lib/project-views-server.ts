@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { tryCreateAdminClient } from "@/lib/completion-request-persist";
+import { tryCreateAdminClient } from "@/lib/supabase/admin";
 import type { UserRole } from "@/types/database";
 
 /** Näitä rooleja ei lasketa eikä tallenneta urakoitsijakatseluiksi. */

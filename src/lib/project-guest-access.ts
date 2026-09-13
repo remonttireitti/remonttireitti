@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from "crypto";
 import { cookies } from "next/headers";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { tryCreateAdminClient } from "@/lib/supabase/admin";
 import type { CustomerProjectRow } from "@/lib/projects-server";
 
 const COOKIE_PREFIX = "rr_pa_";
@@ -48,7 +48,9 @@ export async function fetchGuestProjectByToken(
   projectId: string,
   rawToken: string,
 ): Promise<Record<string, unknown> | null> {
-  const admin = createAdminClient();
+  const admin = tryCreateAdminClient();
+  if (!admin) return null;
+
   const hash = hashProjectAccessToken(rawToken);
   const { data } = await admin
     .from("projects")
@@ -116,12 +118,20 @@ export async function rotateGuestProjectAccessToken(
   projectId: string,
 ): Promise<string> {
   const { raw, hash } = generateProjectAccessToken();
-  const admin = createAdminClient();
-  await admin
+  const admin = tryCreateAdminClient();
+  if (!admin) {
+    throw new Error("Guest access token rotation unavailable");
+  }
+
+  const { error } = await admin
     .from("projects")
     .update({ access_token_hash: hash })
     .eq("id", projectId)
     .is("customer_id", null);
+
+  if (error) {
+    throw new Error(error.message);
+  }
 
   return raw;
 }

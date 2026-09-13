@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { tryCreateAdminClient } from "@/lib/supabase/admin";
 import type { AppNotification, NotificationType } from "@/lib/notifications";
 
 export async function createNotification(params: {
@@ -10,7 +10,9 @@ export async function createNotification(params: {
   linkPath: string;
 }): Promise<void> {
   try {
-    const admin = createAdminClient();
+    const admin = tryCreateAdminClient();
+    if (!admin) return;
+
     const { error } = await admin.from("notifications").insert({
       user_id: params.userId,
       type: params.type,

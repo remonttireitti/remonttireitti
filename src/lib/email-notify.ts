@@ -1,9 +1,11 @@
-import { createAdminClient } from "@/lib/supabase/admin";
+import { tryCreateAdminClient } from "@/lib/supabase/admin";
 import { sendEmail, siteUrl } from "@/lib/email";
 import { getNotificationPrefs } from "@/lib/notification-prefs";
 
 async function userEmail(userId: string): Promise<string | null> {
-  const admin = createAdminClient();
+  const admin = tryCreateAdminClient();
+  if (!admin) return null;
+
   const { data } = await admin.auth.admin.getUserById(userId);
   return data.user?.email ?? null;
 }
@@ -41,11 +43,15 @@ async function sendUserEmail(
   bodyHtml: string,
   ctaPath: string,
   ctaLabel: string,
+  fallbackEmail?: string | null,
 ) {
   const prefs = await getNotificationPrefs(userId);
   if (!prefs.notifyEmail) return;
 
-  const to = await userEmail(userId);
+  let to = await userEmail(userId);
+  if (!to && fallbackEmail?.includes("@")) {
+    to = fallbackEmail.trim();
+  }
   if (!to) {
     console.warn("[email-notify] no email for user", userId, subject);
     return;
@@ -82,6 +88,7 @@ export async function notifyNewBid(params: {
   projectTitle: string;
   projectId: string;
   contractorCompany: string;
+  contactEmail?: string | null;
 }) {
   await sendUserEmail(
     params.customerId,
@@ -90,6 +97,7 @@ export async function notifyNewBid(params: {
     `<p><strong>${escapeHtml(params.contractorCompany)}</strong> jätti tarjouksen pyyntöösi <em>${escapeHtml(params.projectTitle)}</em>.</p>`,
     `/remontti/${params.projectId}`,
     "Avaa tarjoukset",
+    params.contactEmail,
   );
 }
 
@@ -98,6 +106,7 @@ export async function notifyBidUpdated(params: {
   projectTitle: string;
   projectId: string;
   contractorCompany: string;
+  contactEmail?: string | null;
 }) {
   await sendUserEmail(
     params.customerId,
@@ -106,6 +115,7 @@ export async function notifyBidUpdated(params: {
     `<p><strong>${escapeHtml(params.contractorCompany)}</strong> päivitti tarjoustaan urakkaan <em>${escapeHtml(params.projectTitle)}</em>.</p>`,
     `/remontti/${params.projectId}`,
     "Avaa tarjoukset",
+    params.contactEmail,
   );
 }
 
