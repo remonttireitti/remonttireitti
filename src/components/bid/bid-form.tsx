@@ -3,7 +3,6 @@
 import {
   useActionState,
   useEffect,
-  useRef,
   useState,
   startTransition,
   type FormEvent,
@@ -23,19 +22,12 @@ import {
   validateBidFormClient,
 } from "@/lib/bid-form";
 import { BidCommitmentNotice } from "@/components/bid/bid-commitment-notice";
-import { BidAssistantPanel } from "@/components/bid/bid-assistant-panel";
-import {
-  BidScopeLinesEditor,
-  type BidScopeLinesEditorHandle,
-} from "@/components/bid/bid-scope-lines-editor";
-import { assistantTargetForItem } from "@/lib/bid-assistant";
+import { BidScopeLinesEditor } from "@/components/bid/bid-scope-lines-editor";
 import {
   buildSeededScopeLines,
-  findScopeLineIndexByItemId,
   mergeScopeLines,
   newScopeLineId,
   parseScopeTerms,
-  scopeLineFilled,
   serializeScopeLines,
   type BidScopeLine,
 } from "@/lib/bid-scope-lines";
@@ -61,7 +53,6 @@ import {
   suggestedServicePricingModels,
   type ServiceEngagement,
 } from "@/lib/service-engagement";
-import type { ProjectQualityResult } from "@/lib/project-request-quality";
 import type { ProjectTradeContext } from "@/lib/project-trades-server";
 import { TURNKEY_COORDINATION_LABELS } from "@/lib/bid-trade-offer";
 
@@ -95,7 +86,6 @@ export function BidForm({
   jobTypeSlug,
   tradeContext,
   serviceEngagement,
-  projectQuality,
 }: {
   projectId: string;
   /** Urakoitsija toimittaa laitteet (pakollinen laitetakuu). */
@@ -114,8 +104,6 @@ export function BidForm({
   tradeContext?: ProjectTradeContext;
   /** Jatkuva palvelu — hinnoittelu per käynti / kk / kausi. */
   serviceEngagement?: ServiceEngagement | null;
-  /** Tarjouspyynnön laatupiste — avustaja näyttää puuttuvat tiedot. */
-  projectQuality?: ProjectQualityResult | null;
 }) {
   const isServiceProject = Boolean(serviceEngagement);
   const initialFormFields = (() => {
@@ -135,8 +123,6 @@ export function BidForm({
   const [scopeLines, setScopeLines] = useState<BidScopeLine[]>(() =>
     buildSeededScopeLines(jobTypeSlug ?? null, initialFormFields.scope_terms),
   );
-  const scopeLinesEditorRef = useRef<BidScopeLinesEditorHandle>(null);
-
   const saveAction = mode === "edit" ? updateBid : submitBid;
 
   const router = useRouter();
@@ -211,27 +197,6 @@ export function BidForm({
             : text;
       return { ...prev, [key]: next };
     });
-  }
-
-  function focusAssistantItem(itemId: string, label: string) {
-    const target = assistantTargetForItem(itemId);
-    if (!target) return;
-    if (target === "scope_terms") {
-      scopeLinesEditorRef.current?.focusLine(label, itemId);
-      return;
-    }
-    document.getElementById(target)?.focus({ preventScroll: true });
-  }
-
-  function scopeLineStatus(itemId: string, label: string) {
-    let idx = findScopeLineIndexByItemId(scopeLines, itemId);
-    if (idx < 0 && label.trim()) {
-      idx = scopeLines.findIndex(
-        (line) => line.label.trim().toLowerCase() === label.trim().toLowerCase(),
-      );
-    }
-    if (idx < 0) return "missing" as const;
-    return scopeLineFilled(scopeLines[idx]!) ? ("done" as const) : ("pending" as const);
   }
 
   function update<K extends BidFormFieldKey>(key: K, value: BidFormFields[K]) {
@@ -665,7 +630,6 @@ export function BidForm({
 
         <div>
           <BidScopeLinesEditor
-            ref={scopeLinesEditorRef}
             lines={scopeLines}
             onChange={syncScopeLines}
             inputClass={inputClass}
@@ -683,16 +647,6 @@ export function BidForm({
             jobTypeSlug={jobTypeSlug}
             onApply={(text, mode) => applyScopeTemplate(text, mode)}
           />
-          <div className="border-t border-stone-200 pt-4">
-            <BidAssistantPanel
-              fields={fields}
-              scopeLines={scopeLines}
-              jobTypeSlug={jobTypeSlug}
-              projectQuality={projectQuality}
-              onFocusItem={focusAssistantItem}
-              scopeLineStatus={scopeLineStatus}
-            />
-          </div>
         </div>
 
         <div>
