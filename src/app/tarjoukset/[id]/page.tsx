@@ -346,6 +346,7 @@ export default async function ContractorProjectPage({
               jobTypeSlug={jobTypeSlug}
               tradeContext={tradeContext}
               serviceEngagement={serviceEngagement}
+              projectQuality={projectQuality}
             />
           </div>
         </div>

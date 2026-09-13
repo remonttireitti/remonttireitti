@@ -22,6 +22,7 @@ import {
   validateBidFormClient,
 } from "@/lib/bid-form";
 import { BidCommitmentNotice } from "@/components/bid/bid-commitment-notice";
+import { BidAssistantPanel } from "@/components/bid/bid-assistant-panel";
 import { BidTermsTemplatePicker } from "@/components/bid/bid-terms-template-picker";
 import {
   applyBidDefaultsToFields,
@@ -44,6 +45,7 @@ import {
   suggestedServicePricingModels,
   type ServiceEngagement,
 } from "@/lib/service-engagement";
+import type { ProjectQualityResult } from "@/lib/project-request-quality";
 import type { ProjectTradeContext } from "@/lib/project-trades-server";
 
 const inputClass =
@@ -76,6 +78,7 @@ export function BidForm({
   jobTypeSlug,
   tradeContext,
   serviceEngagement,
+  projectQuality,
 }: {
   projectId: string;
   /** Urakoitsija toimittaa laitteet (pakollinen laitetakuu). */
@@ -94,6 +97,8 @@ export function BidForm({
   tradeContext?: ProjectTradeContext;
   /** Jatkuva palvelu — hinnoittelu per käynti / kk / kausi. */
   serviceEngagement?: ServiceEngagement | null;
+  /** Tarjouspyynnön laatupiste — avustaja näyttää puuttuvat tiedot. */
+  projectQuality?: ProjectQualityResult | null;
 }) {
   const isServiceProject = Boolean(serviceEngagement);
   const [fields, setFields] = useState<BidFormFields>(() => {
@@ -148,6 +153,15 @@ export function BidForm({
             : text;
       return { ...prev, [key]: next };
     });
+  }
+
+  function appendScopeSuggestion(text: string) {
+    applyTemplate("scope_terms", text, "append");
+    document.getElementById("scope_terms")?.scrollIntoView({
+      behavior: "smooth",
+      block: "center",
+    });
+    document.getElementById("scope_terms")?.focus();
   }
 
   function update<K extends BidFormFieldKey>(key: K, value: BidFormFields[K]) {
@@ -442,6 +456,13 @@ export function BidForm({
           </p>
         )}
       </div>
+
+      <BidAssistantPanel
+        fields={fields}
+        jobTypeSlug={jobTypeSlug}
+        projectQuality={projectQuality}
+        onAppendScope={appendScopeSuggestion}
+      />
 
       <fieldset className="space-y-4 rounded-xl border border-stone-200 bg-stone-50/80 p-4">
         <legend className="px-1 text-sm font-semibold text-stone-800">

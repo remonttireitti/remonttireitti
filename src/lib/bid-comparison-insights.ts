@@ -170,6 +170,17 @@ function checkScopeItem(
   return "partial";
 }
 
+export function analyzeSingleBid(
+  bid: BidInsightInput,
+  jobSlug: string | null,
+): BidInsightResult {
+  return analyzeBid(bid, scopeItemsForJob(jobSlug), "Tarjous");
+}
+
+export function scopeCheckItemsForJob(jobSlug: string | null): BidScopeCheckItem[] {
+  return scopeItemsForJob(jobSlug);
+}
+
 function analyzeBid(
   bid: BidInsightInput,
   items: BidScopeCheckItem[],

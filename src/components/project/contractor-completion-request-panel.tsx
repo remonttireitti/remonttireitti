@@ -31,7 +31,10 @@ export function ContractorCompletionRequestPanel({
   const actionable = missingItems.filter((i) => i.status !== "done");
 
   return (
-    <section className="mt-6 rounded-2xl border border-stone-200 bg-white p-5">
+    <section
+      id="taydenna-pyynto"
+      className="mt-6 scroll-mt-24 rounded-2xl border border-stone-200 bg-white p-5"
+    >
       <h2 className="font-semibold text-stone-900">Tarjous tai täydennäpyyntö</h2>
       <p className="mt-1 text-sm text-stone-600">
         Pyyntö on {qualityScore} % valmis. Voit tarjota heti — tai pyytää asiakasta
