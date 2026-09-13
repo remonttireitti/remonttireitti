@@ -7,6 +7,7 @@ import { ProjectChat } from "@/components/messaging/project-chat";
 import { CancelProjectButton } from "@/components/project/cancel-project-button";
 import { DeleteProjectButton } from "@/components/project/delete-project-button";
 import { ProjectDraftPublishPanel } from "@/components/project/project-draft-publish-panel";
+import { CompletedHuoltokirjaLink } from "@/components/project/completed-huoltokirja-link";
 import { ProjectLifecyclePanel } from "@/components/project/project-lifecycle-panel";
 import { ProjectOverviewCards } from "@/components/project/project-overview-cards";
 import { fetchProjectPhotos } from "@/lib/project-photos";
@@ -86,7 +87,12 @@ export default async function ProjectPage({
           amount_cents,
           due_at,
           paid_at,
-          contractor_profiles ( company_name )
+          contractor_profiles (
+            company_name,
+            refrigerant_license,
+            electrical_qualification,
+            lvi_qualifications
+          )
         `,
         )
         .eq("project_id", id)
@@ -122,7 +128,12 @@ export default async function ProjectPage({
           confirmed_content_revision,
           rejection_message,
           rejected_at,
-          contractor_profiles ( company_name )
+          contractor_profiles (
+            company_name,
+            refrigerant_license,
+            electrical_qualification,
+            lvi_qualifications
+          )
         `,
         )
         .eq("project_id", id)
@@ -454,6 +465,10 @@ export default async function ProjectPage({
             revalidatePaths={[`/remontti/${id}`]}
             readOnly={status === "completed"}
           />
+        )}
+
+        {status === "completed" && (
+          <CompletedHuoltokirjaLink projectId={id} userId={user.id} />
         )}
 
         {status === "completed" && !review && acceptedCompany && (

@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { syncPropertyLogFromCompletedProject } from "@/lib/property-log";
+import { userNotifyHuoltokirjaSync } from "@/lib/user-notify";
 import { revalidatePath } from "next/cache";
 
 export type LifecycleActionState = { error?: string; success?: string };
@@ -29,7 +30,7 @@ export async function completeProject(
 
   const { data: project } = await supabase
     .from("projects")
-    .select("id, customer_id, status")
+    .select("id, customer_id, status, title")
     .eq("id", projectId)
     .single();
 
@@ -52,14 +53,28 @@ export async function completeProject(
 
   if (error) return { error: "Tallennus epäonnistui." };
 
-  await syncPropertyLogFromCompletedProject(supabase, projectId);
+  const syncResult = await syncPropertyLogFromCompletedProject(
+    supabase,
+    projectId,
+  );
+
+  if (syncResult.ok && syncResult.propertyId) {
+    await userNotifyHuoltokirjaSync({
+      customerId: project.customer_id,
+      propertyId: syncResult.propertyId,
+      projectTitle: project.title,
+    });
+  }
 
   revalidatePath(`/remontti/${projectId}`);
   revalidatePath("/oma-tili");
   revalidatePath("/oma-tili/huoltokirja");
+  const huoltokirjaHint =
+    syncResult.propertyId != null
+      ? " Urakka on lisätty huoltokirjaasi — voit kirjata myös aiempia remontteja."
+      : "";
   return {
-    success:
-      "Urakka merkitty valmiiksi. Voit arvostella urakoitsijan heti — muistutus tulee myös noin viikon kuluttua, jos et ehdi.",
+    success: `Urakka merkitty valmiiksi.${huoltokirjaHint} Voit arvostella urakoitsijan heti — muistutus tulee myös noin viikon kuluttua sähköpostilla ja sovelluksessa, jos et ehdi.`,
   };
 }
 

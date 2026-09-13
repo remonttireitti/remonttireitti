@@ -122,7 +122,7 @@ async function findOrCreateProperty(
 export async function syncPropertyLogFromCompletedProject(
   supabase: SupabaseClient,
   projectId: string,
-): Promise<{ ok: boolean; error?: string }> {
+): Promise<{ ok: boolean; error?: string; propertyId?: string }> {
   const { data: project, error: projectError } = await supabase
     .from("projects")
     .select(
@@ -241,7 +241,7 @@ export async function syncPropertyLogFromCompletedProject(
     }
   }
 
-  return { ok: true };
+  return { ok: true, propertyId };
 }
 
 /** Täydentää puuttuvat merkinnät aiemmista valmiista urakoista. */

@@ -347,6 +347,37 @@ export async function notifyProjectMessage(params: {
   );
 }
 
+export async function notifyReviewReminder(params: {
+  customerId: string;
+  projectId: string;
+  projectTitle: string;
+  contractorName: string;
+}) {
+  await sendUserEmail(
+    params.customerId,
+    `Arvostele urakoitsija: ${params.projectTitle}`,
+    "Miten urakka sujui?",
+    `<p>Urakka <em>${escapeHtml(params.projectTitle)}</em> on valmis. Kerro lyhyesti kokemuksestasi urakoitsijasta <strong>${escapeHtml(params.contractorName)}</strong> — arvostelut auttavat muita asiakkaita.</p>`,
+    `/remontti/${params.projectId}`,
+    "Jätä arvostelu",
+  );
+}
+
+export async function notifyHuoltokirjaSync(params: {
+  customerId: string;
+  propertyId: string;
+  projectTitle: string;
+}) {
+  await sendUserEmail(
+    params.customerId,
+    `Urakka lisätty huoltokirjaan: ${params.projectTitle}`,
+    "Remontti ei lopu tähän",
+    `<p>Valmistunut urakka <em>${escapeHtml(params.projectTitle)}</em> on nyt huoltokirjassasi. Voit lisätä myös aiempia remontteja ja seurata laitteiden takuita samassa paikassa.</p>`,
+    `/oma-tili/huoltokirja/${params.propertyId}`,
+    "Avaa huoltokirja",
+  );
+}
+
 export async function notifyListingMessage(params: {
   recipientId: string;
   listingTitle: string;

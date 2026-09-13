@@ -1,9 +1,18 @@
+import Link from "next/link";
+import { CounterOfferBadge } from "@/components/bid/counter-offer-badge";
+import {
+  ContractorQualificationsCell,
+  type ContractorQualificationSummary,
+} from "@/components/bid/contractor-qualifications-cell";
 import { ContractorTrustBanner } from "@/components/bid/contractor-trust-banner";
 import { CustomerBidActions } from "@/components/bid/customer-bid-actions";
 import { ValuePromoBanner } from "@/components/promo/value-promo-banner";
 import { StarRatingDisplay } from "@/components/review/star-rating-display";
 import { isBidStale } from "@/lib/bid-staleness";
-import { formatCounterOfferStatus } from "@/lib/bid-counter-offer";
+import {
+  formatCounterOfferStatus,
+  hasPendingCounterOffer,
+} from "@/lib/bid-counter-offer";
 import { formatBidDate } from "@/lib/bid-terms";
 import {
   bidHasSplitEquipmentOffer,
@@ -54,8 +63,86 @@ export type BidWithContractor = {
   rejected_at: string | null;
   contractor_profiles: {
     company_name: string;
-  } | { company_name: string }[] | null;
+    refrigerant_license?: string | null;
+    electrical_qualification?: string | null;
+    lvi_qualifications?: string[] | null;
+  } | {
+    company_name: string;
+    refrigerant_license?: string | null;
+    electrical_qualification?: string | null;
+    lvi_qualifications?: string[] | null;
+  }[] | null;
 };
+
+function contractorQualificationsFromBid(
+  bid: BidWithContractor,
+): ContractorQualificationSummary | null {
+  const cp = bid.contractor_profiles;
+  const profile = Array.isArray(cp) ? cp[0] : cp;
+  if (!profile) return null;
+  if (
+    !profile.refrigerant_license &&
+    !profile.electrical_qualification &&
+    !(profile.lvi_qualifications?.length)
+  ) {
+    return null;
+  }
+  return {
+    refrigerant_license:
+      (profile.refrigerant_license as ContractorQualificationSummary["refrigerant_license"]) ??
+      null,
+    electrical_qualification:
+      (profile.electrical_qualification as ContractorQualificationSummary["electrical_qualification"]) ??
+      null,
+    lvi_qualifications:
+      (profile.lvi_qualifications as ContractorQualificationSummary["lvi_qualifications"]) ??
+      [],
+  };
+}
+
+function PriceCell({
+  bid,
+  showEquipmentBreakdown,
+}: {
+  bid: BidWithContractor;
+  showEquipmentBreakdown: boolean;
+}) {
+  const pending = hasPendingCounterOffer(bid);
+  const total = formatEurosFromCents(bidTotalAmountCents(bid));
+
+  if (showEquipmentBreakdown) {
+    return (
+      <>
+        {formatEurosFromCents(bid.amount_cents)}
+        {pending && bid.counter_amount_cents != null && (
+          <p className="mt-1 text-xs font-normal text-amber-800">
+            Vastatarjous: {formatEurosFromCents(bid.counter_amount_cents)} (odottaa)
+          </p>
+        )}
+      </>
+    );
+  }
+
+  return (
+    <>
+      {total}
+      {bid.vat_included && (
+        <span className="mt-0.5 block text-xs font-normal text-stone-500">
+          sis. ALV
+        </span>
+      )}
+      {pending && bid.counter_amount_cents != null && (
+        <p className="mt-1 text-xs font-normal text-amber-800">
+          Vastatarjouksesi:{" "}
+          <strong>{formatEurosFromCents(bid.counter_amount_cents)}</strong>
+          <span className="block text-stone-500">
+            Alkuperäinen: {formatEurosFromCents(bidTotalAmountCents(bid))}
+          </span>
+        </p>
+      )}
+    </>
+  );
+}
 
 function ClampedText({ text }: { text: string | null | undefined }) {
   if (!text?.trim()) {
@@ -152,8 +239,11 @@ export function CustomerBids({
   const showOfferScope = sorted.some((b) => parseBidOfferScope(b.offer_scope));
   const showContractTerms = sorted.some((b) => b.contract_terms);
   const showEquipmentWarranty = sorted.some((b) => b.warranty_equipment);
-  const showCounterRow = sorted.some(
-    (b) => b.counter_status && b.counter_amount_cents,
+  const showCounterRow =
+    canAccept ||
+    sorted.some((b) => b.counter_status && b.counter_amount_cents);
+  const showQualificationsRow = sorted.some(
+    (b) => contractorQualificationsFromBid(b) != null,
   );
 
   if (visibleBids.length === 0) {
@@ -185,7 +275,7 @@ export function CustomerBids({
         <ValuePromoBanner variant="customer-negotiate" className="mt-4" />
       )}
 
-      <div>
+      <div className="-mx-1 overflow-x-auto px-1">
         <table className="w-full min-w-[720px] border-collapse text-sm">
           <thead>
             <tr className="border-b border-stone-200">
@@ -202,7 +292,12 @@ export function CustomerBids({
                     scope="col"
                     className={`min-w-[11rem] border-l border-stone-200 px-3 py-3 text-left ${columnClass(bid.status, pendingWinner)}`}
                   >
-                    <p className="font-semibold text-stone-900">{company}</p>
+                    <Link
+                      href={`/urakoitsija/${bid.contractor_id}`}
+                      className="font-semibold text-stone-900 hover:text-sky-800 hover:underline"
+                    >
+                      {company}
+                    </Link>
                     {rating && rating.count > 0 && (
                       <div className="mt-1">
                         <StarRatingDisplay
@@ -216,6 +311,9 @@ export function CustomerBids({
                         ? "Valittu — odottaa maksua"
                         : bidStatusLabels[bid.status]}
                     </span>
+                    {bid.counter_status && bid.counter_amount_cents && (
+                      <CounterOfferBadge status={bid.counter_status} />
+                    )}
                   </th>
                 );
               })}
@@ -292,12 +390,7 @@ export function CustomerBids({
                     key={bid.id}
                     className={`${dataCell} border-l font-bold text-sky-800 ${columnClass(bid.status, isPendingWinner(bid))}`}
                   >
-                    {formatEurosFromCents(bidTotalAmountCents(bid))}
-                    {bid.vat_included && (
-                      <span className="mt-0.5 block text-xs font-normal text-stone-500">
-                        sis. ALV
-                      </span>
-                    )}
+                    <PriceCell bid={bid} showEquipmentBreakdown={false} />
                   </td>
                 ))}
               </tr>
@@ -424,6 +517,24 @@ export function CustomerBids({
               </tr>
             )}
 
+            {showQualificationsRow && (
+              <tr className="border-b border-stone-100">
+                <th className={labelCell} scope="row">
+                  Pätevyydet
+                </th>
+                {sorted.map((bid) => (
+                  <td
+                    key={bid.id}
+                    className={`${dataCell} border-l ${columnClass(bid.status, isPendingWinner(bid))}`}
+                  >
+                    <ContractorQualificationsCell
+                      quals={contractorQualificationsFromBid(bid)}
+                    />
+                  </td>
+                ))}
+              </tr>
+            )}
+
             <tr className="border-b border-stone-100 bg-stone-50/50">
               <th className={labelCell} scope="row">
                 Vakuutukset
@@ -448,7 +559,22 @@ export function CustomerBids({
                     key={bid.id}
                     className={`${dataCell} border-l ${columnClass(bid.status, isPendingWinner(bid))}`}
                   >
-                    {formatCounterOfferStatus(bid) ?? (
+                    {formatCounterOfferStatus(bid) ? (
+                      <div>
+                        <p className="text-sm text-amber-950">
+                          {formatCounterOfferStatus(bid)}
+                        </p>
+                        {bid.counter_message?.trim() && (
+                          <p className="mt-1 whitespace-pre-wrap text-xs text-stone-600">
+                            &ldquo;{bid.counter_message.trim()}&rdquo;
+                          </p>
+                        )}
+                      </div>
+                    ) : canAccept && bid.status === "submitted" ? (
+                      <span className="text-xs text-stone-600">
+                        Voit ehdottaa alempaa hintaa → Toiminto-rivillä
+                      </span>
+                    ) : (
                       <span className="text-stone-400">—</span>
                     )}
                   </td>

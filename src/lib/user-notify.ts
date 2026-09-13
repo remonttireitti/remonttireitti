@@ -16,6 +16,8 @@ import {
   notifyProjectUpdated,
   notifyProjectInactivityWarning,
   notifyProjectAutoClosed,
+  notifyReviewReminder,
+  notifyHuoltokirjaSync,
   projectMessageLinkPath,
 } from "@/lib/email-notify";
 import { createNotification } from "@/lib/notifications-server";
@@ -326,6 +328,22 @@ export async function userNotifyReviewReminder(params: {
     `Kerro kokemuksestasi urakoitsijasta ${params.contractorName}: ${params.projectTitle}`,
     `/remontti/${params.projectId}`,
   );
+  await notifyReviewReminder(params);
+}
+
+export async function userNotifyHuoltokirjaSync(params: {
+  customerId: string;
+  propertyId: string;
+  projectTitle: string;
+}) {
+  await inApp(
+    params.customerId,
+    "huoltokirja_sync",
+    "Urakka huoltokirjassa",
+    `${params.projectTitle} on lisätty huoltokirjaasi. Lisää aiemmat työt ja seuraa laitteita samassa paikassa.`,
+    `/oma-tili/huoltokirja/${params.propertyId}`,
+  );
+  await notifyHuoltokirjaSync(params);
 }
 
 export async function userNotifyProjectMessage(params: {

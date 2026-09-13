@@ -33,6 +33,23 @@ function adminClientConfigured(): boolean {
   );
 }
 
+export async function countPublicOpenProjects(): Promise<number> {
+  if (!adminClientConfigured()) return 0;
+
+  const admin = createAdminClient();
+  const { count, error } = await admin
+    .from("projects")
+    .select("id", { count: "exact", head: true })
+    .in("status", ["published", "receiving_bids"]);
+
+  if (error) {
+    console.error("[public-projects-count]", error.message);
+    return 0;
+  }
+
+  return count ?? 0;
+}
+
 export async function fetchPublicOpenProjects(
   limit = 50,
 ): Promise<PublicOpenProject[]> {
