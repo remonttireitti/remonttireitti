@@ -18,7 +18,7 @@ import { PlatformFeedbackPanel } from "@/components/feedback/platform-feedback-p
 import { SiteHeader } from "@/components/site-header";
 import { GuestClaimBanner } from "@/components/project/guest-claim-banner";
 import { getSessionUser } from "@/lib/auth";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { tryCreateAdminClient } from "@/lib/supabase/admin";
 import {
   guestProjectToCustomerRow,
   resolveGuestProjectAccess,
@@ -117,7 +117,11 @@ export default async function ProjectPage({
     redirect(`/kirjaudu?redirect=/remontti/${id}`);
   }
 
-  const dataClient = isGuestAccess ? createAdminClient() : supabase;
+  const guestAdmin = isGuestAccess ? tryCreateAdminClient() : null;
+  if (isGuestAccess && !guestAdmin) {
+    redirect(`/kirjaudu?redirect=/remontti/${id}`);
+  }
+  const dataClient = guestAdmin ?? supabase;
 
   const expireResult = await expirePendingAcceptanceForProject(id);
   const acceptanceExpired = expireResult === "expired";

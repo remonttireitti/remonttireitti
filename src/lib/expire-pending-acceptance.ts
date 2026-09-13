@@ -1,4 +1,4 @@
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createAdminClient, tryCreateAdminClient } from "@/lib/supabase/admin";
 import {
   userNotifyBidAcceptExpiredContractor,
   userNotifyBidAcceptExpiredCustomer,
@@ -18,8 +18,23 @@ export type ExpirePendingResult =
 export async function expirePendingAcceptanceForProject(
   projectId: string,
 ): Promise<ExpirePendingResult> {
-  const admin = createAdminClient();
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) return "not_needed";
 
+  const admin = tryCreateAdminClient();
+  if (!admin) return "not_needed";
+
+  try {
+    return await expirePendingAcceptanceWithAdmin(admin, projectId);
+  } catch (err) {
+    console.error("[expirePendingAcceptanceForProject]", projectId, err);
+    return "not_needed";
+  }
+}
+
+async function expirePendingAcceptanceWithAdmin(
+  admin: ReturnType<typeof createAdminClient>,
+  projectId: string,
+): Promise<ExpirePendingResult> {
   const { data: project } = await admin
     .from("projects")
     .select("id, customer_id, title, status, accepted_bid_id")

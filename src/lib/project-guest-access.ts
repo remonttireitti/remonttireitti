@@ -57,7 +57,8 @@ export async function fetchGuestProjectByToken(
     .select(
       `
       *,
-      service_categories ( name_fi )
+      service_categories ( name_fi ),
+      job_types ( slug )
     `,
     )
     .eq("id", projectId)
