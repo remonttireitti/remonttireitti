@@ -1,0 +1,43 @@
+import { NextResponse } from "next/server";
+import {
+  fetchGuestProjectByToken,
+  setProjectAccessCookie,
+} from "@/lib/project-guest-access";
+import { siteUrl } from "@/lib/email";
+
+/** Asettaa vieraslinkin evästeen Route Handlerissa (ei Server Componentissa). */
+export async function GET(request: Request) {
+  const url = new URL(request.url);
+  const projectId = url.searchParams.get("project");
+  const token = url.searchParams.get("token");
+  const to = url.searchParams.get("to") ?? "project";
+
+  if (!projectId || !token) {
+    return NextResponse.redirect(siteUrl("/kirjaudu"));
+  }
+
+  const project = await fetchGuestProjectByToken(projectId, token);
+  if (!project) {
+    const errorPath =
+      to === "taydenna"
+        ? `/remontti/${projectId}/taydenna?virhe=linkki&token=${encodeURIComponent(token)}`
+        : `/remontti/uusi?virhe=linkki`;
+    return NextResponse.redirect(siteUrl(errorPath));
+  }
+
+  await setProjectAccessCookie(projectId, token);
+
+  const qs = new URLSearchParams();
+  for (const key of ["julkaistu", "vahvistettu"] as const) {
+    const value = url.searchParams.get(key);
+    if (value) qs.set(key, value);
+  }
+  const suffix = qs.toString() ? `?${qs}` : "";
+
+  const dest =
+    to === "taydenna"
+      ? `/remontti/${projectId}/taydenna${suffix}`
+      : `/remontti/${projectId}${suffix}`;
+
+  return NextResponse.redirect(siteUrl(dest));
+}

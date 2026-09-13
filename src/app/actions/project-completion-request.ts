@@ -22,6 +22,7 @@ import {
 import { resolveProjectJobTypeSlug } from "@/lib/project-job-type";
 import { sendGuestCompletionRequestEmail } from "@/lib/guest-project-email";
 import {
+  fetchGuestProjectByToken,
   isGuestProject,
   resolveGuestProjectAccess,
   rotateGuestProjectAccessToken,
@@ -259,7 +260,10 @@ export async function submitProjectCompletionUpdate(
       .maybeSingle();
     project = data;
   } else {
-    const guestRow = await resolveGuestProjectAccess(projectId);
+    const guestToken = String(formData.get("guest_token") ?? "").trim() || null;
+    const guestRow = guestToken
+      ? await fetchGuestProjectByToken(projectId, guestToken)
+      : await resolveGuestProjectAccess(projectId);
     if (guestRow) {
       project = guestRow;
       isGuestUpdate = true;

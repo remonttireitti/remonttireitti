@@ -13,10 +13,12 @@ export function CustomerCompletionForm({
   projectId,
   needs,
   requestCount,
+  guestToken,
 }: {
   projectId: string;
   needs: AggregatedCompletionNeed;
   requestCount: number;
+  guestToken?: string;
 }) {
   const [photos, setPhotos] = useState<File[]>([]);
   const [state, action, pending] = useActionState<
@@ -27,6 +29,9 @@ export function CustomerCompletionForm({
   return (
     <form action={action} className="space-y-6">
       <input type="hidden" name="project_id" value={projectId} />
+      {guestToken && (
+        <input type="hidden" name="guest_token" value={guestToken} />
+      )}
 
       <section className="rounded-2xl border border-violet-200 bg-violet-50/60 p-5">
         <h2 className="font-semibold text-violet-950">Urakoitsija tarvitsee tarjousta varten</h2>

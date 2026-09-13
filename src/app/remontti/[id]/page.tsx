@@ -22,7 +22,6 @@ import { tryCreateAdminClient } from "@/lib/supabase/admin";
 import {
   guestProjectToCustomerRow,
   resolveGuestProjectAccess,
-  setProjectAccessCookie,
 } from "@/lib/project-guest-access";
 import { expirePendingAcceptanceForProject } from "@/lib/expire-pending-acceptance";
 import { expireStaleProjectIfNeeded } from "@/lib/expire-stale-projects";
@@ -84,15 +83,12 @@ export default async function ProjectPage({
   } = sp;
 
   if (token) {
-    const guestRow = await resolveGuestProjectAccess(id, token);
-    if (guestRow) {
-      await setProjectAccessCookie(id, token);
-      const qs = new URLSearchParams();
-      if (julkaistu) qs.set("julkaistu", julkaistu);
-      if (vahvistettu) qs.set("vahvistettu", vahvistettu);
-      const suffix = qs.toString() ? `?${qs}` : "";
-      redirect(`/remontti/${id}${suffix}`);
-    }
+    const qs = new URLSearchParams();
+    qs.set("project", id);
+    qs.set("token", token);
+    if (julkaistu) qs.set("julkaistu", julkaistu);
+    if (vahvistettu) qs.set("vahvistettu", vahvistettu);
+    redirect(`/auth/guest-access?${qs}`);
   }
 
   const user = await getSessionUser();

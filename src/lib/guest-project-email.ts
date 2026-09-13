@@ -72,7 +72,7 @@ export async function sendGuestCompletionRequestEmail(params: {
   criterionCount: number;
 }): Promise<void> {
   const taydennaUrl = siteUrl(
-    `/remontti/${params.projectId}/taydenna?token=${encodeURIComponent(params.rawToken)}`,
+    `/auth/guest-access?project=${params.projectId}&token=${encodeURIComponent(params.rawToken)}&to=taydenna`,
   );
 
   const result = await sendEmail({

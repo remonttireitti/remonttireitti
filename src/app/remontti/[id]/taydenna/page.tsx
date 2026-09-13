@@ -11,10 +11,7 @@ import { resolveProjectJobTypeSlug } from "@/lib/project-job-type";
 import { brand } from "@/lib/brand-theme";
 import { createClient } from "@/lib/supabase/server";
 import { tryCreateAdminClient } from "@/lib/supabase/admin";
-import {
-  resolveGuestProjectAccess,
-  setProjectAccessCookie,
-} from "@/lib/project-guest-access";
+import { resolveGuestProjectAccess } from "@/lib/project-guest-access";
 
 type ProjectRow = {
   id: string;
@@ -120,10 +117,14 @@ export default async function ProjectCompletionPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ token?: string }>;
+  searchParams: Promise<{ token?: string; virhe?: string }>;
 }) {
   const { id } = await params;
-  const { token } = await searchParams;
+  const { token, virhe } = await searchParams;
+
+  if (virhe === "linkki") {
+    return <GuestAccessError projectId={id} token={token} />;
+  }
 
   const user = await getSessionUser();
   const profile = user ? await getProfile() : null;
@@ -138,7 +139,6 @@ export default async function ProjectCompletionPage({
   if (token) {
     guestRow = await resolveGuestProjectAccess(id, token);
     if (guestRow) {
-      await setProjectAccessCookie(id, token);
       isGuestAccess = true;
     } else {
       return <GuestAccessError projectId={id} token={token} />;
@@ -253,6 +253,7 @@ export default async function ProjectCompletionPage({
             projectId={id}
             needs={needs}
             requestCount={requests.length}
+            guestToken={isGuestAccess ? token : undefined}
           />
         </div>
       </main>
