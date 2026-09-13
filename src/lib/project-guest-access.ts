@@ -145,21 +145,36 @@ export function isGuestProject(row: {
 export async function rotateGuestProjectAccessToken(
   projectId: string,
 ): Promise<string> {
-  const { raw, hash } = generateProjectAccessToken();
-  const admin = tryCreateAdminClient();
-  if (!admin) {
+  const raw = await tryRotateGuestProjectAccessToken(projectId);
+  if (!raw) {
     throw new Error("Guest access token rotation unavailable");
   }
-
-  const { error } = await admin
-    .from("projects")
-    .update({ access_token_hash: hash })
-    .eq("id", projectId)
-    .is("customer_id", null);
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
   return raw;
+}
+
+/** Palauttaa tokenin tai null — ei heitä poikkeusta (sähköposti / server action). */
+export async function tryRotateGuestProjectAccessToken(
+  projectId: string,
+): Promise<string | null> {
+  try {
+    const { raw, hash } = generateProjectAccessToken();
+    const admin = tryCreateAdminClient();
+    if (!admin) return null;
+
+    const { error } = await admin
+      .from("projects")
+      .update({ access_token_hash: hash })
+      .eq("id", projectId)
+      .is("customer_id", null);
+
+    if (error) {
+      console.error("[tryRotateGuestProjectAccessToken]", error.code, error.message);
+      return null;
+    }
+
+    return raw;
+  } catch (err) {
+    console.error("[tryRotateGuestProjectAccessToken]", err);
+    return null;
+  }
 }

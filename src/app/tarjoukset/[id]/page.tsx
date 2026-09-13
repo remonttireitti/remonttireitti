@@ -39,6 +39,8 @@ import { recordProjectView } from "@/lib/project-views-server";
 import { scoreProjectFromRow } from "@/lib/project-request-quality";
 import { createClient } from "@/lib/supabase/server";
 
+export const dynamic = "force-dynamic";
+
 export default async function ContractorProjectPage({
   params,
   searchParams,
@@ -108,12 +110,14 @@ export default async function ContractorProjectPage({
     existingBid?.status === "submitted" &&
     isBidStale(existingBid, contentRevision);
 
-  await ensureProjectConversation(
-    supabase,
-    id,
-    project.customer_id,
-    user.id,
-  );
+  if (project.customer_id) {
+    await ensureProjectConversation(
+      supabase,
+      id,
+      project.customer_id,
+      user.id,
+    );
+  }
 
   let jobTypeSlug = resolveProjectJobTypeSlug({
     job_type_id: project.job_type_id,
