@@ -31,6 +31,7 @@ import {
   fetchUserNotifications,
 } from "@/lib/notifications-server";
 import { HomePlatformStats } from "@/components/marketing/home-platform-stats";
+import { HomeQualityRequest } from "@/components/marketing/home-quality-request";
 import {
   countPublicOpenProjects,
   fetchPublicOpenProjects,
@@ -86,16 +87,20 @@ export default async function Home() {
               <span className="text-sky-800">tekijän?</span>
             </h1>
             <p className="mx-auto mt-5 max-w-2xl text-base leading-relaxed text-stone-600 sm:text-lg">
-              Julkaise tarjouspyyntö ilmaiseksi. Vertaa tarjouksia samassa
-              muodossa — ja tingaa hintaa vastatarjouksella ennen kuin valitset
-              urakoitsijan.
+              Julkaise tarjouspyyntö ilmaiseksi — ohjattu lomake, laatupiste ja
+              oppiva pohja auttavat kuvaamaan työn selkeästi. Urakoitsijat saavat
+              tarpeeksi tietoa tarkkaan tarjoukseen. Vertaa ja tingaa
+              vastatarjouksella ennen valintaa.
             </p>
-            <ul className="mx-auto mt-6 flex max-w-xl flex-wrap justify-center gap-2 text-xs font-medium text-stone-700 sm:text-sm">
+            <ul className="mx-auto mt-6 flex max-w-2xl flex-wrap justify-center gap-2 text-xs font-medium text-stone-700 sm:text-sm">
               <li className="rounded-full bg-violet-50 px-3 py-1.5 shadow-sm ring-1 ring-violet-200">
-                Tingaa vastatarjouksella
+                Ohjattu tarjouspyyntö
+              </li>
+              <li className="rounded-full bg-emerald-50 px-3 py-1.5 shadow-sm ring-1 ring-emerald-200">
+                Oppiva pohja työlajeittain
               </li>
               <li className="rounded-full bg-white/90 px-3 py-1.5 shadow-sm ring-1 ring-sky-100">
-                Vertailukelpoiset tarjoukset
+                Laadukas pyyntö urakoitsijalle
               </li>
               <li className="rounded-full bg-white/90 px-3 py-1.5 shadow-sm ring-1 ring-sky-100">
                 Asiakkaalle ilmainen
@@ -130,6 +135,8 @@ export default async function Home() {
             />
           </section>
         )}
+
+        <HomeQualityRequest />
 
         <HomeOpenProjects
           projects={openProjects}

@@ -1,22 +1,22 @@
 const items = [
   {
-    title: "Tingaa hintaa",
-    body: "Ehdota alempaa vastatarjouksella — suoraan alustalla.",
+    title: "Ohjattu tarjouspyyntö",
+    body: "Vaiheittainen ohje ja laatupiste — selkeä kuvaus ilman arvailua.",
     highlight: true,
   },
   {
+    title: "Oppiva pohja",
+    body: "Muistaa mitä urakoitsijat pyytävät tarkentamaan — seuraava pyyntö on valmiimpi.",
+    highlight: false,
+  },
+  {
     title: "Vertailukelpoiset tarjoukset",
-    body: "Hinta, laajuus, takuu ja aikataulu samassa muodossa.",
+    body: "Hinta, laajuus, takuu ja aikataulu samassa muodossa. Tingaa vastatarjouksella.",
     highlight: false,
   },
   {
     title: "Sinulle ilmainen",
-    body: "Pyyntö ja vertailu maksavat 0 €.",
-    highlight: false,
-  },
-  {
-    title: "Huoltokirja",
-    body: "Valmiit urakat ja laitteet talteen saman tilin alle.",
+    body: "Pyyntö, vertailu ja Tarjousvahti maksavat 0 €.",
     highlight: false,
   },
 ] as const;

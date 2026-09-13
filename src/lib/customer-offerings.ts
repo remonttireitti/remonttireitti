@@ -27,11 +27,11 @@ export const CUSTOMER_OFFERINGS: CustomerOffering[] = [
     title: "Kilpailuta remontti tai asennus",
     tagline: "Useita tarjouksia yhdestä pyynnöstä",
     body:
-      "Keittiö, kylpyhuone, katto, lämmitys, sähkö, LVI, terassi… Kuvaile työ ja lisää kuvat — saat useilta urakoitsijoilta vertailukelpoiset tarjoukset samassa muodossa.",
+      "Keittiö, kylpyhuone, katto, lämmitys, sähkö, LVI, terassi… Ohjattu lomake auttaa kuvaamaan työn selkeästi — urakoitsijat saavat tarpeeksi tietoa tarkkaan tarjoukseen.",
     bullets: [
-      "Ilmainen tarjouspyyntö, ei sitoumusta",
-      "Hinta, laajuus, takuu ja aikataulu samassa paketissa",
-      "Voit tingata vastatarjouksella",
+      "Ohjattu pyyntö ja laatupiste ennen julkaisua",
+      "Oppiva pohja ehdottaa tärkeitä kohtia työlajeittain",
+      "Vertailukelpoiset tarjoukset — voit tingata vastatarjouksella",
     ],
     href: "/remontti/uusi",
     cta: "Aloita remonttipyyntö",

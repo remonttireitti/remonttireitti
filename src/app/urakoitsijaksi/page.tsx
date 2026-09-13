@@ -61,10 +61,11 @@ export default async function ContractorLandingPage() {
             <span className="text-sky-700">tarjouspyynnöt</span>
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-lg text-stone-600">
-            Sinun ei tarvitse etsiä töitä — Remonttireitti tuo valmiit
-            tarjouspyynnöt alueeltasi suoraan eteesi: kuvat, kuvaus ja budjetti
-            mukana. Tarjous on maksuton — maksat vain voitetusta diilistä.
-            Ensimmäiset 3 hyväksyttyä diiliä ilman välityspalkkiota.
+            Sinun ei tarvitse etsiä töitä — Remonttireitti tuo laadukkaita
+            tarjouspyyntöjä alueeltasi: ohjattu lomake, laatupiste ja oppiva
+            pohja auttavat asiakasta kuvaamaan työn selkeästi. Tarjousavustaja
+            tarkistaa tarjouksesi ennen lähetystä. Tarjous on maksuton — maksat
+            vain voitetusta diilistä.
           </p>
           <div className="mx-auto mt-8 max-w-xl">
             <BetaPlatformFeeBanner showCta={!contractor} />
@@ -119,8 +120,18 @@ export default async function ContractorLandingPage() {
                   ✓
                 </span>
                 <span>
-                  <strong>Valmiit pyynnöt</strong> — asiakas on kuvannut kohteen
-                  ja liittänyt kuvat. Lämpöpumpuissa tarkempi lomake.
+                  <strong>Laadukkaat pyynnöt</strong> — ohjattu lomake, laatupiste
+                  ja oppiva pohja. Lämpöpumpuissa tarkempi lomake. Voit pyytää
+                  täydennystä tai tarjota heti.
+                </span>
+              </li>
+              <li className="flex gap-2">
+                <span className="text-sky-600" aria-hidden>
+                  ✓
+                </span>
+                <span>
+                  <strong>Tarjousavustaja</strong> — tarkistaa laajuuden, takuun
+                  ja ehdot reaaliajassa ennen kuin lähetät tarjouksen.
                 </span>
               </li>
               <li className="flex gap-2">

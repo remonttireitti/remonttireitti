@@ -4,8 +4,8 @@ import { brand } from "@/lib/brand-theme";
 const steps = [
   {
     step: "1",
-    title: "Kuvaile työ ja kohde",
-    body: "Kuvaile kohde ja liitä kuvat.",
+    title: "Täytä ohjattu pyyntö",
+    body: "Valitse työ, seuraa ohjetta ja täydennä laatupisteen avulla — pohja oppii työlajeittain.",
   },
   {
     step: "2",

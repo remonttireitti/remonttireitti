@@ -24,9 +24,9 @@ export type SeoPageDef = {
 export const STATIC_SEO_PAGES: SeoPageDef[] = [
   {
     path: "/",
-    title: "Kilpailuta remontti ilmaiseksi — vertaa tarjouksia ja tingaa",
+    title: "Kilpailuta remontti ilmaiseksi — ohjattu tarjouspyyntö",
     description:
-      "Tarvitsetko remontille tekijän? Julkaise tarjouspyyntö ilmaiseksi, vertaa tarjouksia samassa muodossa ja tingaa vastatarjouksella. Asiakkaalle 0 €.",
+      "Ohjattu tarjouspyyntö, laatupiste ja oppiva pohja. Julkaise ilmaiseksi, saa tarkkoja tarjouksia urakoitsijoilta ja vertaa samassa muodossa. Asiakkaalle 0 €.",
     keywords: mergeKeywords(
       SITE_KEYWORDS,
       HEAT_PUMP_KEYWORDS.slice(0, 3),

@@ -110,8 +110,8 @@ export function CustomerLandingContent() {
           {[
             {
               step: "1",
-              title: "Kuvaile tarve",
-              body: "Valitse remontti, palvelu tai oire. Lisää kuvat ja budjetti — mitä tarkemmin, sitä paremmat tarjoukset.",
+              title: "Täytä ohjattu pyyntö",
+              body: "Valitse työ ja seuraa ohjetta. Laatupiste näyttää mitä vielä kannattaa täydentää — pohja oppii työlajeittain.",
             },
             {
               step: "2",

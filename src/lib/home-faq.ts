@@ -19,6 +19,12 @@ export const HOME_FAQ_ITEMS: HomeFaqItem[] = [
       "Kyllä — ehdota alempaa vastatarjouksella. Urakoitsija hyväksyy tai hylkää sen alustalla.",
   },
   {
+    id: "ohjattu-pyynto",
+    question: "Mikä on ohjattu tarjouspyyntö?",
+    answer:
+      "Vaiheittainen ohje auttaa kuvaamaan työn, kohteen ja aikataulun. Laatupiste näyttää mitä vielä kannattaa täydentää — ja pohja oppii työlajeittain urakoitsijoiden palautteesta.",
+  },
+  {
     id: "halvin-paras",
     question: "Onko halvin tarjous aina paras?",
     answer:
