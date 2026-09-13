@@ -4,6 +4,7 @@ import { useActionState, useMemo, useState } from "react";
 import { ProjectQualityScorePanel } from "@/components/project/project-quality-score-panel";
 import { ProjectRequestGuide } from "@/components/project/project-request-guide";
 import { scoreProjectRequest } from "@/lib/project-request-quality";
+import type { EmphasizedCriterion } from "@/lib/template-criterion-stats";
 import {
   createProject,
   updateProject,
@@ -118,6 +119,7 @@ type ProjectWizardProps = {
   editSnapshot?: ProjectEditSnapshot;
   submittedBidCount?: number;
   prefill?: RemonttiPrefill;
+  emphasizedCriteria?: EmphasizedCriterion[];
 };
 
 export function ProjectWizard({
@@ -127,6 +129,7 @@ export function ProjectWizard({
   editSnapshot,
   submittedBidCount = 0,
   prefill,
+  emphasizedCriteria = [],
 }: ProjectWizardProps) {
   const isEdit = Boolean(editSnapshot);
   const prefillApplied = !isEdit && prefill
@@ -558,6 +561,7 @@ export function ProjectWizard({
               jobSlug={selectedJobType?.slug ?? null}
               description={form.description}
               onDescriptionChange={(value) => update("description", value)}
+              emphasizedCriteria={emphasizedCriteria}
             />
             {isFreeForm && (
               <ProjectAllTradesPicker

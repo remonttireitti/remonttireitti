@@ -6,6 +6,7 @@ import {
   isStructuredJobSlug,
   type RequestGuideQuestion,
 } from "@/constants/project-request-templates";
+import type { EmphasizedCriterion } from "@/lib/template-criterion-stats";
 
 function normalize(text: string): string {
   return text.toLowerCase().normalize("NFD").replace(/\p{M}/gu, "");
@@ -21,13 +22,18 @@ export function ProjectRequestGuide({
   jobSlug,
   description,
   onDescriptionChange,
+  emphasizedCriteria = [],
 }: {
   jobSlug: string | null;
   description: string;
   onDescriptionChange: (value: string) => void;
+  emphasizedCriteria?: EmphasizedCriterion[];
 }) {
   const template = getProjectRequestTemplate(jobSlug);
   const [expanded, setExpanded] = useState(true);
+  const emphasizedForJob = emphasizedCriteria.filter(
+    (c) => c.jobSlug === (jobSlug ?? "generic") && c.requestCount >= 2,
+  );
 
   const answeredIds = useMemo(() => {
     return template.questions
@@ -68,6 +74,17 @@ export function ProjectRequestGuide({
           {answeredIds.length}/{template.questions.length} ✓
         </span>
       </button>
+
+      {emphasizedForJob.length > 0 && (
+        <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50/80 px-3 py-2 text-xs text-amber-950">
+          <p className="font-medium">Urakoitsijat usein pyytävät tarkentamaan:</p>
+          <ul className="mt-1 space-y-0.5">
+            {emphasizedForJob.map((c) => (
+              <li key={c.id}>• {c.label}</li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {expanded && (
         <ol className="mt-4 space-y-3">

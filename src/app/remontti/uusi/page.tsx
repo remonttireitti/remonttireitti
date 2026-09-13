@@ -7,6 +7,8 @@ import { getProfile, getSessionUser } from "@/lib/auth";
 import { fetchProjectCatalog } from "@/lib/job-catalog-server";
 import { parseRemonttiPrefillFromSearchParams } from "@/lib/remontti-prefill";
 import { brand } from "@/lib/brand-theme";
+import { fetchAllEmphasizedCriteria } from "@/lib/template-criterion-stats";
+import { createClient } from "@/lib/supabase/server";
 
 export default async function NewProjectPage({
   searchParams,
@@ -29,7 +31,11 @@ export default async function NewProjectPage({
     redirect("/oma-tili");
   }
 
-  const catalog = await fetchProjectCatalog();
+  const supabase = await createClient();
+  const [catalog, emphasizedCriteria] = await Promise.all([
+    fetchProjectCatalog(),
+    fetchAllEmphasizedCriteria(supabase),
+  ]);
 
   if (catalog.jobTypes.length === 0) {
     return (
@@ -83,6 +89,7 @@ export default async function NewProjectPage({
             defaultEmail={user.email ?? ""}
             defaultPhone={profile?.phone ?? ""}
             prefill={prefill}
+            emphasizedCriteria={emphasizedCriteria}
           />
         </div>
       </main>

@@ -377,3 +377,19 @@ export async function userNotifyProjectMessage(params: {
     linkPath,
   });
 }
+
+export async function userNotifyProjectCompletionRequested(params: {
+  customerId: string;
+  projectId: string;
+  projectTitle: string;
+  contractorCompany: string;
+  criterionCount: number;
+}) {
+  await inApp(
+    params.customerId,
+    "project_completion_requested",
+    "Täydennä tarjouspyyntöä",
+    `${params.contractorCompany} pyytää ${params.criterionCount} lisätietoa: ${params.projectTitle}`,
+    `/remontti/${params.projectId}?taydenna=1`,
+  );
+}
