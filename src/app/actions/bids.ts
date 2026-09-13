@@ -27,7 +27,10 @@ import {
   userNotifyCounterOfferAccepted,
   userNotifyCounterOfferDeclined,
 } from "@/lib/user-notify";
-import { notifyCustomerAboutBid } from "@/lib/bid-customer-notify";
+import {
+  notifyCustomerAboutBid,
+  notifyCustomerAboutBidWithdrawn,
+} from "@/lib/bid-customer-notify";
 import { scheduleNotification } from "@/lib/schedule-notification";
 import { isBidStale, STALE_BID_CUSTOMER_MESSAGE } from "@/lib/bid-staleness";
 import {
@@ -440,7 +443,7 @@ export async function updateBid(
 
   const { data: bid } = await supabase
     .from("bids")
-    .select("id, status")
+    .select("id, status, confirmed_content_revision")
     .eq("id", bidId)
     .eq("project_id", payload.projectId)
     .eq("contractor_id", user.id)
@@ -452,6 +455,10 @@ export async function updateBid(
       "Vain lähetettyä tai hylättyä tarjousta voi muokata.",
     );
   }
+
+  const wasStale =
+    bid.status === "submitted" &&
+    isBidStale(bid, payload.project.content_revision);
 
   const { error } = await updateBidRow(
     supabase,
@@ -465,25 +472,24 @@ export async function updateBid(
     return bidError(formData, formatBidSaveError(error));
   }
 
-  if (bid.status === "rejected") {
-    const { data: contractor } = await supabase
-      .from("contractor_profiles")
-      .select("company_name")
-      .eq("id", user.id)
-      .single();
+  const { data: contractor } = await supabase
+    .from("contractor_profiles")
+    .select("company_name")
+    .eq("id", user.id)
+    .single();
 
-    scheduleNotification(() =>
-      notifyCustomerAboutBid({
-        customerId: payload.project.customer_id,
-        guestEmail: payload.project.guest_email,
-        contactEmail: payload.project.contact_email,
-        projectTitle: payload.project.title,
-        projectId: payload.projectId,
-        contractorCompany: contractor?.company_name ?? "Urakoitsija",
-        kind: "updated",
-      }),
-    );
-  }
+  scheduleNotification(() =>
+    notifyCustomerAboutBid({
+      customerId: payload.project.customer_id,
+      guestEmail: payload.project.guest_email,
+      contactEmail: payload.project.contact_email,
+      projectTitle: payload.project.title,
+      projectId: payload.projectId,
+      contractorCompany: contractor?.company_name ?? "Urakoitsija",
+      kind: "updated",
+      afterCompletion: wasStale,
+    }),
+  );
 
   revalidateBidPaths(payload.projectId);
   redirect(`/tarjoukset/${payload.projectId}?tarjous=paivitetty`);
@@ -506,7 +512,7 @@ export async function withdrawBid(
 
   const { data: project } = await supabase
     .from("projects")
-    .select("status")
+    .select("status, title, customer_id, guest_email, contact_email")
     .eq("id", projectId)
     .single();
 
@@ -535,6 +541,23 @@ export async function withdrawBid(
     .eq("id", bidId);
 
   if (error) return { error: "Tarjouksen peruminen epäonnistui." };
+
+  const { data: contractor } = await supabase
+    .from("contractor_profiles")
+    .select("company_name")
+    .eq("id", user.id)
+    .single();
+
+  scheduleNotification(() =>
+    notifyCustomerAboutBidWithdrawn({
+      customerId: project.customer_id,
+      guestEmail: project.guest_email,
+      contactEmail: project.contact_email,
+      projectTitle: project.title,
+      projectId,
+      contractorCompany: contractor?.company_name ?? "Urakoitsija",
+    }),
+  );
 
   revalidateBidPaths(projectId);
   return {};
