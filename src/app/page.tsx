@@ -37,14 +37,18 @@ import {
 } from "@/lib/public-projects-server";
 import { fetchPublicPlatformStats } from "@/lib/public-platform-stats";
 import { brand } from "@/lib/brand-theme";
+import { fetchBidEvaluationSettings } from "@/lib/bid-evaluation-server";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function Home() {
-  const [openProjects, openProjectCount, platformStats] = await Promise.all([
-    fetchPublicOpenProjects(12),
-    countPublicOpenProjects(),
-    fetchPublicPlatformStats(),
-  ]);
+  const supabase = await createClient();
+  const [openProjects, openProjectCount, platformStats, bidEvaluationSettings] =
+    await Promise.all([
+      fetchPublicOpenProjects(12),
+      countPublicOpenProjects(),
+      fetchPublicPlatformStats(),
+      fetchBidEvaluationSettings(supabase),
+    ]);
   const user = await getSessionUser();
   let notifications: Awaited<ReturnType<typeof fetchUserNotifications>> = [];
   let archivedNotifications: Awaited<
@@ -53,7 +57,6 @@ export default async function Home() {
   let unreadCount = 0;
 
   if (user) {
-    const supabase = await createClient();
     const [active, archived, unread] = await Promise.all([
       fetchUserNotifications(supabase, user.id, 12),
       fetchArchivedUserNotifications(supabase, user.id, 50),
@@ -154,7 +157,7 @@ export default async function Home() {
 
         <HomeSeoContent />
 
-        <HomeTarjousvahti />
+        <HomeTarjousvahti settings={bidEvaluationSettings} />
 
         <HomeFaq />
 

@@ -3,9 +3,12 @@ import Link from "next/link";
 import { EvaluationRequestForm } from "@/components/bid-evaluation/evaluation-request-form";
 import { SiteHeader } from "@/components/site-header";
 import { brand } from "@/lib/brand-theme";
+import { EvaluationPricingNotice } from "@/components/bid-evaluation/evaluation-pricing-notice";
 import { IMPARTIALITY_NOTICE } from "@/lib/bid-evaluation";
+import { fetchBidEvaluationSettings } from "@/lib/bid-evaluation-server";
 import { pageMetadata } from "@/lib/seo";
 import { getSessionUser } from "@/lib/auth";
+import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = pageMetadata({
   title: "Tarjousvahti — ilmainen puolueeton tarjousarvio",
@@ -23,6 +26,8 @@ const checks = [
 
 export default async function TarjousarvioPage() {
   const user = await getSessionUser();
+  const supabase = await createClient();
+  const settings = await fetchBidEvaluationSettings(supabase);
 
   return (
     <div className={brand.page}>
@@ -53,6 +58,10 @@ export default async function TarjousarvioPage() {
         <p className="mt-6 max-w-2xl rounded-xl border border-violet-100 bg-violet-50/50 px-4 py-3 text-sm text-violet-950">
           {IMPARTIALITY_NOTICE}
         </p>
+
+        <div className="mt-4 max-w-2xl">
+          <EvaluationPricingNotice settings={settings} />
+        </div>
 
         {user ? (
           <div className="mt-8">

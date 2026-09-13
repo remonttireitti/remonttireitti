@@ -2,10 +2,12 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { EvaluationItemForm } from "@/components/bid-evaluation/evaluation-item-form";
 import { SiteHeader } from "@/components/site-header";
+import { EvaluationPricingNotice } from "@/components/bid-evaluation/evaluation-pricing-notice";
 import { EvaluationSubmitButton } from "@/components/bid-evaluation/evaluation-submit-button";
 import { brand } from "@/lib/brand-theme";
 import { formatEurosFromCents } from "@/lib/bids";
 import {
+  fetchBidEvaluationSettings,
   fetchEvaluationItems,
   fetchEvaluationRequestById,
 } from "@/lib/bid-evaluation-server";
@@ -27,6 +29,7 @@ export default async function EditEvaluationPage({
   if (request.status !== "draft") redirect(`/tarjousarvio/${id}`);
 
   const items = await fetchEvaluationItems(supabase, id);
+  const settings = await fetchBidEvaluationSettings(supabase);
 
   let platformBids: {
     id: string;
@@ -117,8 +120,13 @@ export default async function EditEvaluationPage({
         )}
 
         {items.length > 0 && (
-          <div className="mt-8">
-            <EvaluationSubmitButton requestId={id} />
+          <div className="mt-8 space-y-4">
+            <EvaluationPricingNotice settings={settings} bidCount={items.length} />
+            <EvaluationSubmitButton
+              requestId={id}
+              settings={settings}
+              bidCount={items.length}
+            />
           </div>
         )}
       </main>

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { EvaluationDeclineForm } from "@/components/bid-evaluation/evaluation-decline-form";
 import { EvaluationReviewForm } from "@/components/bid-evaluation/evaluation-review-form";
 import { SiteHeader } from "@/components/site-header";
 import { brand } from "@/lib/brand-theme";
@@ -90,7 +91,8 @@ export default async function EvaluatorReviewPage({
           })}
         </section>
 
-        <div className="mt-8">
+        <div className="mt-8 space-y-8">
+          <EvaluationDeclineForm requestId={id} />
           <EvaluationReviewForm requestId={id} items={items} />
         </div>
       </main>
