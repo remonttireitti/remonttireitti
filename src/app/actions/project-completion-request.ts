@@ -229,7 +229,7 @@ export async function requestProjectCompletion(
 
   revalidatePath(`/tarjoukset/${projectId}`);
   revalidatePath(`/remontti/${projectId}`);
-  return { ok: "Täydennäpyyntö lähetetty asiakkaalle." };
+  return { ok: "Hinta-arvio ja täydennyspyyntö lähetetty asiakkaalle." };
 }
 
 export async function submitProjectCompletionUpdate(
