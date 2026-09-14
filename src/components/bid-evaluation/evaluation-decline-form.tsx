@@ -5,6 +5,7 @@ import {
   releaseEvaluationRequest,
   type BidEvaluationActionState,
 } from "@/app/actions/bid-evaluation";
+import { useActionRedirect } from "@/hooks/use-action-redirect";
 
 const inputClass =
   "mt-1 w-full rounded-lg border border-stone-300 px-3 py-2 text-sm";
@@ -14,6 +15,8 @@ export function EvaluationDeclineForm({ requestId }: { requestId: string }) {
     BidEvaluationActionState,
     FormData
   >(releaseEvaluationRequest, {});
+
+  useActionRedirect(state);
 
   return (
     <form

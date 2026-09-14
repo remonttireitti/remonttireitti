@@ -34,7 +34,7 @@ export default async function MarketplacePricingPage() {
         <h1 className="mt-4 text-3xl font-bold tracking-tight">Hinnasto</h1>
         <p className="mt-3 max-w-2xl text-stone-600">
           Yrityshinnat ovat verottomia; ALV lisätään laskulle. Maksut kirjataan
-          manuaalisesti — lähetämme laskun osoitteeseen{" "}
+          manuaalisesti — lähetämme laskun sähköpostiisi osoitteesta{" "}
           <a
             href={`mailto:${MARKETPLACE_INVOICE_EMAIL}`}
             className="font-medium text-sky-700 hover:underline"

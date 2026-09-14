@@ -83,6 +83,6 @@ export async function requestContractorPlan(
   revalidatePath("/markkinapaikka/tilaa");
 
   return {
-    success: `Tilauspyyntö vastaanotettu. Lasku lähetetään osoitteeseen ${MARKETPLACE_INVOICE_EMAIL} — ilmoitukset aktivoituvat maksun jälkeen.`,
+    success: `Tilauspyyntö vastaanotettu. Lasku lähetetään sähköpostiisi osoitteesta ${MARKETPLACE_INVOICE_EMAIL} — ilmoitukset aktivoituvat maksun jälkeen.`,
   };
 }

@@ -21,7 +21,8 @@ import {
   shouldOfferContractorActivation,
 } from "@/lib/contractor-activation";
 import { getProfile, getSessionUser, isContractor } from "@/lib/auth";
-import { countActiveConsumerListings } from "@/app/actions/marketplace-listings";
+import { countConsumerListingSlotsLeft } from "@/app/actions/marketplace-listings";
+import { normalizeListingContactEmail } from "@/lib/listing-contact-email";
 import {
   getActiveContractorSubscription,
   subscriptionSlotsLeft,
@@ -123,7 +124,8 @@ export default async function MarketplaceCreateListingPage({
             role="status"
           >
             Ilmoitus odottaa maksua ({params.summa ?? "29 €"}). Lasku lähetetään
-            osoitteeseen {params.email ?? "laskutus@remonttireitti.fi"}.
+            sähköpostiisi osoitteesta{" "}
+            {params.email ?? "laskutus@remonttireitti.fi"}.
           </p>
         )}
 
@@ -163,8 +165,8 @@ async function ConsumerWantedListingInfo() {
   if (!user) redirect("/kirjaudu?redirect=/markkinapaikka/ilmoita?tyyppi=ostopyynto");
 
   const profile = await getProfile();
-  const active = await countActiveConsumerListings(user.id);
-  const slotsLeft = Math.max(0, CONSUMER_FREE_MAX_ACTIVE_LISTINGS - active);
+  const contactEmail = normalizeListingContactEmail(user.email ?? "");
+  const slotsLeft = await countConsumerListingSlotsLeft(user.id, contactEmail);
 
   return (
     <div className={brand.page}>
@@ -209,8 +211,8 @@ async function ConsumerListingInfo() {
   if (!user) redirect("/kirjaudu?redirect=/markkinapaikka/ilmoita?tyyppi=kuluttaja");
 
   const profile = await getProfile();
-  const active = await countActiveConsumerListings(user.id);
-  const slotsLeft = Math.max(0, CONSUMER_FREE_MAX_ACTIVE_LISTINGS - active);
+  const contactEmail = normalizeListingContactEmail(user.email ?? "");
+  const slotsLeft = await countConsumerListingSlotsLeft(user.id, contactEmail);
 
   return (
     <div className={brand.page}>
@@ -224,8 +226,9 @@ async function ConsumerListingInfo() {
         </Link>
         <h1 className="mt-4 text-2xl font-bold">Ilmoita myytävä laite</h1>
         <p className="mt-2 text-sm text-stone-600">
-          Yksityishenkilönä ilmoitus on maksuton. Myy remonttiin liittyvä laite,
-          varaosa tai tarvike — näkyy torilla 4 viikkoa tai kunnes poistat sen.
+          Yksityishenkilönä ilmoitus on maksuton. Vahvistamme sähköpostiosoitteen
+          ennen julkaisua. Enintään {CONSUMER_FREE_MAX_ACTIVE_LISTINGS} aktiivista
+          ilmoitusta per sähköpostiosoite.
         </p>
 
         <p className="mt-3 text-sm">

@@ -9,7 +9,7 @@ type ListingAction = (
   formData: FormData,
 ) => Promise<ListingActionState>;
 
-/** Lähettää ilmoituslomakkeen server actionille ilman useActionState-redirect-ongelmia. */
+/** Lähettää ilmoituslomakkeen server actionille ilman useActionState-ongelmia. */
 export function useListingFormSubmit(action: ListingAction) {
   const router = useRouter();
   const [state, setState] = useState<ListingActionState>({});
@@ -21,7 +21,7 @@ export function useListingFormSubmit(action: ListingAction) {
         try {
           const result = await action({}, formData);
           setState(result);
-          if (result.ok && result.redirectPath) {
+          if (result.redirectPath) {
             router.push(result.redirectPath);
             router.refresh();
           }

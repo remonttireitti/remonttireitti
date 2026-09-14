@@ -66,6 +66,7 @@ import { redirect } from "next/navigation";
 export type BidActionState = {
   error?: string;
   success?: string;
+  redirectPath?: string;
   fields?: BidFormFields;
   fieldErrors?: Partial<Record<BidFormFieldKey, string>>;
 };
@@ -426,7 +427,9 @@ export async function submitBid(
   }
 
   revalidateBidPaths(payload.projectId);
-  redirect(`/tarjoukset/${payload.projectId}?tarjous=lahetetty`);
+  return {
+    redirectPath: `/tarjoukset/${payload.projectId}?tarjous=lahetetty`,
+  };
 }
 
 export async function updateBid(
@@ -510,7 +513,9 @@ export async function updateBid(
   );
 
   revalidateBidPaths(payload.projectId);
-  redirect(`/tarjoukset/${payload.projectId}?tarjous=paivitetty`);
+  return {
+    redirectPath: `/tarjoukset/${payload.projectId}?tarjous=paivitetty`,
+  };
 }
 
 export async function withdrawBid(

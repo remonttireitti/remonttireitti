@@ -23,7 +23,6 @@ const nextConfig: NextConfig = {
       // Ilmoituskuvat: enintään 8 × 5 Mt (+ lomaketeksti)
       bodySizeLimit: "45mb",
     },
-    // OpenNext / Cloudflare — suurempi POST-koko server actioneille
     proxyClientMaxBodySize: "45mb",
   },
   images: {

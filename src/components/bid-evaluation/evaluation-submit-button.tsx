@@ -5,6 +5,7 @@ import {
   submitBidEvaluationRequest,
   type BidEvaluationActionState,
 } from "@/app/actions/bid-evaluation";
+import { useActionRedirect } from "@/hooks/use-action-redirect";
 import {
   formatEvaluationPriceLabel,
   type BidEvaluationSettings,
@@ -20,10 +21,12 @@ export function EvaluationSubmitButton({
   settings: BidEvaluationSettings;
   bidCount: number;
 }) {
-  const [, action, pending] = useActionState<
+  const [state, action, pending] = useActionState<
     BidEvaluationActionState,
     FormData
   >(submitBidEvaluationRequest, {});
+
+  useActionRedirect(state);
 
   const priceLabel = formatEvaluationPriceLabel(settings, bidCount);
 

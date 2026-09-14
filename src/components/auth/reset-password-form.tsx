@@ -1,23 +1,21 @@
 "use client";
 
-import { useActionState } from "react";
 import Link from "next/link";
 import {
   updatePasswordAfterRecovery,
   type UpdatePasswordState,
 } from "@/app/actions/auth";
+import { useServerActionSubmit } from "@/hooks/use-server-action-submit";
 
 const inputClass =
   "mt-1 w-full rounded-lg border border-stone-300 px-3 py-2 text-stone-900 focus:border-sky-600 focus:outline-none focus:ring-1 focus:ring-sky-600";
 
 export function ResetPasswordForm() {
-  const [state, action, pending] = useActionState<UpdatePasswordState, FormData>(
-    updatePasswordAfterRecovery,
-    {},
-  );
+  const { state, submit, pending } =
+    useServerActionSubmit<UpdatePasswordState>(updatePasswordAfterRecovery);
 
   return (
-    <form action={action} className="space-y-4">
+    <form action={submit} className="space-y-4">
       <p className="text-sm leading-relaxed text-stone-600">
         Valitse uusi salasana (vähintään 8 merkkiä).
       </p>

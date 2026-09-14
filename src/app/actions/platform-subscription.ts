@@ -62,6 +62,6 @@ export async function requestPlatformSubscription(
   revalidatePath("/urakoitsijaksi/tilaa");
 
   return {
-    success: `Tilauspyyntö vastaanotettu. Lasku lähetetään osoitteeseen ${PLATFORM_INVOICE_EMAIL} — tilaus aktivoituu maksun jälkeen (yleensä 1–2 arkipäivää).`,
+    success: `Tilauspyyntö vastaanotettu. Lasku lähetetään sähköpostiisi osoitteesta ${PLATFORM_INVOICE_EMAIL} — tilaus aktivoituu maksun jälkeen (yleensä 1–2 arkipäivää).`,
   };
 }
