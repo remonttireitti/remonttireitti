@@ -31,6 +31,7 @@ import {
   notifyCustomerAboutBid,
   notifyCustomerAboutBidWithdrawn,
 } from "@/lib/bid-customer-notify";
+import { recordProjectActivityEvent } from "@/lib/project-activity-events-server";
 import { scheduleNotification } from "@/lib/schedule-notification";
 import { isBidStale, STALE_BID_CUSTOMER_MESSAGE } from "@/lib/bid-staleness";
 import {
@@ -474,6 +475,14 @@ export async function updateBid(
     console.error("[updateBid]", error.code, error.message);
     return bidError(formData, formatBidSaveError(error));
   }
+
+  await recordProjectActivityEvent({
+    projectId: payload.projectId,
+    eventType: "bid_updated",
+    kind: "contractor",
+    actorId: user.id,
+    referenceId: bidId,
+  });
 
   const { data: contractor } = await supabase
     .from("contractor_profiles")

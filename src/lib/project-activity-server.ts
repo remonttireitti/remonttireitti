@@ -1,5 +1,10 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
+  fetchStoredProjectActivityEvents,
+  storedBidUpdateReferenceIds,
+  storedRowsToActivityEvents,
+} from "@/lib/project-activity-events-server";
+import {
   type ProjectActivityEvent,
   sortActivityEvents,
 } from "@/lib/project-activity";
@@ -176,7 +181,11 @@ function buildBidEvents(
   bids: BidRow[],
   companyMap: Map<string, string>,
   events: ProjectActivityEvent[],
-  options: { forContractorId?: string; customerView: boolean },
+  options: {
+    forContractorId?: string;
+    customerView: boolean;
+    storedBidUpdateIds?: Set<string>;
+  },
 ) {
   for (const bid of bids) {
     const company = companyLabel(companyMap, bid.contractor_id);
@@ -192,11 +201,15 @@ function buildBidEvents(
       });
     }
 
+    const hasStoredUpdate = options.storedBidUpdateIds?.has(bid.id) ?? false;
+    const submittedMs = bid.submitted_at ? new Date(bid.submitted_at).getTime() : null;
+    const updatedMs = bid.updated_at ? new Date(bid.updated_at).getTime() : null;
+
     if (
-      bid.updated_at &&
-      bid.submitted_at &&
-      bid.updated_at > bid.submitted_at &&
-      new Date(bid.updated_at).getTime() - new Date(bid.submitted_at).getTime() > 2_000
+      !hasStoredUpdate &&
+      submittedMs != null &&
+      updatedMs != null &&
+      updatedMs - submittedMs > 2_000
     ) {
       pushEvent(events, {
         id: `bid-update-${bid.id}-${bid.updated_at}`,
@@ -315,7 +328,8 @@ function buildInvoiceEvents(
 async function loadActivityData(projectId: string) {
   const admin = createAdminClient();
 
-  const [projectRes, bidsRes, completionRes, invoiceRes] = await Promise.all([
+  const [projectRes, bidsRes, completionRes, invoiceRes, storedEvents] =
+    await Promise.all([
     admin
       .from("projects")
       .select(
@@ -337,6 +351,7 @@ async function loadActivityData(projectId: string) {
       .from("platform_invoices")
       .select("contractor_id, created_at, paid_at, status")
       .eq("project_id", projectId),
+    fetchStoredProjectActivityEvents(projectId),
   ]);
 
   if (!projectRes.data) return null;
@@ -345,6 +360,7 @@ async function loadActivityData(projectId: string) {
     ...(bidsRes.data ?? []).map((b) => b.contractor_id),
     ...(completionRes.data ?? []).map((c) => c.contractor_id),
     ...(invoiceRes.data ?? []).map((i) => i.contractor_id),
+    ...storedEvents.map((e) => e.actor_id).filter(Boolean) as string[],
   ];
 
   const companyMap = await contractorNames(admin, contractorIds);
@@ -354,6 +370,8 @@ async function loadActivityData(projectId: string) {
     bids: (bidsRes.data ?? []) as BidRow[],
     completions: (completionRes.data ?? []) as CompletionRow[],
     invoices: (invoiceRes.data ?? []) as InvoiceRow[],
+    storedEvents,
+    storedBidUpdateIds: storedBidUpdateReferenceIds(storedEvents),
     companyMap,
   };
 }
@@ -369,10 +387,18 @@ export async function fetchCustomerProjectActivity(
   buildCompletionEvents(data.completions, data.companyMap, events, {
     customerView: true,
   });
-  buildBidEvents(data.bids, data.companyMap, events, { customerView: true });
+  buildBidEvents(data.bids, data.companyMap, events, {
+    customerView: true,
+    storedBidUpdateIds: data.storedBidUpdateIds,
+  });
   buildInvoiceEvents(data.invoices, data.companyMap, events, {
     customerView: true,
   });
+  events.push(
+    ...storedRowsToActivityEvents(data.storedEvents, data.companyMap, {
+      customerView: true,
+    }),
+  );
 
   return sortActivityEvents(events);
 }
@@ -393,11 +419,18 @@ export async function fetchContractorProjectActivity(
   buildBidEvents(data.bids, data.companyMap, events, {
     forContractorId: contractorId,
     customerView: false,
+    storedBidUpdateIds: data.storedBidUpdateIds,
   });
   buildInvoiceEvents(data.invoices, data.companyMap, events, {
     forContractorId: contractorId,
     customerView: false,
   });
+  events.push(
+    ...storedRowsToActivityEvents(data.storedEvents, data.companyMap, {
+      forContractorId: contractorId,
+      customerView: false,
+    }),
+  );
 
   return sortActivityEvents(events);
 }
