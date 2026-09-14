@@ -20,6 +20,7 @@ import { headers } from "next/headers";
 export type AuthState = {
   error?: string;
   success?: string;
+  redirectPath?: string;
 };
 
 export type PasswordResetRequestState = {
@@ -30,6 +31,7 @@ export type PasswordResetRequestState = {
 export type UpdatePasswordState = {
   error?: string;
   success?: string;
+  redirectPath?: string;
 };
 
 const MIN_PASSWORD_LENGTH = 8;
@@ -88,7 +90,7 @@ export async function signUp(
   }
 
   if (data.user && !data.session) {
-    redirect("/kirjaudu?vahvistus=1");
+    return { redirectPath: "/kirjaudu?vahvistus=1" };
   }
 
   if (data.user && role === "contractor") {
@@ -147,7 +149,7 @@ export async function signUp(
       email,
     });
 
-    redirect("/tarjoukset");
+    return { redirectPath: "/tarjoukset" };
   }
 
   if (data.user) {
@@ -159,7 +161,7 @@ export async function signUp(
     });
   }
 
-  redirect("/oma-tili");
+  return { redirectPath: "/oma-tili" };
 }
 
 export async function signIn(
@@ -204,15 +206,17 @@ export async function signIn(
       profile?.role === "contractor" || !!contractorProfile;
 
     if (isContractorUser && redirectTo === "/oma-tili") {
-      redirect("/tarjoukset");
+      return { redirectPath: "/tarjoukset" };
     }
 
     if (isContractorUser && redirectTo.startsWith("/tarjoukset")) {
-      redirect(redirectTo);
+      return { redirectPath: redirectTo };
     }
   }
 
-  redirect(redirectTo.startsWith("/") ? redirectTo : "/oma-tili");
+  return {
+    redirectPath: redirectTo.startsWith("/") ? redirectTo : "/oma-tili",
+  };
 }
 
 export async function signOut() {
@@ -288,5 +292,5 @@ export async function updatePasswordAfterRecovery(
     return { error: "Salasanan vaihto epäonnistui. Yritä uudelleen." };
   }
 
-  redirect("/kirjaudu?salasana=1");
+  return { redirectPath: "/kirjaudu?salasana=1" };
 }

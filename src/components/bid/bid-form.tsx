@@ -1,13 +1,7 @@
 "use client";
 
-import {
-  useActionState,
-  useEffect,
-  useState,
-  startTransition,
-  type FormEvent,
-} from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState, type FormEvent } from "react";
+import { useServerActionSubmit } from "@/hooks/use-server-action-submit";
 import {
   submitBid,
   updateBid,
@@ -125,10 +119,8 @@ export function BidForm({
   );
   const saveAction = mode === "edit" ? updateBid : submitBid;
 
-  const router = useRouter();
-  const [state, formAction, pending] = useActionState<BidActionState, FormData>(
+  const { state, submit, pending } = useServerActionSubmit<BidActionState>(
     saveAction,
-    {},
   );
 
   useEffect(() => {
@@ -245,9 +237,7 @@ export function BidForm({
 
     setClientError(null);
     setFieldErrors({});
-    startTransition(() => {
-      formAction(fd);
-    });
+    submit(fd);
   }
 
   const workEuros = Number(fields.amount_euros) || 0;

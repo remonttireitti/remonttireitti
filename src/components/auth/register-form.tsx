@@ -1,7 +1,8 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useState } from "react";
 import { signUp, type AuthState } from "@/app/actions/auth";
+import { useServerActionSubmit } from "@/hooks/use-server-action-submit";
 import { ContractorCompanyFactsFields } from "@/components/contractor/contractor-company-facts-fields";
 import { ContractorQualificationFields } from "@/components/contractor/qualification-fields";
 import type { SelectableTrade } from "@/lib/contractor-trade-options";
@@ -25,13 +26,10 @@ export function RegisterForm({
   const [role, setRole] = useState<"customer" | "contractor">(
     defaultRole ?? "customer",
   );
-  const [state, action, pending] = useActionState<AuthState, FormData>(
-    signUp,
-    {},
-  );
+  const { state, submit, pending } = useServerActionSubmit<AuthState>(signUp);
 
   return (
-    <form action={action} className="space-y-4">
+    <form action={submit} className="space-y-4">
       <input type="hidden" name="role" value={role} />
       <fieldset className="space-y-2">
         <legend className="text-sm font-medium">Olen</legend>

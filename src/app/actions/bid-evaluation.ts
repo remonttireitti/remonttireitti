@@ -1,7 +1,6 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 import { uploadBidEvaluationFiles } from "@/lib/bid-evaluation-files";
 import {
   BID_EVALUATION_DIMENSIONS,
@@ -21,15 +20,18 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { HEAT_PUMP_JOB_SLUGS } from "@/constants/heat-pumps";
 
-export type BidEvaluationActionState = { error?: string; ok?: string };
+export type BidEvaluationActionState = {
+  error?: string;
+  ok?: string;
+  redirectPath?: string;
+};
 
-async function requireCustomerId(): Promise<string> {
+async function requireCustomerId(): Promise<string | null> {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) redirect("/kirjaudu?redirect=/tarjousarvio");
-  return user.id;
+  return user?.id ?? null;
 }
 
 function parseVerdict(raw: string): BidEvaluationVerdict | null {
@@ -44,6 +46,9 @@ export async function createBidEvaluationRequest(
   formData: FormData,
 ): Promise<BidEvaluationActionState> {
   const customerId = await requireCustomerId();
+  if (!customerId) {
+    return { error: "Kirjaudu sisään.", redirectPath: "/kirjaudu?redirect=/tarjousarvio" };
+  }
   const category = parseEvaluationCategory(
     String(formData.get("category") ?? "lammitys"),
   );
@@ -87,7 +92,7 @@ export async function createBidEvaluationRequest(
 
   if (error || !data) return { error: "Pyynnön luonti epäonnistui." };
 
-  redirect(`/tarjousarvio/${data.id}/muokkaa`);
+  return { redirectPath: `/tarjousarvio/${data.id}/muokkaa` };
 }
 
 export async function addEvaluationItem(
@@ -95,6 +100,9 @@ export async function addEvaluationItem(
   formData: FormData,
 ): Promise<BidEvaluationActionState> {
   const customerId = await requireCustomerId();
+  if (!customerId) {
+    return { error: "Kirjaudu sisään.", redirectPath: "/kirjaudu?redirect=/tarjousarvio" };
+  }
   const requestId = String(formData.get("request_id") ?? "");
   const label = String(formData.get("label") ?? "").trim();
   const deviceBrand = String(formData.get("device_brand") ?? "").trim() || null;
@@ -181,6 +189,9 @@ export async function submitBidEvaluationRequest(
   formData: FormData,
 ): Promise<BidEvaluationActionState> {
   const customerId = await requireCustomerId();
+  if (!customerId) {
+    return { error: "Kirjaudu sisään.", redirectPath: "/kirjaudu?redirect=/tarjousarvio" };
+  }
   const requestId = String(formData.get("request_id") ?? "");
 
   const supabase = await createClient();
@@ -231,7 +242,7 @@ export async function submitBidEvaluationRequest(
 
   revalidatePath(`/tarjousarvio/${requestId}`);
   revalidatePath("/arvioija");
-  redirect(`/tarjousarvio/${requestId}?lahetetty=1`);
+  return { redirectPath: `/tarjousarvio/${requestId}?lahetetty=1` };
 }
 
 export async function claimEvaluationRequest(
@@ -242,7 +253,9 @@ export async function claimEvaluationRequest(
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) redirect("/kirjaudu?redirect=/arvioija");
+  if (!user) {
+    return { error: "Kirjaudu sisään.", redirectPath: "/kirjaudu?redirect=/arvioija" };
+  }
 
   await requireEvaluator();
 
@@ -290,7 +303,7 @@ export async function claimEvaluationRequest(
   if (reviewErr) return { error: "Arvion luonti epäonnistui." };
 
   revalidatePath("/arvioija");
-  redirect(`/arvioija/${requestId}`);
+  return { redirectPath: `/arvioija/${requestId}` };
 }
 
 export async function submitEvaluationReview(
@@ -301,7 +314,9 @@ export async function submitEvaluationReview(
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) redirect("/kirjaudu?redirect=/arvioija");
+  if (!user) {
+    return { error: "Kirjaudu sisään.", redirectPath: "/kirjaudu?redirect=/arvioija" };
+  }
 
   await requireEvaluator();
 
@@ -392,7 +407,7 @@ export async function submitEvaluationReview(
 
   revalidatePath(`/tarjousarvio/${requestId}`);
   revalidatePath("/arvioija");
-  redirect(`/arvioija?valmis=1`);
+  return { redirectPath: "/arvioija?valmis=1" };
 }
 
 export async function setEvaluatorScopes(
@@ -448,7 +463,9 @@ export async function setEvaluatorAvailability(
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) redirect("/kirjaudu?redirect=/arvioija");
+  if (!user) {
+    return { error: "Kirjaudu sisään.", redirectPath: "/kirjaudu?redirect=/arvioija" };
+  }
 
   const accepting = formData.get("accepting_reviews") === "on";
   const note =
@@ -521,7 +538,9 @@ export async function releaseEvaluationRequest(
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) redirect("/kirjaudu?redirect=/arvioija");
+  if (!user) {
+    return { error: "Kirjaudu sisään.", redirectPath: "/kirjaudu?redirect=/arvioija" };
+  }
 
   await requireEvaluator();
 
@@ -582,7 +601,7 @@ export async function releaseEvaluationRequest(
 
   revalidatePath("/arvioija");
   revalidatePath(`/arvioija/${requestId}`);
-  redirect("/arvioija?palautettu=1");
+  return { redirectPath: "/arvioija?palautettu=1" };
 }
 
 export async function setBidEvaluationSettings(

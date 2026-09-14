@@ -1,10 +1,10 @@
 "use client";
 
-import { useActionState } from "react";
 import {
   publishProject,
   type ProjectActionState,
 } from "@/app/actions/projects";
+import { useServerActionSubmit } from "@/hooks/use-server-action-submit";
 import { BidWindowFields } from "@/components/project/bid-window-fields";
 import { PROJECT_BID_WINDOW_DAYS } from "@/lib/project-inactivity";
 import { brand } from "@/lib/brand-theme";
@@ -14,10 +14,8 @@ export function ProjectDraftPublishPanel({ projectId }: { projectId: string }) {
   const [bidWindowDays, setBidWindowDays] = useState(
     String(PROJECT_BID_WINDOW_DAYS),
   );
-  const [state, formAction, pending] = useActionState<
-    ProjectActionState,
-    FormData
-  >(publishProject, {});
+  const { state, submit, pending } =
+    useServerActionSubmit<ProjectActionState>(publishProject);
 
   return (
     <section className="mt-6 rounded-2xl border border-amber-200 bg-amber-50/70 p-5">
@@ -31,7 +29,7 @@ export function ProjectDraftPublishPanel({ projectId }: { projectId: string }) {
           {state.error}
         </p>
       )}
-      <form action={formAction} className="mt-4 space-y-4">
+      <form action={submit} className="mt-4 space-y-4">
         <input type="hidden" name="project_id" value={projectId} />
         <BidWindowFields value={bidWindowDays} onChange={setBidWindowDays} />
         <button
