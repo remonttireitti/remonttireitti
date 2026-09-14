@@ -123,7 +123,8 @@ export default async function MarketplaceCreateListingPage({
             role="status"
           >
             Ilmoitus odottaa maksua ({params.summa ?? "29 €"}). Lasku lähetetään
-            osoitteeseen {params.email ?? "laskutus@remonttireitti.fi"}.
+            sähköpostiisi osoitteesta{" "}
+            {params.email ?? "laskutus@remonttireitti.fi"}.
           </p>
         )}
 

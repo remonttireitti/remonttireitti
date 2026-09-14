@@ -48,8 +48,8 @@ export function ContractorListingPaywall({
       </div>
 
       <p className="mt-4 text-xs text-amber-900/80">
-        Lasku lähetetään sähköpostiin. Julkaisu tapahtuu maksun kirjauksen jälkeen
-        (yleensä 1–2 arkipäivää).
+        Lasku lähetetään sähköpostiisi osoitteesta laskutus@remonttireitti.fi.
+        Julkaisu tapahtuu maksun kirjauksen jälkeen (yleensä 1–2 arkipäivää).
       </p>
     </section>
   );
