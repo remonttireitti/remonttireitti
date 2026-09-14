@@ -1,3 +1,4 @@
+import { isAuthUserEmailVerified } from "@/lib/auth-email-verified";
 import { contractorReferralFreeDealsRemainingFor } from "@/lib/contractor-referral";
 import {
   isValidReferrerEmail,
@@ -47,14 +48,18 @@ export async function recordCustomerReferral(
     referredCustomerId: string;
     referrerEmail: string;
   },
-): Promise<{ error?: string }> {
+): Promise<{
+  error?: string;
+  created?: boolean;
+  referrerCustomerId?: string;
+}> {
   const normalizedEmail = normalizeReferrerEmail(params.referrerEmail);
   const referrerId = await lookupCustomerIdByEmail(admin, normalizedEmail);
 
   if (!referrerId) {
     return {
       error:
-        "Suosittelijaa ei löydy — tarkista että sähköposti kuuluu jo rekisteröityneelle asiakkaalle.",
+        "Suosittelijaa ei löydy — tarkista sähköposti tai varmista että suosittelijan tili on vahvistettu.",
     };
   }
 
@@ -69,26 +74,31 @@ export async function recordCustomerReferral(
   });
 
   if (error) {
-    if (error.code === "23505") return {};
+    if (error.code === "23505") return { created: false };
     console.error("[customer-referral] insert failed", error.message);
     return { error: "Suosittelun tallennus epäonnistui." };
   }
 
-  return {};
+  return { created: true, referrerCustomerId: referrerId };
 }
 
 export async function ensureCustomerReferralFromMetadata(
   admin: AdminClient,
   userId: string,
   referrerEmail: string | null | undefined,
-): Promise<void> {
+): Promise<{ created: boolean; referrerCustomerId?: string }> {
   const email = referrerEmail?.trim();
-  if (!email || !isValidReferrerEmail(email)) return;
+  if (!email || !isValidReferrerEmail(email)) return { created: false };
 
-  await recordCustomerReferral(admin, {
+  const res = await recordCustomerReferral(admin, {
     referredCustomerId: userId,
     referrerEmail: email,
   });
+  if (res.error) return { created: false };
+  return {
+    created: res.created ?? false,
+    referrerCustomerId: res.referrerCustomerId,
+  };
 }
 
 export async function recordCustomerContractorReferral(
@@ -97,14 +107,18 @@ export async function recordCustomerContractorReferral(
     referredContractorId: string;
     referrerEmail: string;
   },
-): Promise<{ error?: string }> {
+): Promise<{
+  error?: string;
+  created?: boolean;
+  referrerCustomerId?: string;
+}> {
   const normalizedEmail = normalizeReferrerEmail(params.referrerEmail);
   const referrerId = await lookupCustomerIdByEmail(admin, normalizedEmail);
 
   if (!referrerId) {
     return {
       error:
-        "Suosittelijaa ei löydy — tarkista että sähköposti kuuluu jo rekisteröityneelle asiakkaalle.",
+        "Suosittelijaa ei löydy — tarkista sähköposti tai varmista että suosittelijan tili on vahvistettu.",
     };
   }
 
@@ -119,12 +133,12 @@ export async function recordCustomerContractorReferral(
   });
 
   if (error) {
-    if (error.code === "23505") return {};
+    if (error.code === "23505") return { created: false };
     console.error("[customer-referral] contractor insert failed", error.message);
     return { error: "Suosittelun tallennus epäonnistui." };
   }
 
-  return {};
+  return { created: true, referrerCustomerId: referrerId };
 }
 
 /** Urakoitsijarekisteröinti: suosittelija voi olla urakoitsija tai asiakas. */
@@ -134,7 +148,13 @@ export async function recordContractorSignupReferral(
     referredContractorId: string;
     referrerEmail: string;
   },
-): Promise<{ error?: string; kind?: "contractor" | "customer" }> {
+): Promise<{
+  error?: string;
+  created?: boolean;
+  kind?: "contractor" | "customer_contractor";
+  referrerCustomerId?: string;
+  referrerContractorId?: string;
+}> {
   const normalizedEmail = normalizeReferrerEmail(params.referrerEmail);
 
   const contractorReferrerId = await lookupContractorIdByEmail(
@@ -149,7 +169,12 @@ export async function recordContractorSignupReferral(
       referredContractorId: params.referredContractorId,
       referrerEmail: params.referrerEmail,
     });
-    return res.error ? res : { kind: "contractor" };
+    if (res.error) return res;
+    return {
+      created: res.created,
+      kind: "contractor",
+      referrerContractorId: res.referrerContractorId,
+    };
   }
 
   const customerReferrerId = await lookupCustomerIdByEmail(admin, normalizedEmail);
@@ -161,12 +186,17 @@ export async function recordContractorSignupReferral(
       referredContractorId: params.referredContractorId,
       referrerEmail: params.referrerEmail,
     });
-    return res.error ? res : { kind: "customer" };
+    if (res.error) return res;
+    return {
+      created: res.created,
+      kind: "customer_contractor",
+      referrerCustomerId: res.referrerCustomerId,
+    };
   }
 
   return {
     error:
-      "Suosittelijaa ei löydy — anna rekisteröityneen urakoitsijan tai asiakkaan sähköposti.",
+      "Suosittelijaa ei löydy — anna vahvistetun urakoitsijan tai asiakkaan sähköposti.",
   };
 }
 
@@ -174,14 +204,26 @@ export async function ensureContractorSignupReferralFromMetadata(
   admin: AdminClient,
   contractorId: string,
   referrerEmail: string | null | undefined,
-): Promise<void> {
+): Promise<{
+  created: boolean;
+  referrerCustomerId?: string;
+  referrerContractorId?: string;
+  kind?: "contractor" | "customer_contractor";
+}> {
   const email = referrerEmail?.trim();
-  if (!email || !isValidReferrerEmail(email)) return;
+  if (!email || !isValidReferrerEmail(email)) return { created: false };
 
-  await recordContractorSignupReferral(admin, {
+  const res = await recordContractorSignupReferral(admin, {
     referredContractorId: contractorId,
     referrerEmail: email,
   });
+  if (res.error) return { created: false };
+  return {
+    created: res.created ?? false,
+    referrerCustomerId: res.referrerCustomerId,
+    referrerContractorId: res.referrerContractorId,
+    kind: res.kind,
+  };
 }
 
 export async function referrerExistsForContractorSignup(
@@ -358,6 +400,12 @@ export async function grantCustomerReferralCreditForAcceptedDeal(
 
   if (!referral) return { granted: false };
 
+  const [referredVerified, referrerVerified] = await Promise.all([
+    isAuthUserEmailVerified(admin, params.referredCustomerId),
+    isAuthUserEmailVerified(admin, referral.referrer_customer_id),
+  ]);
+  if (!referredVerified || !referrerVerified) return { granted: false };
+
   const amountCents = payPerDealFeeCents();
 
   const { error } = await admin.from("customer_referral_credits").insert({
@@ -395,6 +443,12 @@ export async function grantCustomerReferralCreditForContractorDeal(
     .maybeSingle();
 
   if (!referral) return { granted: false };
+
+  const [referredVerified, referrerVerified] = await Promise.all([
+    isAuthUserEmailVerified(admin, params.referredContractorId),
+    isAuthUserEmailVerified(admin, referral.referrer_customer_id),
+  ]);
+  if (!referredVerified || !referrerVerified) return { granted: false };
 
   const amountCents = payPerDealFeeCents();
 
