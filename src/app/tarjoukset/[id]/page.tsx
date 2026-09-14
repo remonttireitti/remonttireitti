@@ -81,7 +81,7 @@ export default async function ContractorProjectPage({
 
   const [projectPhotos, activityEvents] = await Promise.all([
     fetchProjectPhotos(supabase, id),
-    fetchContractorProjectActivity(id, user.id),
+    fetchContractorProjectActivity(id, user.id, supabase),
   ]);
 
   const { data: existingBid } = await supabase

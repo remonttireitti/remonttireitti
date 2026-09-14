@@ -1,13 +1,24 @@
 import Link from "next/link";
+import type { BidEvaluationCategory } from "@/lib/bid-evaluation";
 import { brand } from "@/lib/brand-theme";
+import { isHeatPumpJobSlug } from "@/constants/project-areas";
 
 export function BidEvaluationPromo({
   projectId,
+  category,
+  jobSlug,
   className = "mt-6",
 }: {
   projectId: string;
+  category: BidEvaluationCategory;
+  jobSlug?: string | null;
   className?: string;
 }) {
+  const params = new URLSearchParams({ project: projectId, category });
+  if (jobSlug && isHeatPumpJobSlug(jobSlug)) {
+    params.set("pump", jobSlug);
+  }
+
   return (
     <section
       className={`${className} rounded-2xl border border-violet-200 bg-gradient-to-br from-violet-50/80 to-white p-5`}
@@ -18,7 +29,7 @@ export function BidEvaluationPromo({
         hintaa ja sisältöä. Päätös urakoitsijasta on aina sinun.
       </p>
       <Link
-        href={`/tarjousarvio/uusi?project=${projectId}`}
+        href={`/tarjousarvio/uusi?${params}`}
         className={`${brand.link} mt-3 inline-block text-sm font-semibold`}
       >
         Pyydä tarjousarvio →

@@ -15,6 +15,7 @@ type NavProps = {
   isAdmin: boolean;
   isEvaluator: boolean;
   unreadNotifications?: number;
+  showTarjousvahti?: boolean;
 };
 
 const linkBase =
@@ -56,6 +57,7 @@ export function SiteHeaderNav({
   isAdmin,
   isEvaluator,
   unreadNotifications = 0,
+  showTarjousvahti = false,
 }: NavProps) {
   const ctaLabel = isCustomer
     ? "Kilpailuta remontti"
@@ -113,7 +115,7 @@ export function SiteHeaderNav({
           </>
         ) : (
           <>
-            <NavItem href="/tarjousarvio">Tarjousvahti</NavItem>
+            {showTarjousvahti && <NavItem href="/tarjousarvio">Tarjousvahti</NavItem>}
             <NavItem href="/tarjouspyynnot">Tarjouspyynnöt</NavItem>
             <NavItem href="/kirjaudu">Kirjaudu</NavItem>
           </>

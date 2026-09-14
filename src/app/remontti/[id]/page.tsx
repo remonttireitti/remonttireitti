@@ -40,6 +40,8 @@ import { fetchLearnedCriteria } from "@/lib/template-criterion-stats";
 import { fetchOpenCompletionRequestsForProject } from "@/lib/project-completion-requests-server";
 import { countProjectViews } from "@/lib/project-views-server";
 import { fetchCustomerProjectActivity } from "@/lib/project-activity-server";
+import { countActiveEvaluatorsForCategory } from "@/lib/bid-evaluation-availability-server";
+import { evaluationCategoryForJobSlug } from "@/lib/bid-evaluation";
 import { ProjectActivityTimeline } from "@/components/project/project-activity-timeline";
 import { brand } from "@/lib/brand-theme";
 import { scoreProjectFromRow } from "@/lib/project-request-quality";
@@ -257,7 +259,9 @@ export default async function ProjectPage({
       ? await countProjectViews(dataClient, id)
       : 0;
 
-  const activityEvents = await fetchCustomerProjectActivity(id);
+  const activityEvents = await fetchCustomerProjectActivity(id, dataClient);
+  const evaluationCategory = evaluationCategoryForJobSlug(jobSlug);
+  const evaluatorCount = await countActiveEvaluatorsForCategory(evaluationCategory);
 
   if (openCompletionRequests.length > 0) {
     const contractorIds = [...new Set(openCompletionRequests.map((r) => r.contractor_id))];
@@ -657,8 +661,12 @@ export default async function ProjectPage({
             jobSlug={jobSlug}
             projectTradeNamesById={projectTradeNamesRecord}
           />
-          {submittedBidCount > 0 && biddingPhase && (
-            <BidEvaluationPromo projectId={id} />
+          {submittedBidCount > 0 && biddingPhase && evaluatorCount > 0 && (
+            <BidEvaluationPromo
+              projectId={id}
+              category={evaluationCategory}
+              jobSlug={jobSlug}
+            />
           )}
         </div>
 

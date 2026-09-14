@@ -126,7 +126,7 @@ export default async function ContractorWonProjectPage({
       ? await fetchPlatformFeedbackForProject(supabase, user.id, id)
       : null;
 
-  const activityEvents = await fetchContractorProjectActivity(id, user.id);
+  const activityEvents = await fetchContractorProjectActivity(id, user.id, supabase);
 
   return (
     <div className={brand.page}>

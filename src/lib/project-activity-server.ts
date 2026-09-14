@@ -1,4 +1,5 @@
-import { createAdminClient } from "@/lib/supabase/admin";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { tryCreateAdminClient } from "@/lib/supabase/admin";
 import {
   fetchStoredProjectActivityEvents,
   storedBidUpdateReferenceIds,
@@ -31,6 +32,7 @@ type BidRow = {
   created_at: string;
   updated_at: string;
   submitted_at: string | null;
+  content_updated_at: string | null;
   rejected_at: string | null;
   counter_offered_at: string | null;
   counter_status: string | null;
@@ -51,13 +53,13 @@ type InvoiceRow = {
 };
 
 async function contractorNames(
-  admin: ReturnType<typeof createAdminClient>,
+  client: SupabaseClient,
   ids: string[],
 ): Promise<Map<string, string>> {
   const unique = [...new Set(ids.filter(Boolean))];
   if (!unique.length) return new Map();
 
-  const { data: profiles } = await admin
+  const { data: profiles } = await client
     .from("contractor_profiles")
     .select("id, company_name")
     .in("id", unique);
@@ -203,17 +205,21 @@ function buildBidEvents(
 
     const hasStoredUpdate = options.storedBidUpdateIds?.has(bid.id) ?? false;
     const submittedMs = bid.submitted_at ? new Date(bid.submitted_at).getTime() : null;
-    const updatedMs = bid.updated_at ? new Date(bid.updated_at).getTime() : null;
+    const contentUpdatedAt =
+      bid.content_updated_at ?? bid.updated_at;
+    const contentUpdatedMs = contentUpdatedAt
+      ? new Date(contentUpdatedAt).getTime()
+      : null;
 
     if (
       !hasStoredUpdate &&
       submittedMs != null &&
-      updatedMs != null &&
-      updatedMs - submittedMs > 2_000
+      contentUpdatedMs != null &&
+      contentUpdatedMs - submittedMs > 2_000
     ) {
       pushEvent(events, {
-        id: `bid-update-${bid.id}-${bid.updated_at}`,
-        at: bid.updated_at,
+        id: `bid-update-${bid.id}-${contentUpdatedAt}`,
+        at: contentUpdatedAt,
         label: options.customerView
           ? `${company} päivitti tarjousta`
           : "Päivitit tarjousta",
@@ -325,29 +331,63 @@ function buildInvoiceEvents(
   }
 }
 
-async function loadActivityData(projectId: string) {
-  const admin = createAdminClient();
+async function loadProjectBids(
+  client: SupabaseClient,
+  projectId: string,
+): Promise<BidRow[]> {
+  const withContentUpdated =
+    "id, contractor_id, status, created_at, updated_at, submitted_at, content_updated_at, rejected_at, counter_offered_at, counter_status";
+  const legacy =
+    "id, contractor_id, status, created_at, updated_at, submitted_at, rejected_at, counter_offered_at, counter_status";
 
-  const [projectRes, bidsRes, completionRes, invoiceRes, storedEvents] =
+  const first = await client
+    .from("bids")
+    .select(withContentUpdated)
+    .eq("project_id", projectId);
+
+  if (!first.error) return (first.data ?? []) as BidRow[];
+
+  const msg = (first.error.message ?? "").toLowerCase();
+  if (
+    first.error.code === "42703" ||
+    msg.includes("content_updated_at") ||
+    msg.includes("does not exist")
+  ) {
+    const retry = await client.from("bids").select(legacy).eq("project_id", projectId);
+    if (retry.error) return [];
+    return (retry.data ?? []).map((row) => ({
+      ...(row as BidRow),
+      content_updated_at: null,
+    }));
+  }
+
+  console.error("[loadProjectBids]", first.error.code, first.error.message);
+  return [];
+}
+
+async function loadActivityData(
+  projectId: string,
+  fallbackClient?: SupabaseClient,
+) {
+  const admin = tryCreateAdminClient();
+  const client = admin ?? fallbackClient;
+  if (!client) return null;
+
+  const [projectRes, bids, completionRes, invoiceRes, storedEvents] =
     await Promise.all([
-    admin
+    client
       .from("projects")
       .select(
         "id, status, created_at, updated_at, published_at, email_verified_at, completed_at, auto_closed_at, inactivity_warning_sent_at, contact_revealed_at, content_revision, guest_email",
       )
       .eq("id", projectId)
       .maybeSingle(),
-    admin
-      .from("bids")
-      .select(
-        "id, contractor_id, status, created_at, updated_at, submitted_at, rejected_at, counter_offered_at, counter_status",
-      )
-      .eq("project_id", projectId),
-    admin
+    loadProjectBids(client, projectId),
+    client
       .from("project_completion_requests")
       .select("id, contractor_id, created_at, resolved_at")
       .eq("project_id", projectId),
-    admin
+    client
       .from("platform_invoices")
       .select("contractor_id, created_at, paid_at, status")
       .eq("project_id", projectId),
@@ -357,17 +397,17 @@ async function loadActivityData(projectId: string) {
   if (!projectRes.data) return null;
 
   const contractorIds = [
-    ...(bidsRes.data ?? []).map((b) => b.contractor_id),
+    ...bids.map((b) => b.contractor_id),
     ...(completionRes.data ?? []).map((c) => c.contractor_id),
     ...(invoiceRes.data ?? []).map((i) => i.contractor_id),
     ...storedEvents.map((e) => e.actor_id).filter(Boolean) as string[],
   ];
 
-  const companyMap = await contractorNames(admin, contractorIds);
+  const companyMap = await contractorNames(client, contractorIds);
 
   return {
     project: projectRes.data as ProjectRow,
-    bids: (bidsRes.data ?? []) as BidRow[],
+    bids,
     completions: (completionRes.data ?? []) as CompletionRow[],
     invoices: (invoiceRes.data ?? []) as InvoiceRow[],
     storedEvents,
@@ -378,8 +418,9 @@ async function loadActivityData(projectId: string) {
 
 export async function fetchCustomerProjectActivity(
   projectId: string,
+  fallbackClient?: SupabaseClient,
 ): Promise<ProjectActivityEvent[]> {
-  const data = await loadActivityData(projectId);
+  const data = await loadActivityData(projectId, fallbackClient);
   if (!data) return [];
 
   const events: ProjectActivityEvent[] = [];
@@ -406,8 +447,9 @@ export async function fetchCustomerProjectActivity(
 export async function fetchContractorProjectActivity(
   projectId: string,
   contractorId: string,
+  fallbackClient?: SupabaseClient,
 ): Promise<ProjectActivityEvent[]> {
-  const data = await loadActivityData(projectId);
+  const data = await loadActivityData(projectId, fallbackClient);
   if (!data) return [];
 
   const events: ProjectActivityEvent[] = [];
