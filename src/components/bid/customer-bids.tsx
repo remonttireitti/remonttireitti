@@ -233,6 +233,7 @@ function MobileBidCard({
   tradeNameMap,
   projectId,
   contentRevision,
+  customerReferralDiscountCents,
 }: {
   bid: BidWithContractor;
   pendingWinner: boolean;
@@ -248,6 +249,7 @@ function MobileBidCard({
   tradeNameMap: Map<string, string>;
   projectId: string;
   contentRevision: number;
+  customerReferralDiscountCents: number;
 }) {
   const company = getBidContractorName(bid.contractor_profiles);
   const cardClass = `rounded-xl border p-4 ${columnClass(bid.status, pendingWinner)}`;
@@ -427,6 +429,7 @@ function MobileBidCard({
               projectId={projectId}
               bid={bid}
               stale={isBidStale(bid, contentRevision)}
+              customerReferralDiscountCents={customerReferralDiscountCents}
             />
           )}
           {bid.status === "rejected" && (
@@ -452,6 +455,7 @@ export function CustomerBids({
   acceptedBidId = null,
   jobSlug = null,
   projectTradeNamesById = {},
+  customerReferralDiscountCents = 0,
 }: {
   projectId: string;
   projectStatus: ProjectStatus;
@@ -461,6 +465,7 @@ export function CustomerBids({
   acceptedBidId?: string | null;
   jobSlug?: string | null;
   projectTradeNamesById?: Record<string, string>;
+  customerReferralDiscountCents?: number;
 }) {
   const tradeNameMap = new Map(Object.entries(projectTradeNamesById));
   const canAccept = ["published", "receiving_bids"].includes(projectStatus);
@@ -570,6 +575,7 @@ export function CustomerBids({
             tradeNameMap={tradeNameMap}
             projectId={projectId}
             contentRevision={contentRevision}
+            customerReferralDiscountCents={customerReferralDiscountCents}
           />
         ))}
       </div>
@@ -967,6 +973,7 @@ export function CustomerBids({
                         projectId={projectId}
                         bid={bid}
                         stale={isBidStale(bid, contentRevision)}
+                        customerReferralDiscountCents={customerReferralDiscountCents}
                       />
                     )}
                     {bid.status === "rejected" && (

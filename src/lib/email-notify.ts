@@ -359,6 +359,7 @@ export async function notifyBidAccepted(params: {
   commitDeadline: string;
   feeCents: number;
   feeWaiverReason?: import("@/lib/platform-fee-waiver").PlatformFeeWaiverReason | null;
+  customerReferralDiscountCents?: number;
   acceptedAmountCents: number;
   acceptedIncludesEquipment: boolean;
 }) {
@@ -370,13 +371,22 @@ export async function notifyBidAccepted(params: {
 
   if (params.feeCents === 0) {
     const { platformFeeWaiverShortLabel } = await import("@/lib/platform-fee-waiver");
-    const waiverLabel = platformFeeWaiverShortLabel(params.feeWaiverReason);
+    let waiverLabel = platformFeeWaiverShortLabel(params.feeWaiverReason);
+    let extraHtml = "";
+    if (
+      params.feeWaiverReason === "customer_referral" &&
+      params.customerReferralDiscountCents
+    ) {
+      const discount = formatEuros(params.customerReferralDiscountCents / 100);
+      waiverLabel = "Asiakkaan suosittelubonus — ei välityslaskua";
+      extraHtml = `<p><strong>Vähennä ${escapeHtml(discount)} € (veroton) urakan hinnasta</strong> asiakkaan laskulla — vastaa välityspalkkion suuruutta.</p>`;
+    }
     await sendUserEmail(
       params.contractorId,
       `Tarjouksesi hyväksyttiin: ${params.projectTitle}`,
       waiverLabel,
       `<p>Asiakas hyväksyi tarjouksesi urakkaan <em>${escapeHtml(params.projectTitle)}</em> (${scope}, ${formatEuros(params.acceptedAmountCents / 100)} €).</p>
-       <p><strong>${escapeHtml(waiverLabel)}.</strong> Asiakkaan yhteystiedot ovat nyt näkyvissä urakkasivulla.</p>`,
+       <p><strong>${escapeHtml(waiverLabel)}.</strong> ${extraHtml} Asiakkaan yhteystiedot ovat nyt näkyvissä urakkasivulla.</p>`,
       `/tarjoukset/urakka/${params.projectId}`,
       "Avaa yhteystiedot",
     );

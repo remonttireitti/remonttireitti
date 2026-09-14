@@ -20,7 +20,8 @@ export type NotificationType =
   | "project_auto_closed"
   | "project_completion_requested"
   | "project_completion_updated"
-  | "bid_withdrawn";
+  | "bid_withdrawn"
+  | "referral_credit";
 
 export type AppNotification = {
   id: string;
@@ -56,4 +57,5 @@ export const notificationTypeLabels: Record<NotificationType, string> = {
   project_completion_requested: "Täydennä pyyntöä",
   project_completion_updated: "Pyyntö täydennetty",
   bid_withdrawn: "Tarjous peruttu",
+  referral_credit: "Suosittelubonus",
 };

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ContractorActivationBanner } from "@/components/account/contractor-activation-banner";
+import { CustomerReferralCreditsPanel } from "@/components/account/customer-referral-credits-panel";
 import {
   defaultCompanyFromUser,
   shouldOfferContractorActivation,
@@ -40,6 +41,8 @@ import { brand } from "@/lib/brand-theme";
 import { isEmailConfigured } from "@/lib/email";
 import { HuoltokirjaPromoCard } from "@/components/property/huoltokirja-promo-card";
 import { countCustomerPropertyStats } from "@/lib/property-log";
+import { countAvailableCustomerReferralCredits } from "@/lib/customer-referral";
+import { tryCreateAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import type { ProjectStatus } from "@/types/database";
 
@@ -137,6 +140,7 @@ export default async function AccountPage({
 
   let projects: ProjectRow[] = [];
   let propertyStats = { propertyCount: 0, logEntryCount: 0 };
+  let customerReferralCredits = { count: 0, totalAmountCents: 0 };
 
   if (params.viesti === "vain-urakoitsijalle") {
     await syncContractorAccount(user);
@@ -179,6 +183,25 @@ export default async function AccountPage({
     ]);
     projects = (data ?? []) as ProjectRow[];
     propertyStats = stats;
+
+    const admin = tryCreateAdminClient();
+    if (admin) {
+      const count = await countAvailableCustomerReferralCredits(admin, user.id);
+      if (count > 0) {
+        const { data: credits } = await admin
+          .from("customer_referral_credits")
+          .select("amount_cents")
+          .eq("customer_id", user.id)
+          .eq("status", "available");
+        customerReferralCredits = {
+          count,
+          totalAmountCents: (credits ?? []).reduce(
+            (sum, row) => sum + row.amount_cents,
+            0,
+          ),
+        };
+      }
+    }
   }
 
   function categoryName(
@@ -231,6 +254,15 @@ export default async function AccountPage({
           <div className="mt-6">
             <ContractorActivationBanner
               defaultCompany={defaultCompanyFromUser(user)}
+            />
+          </div>
+        )}
+
+        {!contractor && !admin && customerReferralCredits.count > 0 && (
+          <div className="mt-8">
+            <CustomerReferralCreditsPanel
+              availableCount={customerReferralCredits.count}
+              totalAmountCents={customerReferralCredits.totalAmountCents}
             />
           </div>
         )}

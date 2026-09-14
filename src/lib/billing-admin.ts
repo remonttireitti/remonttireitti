@@ -97,14 +97,21 @@ export async function notifyAdminsNewPlatformInvoice(params: {
   const billing = await fetchContractorBilling(params.contractorId);
   const amountNet = formatPlatformFee(params.amountCents);
   const linkPath = "/admin/laskutus";
-  const isReferralZero =
+  const isContractorReferralZero =
     params.amountCents === 0 && params.waiverReason === "referral";
-  const title = isReferralZero
-    ? "Kirjanpitoon: suositteluhyvitys (0 €)"
-    : "Laskutettava: välitysmaksu";
-  const body = isReferralZero
-    ? `${billing.companyName} — ${params.projectTitle} (0 € suositteluhyvitys)`
-    : `${billing.companyName} — ${params.projectTitle} (${amountNet} veroton + ALV)`;
+  const isCustomerReferralZero =
+    params.amountCents === 0 && params.waiverReason === "customer_referral";
+  const isZeroWaiverAccounting = isContractorReferralZero || isCustomerReferralZero;
+  const title = isCustomerReferralZero
+    ? "Kirjanpitoon: asiakkaan suosittelubonus (0 €)"
+    : isContractorReferralZero
+      ? "Kirjanpitoon: urakoitsijan suositteluhyvitys (0 €)"
+      : "Laskutettava: välitysmaksu";
+  const body = isCustomerReferralZero
+    ? `${billing.companyName} — ${params.projectTitle} (0 € asiakkaan suosittelubonus)`
+    : isContractorReferralZero
+      ? `${billing.companyName} — ${params.projectTitle} (0 € urakoitsijan suositteluhyvitys)`
+      : `${billing.companyName} — ${params.projectTitle} (${amountNet} veroton + ALV)`;
 
   const adminIds = await fetchAdminUserIds();
   await Promise.all(
@@ -120,17 +127,27 @@ export async function notifyAdminsNewPlatformInvoice(params: {
   );
 
   const to = getAdminBillingEmail();
-  const introHtml = isReferralZero
+  const introHtml = isCustomerReferralZero
     ? `
+    <p>Asiakas hyväksyi tarjouksen asiakkaan suosittelubonuksella — kirjaa diili kirjanpitoon <strong>0 €</strong> -laskuna. Urakoitsija vähentää bonuksen urakan hinnasta.</p>
+    <ul style="line-height:1.6">
+      <li><strong>Urakka:</strong> ${escapeHtml(params.projectTitle)}</li>
+      <li><strong>Urakoitsija:</strong> ${escapeHtml(billing.companyName)}</li>
+      <li><strong>Summa:</strong> 0,00 € (asiakkaan suosittelubonus)</li>
+    </ul>
+    <p style="color:#0369a1">Diili on jo avattu urakoitsijalle automaattisesti. Merkitse tarvittaessa lasku käsitellyksi adminissa.</p>
+  `
+    : isContractorReferralZero
+      ? `
     <p>Asiakas hyväksyi tarjouksen. Urakoitsijalla on suositteluhyvitys — kirjaa diili kirjanpitoon <strong>0 €</strong> -laskuna.</p>
     <ul style="line-height:1.6">
       <li><strong>Urakka:</strong> ${escapeHtml(params.projectTitle)}</li>
       <li><strong>Urakoitsija:</strong> ${escapeHtml(billing.companyName)}</li>
-      <li><strong>Summa:</strong> 0,00 € (suositteluhyvitys)</li>
+      <li><strong>Summa:</strong> 0,00 € (urakoitsijan suositteluhyvitys)</li>
     </ul>
     <p style="color:#0369a1">Diili on jo avattu urakoitsijalle automaattisesti. Merkitse tarvittaessa lasku käsitellyksi adminissa.</p>
   `
-    : `
+      : `
     <p>Asiakas hyväksyi tarjouksen. Luo lasku kevytyrittäjäpalvelussasi ja merkitse tila adminissa.</p>
     <ul style="line-height:1.6">
       <li><strong>Urakka:</strong> ${escapeHtml(params.projectTitle)}</li>
@@ -148,8 +165,10 @@ export async function notifyAdminsNewPlatformInvoice(params: {
 
   await sendEmail({
     to,
-    subject: isReferralZero
-      ? `Kirjanpitoon 0 €: suositteluhyvitys — ${billing.companyName}`
+    subject: isZeroWaiverAccounting
+      ? isCustomerReferralZero
+        ? `Kirjanpitoon 0 €: asiakkaan suosittelubonus — ${billing.companyName}`
+        : `Kirjanpitoon 0 €: urakoitsijan suositteluhyvitys — ${billing.companyName}`
       : `Laskutettava välitysmaksu: ${billing.companyName}`,
     html: `<div style="font-family:system-ui,sans-serif;max-width:560px"><h1 style="font-size:18px">${escapeHtml(title)}</h1>${bodyHtml}</div>`,
   });

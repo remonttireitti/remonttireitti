@@ -13,6 +13,7 @@ export default async function RegisterPage({
     params.rooli === "urakoitsija" ? "contractor" : "customer";
   const defaultEmail = params.email?.trim() ?? "";
   const defaultReferrerEmail = params.suosittelija?.trim() ?? "";
+  const defaultCustomerReferrerEmail = params.suosittelija?.trim() ?? "";
 
   const [catalog, pumpCatalog] = await Promise.all([
     fetchJobCatalog(),
@@ -34,6 +35,7 @@ export default async function RegisterPage({
         defaultRole={defaultRole}
         defaultEmail={defaultEmail}
         defaultReferrerEmail={defaultReferrerEmail}
+        defaultCustomerReferrerEmail={defaultCustomerReferrerEmail}
         trades={trades}
         heatPumpJobTypes={pumpCatalog.jobTypes.map((j) => ({
           id: j.id,

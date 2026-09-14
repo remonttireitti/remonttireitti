@@ -1,4 +1,8 @@
-export type PlatformFeeWaiverReason = "subscription" | "beta" | "referral";
+export type PlatformFeeWaiverReason =
+  | "subscription"
+  | "beta"
+  | "referral"
+  | "customer_referral";
 
 export type PlatformFeeResolution = {
   feeCents: number;
@@ -14,7 +18,9 @@ export function platformFeeWaiverShortLabel(
     case "beta":
       return "Beta-etu — ei välitysmaksua";
     case "referral":
-      return "Suositteluhyvitys — ei välitysmaksua";
+      return "Urakoitsijan suositteluhyvitys — ei välitysmaksua";
+    case "customer_referral":
+      return "Asiakkaan suosittelubonus — ei välityslaskua";
     default:
       return "Ei välitysmaksua";
   }
@@ -29,8 +35,19 @@ export function platformFeeWaiverContractorMessage(
     case "beta":
       return "Beta-etu: ei välityspalkkiota — asiakkaan yhteystiedot ovat nyt näkyvissä.";
     case "referral":
-      return "Suositteluhyvitys: ei välityspalkkiota — asiakkaan yhteystiedot ovat nyt näkyvissä.";
+      return "Urakoitsijan suositteluhyvitys: ei välityspalkkiota — asiakkaan yhteystiedot ovat nyt näkyvissä.";
+    case "customer_referral":
+      return "Asiakkaan suosittelubonus: ei välityslaskua — vähennä bonuksen verran urakan hinnasta asiakkaan laskulla.";
     default:
       return "Ei välityspalkkiota — asiakkaan yhteystiedot ovat nyt näkyvissä.";
   }
+}
+
+export function customerReferralDiscountNotice(amountCents: number): string {
+  const euros = new Intl.NumberFormat("fi-FI", {
+    style: "currency",
+    currency: "EUR",
+    maximumFractionDigits: 0,
+  }).format(amountCents / 100);
+  return `Sinulla on suosittelubonus — urakoitsija vähentää ${euros} (veroton) urakkasi hinnasta. Ei välityslaskua tälle diilille.`;
 }
