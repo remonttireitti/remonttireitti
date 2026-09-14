@@ -28,6 +28,11 @@ export default async function ProjectSubmittedPage({
           linkin avaamisen jälkeen — ennen sitä pyyntöä ei näytetä eikä siitä lähetetä
           ilmoituksia. Vahvistamatta jääneet tiedot poistetaan automaattisesti.
         </p>
+        <p className="mx-auto mt-3 max-w-lg text-xs text-stone-500">
+          Ilman tiliä et voi viestitellä urakoitsijoiden kanssa sovelluksessa — tarjoukset
+          ja ilmoitukset tulevat sähköpostiin. Voit luoda tilin myöhemmin, jos haluat
+          keskustella urakoitsijoiden kanssa ennen tarjouksen valintaa.
+        </p>
         <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
           <Link href="/" className={`${brand.btnSecondary} ${brand.btnSecondaryBlock}`}>
             Etusivulle

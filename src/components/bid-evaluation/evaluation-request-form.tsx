@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import {
   createBidEvaluationRequest,
   type BidEvaluationActionState,
@@ -16,10 +16,25 @@ const inputClass =
 export function EvaluationRequestForm({
   projectId,
   defaultCategory = "lammitys",
+  defaultHeatPumpType,
+  showHeatPumpField = false,
+  availableCategories,
 }: {
   projectId?: string;
   defaultCategory?: string;
+  defaultHeatPumpType?: string;
+  showHeatPumpField?: boolean;
+  /** Jos annettu, näytetään vain alueet joilla on arvioija. */
+  availableCategories?: string[];
 }) {
+  const categoryOptions = availableCategories?.length
+    ? EVALUATOR_SCOPE_AREAS.filter((area) =>
+        availableCategories.includes(area.slug),
+      )
+    : EVALUATOR_SCOPE_AREAS;
+  const [category, setCategory] = useState(defaultCategory);
+  const showPump =
+    showHeatPumpField || category === "lammitys" || category === "heat_pump";
   const [state, action, pending] = useActionState<
     BidEvaluationActionState,
     FormData
@@ -35,8 +50,13 @@ export function EvaluationRequestForm({
 
       <label className="mt-5 block text-sm font-medium text-stone-800">
         Remontin alue
-        <select name="category" defaultValue={defaultCategory} className={inputClass}>
-          {EVALUATOR_SCOPE_AREAS.map((area) => (
+        <select
+          name="category"
+          value={category}
+          onChange={(e) => setCategory(e.target.value)}
+          className={inputClass}
+        >
+          {categoryOptions.map((area) => (
             <option key={area.slug} value={area.slug}>
               {area.title}
             </option>
@@ -44,17 +64,23 @@ export function EvaluationRequestForm({
         </select>
       </label>
 
-      <label className="mt-4 block text-sm font-medium text-stone-800">
-        Pumpputyyppi (vain lämpöpumpuille)
-        <select name="heat_pump_type" className={inputClass} defaultValue="">
-          <option value="">Ei lämpöpumppua / valitse tarvittaessa</option>
-          {HEAT_PUMP_JOB_SLUGS.map((slug) => (
-            <option key={slug} value={slug}>
-              {HEAT_PUMP_MARKETING[slug].title}
-            </option>
-          ))}
-        </select>
-      </label>
+      {showPump && (
+        <label className="mt-4 block text-sm font-medium text-stone-800">
+          Pumpputyyppi
+          <select
+            name="heat_pump_type"
+            className={inputClass}
+            defaultValue={defaultHeatPumpType ?? ""}
+          >
+            <option value="">Valitse pumpputyyppi</option>
+            {HEAT_PUMP_JOB_SLUGS.map((slug) => (
+              <option key={slug} value={slug}>
+                {HEAT_PUMP_MARKETING[slug].title}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
 
       <label className="mt-4 block text-sm font-medium text-stone-800">
         Taustaa arvioijalle (valinnainen)

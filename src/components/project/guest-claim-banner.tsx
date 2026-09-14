@@ -19,6 +19,10 @@ export function GuestClaimBanner({
         Voit jatkaa sähköpostilinkillä — tai luo tunnus myöhemmin, kun olet jo saanut
         kokemuksen palvelusta.
       </p>
+      <p className="mt-2 text-sm leading-relaxed text-sky-900">
+        Ilman tiliä et voi viestitellä urakoitsijoiden kanssa sovelluksessa. Tilin luonnin
+        jälkeen voit keskustella urakoitsijoiden kanssa ennen tarjouksen valintaa.
+      </p>
       <Link href={registerHref} className={`${brand.btnSecondary} mt-4 inline-flex text-sm`}>
         Luo tunnus ({guestEmail})
       </Link>

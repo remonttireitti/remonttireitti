@@ -41,6 +41,7 @@ import {
 import { fetchPublicPlatformStats } from "@/lib/public-platform-stats";
 import { brand } from "@/lib/brand-theme";
 import { fetchBidEvaluationSettings } from "@/lib/bid-evaluation-server";
+import { hasAnyActiveEvaluator } from "@/lib/bid-evaluation-availability-server";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function Home() {
@@ -53,12 +54,13 @@ export default async function Home() {
   const profile = user ? await getProfile() : null;
   const isCustomer = !!user && profile?.role === "customer";
 
-  const [openProjects, openProjectCount, platformStats, bidEvaluationSettings] =
+  const [openProjects, openProjectCount, platformStats, bidEvaluationSettings, showTarjousvahti] =
     await Promise.all([
       isCustomer ? Promise.resolve([]) : fetchPublicOpenProjects(12),
       isCustomer ? Promise.resolve(0) : countPublicOpenProjects(),
       fetchPublicPlatformStats(),
       fetchBidEvaluationSettings(supabase),
+      hasAnyActiveEvaluator(),
     ]);
   let notifications: Awaited<ReturnType<typeof fetchUserNotifications>> = [];
   let archivedNotifications: Awaited<
@@ -180,7 +182,9 @@ export default async function Home() {
 
         <HomeSeoContent />
 
-        <HomeTarjousvahti settings={bidEvaluationSettings} />
+        {showTarjousvahti && (
+          <HomeTarjousvahti settings={bidEvaluationSettings} />
+        )}
 
         <HomeFaq />
 

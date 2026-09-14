@@ -17,6 +17,7 @@ import { ReviewForm } from "@/components/review/review-form";
 import { PlatformFeedbackPanel } from "@/components/feedback/platform-feedback-panel";
 import { SiteHeader } from "@/components/site-header";
 import { GuestClaimBanner } from "@/components/project/guest-claim-banner";
+import { GuestMessagingNotice } from "@/components/project/guest-messaging-notice";
 import { GuestProjectHeader } from "@/components/project/guest-project-header";
 import { getProfile, getSessionUser } from "@/lib/auth";
 import { tryCreateAdminClient } from "@/lib/supabase/admin";
@@ -40,6 +41,8 @@ import { fetchLearnedCriteria } from "@/lib/template-criterion-stats";
 import { fetchOpenCompletionRequestsForProject } from "@/lib/project-completion-requests-server";
 import { countProjectViews } from "@/lib/project-views-server";
 import { fetchCustomerProjectActivity } from "@/lib/project-activity-server";
+import { countActiveEvaluatorsForCategory } from "@/lib/bid-evaluation-availability-server";
+import { evaluationCategoryForJobSlug } from "@/lib/bid-evaluation";
 import { ProjectActivityTimeline } from "@/components/project/project-activity-timeline";
 import { brand } from "@/lib/brand-theme";
 import { scoreProjectFromRow } from "@/lib/project-request-quality";
@@ -257,7 +260,9 @@ export default async function ProjectPage({
       ? await countProjectViews(dataClient, id)
       : 0;
 
-  const activityEvents = await fetchCustomerProjectActivity(id);
+  const activityEvents = await fetchCustomerProjectActivity(id, dataClient);
+  const evaluationCategory = evaluationCategoryForJobSlug(jobSlug);
+  const evaluatorCount = await countActiveEvaluatorsForCategory(evaluationCategory);
 
   if (openCompletionRequests.length > 0) {
     const contractorIds = [...new Set(openCompletionRequests.map((r) => r.contractor_id))];
@@ -657,12 +662,25 @@ export default async function ProjectPage({
             jobSlug={jobSlug}
             projectTradeNamesById={projectTradeNamesRecord}
           />
-          {submittedBidCount > 0 && biddingPhase && (
-            <BidEvaluationPromo projectId={id} />
+          {submittedBidCount > 0 && biddingPhase && evaluatorCount > 0 && (
+            <BidEvaluationPromo
+              projectId={id}
+              category={evaluationCategory}
+              jobSlug={jobSlug}
+            />
           )}
         </div>
 
-        {biddingPhase && user && (
+        {biddingPhase && isGuestAccess && (
+          <div className="mt-8">
+            <h2 className="text-lg font-semibold">Kysymykset urakoitsijoilta</h2>
+            <div className="mt-3">
+              <GuestMessagingNotice guestEmail={guestEmail} projectId={id} />
+            </div>
+          </div>
+        )}
+
+        {biddingPhase && user && !isGuestAccess && (
           <ProjectBiddingChats
             conversations={biddingConversations}
             currentUserId={user.id}

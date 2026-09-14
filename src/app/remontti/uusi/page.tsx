@@ -74,6 +74,14 @@ export default async function NewProjectPage({
             ? "Täytä pyyntö ilman tiliä. Lähetämme vahvistuslinkin sähköpostiisi — julkaisu ja urakoitsijailmoitukset tapahtuvat vasta vahvistuksen jälkeen. Linkki on voimassa 24 tuntia."
             : "Valitse remontin tyyppi ja täytä pyyntö. Julkaise tarjouspyyntö ilmaiseksi."}
         </p>
+        {isGuest && (
+          <p className="mt-3 max-w-2xl rounded-xl border border-amber-200 bg-amber-50/80 px-4 py-3 text-sm text-amber-950">
+            <span className="font-medium">Huomio:</span> ilman tiliä et voi viestitellä
+            urakoitsijoiden kanssa sovelluksessa — tarjoukset ja ilmoitukset tulevat
+            sähköpostiin. Tilin luonnin jälkeen voit keskustella urakoitsijoiden kanssa
+            ennen tarjouksen valintaa.
+          </p>
+        )}
         <div className="mt-6 grid max-w-3xl gap-4 sm:grid-cols-2">
           <ValuePromoBanner variant="customer-free" />
           <ValuePromoBanner variant="customer-negotiate" />

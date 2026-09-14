@@ -16,6 +16,7 @@ type Props = {
   isAdmin: boolean;
   isEvaluator: boolean;
   unreadNotifications?: number;
+  showTarjousvahti?: boolean;
 };
 
 const chipBase =
@@ -58,6 +59,7 @@ export function SiteHeaderMobileNav({
   isAdmin,
   isEvaluator,
   unreadNotifications = 0,
+  showTarjousvahti = false,
 }: Props) {
   const [moreOpen, setMoreOpen] = useState(false);
   const moreRef = useRef<HTMLDivElement>(null);
@@ -143,7 +145,7 @@ export function SiteHeaderMobileNav({
           ) : (
             <>
               <NavChip href="/remontti/uusi">Kilpailuta</NavChip>
-              <NavChip href="/tarjousarvio">Tarjousvahti</NavChip>
+              {showTarjousvahti && <NavChip href="/tarjousarvio">Tarjousvahti</NavChip>}
               <NavChip href="/asiakkaalle">Asiakkaalle</NavChip>
               <NavChip href="/tarjouspyynnot">Pyynnöt</NavChip>
               <NavChip href="/kirjaudu">Kirjaudu</NavChip>

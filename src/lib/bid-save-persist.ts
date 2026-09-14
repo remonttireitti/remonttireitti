@@ -7,6 +7,11 @@ const OPTIONAL_TRADE_SCOPE_COLUMNS = [
   "offer_scope",
 ] as const;
 
+const OPTIONAL_BID_COLUMNS = [
+  ...OPTIONAL_TRADE_SCOPE_COLUMNS,
+  "content_updated_at",
+] as const;
+
 export function isMissingColumnError(error: {
   code?: string;
   message?: string;
@@ -27,7 +32,7 @@ export function stripOptionalTradeScopeColumns<T extends Record<string, unknown>
   row: T,
 ): T {
   const copy = { ...row } as Record<string, unknown>;
-  for (const key of OPTIONAL_TRADE_SCOPE_COLUMNS) {
+  for (const key of OPTIONAL_BID_COLUMNS) {
     delete copy[key];
   }
   return copy as T;

@@ -9,6 +9,10 @@ import { fetchBidEvaluationSettings } from "@/lib/bid-evaluation-server";
 import { pageMetadata } from "@/lib/seo";
 import { seoDefByPath } from "@/lib/seo-pages";
 import { getSessionUser } from "@/lib/auth";
+import {
+  fetchActiveEvaluatorCategorySlugs,
+  hasAnyActiveEvaluator,
+} from "@/lib/bid-evaluation-availability-server";
 import { createClient } from "@/lib/supabase/server";
 
 const seo = seoDefByPath("/tarjousarvio")!;
@@ -30,7 +34,11 @@ const checks = [
 export default async function TarjousarvioPage() {
   const user = await getSessionUser();
   const supabase = await createClient();
-  const settings = await fetchBidEvaluationSettings(supabase);
+  const [settings, showTarjousvahti, availableCategories] = await Promise.all([
+    fetchBidEvaluationSettings(supabase),
+    hasAnyActiveEvaluator(),
+    fetchActiveEvaluatorCategorySlugs(),
+  ]);
 
   return (
     <div className={brand.page}>
@@ -66,9 +74,17 @@ export default async function TarjousarvioPage() {
           <EvaluationPricingNotice settings={settings} />
         </div>
 
-        {user ? (
+        {!showTarjousvahti ? (
+          <p className="mt-8 text-sm text-stone-600">
+            Tarjousvahti ei ole tällä hetkellä saatavilla — arvioijia ei ole vielä
+            rekisteröitynyt palveluun.
+          </p>
+        ) : user ? (
           <div className="mt-8">
-            <EvaluationRequestForm />
+            <EvaluationRequestForm
+              availableCategories={availableCategories}
+              defaultCategory={availableCategories[0] ?? "lammitys"}
+            />
             <p className="mt-4 text-sm text-stone-600">
               <Link href="/tarjousarvio/omat" className={brand.link}>
                 Omat arviopyynnöt →
