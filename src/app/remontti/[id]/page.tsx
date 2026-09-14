@@ -17,12 +17,10 @@ import { ReviewForm } from "@/components/review/review-form";
 import { PlatformFeedbackPanel } from "@/components/feedback/platform-feedback-panel";
 import { SiteHeader } from "@/components/site-header";
 import { GuestClaimBanner } from "@/components/project/guest-claim-banner";
-import { getSessionUser } from "@/lib/auth";
+import { GuestProjectHeader } from "@/components/project/guest-project-header";
+import { getProfile, getSessionUser } from "@/lib/auth";
 import { tryCreateAdminClient } from "@/lib/supabase/admin";
-import {
-  guestProjectToCustomerRow,
-  resolveGuestProjectAccess,
-} from "@/lib/project-guest-access";
+import { resolveProjectPageAccess } from "@/lib/resolve-project-page-access";
 import { expirePendingAcceptanceForProject } from "@/lib/expire-pending-acceptance";
 import { expireStaleProjectIfNeeded } from "@/lib/expire-stale-projects";
 import { ProjectInactivityBanner } from "@/components/project/project-inactivity-banner";
@@ -98,26 +96,19 @@ export default async function ProjectPage({
   }
 
   const user = await getSessionUser();
+  const profile = user ? await getProfile() : null;
   const supabase = await createClient();
 
-  let isGuestAccess = false;
-  let guestEmail: string | null = null;
-  let project = user
-    ? await fetchCustomerProjectById(supabase, id, user.id)
-    : null;
+  const access = await resolveProjectPageAccess(supabase, id, {
+    userId: user?.id,
+    urlToken: token,
+  });
 
-  if (!project) {
-    const guestRow = await resolveGuestProjectAccess(id, token);
-    if (guestRow) {
-      project = guestProjectToCustomerRow(guestRow);
-      guestEmail = (guestRow.guest_email as string | null) ?? null;
-      isGuestAccess = true;
-    }
-  }
-
-  if (!project) {
+  if (!access) {
     redirect(`/kirjaudu?redirect=/remontti/${id}`);
   }
+
+  let { project, isGuestAccess, guestEmail } = access;
 
   const guestAdmin = isGuestAccess ? tryCreateAdminClient() : null;
   if (isGuestAccess && !guestAdmin) {
@@ -133,7 +124,7 @@ export default async function ProjectPage({
     redirect(`/remontti/${id}?auto_suljettu=1`);
   }
 
-  if (staleResult === "warned" && user) {
+  if (staleResult === "warned" && user && !isGuestAccess) {
     project = (await fetchCustomerProjectById(supabase, id, user.id)) ?? project;
   }
 
@@ -211,7 +202,7 @@ export default async function ProjectPage({
     };
   }
 
-  if (acceptanceExpired && user) {
+  if (acceptanceExpired && user && !isGuestAccess) {
     project = (await fetchCustomerProjectById(supabase, id, user.id)) ?? project;
   }
 
@@ -387,9 +378,27 @@ export default async function ProjectPage({
     );
   }
 
+  const loggedInRoleLabel =
+    isGuestAccess && profile?.role === "admin"
+      ? "admin"
+      : isGuestAccess && profile?.role === "contractor"
+        ? "urakoitsija"
+        : isGuestAccess && profile?.role === "customer"
+          ? "asiakas"
+          : isGuestAccess && user
+            ? "käyttäjä"
+            : null;
+
   return (
     <div className={brand.page}>
-      <SiteHeader />
+      {isGuestAccess ? (
+        <GuestProjectHeader
+          guestEmail={guestEmail}
+          loggedInRole={loggedInRoleLabel}
+        />
+      ) : (
+        <SiteHeader />
+      )}
       <main className={brand.mainDetail}>
         <Link
           href={isGuestAccess ? "/" : "/oma-tili"}

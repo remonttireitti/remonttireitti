@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { SiteHeader } from "@/components/site-header";
+import { GuestProjectHeader } from "@/components/project/guest-project-header";
 import { CustomerCompletionForm } from "@/components/project/customer-completion-form";
 import { getProfile, getSessionUser, isContractor } from "@/lib/auth";
 import {
@@ -140,9 +141,6 @@ export default async function ProjectCompletionPage({
   try {
     const user = await getSessionUser();
     const profile = user ? await getProfile() : null;
-    if (await isContractor()) {
-      redirect("/tarjoukset");
-    }
 
     const guestAccessToken =
       token ?? (await readProjectAccessToken(id)) ?? undefined;
@@ -153,7 +151,15 @@ export default async function ProjectCompletionPage({
 
     let project: ProjectRow | null = null;
 
-    if (user) {
+    if (guestAccessToken) {
+      guestRow = await resolveGuestProjectAccess(id, guestAccessToken);
+      if (guestRow) {
+        isGuestAccess = true;
+        project = guestRowToProject(guestRow);
+      }
+    }
+
+    if (!project && user) {
       const { data } = await supabase
         .from("projects")
         .select(
@@ -165,15 +171,8 @@ export default async function ProjectCompletionPage({
       project = data;
     }
 
-    if (!project) {
-      guestRow = await resolveGuestProjectAccess(id, guestAccessToken);
-      if (guestRow) {
-        isGuestAccess = true;
-      }
-    }
-
-    if (!project && guestRow) {
-      project = guestRowToProject(guestRow);
+    if (!isGuestAccess && (await isContractor())) {
+      redirect("/tarjoukset");
     }
 
     if (!project) {
@@ -238,9 +237,24 @@ export default async function ProjectCompletionPage({
       ? `/remontti/${id}?from=auth&token=${encodeURIComponent(guestAccessToken)}`
       : `/remontti/${id}`;
 
+    const loggedInRoleLabel =
+      isGuestAccess && profile?.role === "admin"
+        ? "admin"
+        : isGuestAccess && profile?.role === "contractor"
+          ? "urakoitsija"
+          : isGuestAccess && profile?.role === "customer"
+            ? "asiakas"
+            : isGuestAccess && user
+              ? "käyttäjä"
+              : null;
+
     return (
       <div className={brand.page}>
-        <SiteHeader />
+        {isGuestAccess ? (
+          <GuestProjectHeader loggedInRole={loggedInRoleLabel} />
+        ) : (
+          <SiteHeader />
+        )}
         <main className={brand.mainForm}>
           <Link href={backHref} className="text-sm text-sky-700 hover:underline">
             ← Takaisin tarjouspyyntöön

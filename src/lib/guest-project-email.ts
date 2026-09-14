@@ -131,7 +131,7 @@ export async function sendGuestBidUpdatedEmail(params: {
   afterCompletion?: boolean;
 }): Promise<void> {
   const projectUrl = siteUrl(
-    `/auth/guest-access?project=${params.projectId}&token=${encodeURIComponent(params.rawToken)}`,
+    `/remontti/${params.projectId}?token=${encodeURIComponent(params.rawToken)}`,
   );
   const extra = params.afterCompletion
     ? "<p>Urakoitsija on päivittänyt tarjouksen täydennettyjen tietojen jälkeen — voit nyt tarkastella ja hyväksyä tarjouksen.</p>"
