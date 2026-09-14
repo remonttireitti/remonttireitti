@@ -1,4 +1,4 @@
-import { createAdminClient } from "@/lib/supabase/admin";
+import { tryCreateAdminClient } from "@/lib/supabase/admin";
 
 const BUCKET = "listing-photos";
 const MAX_FILES = 8;
@@ -34,7 +34,12 @@ export async function uploadListingPhotosFromFormData(
     throw new Error(`Enintään ${MAX_FILES} kuvaa.`);
   }
 
-  const admin = createAdminClient();
+  const admin = tryCreateAdminClient();
+  if (!admin) {
+    throw new Error(
+      "Kuvien tallennus ei ole käytettävissä (palvelinavain puuttuu). Lähetä ilmoitus ilman kuvia tai ota yhteyttä tukeen.",
+    );
+  }
 
   for (let i = 0; i < entries.length; i++) {
     const file = entries[i];
@@ -81,7 +86,9 @@ export async function fetchListingCoverUrls(
 ): Promise<Map<string, string>> {
   if (listingIds.length === 0) return new Map();
 
-  const admin = createAdminClient();
+  const admin = tryCreateAdminClient();
+  if (!admin) return new Map();
+
   const { data: rows } = await admin
     .from("equipment_listing_photos")
     .select("listing_id, storage_path, sort_order")
@@ -108,7 +115,9 @@ export async function fetchListingCoverUrls(
 export async function fetchListingPhotos(
   listingId: string,
 ): Promise<ListingPhotoView[]> {
-  const admin = createAdminClient();
+  const admin = tryCreateAdminClient();
+  if (!admin) return [];
+
   const { data: rows, error } = await admin
     .from("equipment_listing_photos")
     .select("id, storage_path, original_name, sort_order")
