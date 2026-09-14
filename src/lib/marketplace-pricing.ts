@@ -111,7 +111,7 @@ export const CONSUMER_FREE_PLAN: PricingPlan = {
 export const PRICING_FAQ = [
   {
     q: "Miten maksu toimii?",
-    a: `Lähetämme laskun sähköpostiisi osoitteesta ${MARKETPLACE_INVOICE_EMAIL}. Ilmoitukset ja tilauspaketit aktivoituvat, kun maksu on kirjattu (yleensä 1–2 arkipäivää).`,
+    a: `Kuluttajailmoitus julkaistaan vasta sähköpostivahvistuksen jälkeen. Samaan osoitteeseen enintään ${CONSUMER_FREE_MAX_ACTIVE_LISTINGS} aktiivista ilmoitusta. Yrityksille lasku lähetetään osoitteesta ${MARKETPLACE_INVOICE_EMAIL}.`,
   },
   {
     q: "Miksi kuluttajalle on ilmainen?",

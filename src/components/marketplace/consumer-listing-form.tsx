@@ -43,7 +43,7 @@ export function ConsumerListingForm({
       <input type="hidden" name="listing_kind" value="sell" />
       <p className="text-sm text-stone-600">
         Ilmainen julkaisu — {slotsLeft} ilmoituspaikkaa jäljellä (max 2
-        aktiivista).
+        aktiivista ilmoitusta per sähköpostiosoite).
       </p>
 
       {state.error && (
@@ -57,7 +57,7 @@ export function ConsumerListingForm({
       <ListingPhotoField files={photoFiles} onFilesChange={setPhotoFiles} />
 
       <button type="submit" disabled={pending} className={`w-full ${brand.btnPrimary}`}>
-        {pending ? "Julkaistaan…" : "Julkaise ilmoitus ilmaiseksi"}
+        {pending ? "Lähetetään…" : "Lähetä vahvistuslinkki"}
       </button>
     </form>
   );

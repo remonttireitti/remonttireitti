@@ -44,7 +44,7 @@ export function ConsumerWantedListingForm({
 
       <p className="text-sm text-stone-600">
         Kerro mitä etsit — myyjät ja urakoitsijat voivat ottaa yhteyttä. Ilmainen
-        julkaisu ({slotsLeft} paikkaa jäljellä).
+        julkaisu ({slotsLeft} paikkaa jäljellä, max 2 / sähköposti).
       </p>
 
       {state.error && (
@@ -58,7 +58,7 @@ export function ConsumerWantedListingForm({
       <ListingPhotoField files={photoFiles} onFilesChange={setPhotoFiles} />
 
       <button type="submit" disabled={pending} className={`w-full ${brand.btnPrimary}`}>
-        {pending ? "Julkaistaan…" : "Julkaise ostopyyntö"}
+        {pending ? "Lähetetään…" : "Lähetä vahvistuslinkki"}
       </button>
     </form>
   );

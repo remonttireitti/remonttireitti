@@ -22,6 +22,9 @@ import {
   formatPriceFromCents,
   MARKETPLACE_INVOICE_EMAIL,
 } from "@/lib/marketplace-pricing";
+import { normalizeListingContactEmail } from "@/lib/listing-contact-email";
+import { sendListingVerificationEmail } from "@/lib/listing-verification-email";
+import { generateProjectAccessToken } from "@/lib/project-guest-access";
 
 export type ListingActionState = {
   error?: string;
@@ -41,6 +44,43 @@ export async function countActiveConsumerListings(
     .eq("seller_type", "customer")
     .eq("status", "published");
   return count ?? 0;
+}
+
+/** Julkaistut + vahvistusta odottavat kuluttajailmoitukset samalla sähköpostilla. */
+export async function countActiveConsumerListingsByEmail(
+  contactEmail: string,
+): Promise<number> {
+  const email = normalizeListingContactEmail(contactEmail);
+  const supabase = await createClient();
+  const { count: publishedCount } = await supabase
+    .from("equipment_listings")
+    .select("id", { count: "exact", head: true })
+    .eq("seller_type", "customer")
+    .eq("status", "published")
+    .eq("contact_email", email);
+
+  const { count: pendingCount } = await supabase
+    .from("equipment_listings")
+    .select("id", { count: "exact", head: true })
+    .eq("seller_type", "customer")
+    .eq("status", "draft")
+    .eq("pending_publish", true)
+    .eq("contact_email", email);
+
+  return (publishedCount ?? 0) + (pendingCount ?? 0);
+}
+
+export async function countConsumerListingSlotsLeft(
+  userId: string,
+  contactEmail: string,
+): Promise<number> {
+  const [byUser, byEmail] = await Promise.all([
+    countActiveConsumerListings(userId),
+    countActiveConsumerListingsByEmail(contactEmail),
+  ]);
+  const slotsByUser = CONSUMER_FREE_MAX_ACTIVE_LISTINGS - byUser;
+  const slotsByEmail = CONSUMER_FREE_MAX_ACTIVE_LISTINGS - byEmail;
+  return Math.max(0, Math.min(slotsByUser, slotsByEmail));
 }
 
 export async function createConsumerListing(
@@ -76,10 +116,19 @@ export async function createConsumerListing(
       return { error: "Hinta on virheellinen." };
     }
 
-    const active = await countActiveConsumerListings(user.id);
-    if (active >= CONSUMER_FREE_MAX_ACTIVE_LISTINGS) {
+    const contactEmail = normalizeListingContactEmail(input.contact_email);
+
+    const activeByUser = await countActiveConsumerListings(user.id);
+    if (activeByUser >= CONSUMER_FREE_MAX_ACTIVE_LISTINGS) {
       return {
         error: `Sinulla on jo ${CONSUMER_FREE_MAX_ACTIVE_LISTINGS} aktiivista ilmoitusta. Poista vanha tai odota sen päättymistä.`,
+      };
+    }
+
+    const activeByEmail = await countActiveConsumerListingsByEmail(contactEmail);
+    if (activeByEmail >= CONSUMER_FREE_MAX_ACTIVE_LISTINGS) {
+      return {
+        error: `Sähköpostiosoitteeseen ${contactEmail} liittyy jo ${CONSUMER_FREE_MAX_ACTIVE_LISTINGS} aktiivista ilmoitusta.`,
       };
     }
 
@@ -91,9 +140,7 @@ export async function createConsumerListing(
       .eq("slug", "consumer_free")
       .single();
 
-    const now = new Date();
-    const expires = new Date(now);
-    expires.setDate(expires.getDate() + LISTING_DURATION_DAYS.consumer);
+    const { raw, hash } = generateProjectAccessToken();
 
     const { data, error } = await supabase
       .from("equipment_listings")
@@ -101,7 +148,8 @@ export async function createConsumerListing(
         seller_id: user.id,
         seller_type: "customer",
         plan_id: plan?.id ?? null,
-        status: "published",
+        status: "draft",
+        pending_publish: true,
         listing_kind: input.listing_kind,
         condition: input.condition,
         title: input.title,
@@ -115,11 +163,12 @@ export async function createConsumerListing(
         manufacturer: input.manufacturer || null,
         model: input.model || null,
         year_manufactured: input.year_manufactured,
-        contact_email: input.contact_email,
+        contact_email: contactEmail,
         contact_phone: input.contact_phone,
         is_free_listing: true,
-        published_at: now.toISOString(),
-        expires_at: expires.toISOString(),
+        verification_token_hash: hash,
+        published_at: null,
+        expires_at: null,
       })
       .select("id")
       .single();
@@ -132,14 +181,30 @@ export async function createConsumerListing(
     try {
       await uploadListingPhotosFromFormData(data.id, formData);
     } catch (e) {
+      await supabase.from("equipment_listings").delete().eq("id", data.id);
       return {
         error: e instanceof Error ? e.message : "Kuvien tallennus epäonnistui.",
       };
     }
 
+    const mailResult = await sendListingVerificationEmail({
+      to: contactEmail,
+      listingTitle: input.title,
+      listingId: data.id,
+      rawToken: raw,
+    });
+
+    if (!mailResult.ok && !mailResult.skipped) {
+      await supabase.from("equipment_listings").delete().eq("id", data.id);
+      return {
+        error:
+          "Vahvistussähköpostin lähetys epäonnistui. Tarkista osoite ja yritä uudelleen.",
+      };
+    }
+
     return {
       ok: true,
-      redirectPath: `/markkinapaikka/ilmoitukset/${data.id}?julkaistu=1`,
+      redirectPath: `/markkinapaikka/ilmoita/vahvistus?email=${encodeURIComponent(contactEmail)}`,
     };
   } catch (err) {
     console.error("[createConsumerListing]", err);
@@ -388,10 +453,27 @@ export async function renewExpiredListing(
     const now = new Date();
 
     if (listing.seller_type === "customer") {
-      const active = await countActiveConsumerListings(user.id);
-      if (active >= CONSUMER_FREE_MAX_ACTIVE_LISTINGS) {
+      const { data: listingEmailRow } = await supabase
+        .from("equipment_listings")
+        .select("contact_email")
+        .eq("id", listingId)
+        .single();
+
+      const contactEmail = normalizeListingContactEmail(
+        listingEmailRow?.contact_email ?? user.email ?? "",
+      );
+
+      const activeByUser = await countActiveConsumerListings(user.id);
+      if (activeByUser >= CONSUMER_FREE_MAX_ACTIVE_LISTINGS) {
         return {
           error: `Sinulla on jo ${CONSUMER_FREE_MAX_ACTIVE_LISTINGS} aktiivista ilmoitusta. Poista vanha ennen uusimista.`,
+        };
+      }
+
+      const activeByEmail = await countActiveConsumerListingsByEmail(contactEmail);
+      if (activeByEmail >= CONSUMER_FREE_MAX_ACTIVE_LISTINGS) {
+        return {
+          error: `Sähköpostiosoitteeseen ${contactEmail} liittyy jo ${CONSUMER_FREE_MAX_ACTIVE_LISTINGS} aktiivista ilmoitusta.`,
         };
       }
 
@@ -529,7 +611,7 @@ export async function removeSellerListing(
   const supabase = await createClient();
   const { data: listing } = await supabase
     .from("equipment_listings")
-    .select("id, seller_id, status, title")
+    .select("id, seller_id, status, title, pending_publish")
     .eq("id", listingId)
     .eq("seller_id", user.id)
     .single();
@@ -539,13 +621,29 @@ export async function removeSellerListing(
   }
 
   const status = listing.status as EquipmentListingStatus;
-  if (!SELLER_REMOVABLE_STATUSES.includes(status)) {
+  const pendingVerification =
+    status === "draft" && Boolean(listing.pending_publish);
+
+  if (!SELLER_REMOVABLE_STATUSES.includes(status) && !pendingVerification) {
     return {
       error:
         status === "removed"
           ? "Ilmoitus on jo poistettu."
           : "Tätä ilmoitusta ei voi poistaa tässä vaiheessa.",
     };
+  }
+
+  if (pendingVerification) {
+    const { error: delErr } = await supabase
+      .from("equipment_listings")
+      .delete()
+      .eq("id", listingId)
+      .eq("seller_id", user.id);
+    if (delErr) {
+      console.error("[removeSellerListing] pending delete", delErr.message);
+      return { error: "Ilmoituksen poisto epäonnistui." };
+    }
+    return { success: "Ilmoitus poistettu." };
   }
 
   const { error } = await supabase
@@ -566,6 +664,7 @@ export type SellerListingRow = {
   id: string;
   title: string;
   status: EquipmentListingStatus;
+  pending_publish: boolean;
   price_eur: number | null;
   municipality: string;
   published_at: string | null;
@@ -580,10 +679,12 @@ export async function fetchSellerListings(
   const { data } = await supabase
     .from("equipment_listings")
     .select(
-      "id, title, status, price_eur, municipality, published_at, expires_at, created_at",
+      "id, title, status, pending_publish, price_eur, municipality, published_at, expires_at, created_at",
     )
     .eq("seller_id", userId)
-    .neq("status", "draft")
+    .or(
+      "status.neq.draft,and(status.eq.draft,pending_publish.eq.true)",
+    )
     .order("created_at", { ascending: false });
 
   return (data ?? []) as SellerListingRow[];
