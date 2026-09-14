@@ -3,8 +3,14 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { fetchSellerListings } from "@/app/actions/marketplace-listings";
 import { RemoveListingButton } from "@/components/marketplace/remove-listing-button";
+import { RenewListingForm } from "@/components/marketplace/renew-listing-form";
 import { SiteHeader } from "@/components/site-header";
 import { getSessionUser, isContractor } from "@/lib/auth";
+import {
+  getActiveContractorSubscription,
+  subscriptionSlotsLeft,
+} from "@/lib/marketplace-subscription";
+import { createClient } from "@/lib/supabase/server";
 import { marketplaceCreateListingPath } from "@/lib/marketplace-listing-links";
 import { listingStatusLabels } from "@/lib/marketplace-listings";
 import { LISTING_DURATION_WEEKS } from "@/lib/marketplace-pricing";
@@ -33,6 +39,18 @@ export default async function MyListingsPage() {
   const listings = await fetchSellerListings(user.id);
   const contractor = await isContractor();
   const newListingHref = marketplaceCreateListingPath(contractor);
+
+  let subscriptionSlots = 0;
+  let subscriptionPlanName: string | null = null;
+  if (contractor) {
+    const supabase = await createClient();
+    const sub = await getActiveContractorSubscription(supabase, user.id);
+    if (sub) {
+      subscriptionSlots = subscriptionSlotsLeft(sub);
+      subscriptionPlanName = sub.plan.name_fi;
+    }
+  }
+  const sellerType = contractor ? "contractor" : "customer";
 
   return (
     <div className={brand.page}>
@@ -106,19 +124,31 @@ export default async function MyListingsPage() {
                         {l.status === "published" && l.expires_at && (
                           <> · voimassa {formatDate(l.expires_at)} asti</>
                         )}
+                        {l.status === "expired" && l.expires_at && (
+                          <> · vanhentui {formatDate(l.expires_at)}</>
+                        )}
                         {l.published_at && (
                           <> · julkaistu {formatDate(l.published_at)}</>
                         )}
                       </p>
                     </div>
                     <div className="flex shrink-0 flex-col items-end gap-2">
-                      {canView && l.status === "published" && (
+                      {canView && (
                         <Link
                           href={`/markkinapaikka/ilmoitukset/${l.id}`}
                           className="text-sm font-medium text-sky-700 hover:underline"
                         >
                           Näytä
                         </Link>
+                      )}
+                      {l.status === "expired" && (
+                        <RenewListingForm
+                          listingId={l.id}
+                          sellerType={sellerType}
+                          subscriptionSlots={subscriptionSlots}
+                          subscriptionPlanName={subscriptionPlanName}
+                          compact
+                        />
                       )}
                       {canRemove && (
                         <RemoveListingButton

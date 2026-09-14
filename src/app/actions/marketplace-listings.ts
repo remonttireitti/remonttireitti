@@ -341,6 +341,181 @@ export async function createContractorListing(
   }
 }
 
+async function hasPendingListingBilling(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  listingId: string,
+): Promise<boolean> {
+  const { count } = await supabase
+    .from("marketplace_billing_requests")
+    .select("id", { count: "exact", head: true })
+    .eq("listing_id", listingId)
+    .in("status", ["pending", "invoiced"]);
+
+  return (count ?? 0) > 0;
+}
+
+export async function renewExpiredListing(
+  _prev: ListingActionState,
+  formData: FormData,
+): Promise<ListingActionState> {
+  try {
+    const user = await getSessionUser();
+    if (!user) return { error: "Kirjaudu sisään." };
+
+    const listingId = String(formData.get("listing_id") ?? "");
+    if (!listingId) return { error: "Ilmoitus puuttuu." };
+
+    const supabase = await createClient();
+    const { data: listing } = await supabase
+      .from("equipment_listings")
+      .select("id, seller_id, seller_type, status, title")
+      .eq("id", listingId)
+      .eq("seller_id", user.id)
+      .single();
+
+    if (!listing) return { error: "Ilmoitusta ei löydy." };
+    if (listing.status !== "expired") {
+      return { error: "Vain vanhentunutta ilmoitusta voi uusia." };
+    }
+
+    if (await hasPendingListingBilling(supabase, listingId)) {
+      return {
+        error:
+          "Ilmoituksella on jo odottava laskutuspyyntö. Odota laskua tai ota yhteyttä tukeen.",
+      };
+    }
+
+    const now = new Date();
+
+    if (listing.seller_type === "customer") {
+      const active = await countActiveConsumerListings(user.id);
+      if (active >= CONSUMER_FREE_MAX_ACTIVE_LISTINGS) {
+        return {
+          error: `Sinulla on jo ${CONSUMER_FREE_MAX_ACTIVE_LISTINGS} aktiivista ilmoitusta. Poista vanha ennen uusimista.`,
+        };
+      }
+
+      const expires = new Date(now);
+      expires.setDate(expires.getDate() + LISTING_DURATION_DAYS.consumer);
+
+      const { error } = await supabase
+        .from("equipment_listings")
+        .update({
+          status: "published",
+          published_at: now.toISOString(),
+          expires_at: expires.toISOString(),
+        })
+        .eq("id", listingId);
+
+      if (error) {
+        console.error("[renewExpiredListing] consumer", error.code, error.message);
+        return { error: "Uusiminen epäonnistui." };
+      }
+
+      return {
+        ok: true,
+        redirectPath: `/markkinapaikka/ilmoitukset/${listingId}?uusittu=1`,
+      };
+    }
+
+    if (!(await isContractor())) {
+      return { error: "Vain urakoitsija voi uusia yritysilmoituksen." };
+    }
+
+    const billing = String(formData.get("billing_mode") ?? "subscription");
+    const sub = await getActiveContractorSubscription(supabase, user.id);
+    const canUseSubscription = Boolean(sub && subscriptionSlotsLeft(sub) > 0);
+
+    if (billing === "subscription" && canUseSubscription && sub) {
+      const expires = new Date(now);
+      expires.setDate(expires.getDate() + LISTING_DURATION_DAYS.paid);
+
+      const { error } = await supabase
+        .from("equipment_listings")
+        .update({
+          status: "published",
+          published_at: now.toISOString(),
+          expires_at: expires.toISOString(),
+          subscription_id: sub.id,
+          plan_id: sub.plan_id,
+          highlighted_in_search: listingHighlightedForPlanSlug(sub.plan.slug),
+        })
+        .eq("id", listingId);
+
+      if (error) {
+        console.error(
+          "[renewExpiredListing] subscription",
+          error.code,
+          error.message,
+        );
+        return { error: "Uusiminen epäonnistui." };
+      }
+
+      const admin = tryCreateAdminClient();
+      const counterClient = admin ?? supabase;
+      const { error: counterErr } = await counterClient
+        .from("seller_subscriptions")
+        .update({
+          listings_published_this_period: sub.listings_published_this_period + 1,
+        })
+        .eq("id", sub.id);
+
+      if (counterErr) {
+        console.error(
+          "[renewExpiredListing] subscription counter",
+          counterErr.code,
+          counterErr.message,
+        );
+      }
+
+      return {
+        ok: true,
+        redirectPath: `/markkinapaikka/ilmoitukset/${listingId}?uusittu=1`,
+      };
+    }
+
+    if (billing === "subscription" && !canUseSubscription) {
+      return {
+        error:
+          "Kk-tilauksen ilmoituspaikat ovat loppu. Valitse yksittäinen uusiminen tai tilaa lisää kapasiteettia.",
+      };
+    }
+
+    const { data: plan } = await supabase
+      .from("marketplace_plans")
+      .select("id, name_fi, price_eur_cents")
+      .eq("slug", "listing_single")
+      .single();
+
+    if (!plan) return { error: "Hinnoittelua ei löydy." };
+
+    const { error: billErr } = await supabase
+      .from("marketplace_billing_requests")
+      .insert({
+        seller_id: user.id,
+        kind: "listing_renewal",
+        status: "pending",
+        plan_id: plan.id,
+        listing_id: listingId,
+        amount_eur_cents: plan.price_eur_cents,
+        description_fi: `Tori: uusiminen — ${listing.title}`,
+      });
+
+    if (billErr) {
+      console.error("[renewExpiredListing] billing", billErr.code, billErr.message);
+      return { error: "Laskutuspyynnön luonti epäonnistui." };
+    }
+
+    return {
+      ok: true,
+      redirectPath: `/markkinapaikka/ilmoitukset/${listingId}?lasku=1&summa=${encodeURIComponent(formatPriceFromCents(plan.price_eur_cents))}&email=${encodeURIComponent(MARKETPLACE_INVOICE_EMAIL)}`,
+    };
+  } catch (err) {
+    console.error("[renewExpiredListing]", err);
+    return { error: "Uusiminen epäonnistui. Yritä uudelleen." };
+  }
+}
+
 export async function removeSellerListing(
   _prev: ListingActionState,
   formData: FormData,
