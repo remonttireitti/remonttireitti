@@ -19,8 +19,6 @@ import {
 } from "@/lib/contractor-referral";
 import {
   lookupCustomerIdByEmail,
-  recordContractorSignupReferral,
-  recordCustomerReferral,
   referrerExistsForContractorSignup,
 } from "@/lib/customer-referral";
 import { syncContractorAccount } from "@/lib/sync-contractor";
@@ -100,7 +98,7 @@ export async function signUp(
     if (!referrerExists) {
       return {
         error:
-          "Suosittelijaa ei löydy — anna rekisteröityneen urakoitsijan tai asiakkaan sähköposti.",
+          "Suosittelijaa ei löydy — anna vahvistetun urakoitsijan tai asiakkaan sähköposti.",
       };
     }
 
@@ -132,7 +130,7 @@ export async function signUp(
     if (!referrerId) {
       return {
         error:
-          "Suosittelijaa ei löydy — tarkista sähköposti tai pyydä suosittelijaa luomaan asiakastili ensin.",
+          "Suosittelijaa ei löydy — tarkista sähköposti tai varmista että suosittelijan asiakastili on vahvistettu.",
       };
     }
   }
@@ -164,14 +162,7 @@ export async function signUp(
   }
 
   if (data.user && !data.session) {
-    const admin = tryCreateAdminClient();
-    if (data.user && role === "contractor") {
-      if (admin) {
-        await recordContractorSignupReferral(admin, {
-          referredContractorId: data.user.id,
-          referrerEmail: referrerEmailRaw,
-        });
-      }
+    if (role === "contractor") {
       await notifyAdminsNewRegistration({
         userId: data.user.id,
         role: "contractor",
@@ -181,17 +172,13 @@ export async function signUp(
         referrerEmail: referrerEmailRaw,
       });
     }
-    if (data.user && role === "customer" && customerReferrerEmailRaw && admin) {
-      await recordCustomerReferral(admin, {
-        referredCustomerId: data.user.id,
-        referrerEmail: customerReferrerEmailRaw,
-      });
+    if (role === "customer") {
       await notifyAdminsNewRegistration({
         userId: data.user.id,
         role: "customer",
         fullName: fullName || null,
         email,
-        referrerEmail: customerReferrerEmailRaw,
+        referrerEmail: customerReferrerEmailRaw || null,
       });
     }
     return { redirectPath: "/kirjaudu?vahvistus=1" };
@@ -244,17 +231,7 @@ export async function signUp(
     }
 
     await syncContractorAccount(data.user);
-
-    const admin = tryCreateAdminClient();
-    if (admin) {
-      const referralRes = await recordContractorSignupReferral(admin, {
-        referredContractorId: data.user.id,
-        referrerEmail: referrerEmailRaw,
-      });
-      if (referralRes.error) {
-        return { error: referralRes.error };
-      }
-    }
+    await syncUserReferrals(data.user);
 
     await notifyAdminsNewRegistration({
       userId: data.user.id,
@@ -269,18 +246,7 @@ export async function signUp(
   }
 
   if (data.user) {
-    if (customerReferrerEmailRaw) {
-      const admin = tryCreateAdminClient();
-      if (admin) {
-        const referralRes = await recordCustomerReferral(admin, {
-          referredCustomerId: data.user.id,
-          referrerEmail: customerReferrerEmailRaw,
-        });
-        if (referralRes.error) {
-          return { error: referralRes.error };
-        }
-      }
-    }
+    await syncUserReferrals(data.user);
 
     await notifyAdminsNewRegistration({
       userId: data.user.id,

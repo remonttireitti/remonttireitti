@@ -90,14 +90,18 @@ export async function recordContractorReferral(
     referredContractorId: string;
     referrerEmail: string;
   },
-): Promise<{ error?: string }> {
+): Promise<{
+  error?: string;
+  created?: boolean;
+  referrerContractorId?: string;
+}> {
   const normalizedEmail = normalizeReferrerEmail(params.referrerEmail);
   const referrerId = await lookupContractorIdByEmail(admin, normalizedEmail);
 
   if (!referrerId) {
     return {
       error:
-        "Suosittelijaa ei löydy — tarkista että sähköposti kuuluu jo rekisteröityneelle urakoitsijalle.",
+        "Suosittelijaa ei löydy — tarkista sähköposti tai varmista että suosittelijan tili on vahvistettu.",
     };
   }
 
@@ -113,12 +117,12 @@ export async function recordContractorReferral(
   });
 
   if (error) {
-    if (error.code === "23505") return {};
+    if (error.code === "23505") return { created: false };
     console.error("[contractor-referral] insert failed", error.message);
     return { error: "Suosittelun tallennus epäonnistui." };
   }
 
-  return {};
+  return { created: true, referrerContractorId: referrerId };
 }
 
 export async function ensureContractorReferralFromMetadata(
