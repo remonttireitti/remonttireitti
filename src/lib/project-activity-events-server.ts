@@ -1,5 +1,18 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { createAdminClient, tryCreateAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 import type { ProjectActivityEvent, ProjectActivityKind } from "@/lib/project-activity";
+
+function isMissingColumnError(error: { code?: string; message?: string } | null): boolean {
+  if (!error) return false;
+  const msg = (error.message ?? "").toLowerCase();
+  return (
+    error.code === "42703" ||
+    error.code === "PGRST204" ||
+    (msg.includes("column") && msg.includes("does not exist")) ||
+    (msg.includes("could not find") && msg.includes("column"))
+  );
+}
 
 export type ProjectActivityEventType = "bid_updated" | "bid_submitted";
 
@@ -14,6 +27,16 @@ type StoredActivityRow = {
   created_at: string;
 };
 
+async function activityEventsClient(): Promise<SupabaseClient | null> {
+  const admin = tryCreateAdminClient();
+  if (admin) return admin;
+  try {
+    return await createClient();
+  } catch {
+    return null;
+  }
+}
+
 export async function recordProjectActivityEvent(params: {
   projectId: string;
   eventType: ProjectActivityEventType;
@@ -22,10 +45,13 @@ export async function recordProjectActivityEvent(params: {
   referenceId?: string;
   detail?: string;
 }): Promise<void> {
-  const admin = tryCreateAdminClient();
-  if (!admin) return;
+  const client = await activityEventsClient();
+  if (!client) {
+    console.warn("[recordProjectActivityEvent] no database client");
+    return;
+  }
 
-  const { error } = await admin.from("project_activity_events").insert({
+  const { error } = await client.from("project_activity_events").insert({
     project_id: params.projectId,
     event_type: params.eventType,
     kind: params.kind,
@@ -99,11 +125,13 @@ export function storedRowsToActivityEvents(
 
 export async function fetchStoredProjectActivityEvents(
   projectId: string,
+  fallbackClient?: SupabaseClient,
 ): Promise<StoredActivityRow[]> {
   const admin = tryCreateAdminClient();
-  if (!admin) return [];
+  const client = admin ?? fallbackClient;
+  if (!client) return [];
 
-  const { data, error } = await admin
+  const { data, error } = await client
     .from("project_activity_events")
     .select(
       "id, project_id, event_type, kind, actor_id, reference_id, detail, created_at",

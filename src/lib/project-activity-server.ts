@@ -331,6 +331,104 @@ function buildInvoiceEvents(
   }
 }
 
+function isMissingColumnError(error: { code?: string; message?: string } | null): boolean {
+  if (!error) return false;
+  const msg = (error.message ?? "").toLowerCase();
+  return (
+    error.code === "42703" ||
+    error.code === "PGRST204" ||
+    (msg.includes("column") && msg.includes("does not exist")) ||
+    (msg.includes("could not find") && msg.includes("column"))
+  );
+}
+
+const PROJECT_ACTIVITY_SELECT_FULL =
+  "id, status, created_at, updated_at, published_at, email_verified_at, completed_at, auto_closed_at, inactivity_warning_sent_at, contact_revealed_at, content_revision, guest_email";
+
+const PROJECT_ACTIVITY_SELECT_CORE =
+  "id, status, created_at, updated_at, published_at, completed_at, auto_closed_at, inactivity_warning_sent_at, contact_revealed_at, content_revision";
+
+const PROJECT_ACTIVITY_SELECT_MINIMAL =
+  "id, status, created_at, updated_at, published_at, content_revision";
+
+async function loadProjectRowForActivity(
+  client: SupabaseClient,
+  projectId: string,
+): Promise<ProjectRow | null> {
+  const full = await client
+    .from("projects")
+    .select(PROJECT_ACTIVITY_SELECT_FULL)
+    .eq("id", projectId)
+    .maybeSingle();
+
+  if (!full.error && full.data) {
+    return full.data as ProjectRow;
+  }
+
+  if (full.error && isMissingColumnError(full.error)) {
+    const core = await client
+      .from("projects")
+      .select(PROJECT_ACTIVITY_SELECT_CORE)
+      .eq("id", projectId)
+      .maybeSingle();
+
+    if (!core.error && core.data) {
+      return {
+        ...(core.data as ProjectRow),
+        email_verified_at: null,
+        guest_email: null,
+      };
+    }
+
+    if (core.error && isMissingColumnError(core.error)) {
+      const minimal = await client
+        .from("projects")
+        .select(PROJECT_ACTIVITY_SELECT_MINIMAL)
+        .eq("id", projectId)
+        .maybeSingle();
+
+      if (!minimal.error && minimal.data) {
+        return {
+          ...(minimal.data as ProjectRow),
+          email_verified_at: null,
+          completed_at: null,
+          auto_closed_at: null,
+          inactivity_warning_sent_at: null,
+          contact_revealed_at: null,
+          guest_email: null,
+        };
+      }
+
+      if (minimal.error) {
+        console.error(
+          "[loadProjectRowForActivity] minimal",
+          minimal.error.code,
+          minimal.error.message,
+        );
+      }
+      return null;
+    }
+
+    if (core.error) {
+      console.error(
+        "[loadProjectRowForActivity] core",
+        core.error.code,
+        core.error.message,
+      );
+    }
+    return null;
+  }
+
+  if (full.error) {
+    console.error(
+      "[loadProjectRowForActivity] full",
+      full.error.code,
+      full.error.message,
+    );
+  }
+  return null;
+}
+
 async function loadProjectBids(
   client: SupabaseClient,
   projectId: string,
@@ -373,28 +471,22 @@ async function loadActivityData(
   const client = admin ?? fallbackClient;
   if (!client) return null;
 
-  const [projectRes, bids, completionRes, invoiceRes, storedEvents] =
+  const [project, bids, completionRes, invoiceRes, storedEvents] =
     await Promise.all([
-    client
-      .from("projects")
-      .select(
-        "id, status, created_at, updated_at, published_at, email_verified_at, completed_at, auto_closed_at, inactivity_warning_sent_at, contact_revealed_at, content_revision, guest_email",
-      )
-      .eq("id", projectId)
-      .maybeSingle(),
-    loadProjectBids(client, projectId),
-    client
-      .from("project_completion_requests")
-      .select("id, contractor_id, created_at, resolved_at")
-      .eq("project_id", projectId),
-    client
-      .from("platform_invoices")
-      .select("contractor_id, created_at, paid_at, status")
-      .eq("project_id", projectId),
-    fetchStoredProjectActivityEvents(projectId),
-  ]);
+      loadProjectRowForActivity(client, projectId),
+      loadProjectBids(client, projectId),
+      client
+        .from("project_completion_requests")
+        .select("id, contractor_id, created_at, resolved_at")
+        .eq("project_id", projectId),
+      client
+        .from("platform_invoices")
+        .select("contractor_id, created_at, paid_at, status")
+        .eq("project_id", projectId),
+      fetchStoredProjectActivityEvents(projectId, fallbackClient),
+    ]);
 
-  if (!projectRes.data) return null;
+  if (!project) return null;
 
   const contractorIds = [
     ...bids.map((b) => b.contractor_id),
@@ -406,7 +498,7 @@ async function loadActivityData(
   const companyMap = await contractorNames(client, contractorIds);
 
   return {
-    project: projectRes.data as ProjectRow,
+    project,
     bids,
     completions: (completionRes.data ?? []) as CompletionRow[],
     invoices: (invoiceRes.data ?? []) as InvoiceRow[],
