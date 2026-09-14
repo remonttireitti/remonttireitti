@@ -6,9 +6,9 @@ import { marketplaceBrand } from "@/lib/marketplace-brand";
 export default async function ListingVerificationSentPage({
   searchParams,
 }: {
-  searchParams: Promise<{ email?: string }>;
+  searchParams: Promise<{ email?: string; kuvat?: string }>;
 }) {
-  const { email } = await searchParams;
+  const { email, kuvat } = await searchParams;
   const displayEmail = email?.trim() || "sähköpostiisi";
 
   return (
@@ -18,6 +18,17 @@ export default async function ListingVerificationSentPage({
         <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
           Tarkista sähköpostisi
         </h1>
+        {kuvat === "epaonnistui" && (
+          <p
+            className="mx-auto mt-4 max-w-lg rounded-lg bg-amber-50 p-3 text-sm text-amber-900"
+            role="alert"
+          >
+            Ilmoitus tallennettiin, mutta kuvien lataus epäonnistui. Voit lisätä
+            kuvat myöhemmin poistamalla ilmoituksen ja luomalla uuden, tai ottaa
+            yhteyttä tukeen.
+          </p>
+        )}
+
         <p className="mx-auto mt-4 max-w-lg text-sm leading-relaxed text-stone-600 sm:text-base">
           Lähetimme vahvistuslinkin osoitteeseen{" "}
           <span className="font-medium text-stone-900">{displayEmail}</span>. Avaa

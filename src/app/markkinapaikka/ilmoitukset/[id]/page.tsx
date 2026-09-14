@@ -79,10 +79,11 @@ export default async function MarketplaceListingDetailPage({
     lasku?: string;
     summa?: string;
     virhe?: string;
+    kuvat?: string;
   }>;
 }) {
   const { id } = await params;
-  const { julkaistu, uusittu, lasku, summa, virhe } = await searchParams;
+  const { julkaistu, uusittu, lasku, summa, virhe, kuvat } = await searchParams;
 
   await expireListingsIfNeeded();
 
@@ -289,6 +290,16 @@ export default async function MarketplaceListingDetailPage({
             role="status"
           >
             Ilmoitus julkaistu onnistuneesti.
+          </p>
+        )}
+        {kuvat === "epaonnistui" && isSeller && (
+          <p
+            className="mt-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-900"
+            role="alert"
+          >
+            Ilmoitus tallennettiin, mutta kuvien lataus epäonnistui. Yritä lisätä
+            kuvat uudelleen ottamalla yhteyttä tukeen tai luomalla ilmoitus
+            uudelleen.
           </p>
         )}
 
