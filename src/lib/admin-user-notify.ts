@@ -34,6 +34,7 @@ function buildRegistrationEmailHtml(params: {
   roleLabel: string;
   who: string;
   email?: string | null;
+  referrerEmail?: string | null;
 }) {
   return `
     <div style="font-family:system-ui,sans-serif;max-width:560px">
@@ -43,6 +44,7 @@ function buildRegistrationEmailHtml(params: {
         <li><strong>Rooli:</strong> ${escapeHtml(params.roleLabel)}</li>
         <li><strong>Nimi / yritys:</strong> ${escapeHtml(params.who)}</li>
         ${params.email ? `<li><strong>Sähköposti:</strong> ${escapeHtml(params.email)}</li>` : ""}
+        ${params.referrerEmail ? `<li><strong>Suosittelija:</strong> ${escapeHtml(params.referrerEmail)}</li>` : ""}
       </ul>
       <p style="margin-top:24px"><a href="${siteUrl("/admin")}">Avaa hallinta</a></p>
     </div>
@@ -56,6 +58,7 @@ export async function notifyAdminsNewRegistration(params: {
   fullName?: string | null;
   companyName?: string | null;
   email?: string | null;
+  referrerEmail?: string | null;
 }): Promise<void> {
   if (adminNewUsersGloballyDisabled()) return;
 
@@ -80,6 +83,7 @@ export async function notifyAdminsNewRegistration(params: {
     roleLabel,
     who,
     email: params.email,
+    referrerEmail: params.referrerEmail,
   });
   const emailSubject = `${title}: ${who}`;
 

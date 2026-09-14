@@ -8,6 +8,10 @@ import {
 import { formatDeadlineFi } from "@/lib/bid-acceptance";
 import { brand } from "@/lib/brand-theme";
 import { formatPlatformFeeInvoiceLine } from "@/lib/platform-fee";
+import {
+  platformFeeWaiverShortLabel,
+  type PlatformFeeWaiverReason,
+} from "@/lib/platform-fee-waiver";
 
 type Invoice = {
   id: string;
@@ -15,6 +19,7 @@ type Invoice = {
   amount_cents: number;
   due_at: string;
   paid_at: string | null;
+  fee_waiver_reason?: PlatformFeeWaiverReason | null;
 };
 
 type Contact = {
@@ -45,7 +50,10 @@ export function PlatformFeePanel({
         <h2 className="font-semibold text-sky-950">Asiakkaan yhteystiedot</h2>
         <p className="mt-1 text-sm text-sky-800">
           {invoice.amount_cents === 0 ? (
-            <>Beta-etu: ei välitysmaksua — yhteystiedot avattu.</>
+            <>
+              {platformFeeWaiverShortLabel(invoice.fee_waiver_reason)} — yhteystiedot
+              avattu.
+            </>
           ) : (
             <>
               Välitysmaksu maksettu{" "}

@@ -6,12 +6,13 @@ import { fetchHeatPumpCatalog, fetchJobCatalog } from "@/lib/job-catalog-server"
 export default async function RegisterPage({
   searchParams,
 }: {
-  searchParams: Promise<{ rooli?: string; email?: string }>;
+  searchParams: Promise<{ rooli?: string; email?: string; suosittelija?: string }>;
 }) {
   const params = await searchParams;
   const defaultRole =
     params.rooli === "urakoitsija" ? "contractor" : "customer";
   const defaultEmail = params.email?.trim() ?? "";
+  const defaultReferrerEmail = params.suosittelija?.trim() ?? "";
 
   const [catalog, pumpCatalog] = await Promise.all([
     fetchJobCatalog(),
@@ -32,6 +33,7 @@ export default async function RegisterPage({
       <RegisterForm
         defaultRole={defaultRole}
         defaultEmail={defaultEmail}
+        defaultReferrerEmail={defaultReferrerEmail}
         trades={trades}
         heatPumpJobTypes={pumpCatalog.jobTypes.map((j) => ({
           id: j.id,

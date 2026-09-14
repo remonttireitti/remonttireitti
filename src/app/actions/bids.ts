@@ -4,7 +4,8 @@ import { ensureProjectConversation } from "@/app/actions/messages";
 import { createPlatformInvoiceForBid } from "@/app/actions/platform-invoices";
 import { notifyAdminsNewPlatformInvoice } from "@/lib/billing-admin";
 import { platformFeeDueAt } from "@/lib/platform-fee";
-import { resolvePlatformFeeCentsForContractor } from "@/lib/platform-fee-beta";
+import { contractorReferralFreeDealsRemainingFor } from "@/lib/contractor-referral";
+import { resolvePlatformFeeForContractor } from "@/lib/platform-fee-beta";
 import {
   countContractorPlatformInvoices,
   finalizePlatformInvoiceAsPaid,
@@ -979,15 +980,18 @@ export async function acceptBid(formData: FormData): Promise<void> {
   }
 
   const admin = createAdminClient();
-  const [priorInvoiceCount, hasActiveSubscription] = await Promise.all([
-    countContractorPlatformInvoices(admin, bid.contractor_id),
-    import("@/lib/platform-subscription").then((m) =>
-      m.contractorHasActivePlatformSubscription(admin, bid.contractor_id),
-    ),
-  ]);
-  const feeCents = resolvePlatformFeeCentsForContractor({
+  const [priorInvoiceCount, hasActiveSubscription, referralFreeDealsRemaining] =
+    await Promise.all([
+      countContractorPlatformInvoices(admin, bid.contractor_id),
+      import("@/lib/platform-subscription").then((m) =>
+        m.contractorHasActivePlatformSubscription(admin, bid.contractor_id),
+      ),
+      contractorReferralFreeDealsRemainingFor(admin, bid.contractor_id),
+    ]);
+  const { feeCents, waiverReason } = resolvePlatformFeeForContractor({
     priorInvoiceCount,
     hasActiveSubscription,
+    referralFreeDealsRemaining,
   });
   const feeWaived = feeCents === 0;
 
@@ -1019,6 +1023,7 @@ export async function acceptBid(formData: FormData): Promise<void> {
     contractorId: bid.contractor_id,
     dueAt: commitDeadline,
     amountCents: feeCents,
+    feeWaiverReason: waiverReason,
   });
 
   if (invoiceRes.error) {
@@ -1036,13 +1041,14 @@ export async function acceptBid(formData: FormData): Promise<void> {
     }
   }
 
-  if (invoiceRes.invoiceId && !feeWaived) {
+  if (invoiceRes.invoiceId && (!feeWaived || waiverReason === "referral")) {
     void notifyAdminsNewPlatformInvoice({
       invoiceId: invoiceRes.invoiceId,
       projectId,
       projectTitle: project.title,
       contractorId: bid.contractor_id,
       amountCents: feeCents,
+      waiverReason,
     });
     revalidatePath("/admin/laskutus");
   }
@@ -1088,6 +1094,7 @@ export async function acceptBid(formData: FormData): Promise<void> {
       projectId,
       commitDeadline,
       feeCents,
+      feeWaiverReason: waiverReason,
       acceptedAmountCents,
       acceptedIncludesEquipment: acceptedIncludesEquipment ?? false,
     }),
