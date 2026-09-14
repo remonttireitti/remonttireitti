@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import { useListingFormRedirect } from "@/components/marketplace/use-listing-form-redirect";
 import { ListingPhotoField } from "@/components/marketplace/listing-photo-field";
 import {
   createConsumerListing,
@@ -26,6 +27,8 @@ export function ConsumerListingForm({
     ListingActionState,
     FormData
   >(createConsumerListing, {});
+
+  useListingFormRedirect(state);
 
   if (slotsLeft <= 0) {
     return (
