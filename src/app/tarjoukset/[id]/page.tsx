@@ -36,6 +36,8 @@ import {
 import { brand } from "@/lib/brand-theme";
 import { fetchContractorSentCompletionRequest } from "@/lib/project-completion-requests-server";
 import { recordProjectView } from "@/lib/project-views-server";
+import { fetchContractorProjectActivity } from "@/lib/project-activity-server";
+import { ProjectActivityTimeline } from "@/components/project/project-activity-timeline";
 import { scoreProjectFromRow } from "@/lib/project-request-quality";
 import { createClient } from "@/lib/supabase/server";
 
@@ -77,7 +79,10 @@ export default async function ContractorProjectPage({
 
   await recordProjectView(supabase, id, user.id);
 
-  const projectPhotos = await fetchProjectPhotos(supabase, id);
+  const [projectPhotos, activityEvents] = await Promise.all([
+    fetchProjectPhotos(supabase, id),
+    fetchContractorProjectActivity(id, user.id),
+  ]);
 
   const { data: existingBid } = await supabase
     .from("bids")
@@ -328,6 +333,13 @@ export default async function ContractorProjectPage({
           alreadySent={sentCompletionRequest != null}
           hasBid={existingBid != null && existingBid.status !== "withdrawn"}
         />
+
+        <div className="mt-8">
+          <ProjectActivityTimeline
+            events={activityEvents}
+            title="Tapahtumaloki (sinun ja asiakkaan toimet)"
+          />
+        </div>
 
         <section id="tarjouslomake" className="mt-8 scroll-mt-24">
           <ValuePromoBanner variant="contractor-pay-on-win" className="mb-4" />

@@ -41,6 +41,8 @@ import { ProjectQualityScorePanel } from "@/components/project/project-quality-s
 import { fetchLearnedCriteria } from "@/lib/template-criterion-stats";
 import { fetchOpenCompletionRequestsForProject } from "@/lib/project-completion-requests-server";
 import { countProjectViews } from "@/lib/project-views-server";
+import { fetchCustomerProjectActivity } from "@/lib/project-activity-server";
+import { ProjectActivityTimeline } from "@/components/project/project-activity-timeline";
 import { brand } from "@/lib/brand-theme";
 import { scoreProjectFromRow } from "@/lib/project-request-quality";
 import { fetchProjectTradeNamesById } from "@/lib/project-trades-server";
@@ -261,6 +263,8 @@ export default async function ProjectPage({
     taydennetty === "1"
       ? await countProjectViews(dataClient, id)
       : 0;
+
+  const activityEvents = await fetchCustomerProjectActivity(id);
 
   if (openCompletionRequests.length > 0) {
     const contractorIds = [...new Set(openCompletionRequests.map((r) => r.contractor_id))];
@@ -617,6 +621,10 @@ export default async function ProjectPage({
                 : undefined
             }
           />
+        </div>
+
+        <div className="mt-8">
+          <ProjectActivityTimeline events={activityEvents} />
         </div>
 
         {isGuestAccess && guestEmail && (

@@ -18,6 +18,8 @@ import { getSessionUser, isContractor } from "@/lib/auth";
 import { fetchContractorProjectConversation } from "@/lib/messages-server";
 import { fetchPlatformFeedbackForProject } from "@/lib/platform-feedback-server";
 import { brand } from "@/lib/brand-theme";
+import { fetchContractorProjectActivity } from "@/lib/project-activity-server";
+import { ProjectActivityTimeline } from "@/components/project/project-activity-timeline";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function ContractorWonProjectPage({
@@ -123,6 +125,8 @@ export default async function ContractorWonProjectPage({
     project.status === "completed"
       ? await fetchPlatformFeedbackForProject(supabase, user.id, id)
       : null;
+
+  const activityEvents = await fetchContractorProjectActivity(id, user.id);
 
   return (
     <div className={brand.page}>
@@ -247,6 +251,13 @@ export default async function ContractorWonProjectPage({
           }
           simulateEnabled={simulateEnabled}
         />
+
+        <div className="mt-8">
+          <ProjectActivityTimeline
+            events={activityEvents}
+            title="Tapahtumaloki (sinun ja asiakkaan toimet)"
+          />
+        </div>
 
         {chatData && (
           <ProjectChat
