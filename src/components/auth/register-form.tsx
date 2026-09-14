@@ -120,8 +120,8 @@ export function RegisterForm({
               Suosittelijan sähköposti *
             </label>
             <p className="mt-1 text-xs text-stone-600">
-              Anna sen urakoitsijan sähköposti, joka suositteli sinua. Suosittelijan
-              täytyy olla jo rekisteröitynyt Remonttireittiin.
+              Anna sen henkilön sähköposti, joka suositteli sinua — urakoitsijan tai
+              asiakkaan, jolla on jo tili Remonttireitillä.
             </p>
             <input
               id="referrer_email"

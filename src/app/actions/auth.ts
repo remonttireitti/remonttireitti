@@ -15,13 +15,13 @@ import { saveContractorQualifications } from "@/lib/save-contractor-qualificatio
 import { notifyAdminsNewRegistration } from "@/lib/admin-user-notify";
 import {
   isValidReferrerEmail,
-  lookupContractorIdByEmail,
   normalizeReferrerEmail,
-  recordContractorReferral,
 } from "@/lib/contractor-referral";
 import {
   lookupCustomerIdByEmail,
+  recordContractorSignupReferral,
   recordCustomerReferral,
+  referrerExistsForContractorSignup,
 } from "@/lib/customer-referral";
 import { syncContractorAccount } from "@/lib/sync-contractor";
 import { syncUserReferrals } from "@/lib/sync-user-referrals";
@@ -80,7 +80,7 @@ export async function signUp(
   let contractorFacts: ReturnType<typeof validateCompanyFactsForm> | null = null;
   if (role === "contractor") {
     if (!referrerEmailRaw) {
-      return { error: "Anna suosittelijan urakoitsijan sähköpostiosoite." };
+      return { error: "Anna suosittelijan sähköpostiosoite." };
     }
     if (!isValidReferrerEmail(referrerEmailRaw)) {
       return { error: "Anna kelvollinen suosittelijan sähköpostiosoite." };
@@ -93,11 +93,14 @@ export async function signUp(
     if (!admin) {
       return { error: "Rekisteröityminen ei onnistu juuri nyt. Yritä myöhemmin." };
     }
-    const referrerId = await lookupContractorIdByEmail(admin, referrerEmailRaw);
-    if (!referrerId) {
+    const referrerExists = await referrerExistsForContractorSignup(
+      admin,
+      referrerEmailRaw,
+    );
+    if (!referrerExists) {
       return {
         error:
-          "Suosittelijaa ei löydy — tarkista sähköposti tai pyydä suosittelijaa luomaan tili ensin.",
+          "Suosittelijaa ei löydy — anna rekisteröityneen urakoitsijan tai asiakkaan sähköposti.",
       };
     }
 
@@ -164,7 +167,7 @@ export async function signUp(
     const admin = tryCreateAdminClient();
     if (data.user && role === "contractor") {
       if (admin) {
-        await recordContractorReferral(admin, {
+        await recordContractorSignupReferral(admin, {
           referredContractorId: data.user.id,
           referrerEmail: referrerEmailRaw,
         });
@@ -244,7 +247,7 @@ export async function signUp(
 
     const admin = tryCreateAdminClient();
     if (admin) {
-      const referralRes = await recordContractorReferral(admin, {
+      const referralRes = await recordContractorSignupReferral(admin, {
         referredContractorId: data.user.id,
         referrerEmail: referrerEmailRaw,
       });

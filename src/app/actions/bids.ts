@@ -8,6 +8,7 @@ import {
   consumeCustomerReferralCredit,
   fetchAvailableCustomerReferralCredit,
   grantCustomerReferralCreditForAcceptedDeal,
+  grantCustomerReferralCreditForContractorDeal,
 } from "@/lib/customer-referral";
 import { contractorReferralFreeDealsRemainingFor } from "@/lib/contractor-referral";
 import { payPerDealFeeCents } from "@/lib/platform-fee";
@@ -1078,22 +1079,36 @@ export async function acceptBid(formData: FormData): Promise<void> {
     }
   }
 
-  const grantResult = await grantCustomerReferralCreditForAcceptedDeal(admin, {
-    referredCustomerId: user.id,
-    sourceProjectId: projectId,
-  });
+  const [customerGrant, contractorGrant] = await Promise.all([
+    grantCustomerReferralCreditForAcceptedDeal(admin, {
+      referredCustomerId: user.id,
+      sourceProjectId: projectId,
+    }),
+    grantCustomerReferralCreditForContractorDeal(admin, {
+      referredContractorId: bid.contractor_id,
+      sourceProjectId: projectId,
+    }),
+  ]);
 
-  if (grantResult.granted && grantResult.referrerCustomerId) {
-    scheduleNotification(async () => {
-      const { userNotifyCustomerReferralCreditEarned } = await import(
-        "@/lib/user-notify"
-      );
+  scheduleNotification(async () => {
+    const { userNotifyCustomerReferralCreditEarned } = await import(
+      "@/lib/user-notify"
+    );
+    if (customerGrant.granted && customerGrant.referrerCustomerId) {
       await userNotifyCustomerReferralCreditEarned({
-        customerId: grantResult.referrerCustomerId!,
-        amountCents: grantResult.amountCents ?? payPerDealFeeCents(),
+        customerId: customerGrant.referrerCustomerId,
+        amountCents: customerGrant.amountCents ?? payPerDealFeeCents(),
+        source: "customer",
       });
-    });
-  }
+    }
+    if (contractorGrant.granted && contractorGrant.referrerCustomerId) {
+      await userNotifyCustomerReferralCreditEarned({
+        customerId: contractorGrant.referrerCustomerId,
+        amountCents: contractorGrant.amountCents ?? payPerDealFeeCents(),
+        source: "contractor",
+      });
+    }
+  });
 
   if (
     invoiceRes.invoiceId &&

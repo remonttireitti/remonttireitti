@@ -165,6 +165,7 @@ export async function userNotifyBidRejected(params: {
 export async function userNotifyCustomerReferralCreditEarned(params: {
   customerId: string;
   amountCents: number;
+  source?: "customer" | "contractor";
 }) {
   const amount = new Intl.NumberFormat("fi-FI", {
     style: "currency",
@@ -172,11 +173,16 @@ export async function userNotifyCustomerReferralCreditEarned(params: {
     maximumFractionDigits: 0,
   }).format(params.amountCents / 100);
 
+  const reason =
+    params.source === "contractor"
+      ? "Suosittelemasi urakoitsijan diili hyväksyttiin."
+      : "Suosittelemasi asiakkaan diili hyväksyttiin.";
+
   await inApp(
     params.customerId,
     "referral_credit",
     "Suosittelubonus ansaittu",
-    `Suosittelemasi asiakkaan diili hyväksyttiin. Sinulla on nyt bonus (${amount} veroton alennus seuraavaan urakkaasi).`,
+    `${reason} Sinulla on nyt bonus (${amount} veroton alennus seuraavaan urakkaasi).`,
     "/oma-tili",
   );
 }
