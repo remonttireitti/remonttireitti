@@ -12,6 +12,7 @@ export const metadata: Metadata = pageMetadata({
 });
 import { ContractorActivationBanner } from "@/components/account/contractor-activation-banner";
 import { ContractorListingForm } from "@/components/marketplace/contractor-listing-form";
+import { ContractorListingPaywall } from "@/components/marketplace/contractor-listing-paywall";
 import { ConsumerListingForm } from "@/components/marketplace/consumer-listing-form";
 import { ConsumerWantedListingForm } from "@/components/marketplace/consumer-wanted-listing-form";
 import { SiteHeader } from "@/components/site-header";
@@ -33,13 +34,14 @@ export default async function MarketplaceCreateListingPage({
 }: {
   searchParams: Promise<{
     tyyppi?: string;
+    tapa?: string;
     lasku?: string;
     summa?: string;
     email?: string;
   }>;
 }) {
   const params = await searchParams;
-  const { tyyppi } = params;
+  const { tyyppi, tapa } = params;
 
   if (tyyppi === "ostopyynto") {
     const user = await getSessionUser();
@@ -94,6 +96,9 @@ export default async function MarketplaceCreateListingPage({
   const supabase = await createClient();
   const sub = await getActiveContractorSubscription(supabase, user.id);
   const slots = sub ? subscriptionSlotsLeft(sub) : 0;
+  const canUseSubscription = Boolean(sub && slots > 0);
+  const singleListingMode = tapa === "yksittainen";
+  const showListingForm = canUseSubscription || singleListingMode;
 
   return (
     <div className={brand.page}>
@@ -122,25 +127,31 @@ export default async function MarketplaceCreateListingPage({
           </p>
         )}
 
-        {!sub && params.lasku !== "1" && (
-          <p className="mt-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
-            Ei aktiivista kk-tilausta. Voit julkaista yksittäisellä ilmoituksella
-            tai{" "}
-            <Link href="/markkinapaikka/tilaa" className="font-medium underline">
-              tilata paketin
-            </Link>
-            .
-          </p>
-        )}
+        {showListingForm ? (
+          <>
+            {singleListingMode && !canUseSubscription && (
+              <p className="mt-4 rounded-lg bg-sky-50 p-3 text-sm text-sky-900">
+                Täytät yksittäistä maksullista ilmoitusta. Ilmoitus julkaistaan
+                laskun maksamisen jälkeen.
+              </p>
+            )}
 
-        <ContractorListingForm
-          subscriptionSlots={slots}
-          subscriptionPlanName={sub?.plan.name_fi ?? null}
-          defaults={{
-            contact_email: user.email ?? "",
-            contact_phone: profile?.phone ?? "",
-          }}
-        />
+            <ContractorListingForm
+              subscriptionSlots={slots}
+              subscriptionPlanName={sub?.plan.name_fi ?? null}
+              singleOnly={singleListingMode && !canUseSubscription}
+              defaults={{
+                contact_email: user.email ?? "",
+                contact_phone: profile?.phone ?? "",
+              }}
+            />
+          </>
+        ) : (
+          <ContractorListingPaywall
+            reason={sub && slots <= 0 ? "quota_full" : "no_subscription"}
+            singleListingHref="/markkinapaikka/ilmoita?tapa=yksittainen"
+          />
+        )}
 
       </main>
     </div>
