@@ -36,7 +36,7 @@ export function ConsumerListingForm({
       encType="multipart/form-data"
       onSubmit={(e) => {
         e.preventDefault();
-        submit(new FormData(e.currentTarget));
+        submit(new FormData(e.currentTarget), photoFiles);
       }}
       className="mt-6 space-y-4"
     >

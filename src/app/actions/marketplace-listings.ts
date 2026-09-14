@@ -12,8 +12,8 @@ import {
   getActiveContractorSubscription,
   subscriptionSlotsLeft,
 } from "@/lib/marketplace-subscription";
-import { uploadListingPhotosFromFormData } from "@/lib/listing-photos";
 import { tryCreateAdminClient } from "@/lib/supabase/admin";
+import { isMissingSchemaColumnError } from "@/lib/supabase/schema-errors";
 import { createClient } from "@/lib/supabase/server";
 import { getProfile, getSessionUser, isContractor } from "@/lib/auth";
 import { shouldOfferContractorActivation } from "@/lib/contractor-activation";
@@ -30,7 +30,10 @@ export type ListingActionState = {
   error?: string;
   success?: string;
   ok?: boolean;
+  listingId?: string;
   redirectPath?: string;
+  /** Kuvat epäonnistuivat erillisessä latauksessa — ilmoitus voi silti olla luotu. */
+  photoWarning?: string;
 };
 
 export async function countActiveConsumerListings(
@@ -59,13 +62,17 @@ export async function countActiveConsumerListingsByEmail(
     .eq("status", "published")
     .eq("contact_email", email);
 
-  const { count: pendingCount } = await supabase
+  const { count: pendingCount, error: pendingErr } = await supabase
     .from("equipment_listings")
     .select("id", { count: "exact", head: true })
     .eq("seller_type", "customer")
     .eq("status", "draft")
     .eq("pending_publish", true)
     .eq("contact_email", email);
+
+  if (pendingErr && isMissingSchemaColumnError(pendingErr)) {
+    return publishedCount ?? 0;
+  }
 
   return (publishedCount ?? 0) + (pendingCount ?? 0);
 }
@@ -140,32 +147,36 @@ export async function createConsumerListing(
       .eq("slug", "consumer_free")
       .single();
 
+    const basePayload = {
+      seller_id: user.id,
+      seller_type: "customer" as const,
+      plan_id: plan?.id ?? null,
+      listing_kind: input.listing_kind,
+      condition: input.condition,
+      title: input.title,
+      description: input.description,
+      price_eur: input.price_eur,
+      municipality: input.municipality,
+      postal_code: input.postal_code,
+      address_line: input.address_line || null,
+      product_category: input.product_category,
+      pump_type_slug: input.pump_type_slug || null,
+      manufacturer: input.manufacturer || null,
+      model: input.model || null,
+      year_manufactured: input.year_manufactured,
+      contact_email: contactEmail,
+      contact_phone: input.contact_phone,
+      is_free_listing: true,
+    };
+
     const { raw, hash } = generateProjectAccessToken();
 
-    const { data, error } = await supabase
+    let { data, error } = await supabase
       .from("equipment_listings")
       .insert({
-        seller_id: user.id,
-        seller_type: "customer",
-        plan_id: plan?.id ?? null,
+        ...basePayload,
         status: "draft",
         pending_publish: true,
-        listing_kind: input.listing_kind,
-        condition: input.condition,
-        title: input.title,
-        description: input.description,
-        price_eur: input.price_eur,
-        municipality: input.municipality,
-        postal_code: input.postal_code,
-        address_line: input.address_line || null,
-        product_category: input.product_category,
-        pump_type_slug: input.pump_type_slug || null,
-        manufacturer: input.manufacturer || null,
-        model: input.model || null,
-        year_manufactured: input.year_manufactured,
-        contact_email: contactEmail,
-        contact_phone: input.contact_phone,
-        is_free_listing: true,
         verification_token_hash: hash,
         published_at: null,
         expires_at: null,
@@ -173,17 +184,40 @@ export async function createConsumerListing(
       .select("id")
       .single();
 
-    if (error) {
-      console.error("[createConsumerListing] insert", error.code, error.message);
+    let useLegacyPublish = false;
+
+    if (error && isMissingSchemaColumnError(error)) {
+      console.warn(
+        "[createConsumerListing] verification columns missing — publishing directly",
+        error.message,
+      );
+      const now = new Date();
+      const expires = new Date(now);
+      expires.setDate(expires.getDate() + LISTING_DURATION_DAYS.consumer);
+
+      ({ data, error } = await supabase
+        .from("equipment_listings")
+        .insert({
+          ...basePayload,
+          status: "published",
+          published_at: now.toISOString(),
+          expires_at: expires.toISOString(),
+        })
+        .select("id")
+        .single());
+      useLegacyPublish = true;
+    }
+
+    if (error || !data) {
+      console.error("[createConsumerListing] insert", error?.code, error?.message);
       return { error: "Ilmoituksen tallennus epäonnistui. Yritä uudelleen." };
     }
 
-    try {
-      await uploadListingPhotosFromFormData(data.id, formData);
-    } catch (e) {
-      await supabase.from("equipment_listings").delete().eq("id", data.id);
+    if (useLegacyPublish) {
       return {
-        error: e instanceof Error ? e.message : "Kuvien tallennus epäonnistui.",
+        ok: true,
+        listingId: data.id,
+        redirectPath: `/markkinapaikka/ilmoitukset/${data.id}?julkaistu=1`,
       };
     }
 
@@ -204,6 +238,7 @@ export async function createConsumerListing(
 
     return {
       ok: true,
+      listingId: data.id,
       redirectPath: `/markkinapaikka/ilmoita/vahvistus?email=${encodeURIComponent(contactEmail)}`,
     };
   } catch (err) {
@@ -329,16 +364,9 @@ export async function createContractorListing(
         );
       }
 
-      try {
-        await uploadListingPhotosFromFormData(data.id, formData);
-      } catch (e) {
-        return {
-          error: e instanceof Error ? e.message : "Kuvien tallennus epäonnistui.",
-        };
-      }
-
       return {
         ok: true,
+        listingId: data.id,
         redirectPath: `/markkinapaikka/ilmoitukset/${data.id}?julkaistu=1`,
       };
     }
@@ -371,14 +399,6 @@ export async function createContractorListing(
       return { error: "Ilmoituksen luonti epäonnistui." };
     }
 
-    try {
-      await uploadListingPhotosFromFormData(listing.id, formData);
-    } catch (e) {
-      return {
-        error: e instanceof Error ? e.message : "Kuvien tallennus epäonnistui.",
-      };
-    }
-
     const { error: billErr } = await supabase
       .from("marketplace_billing_requests")
       .insert({
@@ -398,6 +418,7 @@ export async function createContractorListing(
 
     return {
       ok: true,
+      listingId: listing.id,
       redirectPath: `/markkinapaikka/ilmoita?lasku=1&summa=${encodeURIComponent(formatPriceFromCents(plan.price_eur_cents))}&email=${encodeURIComponent(MARKETPLACE_INVOICE_EMAIL)}`,
     };
   } catch (err) {
@@ -676,16 +697,31 @@ export async function fetchSellerListings(
   userId: string,
 ): Promise<SellerListingRow[]> {
   const supabase = await createClient();
-  const { data } = await supabase
+  const selectFields =
+    "id, title, status, pending_publish, price_eur, municipality, published_at, expires_at, created_at";
+
+  const { data, error } = await supabase
     .from("equipment_listings")
-    .select(
-      "id, title, status, pending_publish, price_eur, municipality, published_at, expires_at, created_at",
-    )
+    .select(selectFields)
     .eq("seller_id", userId)
-    .or(
-      "status.neq.draft,and(status.eq.draft,pending_publish.eq.true)",
-    )
+    .or("status.neq.draft,and(status.eq.draft,pending_publish.eq.true)")
     .order("created_at", { ascending: false });
+
+  if (error && isMissingSchemaColumnError(error)) {
+    const { data: legacy } = await supabase
+      .from("equipment_listings")
+      .select(
+        "id, title, status, price_eur, municipality, published_at, expires_at, created_at",
+      )
+      .eq("seller_id", userId)
+      .neq("status", "draft")
+      .order("created_at", { ascending: false });
+
+    return (legacy ?? []).map((row) => ({
+      ...row,
+      pending_publish: false,
+    })) as SellerListingRow[];
+  }
 
   return (data ?? []) as SellerListingRow[];
 }
