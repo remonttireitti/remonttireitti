@@ -20,7 +20,9 @@ import {
 } from "@/lib/contractor-project-notify";
 import { scheduleNotification } from "@/lib/schedule-notification";
 import {
+  extendBidDeadlineFromForm,
   extendBidDeadlineFromNow,
+  parseBidWindowDays,
 } from "@/lib/project-inactivity";
 import type { DeviceCategory } from "@/constants/maintenance";
 import {
@@ -255,8 +257,18 @@ export async function createProject(
     return { error: "Budjetin minimi ei voi olla suurempi kuin maksimi." };
   }
 
+  if (isGuest) {
+    projectDetails = {
+      ...projectDetails,
+      bid_window_days: parseBidWindowDays(
+        String(formData.get("bid_window_days") ?? ""),
+      ),
+    };
+  }
+
   const now = new Date();
-  const bidDeadlineIso = !isGuest && publish ? extendBidDeadlineFromNow() : null;
+  const bidDeadlineIso =
+    !isGuest && publish ? extendBidDeadlineFromForm(formData) : null;
   const db = isGuest ? createAdminClient() : supabase;
 
   const { data, error } = await db
@@ -434,7 +446,7 @@ export async function publishProject(
     .update({
       status: "published",
       published_at: now.toISOString(),
-      bid_deadline: extendBidDeadlineFromNow(),
+      bid_deadline: extendBidDeadlineFromForm(formData),
       inactivity_warning_sent_at: null,
     })
     .eq("id", projectId);

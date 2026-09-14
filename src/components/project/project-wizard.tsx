@@ -63,6 +63,8 @@ import {
   validateServiceEngagement,
   type ServiceEngagement,
 } from "@/lib/service-engagement";
+import { BidWindowFields } from "@/components/project/bid-window-fields";
+import { PROJECT_BID_WINDOW_DAYS } from "@/lib/project-inactivity";
 import { brand, formInputClass } from "@/lib/brand-theme";
 import type { JobCatalog, JobTypeWithTrades } from "@/types/job-catalog";
 import {
@@ -95,6 +97,7 @@ type FormState = {
   address_line: string;
   contact_email: string;
   contact_phone: string;
+  bid_window_days: string;
 };
 
 const initialForm: FormState = {
@@ -113,6 +116,7 @@ const initialForm: FormState = {
   address_line: "",
   contact_email: "",
   contact_phone: "",
+  bid_window_days: String(PROJECT_BID_WINDOW_DAYS),
 };
 
 type ProjectWizardProps = {
@@ -152,7 +156,7 @@ export function ProjectWizard({
   );
   const [form, setForm] = useState<FormState>(() =>
     editSnapshot
-      ? { ...editSnapshot.form }
+      ? { ...initialForm, ...editSnapshot.form }
       : {
           ...initialForm,
           ...prefillApplied?.formPatch,
@@ -460,6 +464,7 @@ export function ProjectWizard({
         <input type="hidden" name="address_line" value={form.address_line} />
         <input type="hidden" name="contact_email" value={form.contact_email} />
         <input type="hidden" name="contact_phone" value={form.contact_phone} />
+        <input type="hidden" name="bid_window_days" value={form.bid_window_days} />
         {hasStructuredForm && (
           <>
             <input type="hidden" name="details_kind" value={detailsKind} />
@@ -832,6 +837,12 @@ export function ProjectWizard({
 
         {step === 3 && (
           <>
+          <div className="mb-6 rounded-2xl border border-stone-200 bg-white p-5">
+            <BidWindowFields
+              value={form.bid_window_days}
+              onChange={(value) => update("bid_window_days", value)}
+            />
+          </div>
           <ProjectQualityScorePanel quality={quality} />
           <LearnedCriteriaWarnings
             learned={learnedCriteria}

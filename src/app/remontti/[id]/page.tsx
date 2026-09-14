@@ -617,6 +617,8 @@ export default async function ProjectPage({
             budgetMax={project.budget_max}
             desiredStart={project.desired_start}
             completionNotes={project.completion_notes ?? undefined}
+            bidDeadline={project.bid_deadline}
+            bidDeadlineVariant="customer"
             contactHiddenHint={
               platformInvoice && platformInvoice.status !== "paid"
                 ? "Urakoitsija ei näe yhteystietoja ennen välitysmaksun maksamista."

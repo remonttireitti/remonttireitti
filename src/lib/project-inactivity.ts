@@ -1,6 +1,8 @@
 /** Tarjousaika julkaisusta (päivää). */
 export const PROJECT_BID_WINDOW_DAYS = 14;
 
+export const BID_WINDOW_DAY_OPTIONS = [7, 14, 21, 30] as const;
+
 /** Lisäaika tarjousajan jälkeen ennen automaattista sulkemista (päivää). */
 export const PROJECT_INACTIVITY_GRACE_DAYS = 14;
 
@@ -101,6 +103,34 @@ export function shouldShowInactivityWarning(project: {
   return now >= warningAt.getTime() && now < closeAt.getTime();
 }
 
+export function parseBidWindowDays(raw: string | null | undefined): number {
+  const n = Number(raw ?? PROJECT_BID_WINDOW_DAYS);
+  if (
+    !Number.isFinite(n) ||
+    !(BID_WINDOW_DAY_OPTIONS as readonly number[]).includes(n)
+  ) {
+    return PROJECT_BID_WINDOW_DAYS;
+  }
+  return n;
+}
+
+export function bidDeadlineFromDays(days: number): string {
+  return addDays(new Date(), days).toISOString();
+}
+
 export function extendBidDeadlineFromNow(): string {
-  return addDays(new Date(), PROJECT_BID_WINDOW_DAYS).toISOString();
+  return bidDeadlineFromDays(PROJECT_BID_WINDOW_DAYS);
+}
+
+export function extendBidDeadlineFromForm(formData: FormData): string {
+  return bidDeadlineFromDays(
+    parseBidWindowDays(String(formData.get("bid_window_days") ?? "")),
+  );
+}
+
+export function bidWindowDaysFromProjectDetails(details: unknown): number {
+  if (!details || typeof details !== "object") return PROJECT_BID_WINDOW_DAYS;
+  const raw = (details as { bid_window_days?: unknown }).bid_window_days;
+  if (raw == null) return PROJECT_BID_WINDOW_DAYS;
+  return parseBidWindowDays(String(raw));
 }

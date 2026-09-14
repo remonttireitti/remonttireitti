@@ -5,9 +5,15 @@ import {
   publishProject,
   type ProjectActionState,
 } from "@/app/actions/projects";
+import { BidWindowFields } from "@/components/project/bid-window-fields";
+import { PROJECT_BID_WINDOW_DAYS } from "@/lib/project-inactivity";
 import { brand } from "@/lib/brand-theme";
+import { useState } from "react";
 
 export function ProjectDraftPublishPanel({ projectId }: { projectId: string }) {
+  const [bidWindowDays, setBidWindowDays] = useState(
+    String(PROJECT_BID_WINDOW_DAYS),
+  );
   const [state, formAction, pending] = useActionState<
     ProjectActionState,
     FormData
@@ -25,8 +31,9 @@ export function ProjectDraftPublishPanel({ projectId }: { projectId: string }) {
           {state.error}
         </p>
       )}
-      <form action={formAction} className="mt-4">
+      <form action={formAction} className="mt-4 space-y-4">
         <input type="hidden" name="project_id" value={projectId} />
+        <BidWindowFields value={bidWindowDays} onChange={setBidWindowDays} />
         <button
           type="submit"
           disabled={pending}
