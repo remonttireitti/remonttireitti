@@ -49,5 +49,5 @@ export function customerReferralDiscountNotice(amountCents: number): string {
     currency: "EUR",
     maximumFractionDigits: 0,
   }).format(amountCents / 100);
-  return `Sinulla on suosittelubonus — urakoitsija vähentää ${euros} (veroton) urakkasi hinnasta. Ei välityslaskua tälle diilille.`;
+  return `Sinulla on suosittelubonus — jos valittu urakoitsija ei käytä omaa ilmaista etuaan (beta, tilaus tai urakoitsijan suositteluhyvitys), urakoitsija vähentää ${euros} (veroton) urakkasi hinnasta eikä saa välityslaskua tälle diilille.`;
 }

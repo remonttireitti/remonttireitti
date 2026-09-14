@@ -33,6 +33,7 @@ export function CustomerBidActions({
   bid,
   stale = false,
   customerReferralDiscountCents = 0,
+  customerReferralApplies = false,
 }: {
   bidId: string;
   projectId: string;
@@ -44,6 +45,7 @@ export function CustomerBidActions({
   };
   stale?: boolean;
   customerReferralDiscountCents?: number;
+  customerReferralApplies?: boolean;
 }) {
   const [showCounterForm, setShowCounterForm] = useState(false);
   const [showRejectForm, setShowRejectForm] = useState(false);
@@ -122,7 +124,9 @@ export function CustomerBidActions({
         </p>
       )}
 
-      {canAcceptFinal && customerReferralDiscountCents > 0 && (
+      {canAcceptFinal &&
+        customerReferralApplies &&
+        customerReferralDiscountCents > 0 && (
         <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs leading-relaxed text-emerald-950">
           {customerReferralDiscountNotice(customerReferralDiscountCents)}
         </p>

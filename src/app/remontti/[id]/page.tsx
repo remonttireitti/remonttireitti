@@ -33,7 +33,10 @@ import {
   fetchCustomerProjectConversations,
 } from "@/lib/messages-server";
 import { fetchContractorRatings } from "@/lib/reviews";
-import { fetchAvailableCustomerReferralCredit } from "@/lib/customer-referral";
+import {
+  contractorPaysPlatformFeeForDeal,
+  fetchAvailableCustomerReferralCredit,
+} from "@/lib/customer-referral";
 import { fetchPlatformFeedbackForProject } from "@/lib/platform-feedback-server";
 import { CustomerCompletionRequestBanner } from "@/components/project/customer-completion-request-banner";
 import { LearnedCriteriaWarnings } from "@/components/project/learned-criteria-warnings";
@@ -217,7 +220,12 @@ export default async function ProjectPage({
   ]);
   const projectTradeNamesRecord = Object.fromEntries(projectTradeNamesById);
 
+  const contractorIds = [
+    ...new Set((bids ?? []).map((b) => b.contractor_id as string)),
+  ];
+
   let customerReferralDiscountCents = 0;
+  const customerReferralEligibleContractorIds = new Set<string>();
   if (user && !isGuestAccess) {
     const referralAdmin = tryCreateAdminClient();
     if (referralAdmin) {
@@ -225,13 +233,18 @@ export default async function ProjectPage({
         referralAdmin,
         user.id,
       );
-      if (credit) customerReferralDiscountCents = credit.amount_cents;
+      if (credit) {
+        customerReferralDiscountCents = credit.amount_cents;
+        await Promise.all(
+          contractorIds.map(async (contractorId) => {
+            if (await contractorPaysPlatformFeeForDeal(referralAdmin, contractorId)) {
+              customerReferralEligibleContractorIds.add(contractorId);
+            }
+          }),
+        );
+      }
     }
   }
-
-  const contractorIds = [
-    ...new Set((bids ?? []).map((b) => b.contractor_id as string)),
-  ];
   const contractorRatings = await fetchContractorRatings(
     dataClient,
     contractorIds,
@@ -676,6 +689,9 @@ export default async function ProjectPage({
             jobSlug={jobSlug}
             projectTradeNamesById={projectTradeNamesRecord}
             customerReferralDiscountCents={customerReferralDiscountCents}
+            customerReferralEligibleContractorIds={[
+              ...customerReferralEligibleContractorIds,
+            ]}
           />
           {submittedBidCount > 0 && biddingPhase && evaluatorCount > 0 && (
             <BidEvaluationPromo

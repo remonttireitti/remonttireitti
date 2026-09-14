@@ -1,10 +1,14 @@
-import { payPerDealFeeCents } from "@/lib/platform-fee";
+import { contractorReferralFreeDealsRemainingFor } from "@/lib/contractor-referral";
 import {
   isValidReferrerEmail,
   lookupContractorIdByEmail,
   normalizeReferrerEmail,
   recordContractorReferral,
 } from "@/lib/contractor-referral";
+import { payPerDealFeeCents } from "@/lib/platform-fee";
+import { resolvePlatformFeeForContractor } from "@/lib/platform-fee-beta";
+import type { PlatformFeeWaiverReason } from "@/lib/platform-fee-waiver";
+import { countContractorPlatformInvoices } from "@/lib/platform-invoice-finalize-server";
 import type { createAdminClient } from "@/lib/supabase/admin";
 
 type AdminClient = ReturnType<typeof createAdminClient>;
@@ -189,6 +193,87 @@ export async function referrerExistsForContractorSignup(
   if (contractorId) return true;
   const customerId = await lookupCustomerIdByEmail(admin, normalized);
   return Boolean(customerId);
+}
+
+export async function resolveContractorPlatformFeeForDeal(
+  admin: AdminClient,
+  contractorId: string,
+): Promise<{ feeCents: number; waiverReason: PlatformFeeWaiverReason | null }> {
+  const [priorInvoiceCount, hasActiveSubscription, referralFreeDealsRemaining] =
+    await Promise.all([
+      countContractorPlatformInvoices(admin, contractorId),
+      import("@/lib/platform-subscription").then((m) =>
+        m.contractorHasActivePlatformSubscription(admin, contractorId),
+      ),
+      contractorReferralFreeDealsRemainingFor(admin, contractorId),
+    ]);
+
+  return resolvePlatformFeeForContractor({
+    priorInvoiceCount,
+    hasActiveSubscription,
+    referralFreeDealsRemaining,
+  });
+}
+
+/** Asiakkaan bonus vain jos urakoitsija maksaisi muuten välityspalkkion. */
+export async function contractorPaysPlatformFeeForDeal(
+  admin: AdminClient,
+  contractorId: string,
+): Promise<boolean> {
+  const { feeCents } = await resolveContractorPlatformFeeForDeal(
+    admin,
+    contractorId,
+  );
+  return feeCents > 0;
+}
+
+export type BidAcceptanceFeeResolution = {
+  feeCents: number;
+  waiverReason: PlatformFeeWaiverReason | null;
+  customerReferralCredit: CustomerReferralCreditRow | null;
+  customerReferralDiscountCents: number;
+  appliedCustomerReferral: boolean;
+};
+
+export async function resolvePlatformFeeForBidAcceptance(
+  admin: AdminClient,
+  params: {
+    contractorId: string;
+    customerId: string;
+  },
+): Promise<BidAcceptanceFeeResolution> {
+  const [contractorFee, customerReferralCredit] = await Promise.all([
+    resolveContractorPlatformFeeForDeal(admin, params.contractorId),
+    fetchAvailableCustomerReferralCredit(admin, params.customerId),
+  ]);
+
+  if (contractorFee.feeCents === 0) {
+    return {
+      feeCents: 0,
+      waiverReason: contractorFee.waiverReason,
+      customerReferralCredit: null,
+      customerReferralDiscountCents: 0,
+      appliedCustomerReferral: false,
+    };
+  }
+
+  if (customerReferralCredit) {
+    return {
+      feeCents: 0,
+      waiverReason: "customer_referral",
+      customerReferralCredit,
+      customerReferralDiscountCents: customerReferralCredit.amount_cents,
+      appliedCustomerReferral: true,
+    };
+  }
+
+  return {
+    feeCents: contractorFee.feeCents,
+    waiverReason: null,
+    customerReferralCredit: null,
+    customerReferralDiscountCents: 0,
+    appliedCustomerReferral: false,
+  };
 }
 
 export async function fetchAvailableCustomerReferralCredit(
