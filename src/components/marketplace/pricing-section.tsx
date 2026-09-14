@@ -104,8 +104,9 @@ export function MarketplacePricingSection({
           Kuukausipaketit ja yksittäinen ilmoitus
         </h2>
         <p className="mt-2 max-w-2xl text-sm text-stone-600">
-          Laskutus lähetetään sähköpostiin ({MARKETPLACE_INVOICE_EMAIL}). Ilmoitukset
-          julkaistaan maksun kirjauksen jälkeen — yleensä 1–2 arkipäivää.
+          Lasku lähetetään sähköpostiisi osoitteesta {MARKETPLACE_INVOICE_EMAIL}.
+          Ilmoitukset julkaistaan maksun kirjauksen jälkeen — yleensä 1–2
+          arkipäivää.
         </p>
         <div className="mt-8 grid gap-6 lg:grid-cols-3">
           {CONTRACTOR_PLANS.map((plan) => (

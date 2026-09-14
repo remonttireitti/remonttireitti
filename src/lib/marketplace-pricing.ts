@@ -4,6 +4,13 @@ import { marketplaceBrand } from "@/lib/marketplace-brand";
 
 export const MARKETPLACE_INVOICE_EMAIL = "laskutus@remonttireitti.fi";
 
+/** Asiakkaalle: lasku lähetetään tästä osoitteesta, ei tähän. */
+export function manualInvoiceCustomerNote(
+  email: string = MARKETPLACE_INVOICE_EMAIL,
+): string {
+  return `Lasku lähetetään sähköpostiisi osoitteesta ${email}.`;
+}
+
 export const CONSUMER_FREE_MAX_ACTIVE_LISTINGS = 2;
 
 /** Julkaistun ilmoituksen näkyvyys (automaattinen vanhentuminen). */
@@ -104,7 +111,7 @@ export const CONSUMER_FREE_PLAN: PricingPlan = {
 export const PRICING_FAQ = [
   {
     q: "Miten maksu toimii?",
-    a: "Lähetämme laskun sähköpostitse. Ilmoitukset ja tilauspaketit aktivoituvat, kun maksu on kirjattu (yleensä 1–2 arkipäivää).",
+    a: `Lähetämme laskun sähköpostiisi osoitteesta ${MARKETPLACE_INVOICE_EMAIL}. Ilmoitukset ja tilauspaketit aktivoituvat, kun maksu on kirjattu (yleensä 1–2 arkipäivää).`,
   },
   {
     q: "Miksi kuluttajalle on ilmainen?",

@@ -58,8 +58,8 @@ export default async function MarketplaceOrderPage({
           {plan.period ?? ""})
         </p>
         <p className="mt-2 text-sm text-stone-500">
-          Lähetämme laskun sähköpostiisi ({MARKETPLACE_INVOICE_EMAIL}). Et maksa
-          kortilla sovelluksessa.
+          Lähetämme laskun sähköpostiisi osoitteesta {MARKETPLACE_INVOICE_EMAIL}.
+          Et maksa kortilla sovelluksessa.
         </p>
 
         <div className="mt-6 flex flex-wrap gap-2 text-sm">
