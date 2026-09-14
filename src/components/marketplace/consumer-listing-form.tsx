@@ -15,9 +15,11 @@ type Defaults = {
 export function ConsumerListingForm({
   defaults,
   slotsLeft,
+  isGuest = false,
 }: {
   defaults: Defaults;
   slotsLeft: number;
+  isGuest?: boolean;
 }) {
   const [photoFiles, setPhotoFiles] = useState<File[]>([]);
   const { state, submit, pending } = useListingFormSubmit(createConsumerListing);
@@ -42,8 +44,10 @@ export function ConsumerListingForm({
     >
       <input type="hidden" name="listing_kind" value="sell" />
       <p className="text-sm text-stone-600">
-        Ilmainen julkaisu — {slotsLeft} ilmoituspaikkaa jäljellä (max 2
-        aktiivista ilmoitusta per sähköpostiosoite).
+        {isGuest
+          ? "Ilmainen julkaisu ilman tiliä — vahvistuslinkki sähköpostiisi."
+          : `Ilmainen julkaisu — ${slotsLeft} ilmoituspaikkaa jäljellä`}{" "}
+        (max 2 aktiivista ilmoitusta per sähköpostiosoite).
       </p>
 
       {state.error && (

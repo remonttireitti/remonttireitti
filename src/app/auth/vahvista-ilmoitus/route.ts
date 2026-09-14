@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { publishConsumerListingAfterVerification } from "@/app/actions/listing-verification";
+import { setListingAccessCookie } from "@/lib/listing-guest-access";
 import { fetchPendingListingByToken } from "@/lib/listing-verification-access";
 import { siteUrl } from "@/lib/email";
 
@@ -25,6 +26,8 @@ export async function GET(request: Request) {
       ),
     );
   }
+
+  await setListingAccessCookie(listingId, token);
 
   return NextResponse.redirect(
     siteUrl(`/markkinapaikka/ilmoitukset/${listingId}?julkaistu=1`),

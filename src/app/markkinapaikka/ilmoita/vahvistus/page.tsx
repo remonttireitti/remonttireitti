@@ -6,9 +6,10 @@ import { marketplaceBrand } from "@/lib/marketplace-brand";
 export default async function ListingVerificationSentPage({
   searchParams,
 }: {
-  searchParams: Promise<{ email?: string }>;
+  searchParams: Promise<{ email?: string; vieras?: string }>;
 }) {
-  const { email } = await searchParams;
+  const { email, vieras } = await searchParams;
+  const isGuest = vieras === "1";
   const displayEmail = email?.trim() || "sähköpostiisi";
 
   return (
@@ -31,14 +32,23 @@ export default async function ListingVerificationSentPage({
         <p className="mx-auto mt-3 max-w-lg text-xs text-stone-500">
           Samaan sähköpostiosoitteeseen voi liittyä enintään 2 aktiivista
           ilmoitusta kerrallaan.
+          {isGuest && (
+            <>
+              {" "}
+              Ilman tiliä hallitset ilmoitusta sähköpostiin tulevalla linkillä —
+              tallenna viesti, jotta löydät sen myöhemmin.
+            </>
+          )}
         </p>
         <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-          <Link
-            href="/markkinapaikka/omat-ilmoitukset"
-            className={`${brand.btnSecondary} ${brand.btnSecondaryBlock}`}
-          >
-            Omat ilmoitukset
-          </Link>
+          {!isGuest && (
+            <Link
+              href="/markkinapaikka/omat-ilmoitukset"
+              className={`${brand.btnSecondary} ${brand.btnSecondaryBlock}`}
+            >
+              Omat ilmoitukset
+            </Link>
+          )}
           <Link
             href="/markkinapaikka/ilmoita?tyyppi=kuluttaja"
             className={`${brand.btnPrimary} ${brand.btnPrimaryBlock}`}
