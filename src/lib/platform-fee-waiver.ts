@@ -51,3 +51,7 @@ export function customerReferralDiscountNotice(amountCents: number): string {
   }).format(amountCents / 100);
   return `Sinulla on suosittelubonus — jos valittu urakoitsija ei käytä omaa ilmaista etuaan (beta, tilaus tai urakoitsijan suositteluhyvitys), urakoitsija vähentää ${euros} (veroton) urakkasi hinnasta eikä saa välityslaskua tälle diilille.`;
 }
+
+export function customerReferralBonusUnusedNotice(): string {
+  return "Sinulla on suosittelubonus, mutta tämä urakoitsija käyttää oman ilmaisen etunsa tällä diilillä. Valitessasi hänet bonuksesi jää tällä kertaa käyttämättä — voit käyttää sen seuraavassa urakassa, jossa urakoitsija ei käytä ilmaista etua.";
+}

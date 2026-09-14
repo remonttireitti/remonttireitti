@@ -11,10 +11,7 @@ import {
   resolvePlatformFeeForBidAcceptance,
 } from "@/lib/customer-referral";
 import { payPerDealFeeCents } from "@/lib/platform-fee";
-import {
-  countContractorPlatformInvoices,
-  finalizePlatformInvoiceAsPaid,
-} from "@/lib/platform-invoice-finalize-server";
+import { finalizePlatformInvoiceAsPaid } from "@/lib/platform-invoice-finalize-server";
 import { isAdmin } from "@/lib/admin";
 import {
   getAdminPreviewMode,
