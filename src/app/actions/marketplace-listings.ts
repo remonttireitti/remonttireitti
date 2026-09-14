@@ -13,10 +13,10 @@ import {
   subscriptionSlotsLeft,
 } from "@/lib/marketplace-subscription";
 import { uploadListingPhotosFromFormData } from "@/lib/listing-photos";
+import { tryCreateAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { getProfile, getSessionUser, isContractor } from "@/lib/auth";
 import { shouldOfferContractorActivation } from "@/lib/contractor-activation";
-import { revalidatePath } from "next/cache";
 import {
   CONSUMER_FREE_MAX_ACTIVE_LISTINGS,
   formatPriceFromCents,
@@ -47,97 +47,104 @@ export async function createConsumerListing(
   _prev: ListingActionState,
   formData: FormData,
 ): Promise<ListingActionState> {
-  const user = await getSessionUser();
-  if (!user) return { error: "Kirjaudu sisään." };
-
-  const profile = await getProfile();
-  if (shouldOfferContractorActivation(user, profile)) {
-    return {
-      error: "Aktivoi ensin urakoitsijatili julkaistaksesi yritysilmoituksen.",
-    };
-  }
-
-  if (await isContractor()) {
-    return {
-      error:
-        "Urakoitsijat käyttävät maksullista toria. Julkaise ilmoitus yrityksenä.",
-    };
-  }
-
-  const input = parseListingForm(formData);
-  const validationError = validateListingForm(input);
-  if (validationError) return { error: validationError };
-
-  if (input.price_eur !== null && (Number.isNaN(input.price_eur) || input.price_eur < 0)) {
-    return { error: "Hinta on virheellinen." };
-  }
-
-  const active = await countActiveConsumerListings(user.id);
-  if (active >= CONSUMER_FREE_MAX_ACTIVE_LISTINGS) {
-    return {
-      error: `Sinulla on jo ${CONSUMER_FREE_MAX_ACTIVE_LISTINGS} aktiivista ilmoitusta. Poista vanha tai odota sen päättymistä.`,
-    };
-  }
-
-  const supabase = await createClient();
-
-  const { data: plan } = await supabase
-    .from("marketplace_plans")
-    .select("id")
-    .eq("slug", "consumer_free")
-    .single();
-
-  const now = new Date();
-  const expires = new Date(now);
-  expires.setDate(expires.getDate() + LISTING_DURATION_DAYS.consumer);
-
-  const { data, error } = await supabase
-    .from("equipment_listings")
-    .insert({
-      seller_id: user.id,
-      seller_type: "customer",
-      plan_id: plan?.id ?? null,
-      status: "published",
-      listing_kind: input.listing_kind,
-      condition: input.condition,
-      title: input.title,
-      description: input.description,
-      price_eur: input.price_eur,
-      municipality: input.municipality,
-      postal_code: input.postal_code,
-      address_line: input.address_line || null,
-      product_category: input.product_category,
-      pump_type_slug: input.pump_type_slug || null,
-      manufacturer: input.manufacturer || null,
-      model: input.model || null,
-      year_manufactured: input.year_manufactured,
-      contact_email: input.contact_email,
-      contact_phone: input.contact_phone,
-      is_free_listing: true,
-      published_at: now.toISOString(),
-      expires_at: expires.toISOString(),
-    })
-    .select("id")
-    .single();
-
-  if (error) {
-    return { error: "Ilmoituksen tallennus epäonnistui. Yritä uudelleen." };
-  }
-
   try {
-    await uploadListingPhotosFromFormData(data.id, formData);
-  } catch (e) {
-    return {
-      error: e instanceof Error ? e.message : "Kuvien tallennus epäonnistui.",
-    };
-  }
+    const user = await getSessionUser();
+    if (!user) return { error: "Kirjaudu sisään." };
 
-  revalidatePath("/markkinapaikka/ilmoitukset");
-  revalidatePath("/markkinapaikka/ilmoita");
-  return {
-    ok: true,
-    redirectPath: `/markkinapaikka/ilmoitukset/${data.id}?julkaistu=1`,
-  };
+    const profile = await getProfile();
+    if (shouldOfferContractorActivation(user, profile)) {
+      return {
+        error: "Aktivoi ensin urakoitsijatili julkaistaksesi yritysilmoituksen.",
+      };
+    }
+
+    if (await isContractor()) {
+      return {
+        error:
+          "Urakoitsijat käyttävät maksullista toria. Julkaise ilmoitus yrityksenä.",
+      };
+    }
+
+    const input = parseListingForm(formData);
+    const validationError = validateListingForm(input);
+    if (validationError) return { error: validationError };
+
+    if (
+      input.price_eur !== null &&
+      (Number.isNaN(input.price_eur) || input.price_eur < 0)
+    ) {
+      return { error: "Hinta on virheellinen." };
+    }
+
+    const active = await countActiveConsumerListings(user.id);
+    if (active >= CONSUMER_FREE_MAX_ACTIVE_LISTINGS) {
+      return {
+        error: `Sinulla on jo ${CONSUMER_FREE_MAX_ACTIVE_LISTINGS} aktiivista ilmoitusta. Poista vanha tai odota sen päättymistä.`,
+      };
+    }
+
+    const supabase = await createClient();
+
+    const { data: plan } = await supabase
+      .from("marketplace_plans")
+      .select("id")
+      .eq("slug", "consumer_free")
+      .single();
+
+    const now = new Date();
+    const expires = new Date(now);
+    expires.setDate(expires.getDate() + LISTING_DURATION_DAYS.consumer);
+
+    const { data, error } = await supabase
+      .from("equipment_listings")
+      .insert({
+        seller_id: user.id,
+        seller_type: "customer",
+        plan_id: plan?.id ?? null,
+        status: "published",
+        listing_kind: input.listing_kind,
+        condition: input.condition,
+        title: input.title,
+        description: input.description,
+        price_eur: input.price_eur,
+        municipality: input.municipality,
+        postal_code: input.postal_code,
+        address_line: input.address_line || null,
+        product_category: input.product_category,
+        pump_type_slug: input.pump_type_slug || null,
+        manufacturer: input.manufacturer || null,
+        model: input.model || null,
+        year_manufactured: input.year_manufactured,
+        contact_email: input.contact_email,
+        contact_phone: input.contact_phone,
+        is_free_listing: true,
+        published_at: now.toISOString(),
+        expires_at: expires.toISOString(),
+      })
+      .select("id")
+      .single();
+
+    if (error) {
+      console.error("[createConsumerListing] insert", error.code, error.message);
+      return { error: "Ilmoituksen tallennus epäonnistui. Yritä uudelleen." };
+    }
+
+    try {
+      await uploadListingPhotosFromFormData(data.id, formData);
+    } catch (e) {
+      return {
+        error: e instanceof Error ? e.message : "Kuvien tallennus epäonnistui.",
+      };
+    }
+
+    return {
+      ok: true,
+      redirectPath: `/markkinapaikka/ilmoitukset/${data.id}?julkaistu=1`,
+    };
+  } catch (err) {
+    console.error("[createConsumerListing]", err);
+    return { error: "Ilmoituksen lähetys epäonnistui. Yritä uudelleen." };
+  }
 }
 
 function listingInsertPayload(
@@ -148,6 +155,7 @@ function listingInsertPayload(
   return {
     seller_id: userId,
     seller_type: "contractor" as const,
+    listing_kind: input.listing_kind,
     condition: input.condition,
     title: input.title,
     description: input.description,
@@ -171,137 +179,166 @@ export async function createContractorListing(
   _prev: ListingActionState,
   formData: FormData,
 ): Promise<ListingActionState> {
-  const user = await getSessionUser();
-  if (!user) return { error: "Kirjaudu sisään." };
+  try {
+    const user = await getSessionUser();
+    if (!user) return { error: "Kirjaudu sisään." };
 
-  if (!(await isContractor())) {
-    return { error: "Vain urakoitsijat voivat julkaista yritysilmoituksia." };
-  }
-
-  const billing = String(formData.get("billing_mode") ?? "");
-  if (!["subscription", "single"].includes(billing)) {
-    return { error: "Valitse julkaisutapa." };
-  }
-
-  const input = parseListingForm(formData);
-  const validationError = validateListingForm(input);
-  if (validationError) return { error: validationError };
-
-  if (input.price_eur !== null && (Number.isNaN(input.price_eur) || input.price_eur < 0)) {
-    return { error: "Hinta on virheellinen." };
-  }
-
-  const supabase = await createClient();
-  const sub = await getActiveContractorSubscription(supabase, user.id);
-
-  if (billing === "subscription") {
-    if (!sub) {
-      return {
-        error:
-          "Aktiivista kk-tilausta ei löydy. Tilaa paketti tai valitse yksittäinen ilmoitus.",
-      };
-    }
-    if (subscriptionSlotsLeft(sub) <= 0) {
-      return {
-        error: `Kuukausikiintiö (${sub.plan.listing_quota_per_month} ilmoitusta) on täynnä.`,
-      };
+    if (!(await isContractor())) {
+      return { error: "Vain urakoitsijat voivat julkaista yritysilmoituksia." };
     }
 
-    const now = new Date();
-    const expires = new Date(now);
-    expires.setDate(expires.getDate() + LISTING_DURATION_DAYS.paid);
+    const billing = String(formData.get("billing_mode") ?? "");
+    if (!["subscription", "single"].includes(billing)) {
+      return { error: "Valitse julkaisutapa." };
+    }
 
-    const { data, error } = await supabase
+    const input = parseListingForm(formData);
+    const validationError = validateListingForm(input);
+    if (validationError) return { error: validationError };
+
+    if (
+      input.price_eur !== null &&
+      (Number.isNaN(input.price_eur) || input.price_eur < 0)
+    ) {
+      return { error: "Hinta on virheellinen." };
+    }
+
+    const supabase = await createClient();
+    const sub = await getActiveContractorSubscription(supabase, user.id);
+
+    if (billing === "subscription") {
+      if (!sub) {
+        return {
+          error:
+            "Aktiivista kk-tilausta ei löydy. Tilaa paketti tai valitse yksittäinen ilmoitus.",
+        };
+      }
+      if (subscriptionSlotsLeft(sub) <= 0) {
+        return {
+          error: `Kuukausikiintiö (${sub.plan.listing_quota_per_month} ilmoitusta) on täynnä.`,
+        };
+      }
+
+      const now = new Date();
+      const expires = new Date(now);
+      expires.setDate(expires.getDate() + LISTING_DURATION_DAYS.paid);
+
+      const { data, error } = await supabase
+        .from("equipment_listings")
+        .insert(
+          listingInsertPayload(user.id, input, {
+            plan_id: sub.plan_id,
+            subscription_id: sub.id,
+            highlighted_in_search: listingHighlightedForPlanSlug(sub.plan.slug),
+            status: "published",
+            published_at: now.toISOString(),
+            expires_at: expires.toISOString(),
+          }),
+        )
+        .select("id")
+        .single();
+
+      if (error) {
+        console.error(
+          "[createContractorListing] subscription insert",
+          error.code,
+          error.message,
+        );
+        return { error: "Julkaisu epäonnistui." };
+      }
+
+      const admin = tryCreateAdminClient();
+      const counterClient = admin ?? supabase;
+      const { error: counterErr } = await counterClient
+        .from("seller_subscriptions")
+        .update({
+          listings_published_this_period: sub.listings_published_this_period + 1,
+        })
+        .eq("id", sub.id);
+
+      if (counterErr) {
+        console.error(
+          "[createContractorListing] subscription counter",
+          counterErr.code,
+          counterErr.message,
+        );
+      }
+
+      try {
+        await uploadListingPhotosFromFormData(data.id, formData);
+      } catch (e) {
+        return {
+          error: e instanceof Error ? e.message : "Kuvien tallennus epäonnistui.",
+        };
+      }
+
+      return {
+        ok: true,
+        redirectPath: `/markkinapaikka/ilmoitukset/${data.id}?julkaistu=1`,
+      };
+    }
+
+    const { data: plan } = await supabase
+      .from("marketplace_plans")
+      .select("id, name_fi, price_eur_cents")
+      .eq("slug", "listing_single")
+      .single();
+
+    if (!plan) return { error: "Hinnoittelua ei löydy." };
+
+    const { data: listing, error: listErr } = await supabase
       .from("equipment_listings")
       .insert(
         listingInsertPayload(user.id, input, {
-          plan_id: sub.plan_id,
-          subscription_id: sub.id,
-          highlighted_in_search: listingHighlightedForPlanSlug(sub.plan.slug),
-          status: "published",
-          published_at: now.toISOString(),
-          expires_at: expires.toISOString(),
+          plan_id: plan.id,
+          status: "awaiting_invoice",
         }),
       )
       .select("id")
       .single();
 
-    if (error) return { error: "Julkaisu epäonnistui." };
-
-    await supabase
-      .from("seller_subscriptions")
-      .update({
-        listings_published_this_period: sub.listings_published_this_period + 1,
-      })
-      .eq("id", sub.id);
+    if (listErr || !listing) {
+      console.error(
+        "[createContractorListing] single insert",
+        listErr?.code,
+        listErr?.message,
+      );
+      return { error: "Ilmoituksen luonti epäonnistui." };
+    }
 
     try {
-      await uploadListingPhotosFromFormData(data.id, formData);
+      await uploadListingPhotosFromFormData(listing.id, formData);
     } catch (e) {
       return {
         error: e instanceof Error ? e.message : "Kuvien tallennus epäonnistui.",
       };
     }
 
-    revalidatePath("/markkinapaikka/ilmoitukset");
+    const { error: billErr } = await supabase
+      .from("marketplace_billing_requests")
+      .insert({
+        seller_id: user.id,
+        kind: "listing",
+        status: "pending",
+        plan_id: plan.id,
+        listing_id: listing.id,
+        amount_eur_cents: plan.price_eur_cents,
+        description_fi: `Tori: ${plan.name_fi} — ${input.title}`,
+      });
+
+    if (billErr) {
+      console.error("[createContractorListing] billing", billErr.code, billErr.message);
+      return { error: "Laskutuspyynnön luonti epäonnistui." };
+    }
+
     return {
       ok: true,
-      redirectPath: `/markkinapaikka/ilmoitukset/${data.id}?julkaistu=1`,
+      redirectPath: `/markkinapaikka/ilmoita?lasku=1&summa=${encodeURIComponent(formatPriceFromCents(plan.price_eur_cents))}&email=${encodeURIComponent(MARKETPLACE_INVOICE_EMAIL)}`,
     };
+  } catch (err) {
+    console.error("[createContractorListing]", err);
+    return { error: "Ilmoituksen lähetys epäonnistui. Yritä uudelleen." };
   }
-
-  const { data: plan } = await supabase
-    .from("marketplace_plans")
-    .select("id, name_fi, price_eur_cents")
-    .eq("slug", "listing_single")
-    .single();
-
-  if (!plan) return { error: "Hinnoittelua ei löydy." };
-
-  const { data: listing, error: listErr } = await supabase
-    .from("equipment_listings")
-    .insert(
-      listingInsertPayload(user.id, input, {
-        plan_id: plan.id,
-        status: "awaiting_invoice",
-      }),
-    )
-    .select("id")
-    .single();
-
-  if (listErr || !listing) {
-    return { error: "Ilmoituksen luonti epäonnistui." };
-  }
-
-  try {
-    await uploadListingPhotosFromFormData(listing.id, formData);
-  } catch (e) {
-    return {
-      error: e instanceof Error ? e.message : "Kuvien tallennus epäonnistui.",
-    };
-  }
-
-  const { error: billErr } = await supabase
-    .from("marketplace_billing_requests")
-    .insert({
-      seller_id: user.id,
-      kind: "listing",
-      status: "pending",
-      plan_id: plan.id,
-      listing_id: listing.id,
-      amount_eur_cents: plan.price_eur_cents,
-      description_fi: `Tori: ${plan.name_fi} — ${input.title}`,
-    });
-
-  if (billErr) return { error: "Laskutuspyynnön luonti epäonnistui." };
-
-  revalidatePath("/admin/laskutus");
-  revalidatePath("/admin/markkinapaikka");
-  revalidatePath("/markkinapaikka/ilmoita");
-  return {
-    ok: true,
-    redirectPath: `/markkinapaikka/ilmoita?lasku=1&summa=${encodeURIComponent(formatPriceFromCents(plan.price_eur_cents))}&email=${encodeURIComponent(MARKETPLACE_INVOICE_EMAIL)}`,
-  };
 }
 
 export async function removeSellerListing(
@@ -347,10 +384,6 @@ export async function removeSellerListing(
     return { error: "Ilmoituksen poisto epäonnistui." };
   }
 
-  revalidatePath("/markkinapaikka/ilmoitukset");
-  revalidatePath("/markkinapaikka/omat-ilmoitukset");
-  revalidatePath(`/markkinapaikka/ilmoitukset/${listingId}`);
-  revalidatePath("/markkinapaikka/ilmoita");
   return { success: "Ilmoitus poistettu." };
 }
 

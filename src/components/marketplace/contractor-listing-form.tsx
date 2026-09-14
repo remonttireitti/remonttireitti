@@ -1,12 +1,9 @@
 "use client";
 
-import { useActionState, useState } from "react";
-import { useListingFormRedirect } from "@/components/marketplace/use-listing-form-redirect";
+import { useState } from "react";
+import { useListingFormSubmit } from "@/components/marketplace/use-listing-form-submit";
 import { ListingPhotoField } from "@/components/marketplace/listing-photo-field";
-import {
-  createContractorListing,
-  type ListingActionState,
-} from "@/app/actions/marketplace-listings";
+import { createContractorListing } from "@/app/actions/marketplace-listings";
 import { brand } from "@/lib/brand-theme";
 import { LISTING_SINGLE } from "@/lib/marketplace-pricing";
 import { ListingFormFields } from "@/components/marketplace/listing-form-fields";
@@ -29,17 +26,20 @@ export function ContractorListingForm({
   singleOnly?: boolean;
 }) {
   const [photoFiles, setPhotoFiles] = useState<File[]>([]);
-  const [state, action, pending] = useActionState<
-    ListingActionState,
-    FormData
-  >(createContractorListing, {});
-
-  useListingFormRedirect(state);
+  const { state, submit, pending } = useListingFormSubmit(createContractorListing);
 
   const canUseSubscription = !singleOnly && subscriptionSlots > 0;
 
   return (
-    <form action={action} className="mt-6 space-y-4">
+    <form
+      encType="multipart/form-data"
+      onSubmit={(e) => {
+        e.preventDefault();
+        submit(new FormData(e.currentTarget));
+      }}
+      className="mt-6 space-y-4"
+    >
+      <input type="hidden" name="listing_kind" value="sell" />
       {state.error && (
         <p className="rounded-lg bg-red-50 p-3 text-sm text-red-800" role="alert">
           {state.error}
