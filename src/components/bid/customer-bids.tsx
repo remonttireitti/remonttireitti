@@ -234,6 +234,7 @@ function MobileBidCard({
   projectId,
   contentRevision,
   customerReferralDiscountCents,
+  customerReferralApplies,
 }: {
   bid: BidWithContractor;
   pendingWinner: boolean;
@@ -250,6 +251,7 @@ function MobileBidCard({
   projectId: string;
   contentRevision: number;
   customerReferralDiscountCents: number;
+  customerReferralApplies: boolean;
 }) {
   const company = getBidContractorName(bid.contractor_profiles);
   const cardClass = `rounded-xl border p-4 ${columnClass(bid.status, pendingWinner)}`;
@@ -430,6 +432,7 @@ function MobileBidCard({
               bid={bid}
               stale={isBidStale(bid, contentRevision)}
               customerReferralDiscountCents={customerReferralDiscountCents}
+              customerReferralApplies={customerReferralApplies}
             />
           )}
           {bid.status === "rejected" && (
@@ -456,6 +459,7 @@ export function CustomerBids({
   jobSlug = null,
   projectTradeNamesById = {},
   customerReferralDiscountCents = 0,
+  customerReferralEligibleContractorIds = [],
 }: {
   projectId: string;
   projectStatus: ProjectStatus;
@@ -466,7 +470,9 @@ export function CustomerBids({
   jobSlug?: string | null;
   projectTradeNamesById?: Record<string, string>;
   customerReferralDiscountCents?: number;
+  customerReferralEligibleContractorIds?: string[];
 }) {
+  const customerReferralEligibleSet = new Set(customerReferralEligibleContractorIds);
   const tradeNameMap = new Map(Object.entries(projectTradeNamesById));
   const canAccept = ["published", "receiving_bids"].includes(projectStatus);
   const finalizing =
@@ -576,6 +582,9 @@ export function CustomerBids({
             projectId={projectId}
             contentRevision={contentRevision}
             customerReferralDiscountCents={customerReferralDiscountCents}
+            customerReferralApplies={customerReferralEligibleSet.has(
+              bid.contractor_id,
+            )}
           />
         ))}
       </div>
@@ -974,6 +983,9 @@ export function CustomerBids({
                         bid={bid}
                         stale={isBidStale(bid, contentRevision)}
                         customerReferralDiscountCents={customerReferralDiscountCents}
+                        customerReferralApplies={customerReferralEligibleSet.has(
+                          bid.contractor_id,
+                        )}
                       />
                     )}
                     {bid.status === "rejected" && (

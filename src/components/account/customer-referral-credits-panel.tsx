@@ -21,7 +21,9 @@ export function CustomerReferralCreditsPanel({
         välityslaskua.
       </p>
       <p className="mt-2 text-xs text-emerald-800/80">
-        Bonusta ei voi yhdistää urakoitsijan suositteluhyvitykseen samalla diilillä.
+        Bonus käytetään vain, jos valittu urakoitsija ei käytä omaa ilmaista etuaan
+        samalla diilillä — et voi saada alennusta ja urakoitsija ilmaista diiliä
+        yhtä aikaa.
       </p>
     </section>
   );

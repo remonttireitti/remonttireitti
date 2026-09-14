@@ -22,7 +22,10 @@ import { bidTotalAmountCents, bidWorkAmountCents } from "@/lib/bid-amounts";
 import { STALE_BID_CUSTOMER_MESSAGE } from "@/lib/bid-staleness";
 import { formatEurosFromCents } from "@/lib/bids";
 import { BID_ACCEPT_MEDIATION_NOTICE } from "@/lib/platform-liability";
-import { customerReferralDiscountNotice } from "@/lib/platform-fee-waiver";
+import {
+  customerReferralBonusUnusedNotice,
+  customerReferralDiscountNotice,
+} from "@/lib/platform-fee-waiver";
 
 const inputClass =
   "mt-1 w-full rounded-lg border border-stone-300 px-3 py-2 text-sm focus:border-sky-600 focus:outline-none focus:ring-1 focus:ring-sky-600";
@@ -33,6 +36,7 @@ export function CustomerBidActions({
   bid,
   stale = false,
   customerReferralDiscountCents = 0,
+  customerReferralApplies = false,
 }: {
   bidId: string;
   projectId: string;
@@ -44,6 +48,7 @@ export function CustomerBidActions({
   };
   stale?: boolean;
   customerReferralDiscountCents?: number;
+  customerReferralApplies?: boolean;
 }) {
   const [showCounterForm, setShowCounterForm] = useState(false);
   const [showRejectForm, setShowRejectForm] = useState(false);
@@ -122,9 +127,19 @@ export function CustomerBidActions({
         </p>
       )}
 
-      {canAcceptFinal && customerReferralDiscountCents > 0 && (
+      {canAcceptFinal &&
+        customerReferralApplies &&
+        customerReferralDiscountCents > 0 && (
         <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs leading-relaxed text-emerald-950">
           {customerReferralDiscountNotice(customerReferralDiscountCents)}
+        </p>
+      )}
+
+      {canAcceptFinal &&
+        !customerReferralApplies &&
+        customerReferralDiscountCents > 0 && (
+        <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-950">
+          {customerReferralBonusUnusedNotice()}
         </p>
       )}
 
