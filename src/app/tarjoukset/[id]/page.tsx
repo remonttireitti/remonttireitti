@@ -9,6 +9,8 @@ import {
   getProjectEquipmentSupply,
   projectAllowsOptionalEquipmentOffer,
 } from "@/lib/project-equipment-supply";
+import { isAdmin } from "@/lib/admin";
+import { canBrowseAsContractor, getAdminPreviewMode } from "@/lib/admin-preview";
 import { getSessionUser, isContractor } from "@/lib/auth";
 import { ProjectChat } from "@/components/messaging/project-chat";
 import { ProjectOverviewCards } from "@/components/project/project-overview-cards";
@@ -55,7 +57,8 @@ export default async function ContractorProjectPage({
   const user = await getSessionUser();
   if (!user) redirect(`/kirjaudu?redirect=/tarjoukset/${id}`);
 
-  if (!(await isContractor())) {
+  if (!(await canBrowseAsContractor())) {
+    if (await isAdmin()) redirect("/admin?viesti=valitse-urakoitsija-esikatselu");
     redirect("/oma-tili?viesti=vain-urakoitsijalle");
   }
 
@@ -162,8 +165,11 @@ export default async function ContractorProjectPage({
       .maybeSingle(),
   ]);
   const companyFacts = companyFactsFromRow(companyFactsRow);
+  const adminPreviewContractor = (await getAdminPreviewMode()) === "contractor";
   const companyFactsBlocked =
-    companyFactsEnforcementActive() && !isCompanyFactsComplete(companyFacts);
+    !adminPreviewContractor &&
+    companyFactsEnforcementActive() &&
+    !isCompanyFactsComplete(companyFacts);
   const { data: projectTrades } = await supabase
     .from("project_trades")
     .select("trade_id, trades ( slug )")

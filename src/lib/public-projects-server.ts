@@ -41,7 +41,8 @@ export async function countPublicOpenProjects(): Promise<number> {
   const { count, error } = await admin
     .from("projects")
     .select("id", { count: "exact", head: true })
-    .in("status", ["published", "receiving_bids"]);
+    .in("status", ["published", "receiving_bids"])
+    .eq("is_admin_preview", false);
 
   if (error) {
     console.error("[public-projects-count]", error.message);
@@ -66,6 +67,7 @@ export async function fetchPublicOpenProjects(
        job_types ( name_fi )`,
     )
     .in("status", ["published", "receiving_bids"])
+    .eq("is_admin_preview", false)
     .order("created_at", { ascending: false })
     .limit(limit);
 
@@ -95,7 +97,8 @@ export async function fetchPublicOpenProjects(
     .from("bids")
     .select("project_id")
     .in("project_id", projectIds)
-    .eq("status", "submitted");
+    .eq("status", "submitted")
+    .eq("is_admin_preview", false);
 
   const bidCounts = new Map<string, number>();
   for (const row of bidRows ?? []) {
@@ -142,6 +145,7 @@ export async function fetchPublicOpenProject(
     )
     .eq("id", id)
     .in("status", ["published", "receiving_bids"])
+    .eq("is_admin_preview", false)
     .maybeSingle();
 
   if (error || !project) {
@@ -153,7 +157,8 @@ export async function fetchPublicOpenProject(
     .from("bids")
     .select("id", { count: "exact", head: true })
     .eq("project_id", id)
-    .eq("status", "submitted");
+    .eq("status", "submitted")
+    .eq("is_admin_preview", false);
 
   type RawRow = {
     id: string;

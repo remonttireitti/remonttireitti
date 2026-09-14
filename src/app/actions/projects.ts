@@ -44,6 +44,8 @@ import {
   validateServiceEngagement,
 } from "@/lib/service-engagement";
 import { issueGuestProjectAccess } from "@/app/actions/guest-projects";
+import { isAdmin } from "@/lib/admin";
+import { isAdminPreviewSubmission } from "@/lib/admin-preview";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
@@ -96,9 +98,17 @@ export async function createProject(
   } = await supabase.auth.getUser();
 
   const isGuest = !user;
+  const adminPreview = !isGuest && (await isAdminPreviewSubmission());
 
   if (!isGuest) {
     await ensureProfile(user);
+  }
+
+  if (!isGuest && (await isAdmin()) && !adminPreview) {
+    return {
+      error:
+        "Valitse yläreunan admin-esikatselusta 'Selaa asiakkaana' ennen testipyynnön luontia.",
+    };
   }
 
   const jobTypeId = String(formData.get("job_type_id") ?? "");
@@ -269,13 +279,14 @@ export async function createProject(
   const now = new Date();
   const bidDeadlineIso =
     !isGuest && publish ? extendBidDeadlineFromForm(formData) : null;
-  const db = isGuest ? createAdminClient() : supabase;
+  const db = isGuest || adminPreview ? createAdminClient() : supabase;
 
   const { data, error } = await db
     .from("projects")
     .insert({
       customer_id: isGuest ? null : user.id,
       guest_email: isGuest ? contactEmail.toLowerCase() : null,
+      is_admin_preview: adminPreview,
       category_id: categoryId,
       job_type_id: jobTypeId,
       title,
@@ -363,7 +374,7 @@ export async function createProject(
     };
   }
 
-  if (publish) {
+  if (publish && !adminPreview) {
     const maintenance = projectDetails.laitteen_huolto as
       | { device_category?: string }
       | undefined;
@@ -430,7 +441,7 @@ export async function publishProject(
   const { data: project } = await supabase
     .from("projects")
     .select(
-      "id, customer_id, status, title, job_type_id, municipality, postal_code, budget_min, budget_max, details",
+      "id, customer_id, status, title, job_type_id, municipality, postal_code, budget_min, budget_max, details, is_admin_preview",
     )
     .eq("id", projectId)
     .single();
@@ -460,31 +471,33 @@ export async function publishProject(
     return { error: formatProjectSaveError(error) };
   }
 
-  const maintenance = (project.details as { laitteen_huolto?: { device_category?: string } })
-    ?.laitteen_huolto;
-  if (maintenance?.device_category) {
-    scheduleNotification(() =>
-      notifyContractorsNewMaintenanceProject({
-        projectId,
-        projectTitle: project.title,
-        jobTypeId: project.job_type_id,
-        deviceCategory: maintenance.device_category as DeviceCategory,
-        municipality: project.municipality,
-        postalCode: project.postal_code,
-      }),
-    );
-  } else {
-    scheduleNotification(() =>
-      notifyContractorsNewPublishedProject({
-        projectId,
-        projectTitle: project.title,
-        jobTypeId: project.job_type_id,
-        municipality: project.municipality,
-        postalCode: project.postal_code,
-        budgetMin: project.budget_min,
-        budgetMax: project.budget_max,
-      }),
-    );
+  if (!project.is_admin_preview) {
+    const maintenance = (project.details as { laitteen_huolto?: { device_category?: string } })
+      ?.laitteen_huolto;
+    if (maintenance?.device_category) {
+      scheduleNotification(() =>
+        notifyContractorsNewMaintenanceProject({
+          projectId,
+          projectTitle: project.title,
+          jobTypeId: project.job_type_id,
+          deviceCategory: maintenance.device_category as DeviceCategory,
+          municipality: project.municipality,
+          postalCode: project.postal_code,
+        }),
+      );
+    } else {
+      scheduleNotification(() =>
+        notifyContractorsNewPublishedProject({
+          projectId,
+          projectTitle: project.title,
+          jobTypeId: project.job_type_id,
+          municipality: project.municipality,
+          postalCode: project.postal_code,
+          budgetMin: project.budget_min,
+          budgetMax: project.budget_max,
+        }),
+      );
+    }
   }
 
   const jobTypeSlug = await fetchJobTypeSlug(supabase, project.job_type_id);

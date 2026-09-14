@@ -25,6 +25,8 @@ import { HomeTrust } from "@/components/marketing/home-trust";
 import { ServiceCards } from "@/components/marketing/service-cards";
 import { HomeNotifications } from "@/components/notifications/home-notifications";
 import { SiteHeader } from "@/components/site-header";
+import { isAdmin } from "@/lib/admin";
+import { getAdminPreviewMode } from "@/lib/admin-preview";
 import { getProfile, getSessionUser, isContractor } from "@/lib/auth";
 import {
   countUnreadNotifications,
@@ -52,8 +54,9 @@ import {
 export default async function Home() {
   const supabase = await createClient();
   const user = await getSessionUser();
+  const previewMode = user && (await isAdmin()) ? await getAdminPreviewMode() : null;
   const contractor = user ? await isContractor() : false;
-  if (contractor) {
+  if (previewMode === "contractor" || (contractor && previewMode !== "customer")) {
     redirect("/tarjoukset");
   }
   const profile = user ? await getProfile() : null;

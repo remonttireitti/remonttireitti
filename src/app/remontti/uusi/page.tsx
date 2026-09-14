@@ -3,6 +3,8 @@ import { redirect } from "next/navigation";
 import { ValuePromoBanner } from "@/components/promo/value-promo-banner";
 import { SiteHeader } from "@/components/site-header";
 import { ProjectWizard } from "@/components/project/project-wizard";
+import { isAdmin } from "@/lib/admin";
+import { canBrowseAsCustomer } from "@/lib/admin-preview";
 import { getProfile, getSessionUser, isContractor } from "@/lib/auth";
 import { fetchProjectCatalog } from "@/lib/job-catalog-server";
 import { parseRemonttiPrefillFromSearchParams } from "@/lib/remontti-prefill";
@@ -24,8 +26,10 @@ export default async function NewProjectPage({
   const user = await getSessionUser();
   const profile = user ? await getProfile() : null;
 
-  if (await isContractor()) {
-    redirect("/tarjoukset");
+  if (!(await canBrowseAsCustomer())) {
+    if (await isContractor()) redirect("/tarjoukset");
+    if (await isAdmin()) redirect("/admin?viesti=valitse-asiakas-esikatselu");
+    redirect("/oma-tili");
   }
 
   const supabase = await createClient();

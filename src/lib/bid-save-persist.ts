@@ -10,6 +10,7 @@ const OPTIONAL_TRADE_SCOPE_COLUMNS = [
 const OPTIONAL_BID_COLUMNS = [
   ...OPTIONAL_TRADE_SCOPE_COLUMNS,
   "content_updated_at",
+  "is_admin_preview",
 ] as const;
 
 export function isMissingColumnError(error: {

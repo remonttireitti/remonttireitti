@@ -9,6 +9,11 @@ import {
   countContractorPlatformInvoices,
   finalizePlatformInvoiceAsPaid,
 } from "@/lib/platform-invoice-finalize-server";
+import { isAdmin } from "@/lib/admin";
+import {
+  getAdminPreviewMode,
+  isAdminPreviewSubmission,
+} from "@/lib/admin-preview";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { parseBidTermsFromFormData } from "@/lib/bid-terms";
 import {
@@ -147,8 +152,17 @@ async function parseBidSubmission(
     .eq("id", userId)
     .single();
 
-  if (profile?.role !== "contractor") {
+  const adminPreviewBid = (await getAdminPreviewMode()) === "contractor";
+
+  if (profile?.role !== "contractor" && !adminPreviewBid) {
     return bidError(formData, "Vain urakoitsijat voivat jättää tarjouksia.");
+  }
+
+  if ((await isAdmin()) && !adminPreviewBid) {
+    return bidError(
+      formData,
+      "Valitse yläreunan admin-esikatselusta 'Selaa urakoitsijana' ennen testitarjousta.",
+    );
   }
 
   const { data: project } = await supabase
@@ -217,11 +231,20 @@ async function parseBidSubmission(
       : pricingLine;
   }
 
-  const tradeContext = await fetchProjectTradeContextForContractor(
+  let tradeContext = await fetchProjectTradeContextForContractor(
     supabase,
     projectId,
     userId,
   );
+
+  if (adminPreviewBid && tradeContext.matchingTrades.length === 0) {
+    tradeContext = {
+      ...tradeContext,
+      matchingTrades: tradeContext.projectTrades,
+      contractorTradeNames: tradeContext.projectTradeNames,
+    };
+  }
+
   const offerScope = parseBidOfferScope(String(formData.get("offer_scope") ?? ""));
 
   if (tradeContext.isMultiTrade && !offerScope) {
@@ -336,7 +359,9 @@ export async function submitBid(
 
   if (!user) return bidError(formData, "Kirjaudu sisään.");
 
-  if (companyFactsEnforcementActive()) {
+  const adminPreview = await isAdminPreviewSubmission();
+
+  if (companyFactsEnforcementActive() && !adminPreview) {
     const { data: cp } = await supabase
       .from("contractor_profiles")
       .select("founded_year, company_size_band")
@@ -352,8 +377,9 @@ export async function submitBid(
   if (!("project" in parsed)) return parsed;
 
   const payload = parsed;
+  const bidDb = adminPreview ? createAdminClient() : supabase;
 
-  const { data: existing } = await supabase
+  const { data: existing } = await bidDb
     .from("bids")
     .select("id, status")
     .eq("project_id", payload.projectId)
@@ -374,8 +400,8 @@ export async function submitBid(
 
   if (isResubmission) {
     const { error } = await updateBidRow(
-      supabase,
-      row,
+      bidDb,
+      { ...row, is_admin_preview: adminPreview },
       existing!.id,
       user.id,
     );
@@ -387,9 +413,10 @@ export async function submitBid(
   } else if (existing) {
     return bidError(formData, "Tähän pyyntöön et voi enää jättää tarjousta.");
   } else {
-    const { error } = await insertBidRow(supabase, {
+    const { error } = await insertBidRow(bidDb, {
       project_id: payload.projectId,
       contractor_id: user.id,
+      is_admin_preview: adminPreview,
       ...row,
     });
 
@@ -417,10 +444,12 @@ export async function submitBid(
       : "new") as "new" | "updated",
   };
 
-  scheduleNotification(() => notifyCustomerAboutBid(notifyPayload));
+  if (!adminPreview) {
+    scheduleNotification(() => notifyCustomerAboutBid(notifyPayload));
+  }
 
   if (payload.project.status === "published") {
-    await supabase
+    await bidDb
       .from("projects")
       .update({ status: "receiving_bids" })
       .eq("id", payload.projectId);

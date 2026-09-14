@@ -14,6 +14,8 @@ import {
   parseContractorListFilter,
 } from "@/lib/contractor-work-filter";
 import { HomeNotifications } from "@/components/notifications/home-notifications";
+import { isAdmin } from "@/lib/admin";
+import { canBrowseAsContractor } from "@/lib/admin-preview";
 import { getSessionUser, isContractor } from "@/lib/auth";
 import { brand } from "@/lib/brand-theme";
 import {
@@ -31,8 +33,8 @@ export default async function ContractorProjectsPage({
   const user = await getSessionUser();
   if (!user) redirect("/kirjaudu?redirect=/tarjoukset");
 
-  const contractor = await isContractor();
-  if (!contractor) {
+  if (!(await canBrowseAsContractor())) {
+    if (await isAdmin()) redirect("/admin?viesti=valitse-urakoitsija-esikatselu");
     redirect("/oma-tili?viesti=vain-urakoitsijalle");
   }
 
