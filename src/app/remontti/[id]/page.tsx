@@ -17,6 +17,7 @@ import { ReviewForm } from "@/components/review/review-form";
 import { PlatformFeedbackPanel } from "@/components/feedback/platform-feedback-panel";
 import { SiteHeader } from "@/components/site-header";
 import { GuestClaimBanner } from "@/components/project/guest-claim-banner";
+import { GuestMessagingNotice } from "@/components/project/guest-messaging-notice";
 import { GuestProjectHeader } from "@/components/project/guest-project-header";
 import { getProfile, getSessionUser } from "@/lib/auth";
 import { tryCreateAdminClient } from "@/lib/supabase/admin";
@@ -670,7 +671,16 @@ export default async function ProjectPage({
           )}
         </div>
 
-        {biddingPhase && user && (
+        {biddingPhase && isGuestAccess && (
+          <div className="mt-8">
+            <h2 className="text-lg font-semibold">Kysymykset urakoitsijoilta</h2>
+            <div className="mt-3">
+              <GuestMessagingNotice guestEmail={guestEmail} projectId={id} />
+            </div>
+          </div>
+        )}
+
+        {biddingPhase && user && !isGuestAccess && (
           <ProjectBiddingChats
             conversations={biddingConversations}
             currentUserId={user.id}

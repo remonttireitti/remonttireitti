@@ -739,11 +739,18 @@ export function ProjectWizard({
         {step === 2 && (
           <div className="space-y-4">
             {isGuest && (
-              <p className="rounded-xl border border-sky-200 bg-sky-50/70 px-4 py-3 text-sm text-sky-950">
-                <span className="font-medium">Mihin lähetämme tarjouspyynnön ja tarjoukset?</span>{" "}
-                Sähköpostiin tulee vahvistuslinkki ja henkilökohtainen linkki pyyntöösi.
-                Kirjautumista ei tarvita.
-              </p>
+              <div className="space-y-3">
+                <p className="rounded-xl border border-sky-200 bg-sky-50/70 px-4 py-3 text-sm text-sky-950">
+                  <span className="font-medium">Mihin lähetämme tarjouspyynnön ja tarjoukset?</span>{" "}
+                  Sähköpostiin tulee vahvistuslinkki ja henkilökohtainen linkki pyyntöösi.
+                  Kirjautumista ei tarvita.
+                </p>
+                <p className="rounded-xl border border-amber-200 bg-amber-50/80 px-4 py-3 text-sm text-amber-950">
+                  <span className="font-medium">Viestittely vaatii tilin.</span> Ilman tiliä
+                  et voi keskustella urakoitsijoiden kanssa sovelluksessa — tarjoukset ja
+                  tarkentavat ilmoitukset tulevat sähköpostiin.
+                </p>
+              </div>
             )}
             <div>
               <label htmlFor="contact_email" className="block text-sm font-medium">
