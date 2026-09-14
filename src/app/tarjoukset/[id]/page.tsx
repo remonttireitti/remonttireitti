@@ -322,6 +322,9 @@ export default async function ContractorProjectPage({
               showContact={false}
               showLocationOnly
               bidDeadline={project.bid_deadline}
+              bidDeadlineVariant={
+                existingBid?.status === "submitted" ? "info" : "invite"
+              }
             />
           </div>
         </section>

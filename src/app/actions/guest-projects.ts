@@ -16,7 +16,10 @@ import {
   notifyContractorsNewPublishedProject,
 } from "@/lib/contractor-project-notify";
 import { scheduleNotification } from "@/lib/schedule-notification";
-import { extendBidDeadlineFromNow } from "@/lib/project-inactivity";
+import {
+  bidDeadlineFromDays,
+  bidWindowDaysFromProjectDetails,
+} from "@/lib/project-inactivity";
 import { recordCustomJobDemand, fetchJobTypeSlug } from "@/lib/custom-job-demand";
 import { isFreeFormJobSlug } from "@/constants/free-form-job";
 import type { DeviceCategory } from "@/constants/maintenance";
@@ -62,7 +65,9 @@ export async function publishGuestProjectAfterVerification(
   if (pendingPublish && project.status === "draft") {
     updates.status = "published";
     updates.published_at = now;
-    updates.bid_deadline = extendBidDeadlineFromNow();
+    updates.bid_deadline = bidDeadlineFromDays(
+      bidWindowDaysFromProjectDetails(project.details),
+    );
     updates.pending_publish = false;
     published = true;
   }

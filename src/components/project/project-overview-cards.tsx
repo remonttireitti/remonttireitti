@@ -39,6 +39,8 @@ type Props = {
   /** Kun yhteystiedot piilotettu, näytä vain kunta/postinumero */
   showLocationOnly?: boolean;
   bidDeadline?: string | null;
+  /** invite = urakoitsija ei ole vielä tarjonnut; info = jo tarjonnut; customer = asiakkaan näkymä */
+  bidDeadlineVariant?: "invite" | "info" | "customer";
   contactHiddenHint?: string;
 };
 
@@ -58,6 +60,7 @@ export function ProjectOverviewCards({
   showContact = true,
   showLocationOnly = false,
   bidDeadline,
+  bidDeadlineVariant = "invite",
   contactHiddenHint,
 }: Props) {
   const structured = hasStructuredPumpDetails(details);
@@ -119,11 +122,28 @@ export function ProjectOverviewCards({
           title="Tarjousaika"
           rows={[
             {
-              label: "Tarjoa viimeistään",
+              label:
+                bidDeadlineVariant === "invite"
+                  ? "Tarjoa viimeistään"
+                  : "Tarjousaika päättyy",
               value: new Date(bidDeadline).toLocaleDateString("fi-FI"),
             },
           ]}
         />
+      )}
+
+      {bidDeadline && bidDeadlineVariant === "info" && (
+        <p className="rounded-lg bg-stone-50 px-4 py-2 text-xs leading-relaxed text-stone-600">
+          Olet jo jättänyt tarjouksen. Voit päivittää sitä, kunnes asiakas hyväksyy
+          jonkin tarjouksen. Muut urakoitsijat voivat tarjota vielä tähän päivään
+          asti.
+        </p>
+      )}
+
+      {bidDeadline && bidDeadlineVariant === "customer" && (
+        <p className="rounded-lg bg-sky-50 px-4 py-2 text-xs leading-relaxed text-sky-900">
+          Voit valita tarjouksen tai sulkea pyynnön myös ennen tätä päivää.
+        </p>
       )}
 
       {contactHiddenHint && (
