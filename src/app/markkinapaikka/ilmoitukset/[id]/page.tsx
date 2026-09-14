@@ -8,6 +8,7 @@ import { RenewListingForm } from "@/components/marketplace/renew-listing-form";
 import { ListingSellerInbox } from "@/components/marketplace/listing-seller-inbox";
 import {
   listingStatusLabels,
+  sellerListingStatusLabel,
   SELLER_REMOVABLE_STATUSES,
   type EquipmentListingStatus,
 } from "@/lib/marketplace-listings";
@@ -72,10 +73,16 @@ export default async function MarketplaceListingDetailPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ julkaistu?: string; uusittu?: string; lasku?: string; summa?: string }>;
+  searchParams: Promise<{
+    julkaistu?: string;
+    uusittu?: string;
+    lasku?: string;
+    summa?: string;
+    virhe?: string;
+  }>;
 }) {
   const { id } = await params;
-  const { julkaistu, uusittu, lasku, summa } = await searchParams;
+  const { julkaistu, uusittu, lasku, summa, virhe } = await searchParams;
 
   await expireListingsIfNeeded();
 
@@ -88,7 +95,7 @@ export default async function MarketplaceListingDetailPage({
       id, title, description, price_eur, municipality, postal_code,
       condition, manufacturer, model, year_manufactured, pump_type_slug, product_category,
       listing_kind,
-      seller_type, seller_id, status, published_at, expires_at,
+      seller_type, seller_id, status, pending_publish, published_at, expires_at,
       contact_email, contact_phone, address_line
     `,
     )
@@ -139,7 +146,11 @@ export default async function MarketplaceListingDetailPage({
     ? new Date(listing.expires_at).toLocaleDateString("fi-FI")
     : null;
 
-  const canRemove = isSeller && SELLER_REMOVABLE_STATUSES.includes(status);
+  const pendingVerification =
+    status === "draft" && Boolean(listing.pending_publish);
+  const canRemove =
+    isSeller &&
+    (SELLER_REMOVABLE_STATUSES.includes(status) || pendingVerification);
   const isPublic = status === "published";
 
   let subscriptionSlots = 0;
@@ -183,9 +194,30 @@ export default async function MarketplaceListingDetailPage({
             expiresLabel &&
             ` · voimassa ${expiresLabel} asti (${LISTING_DURATION_WEEKS} vk)`}
           {isSeller && !isPublic && (
-            <> · {listingStatusLabels[status]}</>
+            <>
+              {" "}
+              ·{" "}
+              {sellerListingStatusLabel({
+                status,
+                pending_publish: listing.pending_publish,
+              })}
+            </>
           )}
         </p>
+
+        {virhe && isSeller && (
+          <p className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-800" role="alert">
+            {virhe}
+          </p>
+        )}
+
+        {isSeller && pendingVerification && (
+          <p className="mt-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-900" role="status">
+            Ilmoitus odottaa sähköpostivahvistusta osoitteessa{" "}
+            <span className="font-medium">{listing.contact_email}</span>. Tarkista
+            posti (myös roskaposti). Linkki vanhenee 24 tunnissa.
+          </p>
+        )}
 
         {isSeller && status === "expired" && (
           <section

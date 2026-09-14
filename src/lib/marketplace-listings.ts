@@ -120,6 +120,16 @@ export const listingStatusLabels: Record<EquipmentListingStatus, string> = {
   removed: "Poistettu",
 };
 
+export function sellerListingStatusLabel(listing: {
+  status: EquipmentListingStatus;
+  pending_publish?: boolean;
+}): string {
+  if (listing.status === "draft" && listing.pending_publish) {
+    return "Odottaa vahvistusta";
+  }
+  return listingStatusLabels[listing.status];
+}
+
 /** Tilat joissa myyjä voi poistaa ilmoituksen itse. */
 export const SELLER_REMOVABLE_STATUSES: EquipmentListingStatus[] = [
   "published",

@@ -12,7 +12,7 @@ import {
 } from "@/lib/marketplace-subscription";
 import { createClient } from "@/lib/supabase/server";
 import { marketplaceCreateListingPath } from "@/lib/marketplace-listing-links";
-import { listingStatusLabels } from "@/lib/marketplace-listings";
+import { sellerListingStatusLabel } from "@/lib/marketplace-listings";
 import { LISTING_DURATION_WEEKS } from "@/lib/marketplace-pricing";
 import { marketplaceBrand } from "@/lib/marketplace-brand";
 import { pageMetadata } from "@/lib/seo";
@@ -66,7 +66,8 @@ export default async function MyListingsPage() {
         <h1 className="mt-4 text-2xl font-bold">Omat ilmoitukset</h1>
         <p className="mt-2 text-sm text-stone-600">
           Julkaistut ilmoitukset näkyvät torilla {LISTING_DURATION_WEEKS} viikkoa
-          tai kunnes poistat ne.
+          tai kunnes poistat ne. Enintään 2 aktiivista ilmoitusta per
+          sähköpostiosoite.
         </p>
 
         <div className="mt-6 flex flex-wrap gap-3">
@@ -97,12 +98,17 @@ export default async function MyListingsPage() {
         ) : (
           <ul className="mt-8 space-y-3">
             {listings.map((l) => {
+              const pendingVerification =
+                l.status === "draft" && l.pending_publish;
               const canView =
                 l.status === "published" ||
                 l.status === "expired" ||
-                l.status === "removed";
+                l.status === "removed" ||
+                pendingVerification;
               const canRemove =
-                l.status === "published" || l.status === "expired";
+                l.status === "published" ||
+                l.status === "expired" ||
+                pendingVerification;
 
               return (
                 <li
@@ -119,7 +125,7 @@ export default async function MyListingsPage() {
                       </p>
                       <p className="mt-2 text-xs text-stone-500">
                         <span className="font-medium text-stone-700">
-                          {listingStatusLabels[l.status]}
+                          {sellerListingStatusLabel(l)}
                         </span>
                         {l.status === "published" && l.expires_at && (
                           <> · voimassa {formatDate(l.expires_at)} asti</>
