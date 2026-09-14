@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { RoleAwareLink } from "@/components/navigation/role-aware-link";
 import { SiteHeader } from "@/components/site-header";
 import { brand } from "@/lib/brand-theme";
 import { getSessionUser, isContractor } from "@/lib/auth";
@@ -123,16 +124,16 @@ export default async function MarketplacePage() {
 
         <p className="mt-12 text-center text-sm text-stone-500">
           Tarvitsetko asennusta? Kilpailuta{" "}
-          <Link href="/remontti/uusi" className="text-sky-700 hover:underline">
+          <RoleAwareLink href="/remontti/uusi" className="text-sky-700 hover:underline">
             remontti
-          </Link>{" "}
+          </RoleAwareLink>{" "}
           tai{" "}
-          <Link
+          <RoleAwareLink
             href="/markkinapaikka/ilmoita?tyyppi=ostopyynto"
             className="text-sky-700 hover:underline"
           >
             julkaise ostopyyntö
-          </Link>
+          </RoleAwareLink>
           .
         </p>
       </main>

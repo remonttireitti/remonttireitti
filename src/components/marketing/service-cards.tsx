@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { RoleAwareLink } from "@/components/navigation/role-aware-link";
 import { brand } from "@/lib/brand-theme";
 
 const services = [
@@ -40,12 +40,12 @@ export function ServiceCards() {
           <p className="mt-2 flex-1 text-sm leading-relaxed text-stone-600">
             {s.description}
           </p>
-          <Link
+          <RoleAwareLink
             href={s.href}
             className={`${brand.link} mt-4 text-sm font-semibold`}
           >
             {s.cta} →
-          </Link>
+          </RoleAwareLink>
         </article>
       ))}
     </div>

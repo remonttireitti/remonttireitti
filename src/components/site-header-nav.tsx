@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "@/app/actions/auth";
 import { NavLinkPendingContent } from "@/components/navigation/nav-link-pending";
+import { RoleAwareLink } from "@/components/navigation/role-aware-link";
 import { SignOutButton } from "@/components/navigation/sign-out-button";
 import { SHOW_MARKETPLACE_IN_MARKETING } from "@/lib/marketing-focus";
 import { marketplaceBrand } from "@/lib/marketplace-brand";
@@ -33,19 +34,23 @@ const ctaClass =
 function NavItem({
   href,
   children,
+  roleAware = false,
 }: {
   href: string;
   children: React.ReactNode;
+  roleAware?: boolean;
 }) {
   const pathname = usePathname();
   const active =
     pathname === href ||
     (href !== "/" && (pathname === href || pathname.startsWith(`${href}/`)));
 
+  const LinkComponent = roleAware ? RoleAwareLink : Link;
+
   return (
-    <Link href={href} className={navLinkClass(active)}>
+    <LinkComponent href={href} className={navLinkClass(active)}>
       <NavLinkPendingContent>{children}</NavLinkPendingContent>
-    </Link>
+    </LinkComponent>
   );
 }
 
@@ -115,8 +120,14 @@ export function SiteHeaderNav({
           </>
         ) : (
           <>
-            {showTarjousvahti && <NavItem href="/tarjousarvio">Tarjousvahti</NavItem>}
-            <NavItem href="/tarjouspyynnot">Tarjouspyynnöt</NavItem>
+            {showTarjousvahti && (
+              <NavItem href="/tarjousarvio" roleAware>
+                Tarjousvahti
+              </NavItem>
+            )}
+            <NavItem href="/tarjouspyynnot" roleAware>
+              Tarjouspyynnöt
+            </NavItem>
             <NavItem href="/kirjaudu">Kirjaudu</NavItem>
           </>
         )}
@@ -132,15 +143,15 @@ export function SiteHeaderNav({
           </>
         ) : (
           <>
-            <Link href="/asiakkaalle" className={navLinkClass(false)}>
+            <RoleAwareLink href="/asiakkaalle" className={navLinkClass(false)}>
               <NavLinkPendingContent>Asiakkaalle</NavLinkPendingContent>
-            </Link>
-            <Link href="/remontti/uusi" className={navLinkClass(false)}>
+            </RoleAwareLink>
+            <RoleAwareLink href="/remontti/uusi" className={navLinkClass(false)}>
               <NavLinkPendingContent>Kilpailuta</NavLinkPendingContent>
-            </Link>
-            <Link href="/urakoitsijaksi" className={ctaClass}>
+            </RoleAwareLink>
+            <RoleAwareLink href="/urakoitsijaksi" className={ctaClass}>
               <NavLinkPendingContent>Urakoitsijalle</NavLinkPendingContent>
-            </Link>
+            </RoleAwareLink>
           </>
         )}
       </div>

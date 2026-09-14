@@ -225,6 +225,13 @@ export async function signOut() {
   redirect("/");
 }
 
+export async function signOutToLogin(redirectPath: string) {
+  const supabase = await createClient();
+  await supabase.auth.signOut();
+  const safePath = redirectPath.startsWith("/") ? redirectPath : "/";
+  redirect(`/kirjaudu?redirect=${encodeURIComponent(safePath)}`);
+}
+
 /** Lähettää salasanan palautuslinkin sähköpostiin (Supabase Auth). */
 export async function requestPasswordReset(
   _prev: PasswordResetRequestState,

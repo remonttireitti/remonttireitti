@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { RoleAwareLink } from "@/components/navigation/role-aware-link";
 import { SiteHeader } from "@/components/site-header";
 import {
   HEAT_PUMP_JOB_SLUGS,
@@ -60,9 +61,9 @@ export default function TroubleshootingLandingPage() {
 
         <p className="mt-8 text-sm text-stone-500">
           Uusi asennus?{" "}
-          <Link href="/remontti/uusi" className="text-sky-700 hover:underline">
+          <RoleAwareLink href="/remontti/uusi" className="text-sky-700 hover:underline">
             Kilpailuta lämpöpumppuasennus
-          </Link>
+          </RoleAwareLink>
           {" · "}
           <Link href="/hinta-arkisto" className="text-sky-700 hover:underline">
             Katso hinta-arkisto
