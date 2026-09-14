@@ -95,7 +95,7 @@ export default async function AdminFeedbackPage() {
               <tr className="border-b border-stone-200 bg-stone-50 text-left text-xs font-semibold uppercase tracking-wide text-stone-600">
                 <th className="px-4 py-3">Aika</th>
                 <th className="px-4 py-3">Rooli</th>
-                <th className="px-4 py-3">Käyttäjä</th>
+                <th className="px-4 py-3">Käyttäjä / sähköposti</th>
                 <th className="px-4 py-3">Selkeys</th>
                 <th className="px-4 py-3">Kokemus</th>
                 <th className="px-4 py-3">Suositus</th>
@@ -143,6 +143,12 @@ export default async function AdminFeedbackPage() {
                       </td>
                       <td className="px-4 py-3 text-stone-800">
                         {profileLabel(profile)}
+                        {row.guest_email && (
+                          <p className="mt-0.5 text-xs text-stone-500">{row.guest_email}</p>
+                        )}
+                        {row.guest_email && !row.email_verified_at && (
+                          <p className="text-xs text-amber-700">Ei vahvistettu</p>
+                        )}
                       </td>
                       <td className="px-4 py-3">{row.clarity_rating}/5</td>
                       <td className="px-4 py-3">{row.experience_rating}/5</td>

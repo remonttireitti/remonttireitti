@@ -721,7 +721,7 @@ export default async function ProjectPage({
 
         {status === "completed" && (
           <PlatformFeedbackPanel
-            role="customer"
+            defaultRole="customer"
             projectId={id}
             existing={platformFeedback}
           />

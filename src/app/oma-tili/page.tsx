@@ -334,11 +334,12 @@ export default async function AccountPage({
             <section className={`${brand.section} mt-6 p-5 sm:p-6`}>
               <h2 className={brand.sectionTitle}>Palaute palvelusta</h2>
               <p className="mt-2 text-sm leading-relaxed text-stone-600">
-                Kerro, oliko palvelun käyttö selkeää ja miellyttävää. Palautteesi
-                auttaa kehittämään Remonttivalitysta.
+                Kerro, oliko palvelun käyttö selkeää ja miellyttävää — valitse
+                asiakkaan tai urakoitsijan näkökulma. Yksi yleispalaute per tili;
+                urakan jälkeen erillinen kysely urakkasivulla.
               </p>
               <Link
-                href="/oma-tili/palaute"
+                href="/palaute"
                 className={`${brand.btnSecondary} mt-4 inline-flex`}
               >
                 Anna palautetta
