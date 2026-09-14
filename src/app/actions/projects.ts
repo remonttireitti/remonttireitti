@@ -46,7 +46,6 @@ import {
 import { issueGuestProjectAccess } from "@/app/actions/guest-projects";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
-import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 
 function parseAcceptOverBudgetFromForm(formData: FormData): boolean {
