@@ -49,6 +49,8 @@ import { fetchProjectTradeNamesById } from "@/lib/project-trades-server";
 import { createClient } from "@/lib/supabase/server";
 import type { ProjectStatus } from "@/types/database";
 
+export const dynamic = "force-dynamic";
+
 export default async function ProjectPage({
   params,
   searchParams,
