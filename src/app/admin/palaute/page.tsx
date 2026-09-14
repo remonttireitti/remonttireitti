@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { AdminNav } from "@/components/admin/admin-nav";
 import { SiteHeader } from "@/components/site-header";
 import { requireAdmin } from "@/lib/admin";
+import { guestUsageLabels } from "@/lib/platform-feedback-labels";
 import { fetchPlatformFeedbackAdmin } from "@/lib/platform-feedback-server";
 import { getSessionUser } from "@/lib/auth";
 import { brand } from "@/lib/brand-theme";
@@ -96,6 +97,7 @@ export default async function AdminFeedbackPage() {
                 <th className="px-4 py-3">Aika</th>
                 <th className="px-4 py-3">Rooli</th>
                 <th className="px-4 py-3">Käyttäjä / sähköposti</th>
+                <th className="px-4 py-3">Käyttö</th>
                 <th className="px-4 py-3">Selkeys</th>
                 <th className="px-4 py-3">Kokemus</th>
                 <th className="px-4 py-3">Suositus</th>
@@ -106,7 +108,7 @@ export default async function AdminFeedbackPage() {
               {rows.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={7}
+                    colSpan={8}
                     className="px-4 py-8 text-center text-stone-500"
                   >
                     Ei vielä palautteita.
@@ -148,6 +150,13 @@ export default async function AdminFeedbackPage() {
                         )}
                         {row.guest_email && !row.email_verified_at && (
                           <p className="text-xs text-amber-700">Ei vahvistettu</p>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-stone-700">
+                        {row.guest_usage_context ? (
+                          guestUsageLabels[row.guest_usage_context]
+                        ) : (
+                          <span className="text-stone-400">—</span>
                         )}
                       </td>
                       <td className="px-4 py-3">{row.clarity_rating}/5</td>

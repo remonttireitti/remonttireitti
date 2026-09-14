@@ -11,6 +11,7 @@ import {
   isValidFeedbackEmail,
   normalizeFeedbackEmail,
 } from "@/lib/platform-feedback-access";
+import { parseGuestUsageContext } from "@/lib/platform-feedback-labels";
 import {
   fetchGeneralPlatformFeedbackForEmail,
   fetchGeneralPlatformFeedbackForUser,
@@ -59,6 +60,7 @@ export async function submitPlatformFeedback(
   const projectId = projectIdRaw || null;
   const context = projectId ? "project_complete" : "general";
   const guestEmailRaw = String(formData.get("guest_email") ?? "").trim();
+  const guestUsageContext = parseGuestUsageContext(formData.get("guest_usage_context"));
 
   if (!role) {
     return { error: "Valitse, annatko palautteen asiakkaan vai urakoitsijan näkökulmasta." };
@@ -69,6 +71,11 @@ export async function submitPlatformFeedback(
   }
 
   if (!user && !projectId) {
+    if (!guestUsageContext) {
+      return {
+        error: "Kerro, oletko käyttänyt palvelua vai vain selannut sivustoa.",
+      };
+    }
     if (!guestEmailRaw) {
       return { error: "Anna sähköpostiosoite tai kirjaudu sisään." };
     }
@@ -149,6 +156,7 @@ export async function submitPlatformFeedback(
     const guestEmail = normalizeFeedbackEmail(guestEmailRaw);
     const { raw, hash } = generateFeedbackVerificationToken();
     insertPayload.guest_email = guestEmail;
+    insertPayload.guest_usage_context = guestUsageContext;
     insertPayload.verification_token_hash = hash;
 
     const admin = tryCreateAdminClient();
