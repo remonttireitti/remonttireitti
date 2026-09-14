@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { PLATFORM_FEE_VAT_RATE } from "@/lib/platform-fee";
+import type { PlatformFeeWaiverReason } from "@/lib/platform-fee-waiver";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
@@ -64,6 +65,7 @@ export async function createPlatformInvoiceForBid(
     contractorId: string;
     dueAt: string;
     amountCents: number;
+    feeWaiverReason?: PlatformFeeWaiverReason | null;
   },
 ): Promise<{ error?: string; invoiceId?: string }> {
   const { data, error } = await supabase
@@ -76,6 +78,7 @@ export async function createPlatformInvoiceForBid(
       vat_rate: PLATFORM_FEE_VAT_RATE,
       status: "pending",
       due_at: params.dueAt,
+      fee_waiver_reason: params.feeWaiverReason ?? null,
     })
     .select("id")
     .single();

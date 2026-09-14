@@ -358,6 +358,7 @@ export async function notifyBidAccepted(params: {
   projectId: string;
   commitDeadline: string;
   feeCents: number;
+  feeWaiverReason?: import("@/lib/platform-fee-waiver").PlatformFeeWaiverReason | null;
   acceptedAmountCents: number;
   acceptedIncludesEquipment: boolean;
 }) {
@@ -368,12 +369,14 @@ export async function notifyBidAccepted(params: {
     : "vain asennus";
 
   if (params.feeCents === 0) {
+    const { platformFeeWaiverShortLabel } = await import("@/lib/platform-fee-waiver");
+    const waiverLabel = platformFeeWaiverShortLabel(params.feeWaiverReason);
     await sendUserEmail(
       params.contractorId,
       `Tarjouksesi hyväksyttiin: ${params.projectTitle}`,
-      "Beta-etu: ei välitysmaksua",
+      waiverLabel,
       `<p>Asiakas hyväksyi tarjouksesi urakkaan <em>${escapeHtml(params.projectTitle)}</em> (${scope}, ${formatEuros(params.acceptedAmountCents / 100)} €).</p>
-       <p><strong>Ei välityspalkkiota</strong> — ensimmäiset diilit beta-aikana. Asiakkaan yhteystiedot ovat nyt näkyvissä urakkasivulla.</p>`,
+       <p><strong>${escapeHtml(waiverLabel)}.</strong> Asiakkaan yhteystiedot ovat nyt näkyvissä urakkasivulla.</p>`,
       `/tarjoukset/urakka/${params.projectId}`,
       "Avaa yhteystiedot",
     );

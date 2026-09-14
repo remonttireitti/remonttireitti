@@ -168,6 +168,7 @@ export async function userNotifyBidAccepted(params: {
   projectTitle: string;
   commitDeadline: string;
   feeCents: number;
+  feeWaiverReason?: import("@/lib/platform-fee-waiver").PlatformFeeWaiverReason | null;
   acceptedAmountCents: number;
   acceptedIncludesEquipment: boolean;
 }) {
@@ -181,11 +182,15 @@ export async function userNotifyBidAccepted(params: {
     : "vain asennus";
 
   if (params.feeCents === 0) {
+    const { platformFeeWaiverContractorMessage } = await import(
+      "@/lib/platform-fee-waiver"
+    );
+    const waiverNote = platformFeeWaiverContractorMessage(params.feeWaiverReason);
     await inApp(
       params.contractorId,
       "bid_accepted",
       "Tarjous hyväksytty — yhteystiedot auki",
-      `${params.projectTitle}: asiakas hyväksyi ${scope} (${amount}). Beta-etu: ei välitysmaksua — asiakkaan yhteystiedot ovat nyt näkyvissä.`,
+      `${params.projectTitle}: asiakas hyväksyi ${scope} (${amount}). ${waiverNote}`,
       `/tarjoukset/urakka/${params.projectId}`,
     );
     await notifyBidAccepted(params);

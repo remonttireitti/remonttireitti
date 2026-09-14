@@ -76,7 +76,7 @@ export default async function ContractorWonProjectPage({
 
   const { data: invoice } = await supabase
     .from("platform_invoices")
-    .select("id, status, amount_cents, due_at, paid_at")
+    .select("id, status, amount_cents, due_at, paid_at, fee_waiver_reason")
     .eq("project_id", id)
     .eq("contractor_id", user.id)
     .maybeSingle();

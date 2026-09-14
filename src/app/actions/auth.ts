@@ -13,7 +13,14 @@ import { validateCompanyFactsForm } from "@/lib/contractor-company-facts";
 import { resolveContractorTradeIdsFromForm } from "@/lib/resolve-contractor-trades";
 import { saveContractorQualifications } from "@/lib/save-contractor-qualifications";
 import { notifyAdminsNewRegistration } from "@/lib/admin-user-notify";
+import {
+  isValidReferrerEmail,
+  lookupContractorIdByEmail,
+  normalizeReferrerEmail,
+  recordContractorReferral,
+} from "@/lib/contractor-referral";
 import { syncContractorAccount } from "@/lib/sync-contractor";
+import { tryCreateAdminClient } from "@/lib/supabase/admin";
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 
@@ -52,6 +59,7 @@ export async function signUp(
   const fullName = String(formData.get("full_name") ?? "").trim();
   const role = String(formData.get("role") ?? "customer");
   const companyName = String(formData.get("company_name") ?? "").trim();
+  const referrerEmailRaw = String(formData.get("referrer_email") ?? "").trim();
 
   if (!email || !password || password.length < MIN_PASSWORD_LENGTH) {
     return { error: "Sähköposti ja salasana (väh. 8 merkkiä) vaaditaan." };
@@ -63,6 +71,28 @@ export async function signUp(
 
   let contractorFacts: ReturnType<typeof validateCompanyFactsForm> | null = null;
   if (role === "contractor") {
+    if (!referrerEmailRaw) {
+      return { error: "Anna suosittelijan urakoitsijan sähköpostiosoite." };
+    }
+    if (!isValidReferrerEmail(referrerEmailRaw)) {
+      return { error: "Anna kelvollinen suosittelijan sähköpostiosoite." };
+    }
+    if (normalizeReferrerEmail(referrerEmailRaw) === normalizeReferrerEmail(email)) {
+      return { error: "Et voi suosittaa itseäsi." };
+    }
+
+    const admin = tryCreateAdminClient();
+    if (!admin) {
+      return { error: "Rekisteröityminen ei onnistu juuri nyt. Yritä myöhemmin." };
+    }
+    const referrerId = await lookupContractorIdByEmail(admin, referrerEmailRaw);
+    if (!referrerId) {
+      return {
+        error:
+          "Suosittelijaa ei löydy — tarkista sähköposti tai pyydä suosittelijaa luomaan tili ensin.",
+      };
+    }
+
     const qualErr = validateContractorQualifications(formData);
     if (qualErr) return { error: qualErr };
     contractorFacts = validateCompanyFactsForm(formData);
@@ -81,6 +111,8 @@ export async function signUp(
         full_name: fullName || null,
         role: role === "contractor" ? "contractor" : "customer",
         company_name: role === "contractor" ? companyName : null,
+        referrer_email:
+          role === "contractor" ? normalizeReferrerEmail(referrerEmailRaw) : null,
       },
     },
   });
@@ -90,6 +122,23 @@ export async function signUp(
   }
 
   if (data.user && !data.session) {
+    if (data.user && role === "contractor") {
+      const admin = tryCreateAdminClient();
+      if (admin) {
+        await recordContractorReferral(admin, {
+          referredContractorId: data.user.id,
+          referrerEmail: referrerEmailRaw,
+        });
+      }
+      await notifyAdminsNewRegistration({
+        userId: data.user.id,
+        role: "contractor",
+        fullName: fullName || null,
+        companyName,
+        email,
+        referrerEmail: referrerEmailRaw,
+      });
+    }
     return { redirectPath: "/kirjaudu?vahvistus=1" };
   }
 
@@ -141,12 +190,24 @@ export async function signUp(
 
     await syncContractorAccount(data.user);
 
+    const admin = tryCreateAdminClient();
+    if (admin) {
+      const referralRes = await recordContractorReferral(admin, {
+        referredContractorId: data.user.id,
+        referrerEmail: referrerEmailRaw,
+      });
+      if (referralRes.error) {
+        return { error: referralRes.error };
+      }
+    }
+
     await notifyAdminsNewRegistration({
       userId: data.user.id,
       role: "contractor",
       fullName: fullName || null,
       companyName,
       email,
+      referrerEmail: referrerEmailRaw,
     });
 
     return { redirectPath: "/tarjoukset" };

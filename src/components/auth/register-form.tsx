@@ -15,11 +15,13 @@ const inputClass =
 export function RegisterForm({
   defaultRole,
   defaultEmail = "",
+  defaultReferrerEmail = "",
   trades = [],
   heatPumpJobTypes = [],
 }: {
   defaultRole?: "customer" | "contractor";
   defaultEmail?: string;
+  defaultReferrerEmail?: string;
   trades?: SelectableTrade[];
   heatPumpJobTypes?: Pick<JobType, "id" | "slug">[];
 }) {
@@ -87,6 +89,25 @@ export function RegisterForm({
               jobTypes={heatPumpJobTypes}
             />
           )}
+          <div>
+            <label htmlFor="referrer_email" className="block text-sm font-medium">
+              Suosittelijan sähköposti *
+            </label>
+            <p className="mt-1 text-xs text-stone-600">
+              Anna sen urakoitsijan sähköposti, joka suositteli sinua. Suosittelijan
+              täytyy olla jo rekisteröitynyt Remonttireittiin.
+            </p>
+            <input
+              id="referrer_email"
+              name="referrer_email"
+              type="email"
+              required
+              autoComplete="off"
+              defaultValue={defaultReferrerEmail}
+              className={inputClass}
+              placeholder="suosittelija@yritys.fi"
+            />
+          </div>
         </>
       )}
 
