@@ -17,14 +17,18 @@ import { createClient } from "@/lib/supabase/server";
 import { getProfile, getSessionUser, isContractor } from "@/lib/auth";
 import { shouldOfferContractorActivation } from "@/lib/contractor-activation";
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 import {
   CONSUMER_FREE_MAX_ACTIVE_LISTINGS,
   formatPriceFromCents,
   MARKETPLACE_INVOICE_EMAIL,
 } from "@/lib/marketplace-pricing";
 
-export type ListingActionState = { error?: string; success?: string };
+export type ListingActionState = {
+  error?: string;
+  success?: string;
+  ok?: boolean;
+  redirectPath?: string;
+};
 
 export async function countActiveConsumerListings(
   userId: string,
@@ -130,7 +134,10 @@ export async function createConsumerListing(
 
   revalidatePath("/markkinapaikka/ilmoitukset");
   revalidatePath("/markkinapaikka/ilmoita");
-  redirect(`/markkinapaikka/ilmoitukset/${data.id}?julkaistu=1`);
+  return {
+    ok: true,
+    redirectPath: `/markkinapaikka/ilmoitukset/${data.id}?julkaistu=1`,
+  };
 }
 
 function listingInsertPayload(
@@ -228,8 +235,19 @@ export async function createContractorListing(
       })
       .eq("id", sub.id);
 
+    try {
+      await uploadListingPhotosFromFormData(data.id, formData);
+    } catch (e) {
+      return {
+        error: e instanceof Error ? e.message : "Kuvien tallennus epäonnistui.",
+      };
+    }
+
     revalidatePath("/markkinapaikka/ilmoitukset");
-    redirect(`/markkinapaikka/ilmoitukset/${data.id}?julkaistu=1`);
+    return {
+      ok: true,
+      redirectPath: `/markkinapaikka/ilmoitukset/${data.id}?julkaistu=1`,
+    };
   }
 
   const { data: plan } = await supabase
@@ -280,9 +298,10 @@ export async function createContractorListing(
   revalidatePath("/admin/laskutus");
   revalidatePath("/admin/markkinapaikka");
   revalidatePath("/markkinapaikka/ilmoita");
-  redirect(
-    `/markkinapaikka/ilmoita?lasku=1&summa=${encodeURIComponent(formatPriceFromCents(plan.price_eur_cents))}&email=${encodeURIComponent(MARKETPLACE_INVOICE_EMAIL)}`,
-  );
+  return {
+    ok: true,
+    redirectPath: `/markkinapaikka/ilmoita?lasku=1&summa=${encodeURIComponent(formatPriceFromCents(plan.price_eur_cents))}&email=${encodeURIComponent(MARKETPLACE_INVOICE_EMAIL)}`,
+  };
 }
 
 export async function removeSellerListing(
