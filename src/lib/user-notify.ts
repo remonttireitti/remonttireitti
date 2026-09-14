@@ -162,6 +162,31 @@ export async function userNotifyBidRejected(params: {
   await notifyBidRejected(params);
 }
 
+export async function userNotifyCustomerReferralCreditEarned(params: {
+  customerId: string;
+  amountCents: number;
+  source?: "customer" | "contractor";
+}) {
+  const amount = new Intl.NumberFormat("fi-FI", {
+    style: "currency",
+    currency: "EUR",
+    maximumFractionDigits: 0,
+  }).format(params.amountCents / 100);
+
+  const reason =
+    params.source === "contractor"
+      ? "Suosittelemasi urakoitsijan diili hyväksyttiin."
+      : "Suosittelemasi asiakkaan diili hyväksyttiin.";
+
+  await inApp(
+    params.customerId,
+    "referral_credit",
+    "Suosittelubonus ansaittu",
+    `${reason} Sinulla on nyt bonus (${amount} veroton alennus seuraavaan urakkaasi).`,
+    "/oma-tili",
+  );
+}
+
 export async function userNotifyBidAccepted(params: {
   contractorId: string;
   projectId: string;
@@ -169,6 +194,7 @@ export async function userNotifyBidAccepted(params: {
   commitDeadline: string;
   feeCents: number;
   feeWaiverReason?: import("@/lib/platform-fee-waiver").PlatformFeeWaiverReason | null;
+  customerReferralDiscountCents?: number;
   acceptedAmountCents: number;
   acceptedIncludesEquipment: boolean;
 }) {
@@ -185,7 +211,18 @@ export async function userNotifyBidAccepted(params: {
     const { platformFeeWaiverContractorMessage } = await import(
       "@/lib/platform-fee-waiver"
     );
-    const waiverNote = platformFeeWaiverContractorMessage(params.feeWaiverReason);
+    let waiverNote = platformFeeWaiverContractorMessage(params.feeWaiverReason);
+    if (
+      params.feeWaiverReason === "customer_referral" &&
+      params.customerReferralDiscountCents
+    ) {
+      const discount = new Intl.NumberFormat("fi-FI", {
+        style: "currency",
+        currency: "EUR",
+        maximumFractionDigits: 0,
+      }).format(params.customerReferralDiscountCents / 100);
+      waiverNote = `Asiakkaan suosittelubonus — vähennä ${discount} veroton urakan hinnasta. Ei välityslaskua.`;
+    }
     await inApp(
       params.contractorId,
       "bid_accepted",

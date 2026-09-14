@@ -33,6 +33,7 @@ import {
   fetchCustomerProjectConversations,
 } from "@/lib/messages-server";
 import { fetchContractorRatings } from "@/lib/reviews";
+import { fetchAvailableCustomerReferralCredit } from "@/lib/customer-referral";
 import { fetchPlatformFeedbackForProject } from "@/lib/platform-feedback-server";
 import { CustomerCompletionRequestBanner } from "@/components/project/customer-completion-request-banner";
 import { LearnedCriteriaWarnings } from "@/components/project/learned-criteria-warnings";
@@ -215,6 +216,18 @@ export default async function ProjectPage({
     fetchProjectTradeNamesById(dataClient, id),
   ]);
   const projectTradeNamesRecord = Object.fromEntries(projectTradeNamesById);
+
+  let customerReferralDiscountCents = 0;
+  if (user && !isGuestAccess) {
+    const referralAdmin = tryCreateAdminClient();
+    if (referralAdmin) {
+      const credit = await fetchAvailableCustomerReferralCredit(
+        referralAdmin,
+        user.id,
+      );
+      if (credit) customerReferralDiscountCents = credit.amount_cents;
+    }
+  }
 
   const contractorIds = [
     ...new Set((bids ?? []).map((b) => b.contractor_id as string)),
@@ -662,6 +675,7 @@ export default async function ProjectPage({
             acceptedBidId={acceptedBidId}
             jobSlug={jobSlug}
             projectTradeNamesById={projectTradeNamesRecord}
+            customerReferralDiscountCents={customerReferralDiscountCents}
           />
           {submittedBidCount > 0 && biddingPhase && evaluatorCount > 0 && (
             <BidEvaluationPromo

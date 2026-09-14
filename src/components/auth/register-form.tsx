@@ -16,12 +16,14 @@ export function RegisterForm({
   defaultRole,
   defaultEmail = "",
   defaultReferrerEmail = "",
+  defaultCustomerReferrerEmail = "",
   trades = [],
   heatPumpJobTypes = [],
 }: {
   defaultRole?: "customer" | "contractor";
   defaultEmail?: string;
   defaultReferrerEmail?: string;
+  defaultCustomerReferrerEmail?: string;
   trades?: SelectableTrade[];
   heatPumpJobTypes?: Pick<JobType, "id" | "slug">[];
 }) {
@@ -68,6 +70,30 @@ export function RegisterForm({
         />
       </div>
 
+      {role === "customer" && (
+        <div>
+          <label
+            htmlFor="customer_referrer_email"
+            className="block text-sm font-medium"
+          >
+            Suosittelijan sähköposti (valinnainen)
+          </label>
+          <p className="mt-1 text-xs text-stone-600">
+            Jos joku asiakas suositteli sinua, anna hänen sähköpostinsa. Hän saa
+            bonuksen, kun urakkasi johtaa hyväksyttyyn tarjoukseen.
+          </p>
+          <input
+            id="customer_referrer_email"
+            name="customer_referrer_email"
+            type="email"
+            autoComplete="off"
+            defaultValue={defaultCustomerReferrerEmail}
+            className={inputClass}
+            placeholder="suosittelija@esimerkki.fi"
+          />
+        </div>
+      )}
+
       {role === "contractor" && (
         <>
           <div>
@@ -94,8 +120,8 @@ export function RegisterForm({
               Suosittelijan sähköposti *
             </label>
             <p className="mt-1 text-xs text-stone-600">
-              Anna sen urakoitsijan sähköposti, joka suositteli sinua. Suosittelijan
-              täytyy olla jo rekisteröitynyt Remonttireittiin.
+              Anna sen henkilön sähköposti, joka suositteli sinua — urakoitsijan tai
+              asiakkaan, jolla on jo tili Remonttireitillä.
             </p>
             <input
               id="referrer_email"

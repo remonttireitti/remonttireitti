@@ -53,6 +53,12 @@ export function PlatformFeePanel({
             <>
               {platformFeeWaiverShortLabel(invoice.fee_waiver_reason)} — yhteystiedot
               avattu.
+              {invoice.fee_waiver_reason === "customer_referral" && (
+                <span className="mt-1 block">
+                  Vähennä välityspalkkion veroinen summa urakan hinnasta asiakkaan
+                  laskulla.
+                </span>
+              )}
             </>
           ) : (
             <>

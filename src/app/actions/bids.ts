@@ -4,8 +4,16 @@ import { ensureProjectConversation } from "@/app/actions/messages";
 import { createPlatformInvoiceForBid } from "@/app/actions/platform-invoices";
 import { notifyAdminsNewPlatformInvoice } from "@/lib/billing-admin";
 import { platformFeeDueAt } from "@/lib/platform-fee";
+import {
+  consumeCustomerReferralCredit,
+  fetchAvailableCustomerReferralCredit,
+  grantCustomerReferralCreditForAcceptedDeal,
+  grantCustomerReferralCreditForContractorDeal,
+} from "@/lib/customer-referral";
 import { contractorReferralFreeDealsRemainingFor } from "@/lib/contractor-referral";
+import { payPerDealFeeCents } from "@/lib/platform-fee";
 import { resolvePlatformFeeForContractor } from "@/lib/platform-fee-beta";
+import type { PlatformFeeWaiverReason } from "@/lib/platform-fee-waiver";
 import {
   countContractorPlatformInvoices,
   finalizePlatformInvoiceAsPaid,
@@ -980,19 +988,37 @@ export async function acceptBid(formData: FormData): Promise<void> {
   }
 
   const admin = createAdminClient();
-  const [priorInvoiceCount, hasActiveSubscription, referralFreeDealsRemaining] =
-    await Promise.all([
-      countContractorPlatformInvoices(admin, bid.contractor_id),
-      import("@/lib/platform-subscription").then((m) =>
-        m.contractorHasActivePlatformSubscription(admin, bid.contractor_id),
-      ),
-      contractorReferralFreeDealsRemainingFor(admin, bid.contractor_id),
-    ]);
-  const { feeCents, waiverReason } = resolvePlatformFeeForContractor({
-    priorInvoiceCount,
-    hasActiveSubscription,
-    referralFreeDealsRemaining,
-  });
+  const customerReferralCredit = await fetchAvailableCustomerReferralCredit(
+    admin,
+    user.id,
+  );
+
+  let feeCents: number;
+  let waiverReason: PlatformFeeWaiverReason | null;
+  let customerReferralDiscountCents = 0;
+
+  if (customerReferralCredit) {
+    feeCents = 0;
+    waiverReason = "customer_referral";
+    customerReferralDiscountCents = customerReferralCredit.amount_cents;
+  } else {
+    const [priorInvoiceCount, hasActiveSubscription, referralFreeDealsRemaining] =
+      await Promise.all([
+        countContractorPlatformInvoices(admin, bid.contractor_id),
+        import("@/lib/platform-subscription").then((m) =>
+          m.contractorHasActivePlatformSubscription(admin, bid.contractor_id),
+        ),
+        contractorReferralFreeDealsRemainingFor(admin, bid.contractor_id),
+      ]);
+    const resolution = resolvePlatformFeeForContractor({
+      priorInvoiceCount,
+      hasActiveSubscription,
+      referralFreeDealsRemaining,
+    });
+    feeCents = resolution.feeCents;
+    waiverReason = resolution.waiverReason;
+  }
+
   const feeWaived = feeCents === 0;
 
   const commitDeadline = platformFeeDueAt();
@@ -1039,9 +1065,57 @@ export async function acceptBid(formData: FormData): Promise<void> {
     if (finalizeRes.error) {
       redirect(`/remontti/${projectId}?virhe=lasku`);
     }
+
+    if (customerReferralCredit && invoiceRes.invoiceId) {
+      const consumeRes = await consumeCustomerReferralCredit(admin, {
+        creditId: customerReferralCredit.id,
+        customerId: user.id,
+        usedOnProjectId: projectId,
+        usedOnInvoiceId: invoiceRes.invoiceId,
+      });
+      if (consumeRes.error) {
+        redirect(`/remontti/${projectId}?virhe=lasku`);
+      }
+    }
   }
 
-  if (invoiceRes.invoiceId && (!feeWaived || waiverReason === "referral")) {
+  const [customerGrant, contractorGrant] = await Promise.all([
+    grantCustomerReferralCreditForAcceptedDeal(admin, {
+      referredCustomerId: user.id,
+      sourceProjectId: projectId,
+    }),
+    grantCustomerReferralCreditForContractorDeal(admin, {
+      referredContractorId: bid.contractor_id,
+      sourceProjectId: projectId,
+    }),
+  ]);
+
+  scheduleNotification(async () => {
+    const { userNotifyCustomerReferralCreditEarned } = await import(
+      "@/lib/user-notify"
+    );
+    if (customerGrant.granted && customerGrant.referrerCustomerId) {
+      await userNotifyCustomerReferralCreditEarned({
+        customerId: customerGrant.referrerCustomerId,
+        amountCents: customerGrant.amountCents ?? payPerDealFeeCents(),
+        source: "customer",
+      });
+    }
+    if (contractorGrant.granted && contractorGrant.referrerCustomerId) {
+      await userNotifyCustomerReferralCreditEarned({
+        customerId: contractorGrant.referrerCustomerId,
+        amountCents: contractorGrant.amountCents ?? payPerDealFeeCents(),
+        source: "contractor",
+      });
+    }
+  });
+
+  if (
+    invoiceRes.invoiceId &&
+    (!feeWaived ||
+      waiverReason === "referral" ||
+      waiverReason === "customer_referral")
+  ) {
     void notifyAdminsNewPlatformInvoice({
       invoiceId: invoiceRes.invoiceId,
       projectId,
@@ -1095,6 +1169,8 @@ export async function acceptBid(formData: FormData): Promise<void> {
       commitDeadline,
       feeCents,
       feeWaiverReason: waiverReason,
+      customerReferralDiscountCents:
+        waiverReason === "customer_referral" ? customerReferralDiscountCents : 0,
       acceptedAmountCents,
       acceptedIncludesEquipment: acceptedIncludesEquipment ?? false,
     }),

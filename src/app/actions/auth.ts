@@ -15,11 +15,16 @@ import { saveContractorQualifications } from "@/lib/save-contractor-qualificatio
 import { notifyAdminsNewRegistration } from "@/lib/admin-user-notify";
 import {
   isValidReferrerEmail,
-  lookupContractorIdByEmail,
   normalizeReferrerEmail,
-  recordContractorReferral,
 } from "@/lib/contractor-referral";
+import {
+  lookupCustomerIdByEmail,
+  recordContractorSignupReferral,
+  recordCustomerReferral,
+  referrerExistsForContractorSignup,
+} from "@/lib/customer-referral";
 import { syncContractorAccount } from "@/lib/sync-contractor";
+import { syncUserReferrals } from "@/lib/sync-user-referrals";
 import { tryCreateAdminClient } from "@/lib/supabase/admin";
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
@@ -60,6 +65,9 @@ export async function signUp(
   const role = String(formData.get("role") ?? "customer");
   const companyName = String(formData.get("company_name") ?? "").trim();
   const referrerEmailRaw = String(formData.get("referrer_email") ?? "").trim();
+  const customerReferrerEmailRaw = String(
+    formData.get("customer_referrer_email") ?? "",
+  ).trim();
 
   if (!email || !password || password.length < MIN_PASSWORD_LENGTH) {
     return { error: "Sähköposti ja salasana (väh. 8 merkkiä) vaaditaan." };
@@ -72,7 +80,7 @@ export async function signUp(
   let contractorFacts: ReturnType<typeof validateCompanyFactsForm> | null = null;
   if (role === "contractor") {
     if (!referrerEmailRaw) {
-      return { error: "Anna suosittelijan urakoitsijan sähköpostiosoite." };
+      return { error: "Anna suosittelijan sähköpostiosoite." };
     }
     if (!isValidReferrerEmail(referrerEmailRaw)) {
       return { error: "Anna kelvollinen suosittelijan sähköpostiosoite." };
@@ -85,11 +93,14 @@ export async function signUp(
     if (!admin) {
       return { error: "Rekisteröityminen ei onnistu juuri nyt. Yritä myöhemmin." };
     }
-    const referrerId = await lookupContractorIdByEmail(admin, referrerEmailRaw);
-    if (!referrerId) {
+    const referrerExists = await referrerExistsForContractorSignup(
+      admin,
+      referrerEmailRaw,
+    );
+    if (!referrerExists) {
       return {
         error:
-          "Suosittelijaa ei löydy — tarkista sähköposti tai pyydä suosittelijaa luomaan tili ensin.",
+          "Suosittelijaa ei löydy — anna rekisteröityneen urakoitsijan tai asiakkaan sähköposti.",
       };
     }
 
@@ -97,6 +108,33 @@ export async function signUp(
     if (qualErr) return { error: qualErr };
     contractorFacts = validateCompanyFactsForm(formData);
     if (!contractorFacts.ok) return { error: contractorFacts.error };
+  }
+
+  if (role === "customer" && customerReferrerEmailRaw) {
+    if (!isValidReferrerEmail(customerReferrerEmailRaw)) {
+      return { error: "Anna kelvollinen suosittelijan sähköpostiosoite." };
+    }
+    if (
+      normalizeReferrerEmail(customerReferrerEmailRaw) ===
+      normalizeReferrerEmail(email)
+    ) {
+      return { error: "Et voi suosittaa itseäsi." };
+    }
+
+    const admin = tryCreateAdminClient();
+    if (!admin) {
+      return { error: "Rekisteröityminen ei onnistu juuri nyt. Yritä myöhemmin." };
+    }
+    const referrerId = await lookupCustomerIdByEmail(
+      admin,
+      customerReferrerEmailRaw,
+    );
+    if (!referrerId) {
+      return {
+        error:
+          "Suosittelijaa ei löydy — tarkista sähköposti tai pyydä suosittelijaa luomaan asiakastili ensin.",
+      };
+    }
   }
 
   const supabase = await createClient();
@@ -113,6 +151,10 @@ export async function signUp(
         company_name: role === "contractor" ? companyName : null,
         referrer_email:
           role === "contractor" ? normalizeReferrerEmail(referrerEmailRaw) : null,
+        customer_referrer_email:
+          role === "customer" && customerReferrerEmailRaw
+            ? normalizeReferrerEmail(customerReferrerEmailRaw)
+            : null,
       },
     },
   });
@@ -122,10 +164,10 @@ export async function signUp(
   }
 
   if (data.user && !data.session) {
+    const admin = tryCreateAdminClient();
     if (data.user && role === "contractor") {
-      const admin = tryCreateAdminClient();
       if (admin) {
-        await recordContractorReferral(admin, {
+        await recordContractorSignupReferral(admin, {
           referredContractorId: data.user.id,
           referrerEmail: referrerEmailRaw,
         });
@@ -137,6 +179,19 @@ export async function signUp(
         companyName,
         email,
         referrerEmail: referrerEmailRaw,
+      });
+    }
+    if (data.user && role === "customer" && customerReferrerEmailRaw && admin) {
+      await recordCustomerReferral(admin, {
+        referredCustomerId: data.user.id,
+        referrerEmail: customerReferrerEmailRaw,
+      });
+      await notifyAdminsNewRegistration({
+        userId: data.user.id,
+        role: "customer",
+        fullName: fullName || null,
+        email,
+        referrerEmail: customerReferrerEmailRaw,
       });
     }
     return { redirectPath: "/kirjaudu?vahvistus=1" };
@@ -192,7 +247,7 @@ export async function signUp(
 
     const admin = tryCreateAdminClient();
     if (admin) {
-      const referralRes = await recordContractorReferral(admin, {
+      const referralRes = await recordContractorSignupReferral(admin, {
         referredContractorId: data.user.id,
         referrerEmail: referrerEmailRaw,
       });
@@ -214,11 +269,25 @@ export async function signUp(
   }
 
   if (data.user) {
+    if (customerReferrerEmailRaw) {
+      const admin = tryCreateAdminClient();
+      if (admin) {
+        const referralRes = await recordCustomerReferral(admin, {
+          referredCustomerId: data.user.id,
+          referrerEmail: customerReferrerEmailRaw,
+        });
+        if (referralRes.error) {
+          return { error: referralRes.error };
+        }
+      }
+    }
+
     await notifyAdminsNewRegistration({
       userId: data.user.id,
       role: "customer",
       fullName: fullName || null,
       email,
+      referrerEmail: customerReferrerEmailRaw || null,
     });
   }
 
@@ -250,6 +319,7 @@ export async function signIn(
 
   if (user) {
     await syncContractorAccount(user);
+    await syncUserReferrals(user);
 
     const { data: profile } = await supabase
       .from("profiles")

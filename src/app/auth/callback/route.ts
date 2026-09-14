@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { syncContractorAccount } from "@/lib/sync-contractor";
+import { syncUserReferrals } from "@/lib/sync-user-referrals";
 import { NextResponse } from "next/server";
 
 export async function GET(request: Request) {
@@ -17,6 +18,7 @@ export async function GET(request: Request) {
       const safeNext = next.startsWith("/") ? next : "/oma-tili";
       if (user) {
         await syncContractorAccount(user);
+        await syncUserReferrals(user);
         const metaRole = user.user_metadata?.role;
         if (metaRole === "contractor" && !safeNext.startsWith("/salasana")) {
           return NextResponse.redirect(`${origin}/tarjoukset`);
