@@ -196,7 +196,7 @@ function buildBidEvents(
       bid.updated_at &&
       bid.submitted_at &&
       bid.updated_at > bid.submitted_at &&
-      new Date(bid.updated_at).getTime() - new Date(bid.submitted_at).getTime() > 60_000
+      new Date(bid.updated_at).getTime() - new Date(bid.submitted_at).getTime() > 2_000
     ) {
       pushEvent(events, {
         id: `bid-update-${bid.id}-${bid.updated_at}`,

@@ -282,6 +282,7 @@ async function parseBidSubmission(
 function bidRowFromPayload(
   payload: ParsedBidPayload,
   status: "submitted",
+  options?: { setSubmittedAt?: boolean },
 ) {
   return {
     status,
@@ -302,7 +303,9 @@ function bidRowFromPayload(
     offer_scope: payload.offerScope,
     offered_trade_ids: payload.offeredTradeIds,
     turnkey_coordination: payload.turnkeyCoordination,
-    submitted_at: new Date().toISOString(),
+    ...(options?.setSubmittedAt !== false
+      ? { submitted_at: new Date().toISOString() }
+      : {}),
     confirmed_content_revision: payload.project.content_revision,
     rejection_message: null,
     rejected_at: null,
@@ -462,7 +465,7 @@ export async function updateBid(
 
   const { error } = await updateBidRow(
     supabase,
-    bidRowFromPayload(payload, "submitted"),
+    bidRowFromPayload(payload, "submitted", { setSubmittedAt: false }),
     bidId,
     user.id,
   );
