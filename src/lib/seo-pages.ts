@@ -62,6 +62,20 @@ export const STATIC_SEO_PAGES: SeoPageDef[] = [
     priority: 0.8,
   },
   {
+    path: "/suosittelu",
+    title: "Suosittelubonus — palkinto uusista käyttäjistä",
+    description:
+      "Suosittele asiakasta tai urakoitsijaa Remonttireittiin. Asiakas saa bonuksen seuraavaan remonttiin, urakoitsija ilmaisia diilejä.",
+    keywords: mergeKeywords(SITE_KEYWORDS, [
+      "suosittelu",
+      "suosittelubonus",
+      "referral",
+      "bonus",
+    ]),
+    changeFrequency: "monthly",
+    priority: 0.6,
+  },
+  {
     path: "/asiakkaalle",
     title: "Asiakkaalle — ilmainen kilpailutus remontille",
     description:

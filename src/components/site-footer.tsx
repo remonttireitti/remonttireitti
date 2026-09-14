@@ -72,6 +72,11 @@ export async function SiteFooter() {
                 </li>
               )}
               <li>
+                <Link href="/suosittelu" className="text-stone-600 hover:text-sky-700">
+                  Suosittelubonus
+                </Link>
+              </li>
+              <li>
                 <Link href="/palaute" className="text-stone-600 hover:text-sky-700">
                   Anna palautetta
                 </Link>
