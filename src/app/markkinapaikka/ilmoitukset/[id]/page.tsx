@@ -32,6 +32,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { fetchListingPhotos } from "@/lib/listing-photos";
 import { listingCategoryLabel } from "@/lib/marketplace-categories";
 import { formatDeviceTypeLabel } from "@/lib/marketplace-device-types";
+import { resolveListingSellerAccess } from "@/lib/listing-guest-access";
 import { createClient } from "@/lib/supabase/server";
 
 export async function generateMetadata({
@@ -104,7 +105,8 @@ export default async function MarketplaceListingDetailPage({
 
   if (!listing) notFound();
 
-  const isSeller = user?.id === listing.seller_id;
+  const sellerAccess = await resolveListingSellerAccess(id);
+  const isSeller = Boolean(sellerAccess);
   const status = listing.status as EquipmentListingStatus;
 
   if (status !== "published" && !isSeller) {

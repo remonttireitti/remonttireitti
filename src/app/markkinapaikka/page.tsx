@@ -83,7 +83,7 @@ export default async function MarketplacePage() {
               <h2 className="font-semibold text-stone-900">Yksityiselle</h2>
               <p className="mt-2 flex-1 text-sm text-stone-600">
                 Myy ylimääräinen laite, varaosa tai remonttitarvike helposti.
-                Ilmoitus on maksuton yksityishenkilölle.
+                Ilmoitus on maksuton — voit jättää sen ilman tiliä sähköpostivahvistuksella.
               </p>
               <Link
                 href="/markkinapaikka/ilmoita?tyyppi=kuluttaja"

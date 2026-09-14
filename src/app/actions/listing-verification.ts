@@ -48,14 +48,17 @@ export async function publishConsumerListingAfterVerification(
   }
 
   const contactEmail = normalizeListingContactEmail(listing.contact_email);
-  const activeByUser = await countActiveConsumerListings(listing.seller_id);
-  const activeByEmail = await countActiveConsumerListingsByEmail(contactEmail);
 
-  if (activeByUser >= CONSUMER_FREE_MAX_ACTIVE_LISTINGS) {
-    return {
-      error: `Tilillä on jo ${CONSUMER_FREE_MAX_ACTIVE_LISTINGS} aktiivista ilmoitusta.`,
-    };
+  if (listing.seller_id) {
+    const activeByUser = await countActiveConsumerListings(listing.seller_id);
+    if (activeByUser >= CONSUMER_FREE_MAX_ACTIVE_LISTINGS) {
+      return {
+        error: `Tilillä on jo ${CONSUMER_FREE_MAX_ACTIVE_LISTINGS} aktiivista ilmoitusta.`,
+      };
+    }
   }
+
+  const activeByEmail = await countActiveConsumerListingsByEmail(contactEmail);
 
   if (activeByEmail >= CONSUMER_FREE_MAX_ACTIVE_LISTINGS) {
     return {
@@ -67,6 +70,7 @@ export async function publishConsumerListingAfterVerification(
   const now = new Date();
   const expires = new Date(now);
   expires.setDate(expires.getDate() + LISTING_DURATION_DAYS.consumer);
+  const accessHash = hashProjectAccessToken(rawToken);
 
   const { error } = await admin
     .from("equipment_listings")
@@ -75,11 +79,12 @@ export async function publishConsumerListingAfterVerification(
       pending_publish: false,
       contact_email_verified_at: listing.contact_email_verified_at ?? now.toISOString(),
       verification_token_hash: null,
+      access_token_hash: accessHash,
       published_at: now.toISOString(),
       expires_at: expires.toISOString(),
     })
     .eq("id", listingId)
-    .eq("verification_token_hash", hashProjectAccessToken(rawToken));
+    .eq("verification_token_hash", accessHash);
 
   if (error) {
     console.error("[publishConsumerListingAfterVerification]", error.message);

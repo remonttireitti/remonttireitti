@@ -13,8 +13,9 @@ import {
   subscriptionSlotsLeft,
 } from "@/lib/marketplace-subscription";
 import { uploadListingPhotosFromFormData } from "@/lib/listing-photos";
-import { tryCreateAdminClient } from "@/lib/supabase/admin";
+import { createAdminClient, tryCreateAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { resolveListingSellerAccess } from "@/lib/listing-guest-access";
 import { getProfile, getSessionUser, isContractor } from "@/lib/auth";
 import { shouldOfferContractorActivation } from "@/lib/contractor-activation";
 import {
@@ -89,20 +90,23 @@ export async function createConsumerListing(
 ): Promise<ListingActionState> {
   try {
     const user = await getSessionUser();
-    if (!user) return { error: "Kirjaudu sisään." };
+    const isGuest = !user;
 
-    const profile = await getProfile();
-    if (shouldOfferContractorActivation(user, profile)) {
-      return {
-        error: "Aktivoi ensin urakoitsijatili julkaistaksesi yritysilmoituksen.",
-      };
-    }
+    if (user) {
+      const profile = await getProfile();
+      if (shouldOfferContractorActivation(user, profile)) {
+        return {
+          error:
+            "Aktivoi ensin urakoitsijatili julkaistaksesi yritysilmoituksen.",
+        };
+      }
 
-    if (await isContractor()) {
-      return {
-        error:
-          "Urakoitsijat käyttävät maksullista toria. Julkaise ilmoitus yrityksenä.",
-      };
+      if (await isContractor()) {
+        return {
+          error:
+            "Urakoitsijat käyttävät maksullista toria. Julkaise ilmoitus yrityksenä.",
+        };
+      }
     }
 
     const input = parseListingForm(formData);
@@ -118,11 +122,13 @@ export async function createConsumerListing(
 
     const contactEmail = normalizeListingContactEmail(input.contact_email);
 
-    const activeByUser = await countActiveConsumerListings(user.id);
-    if (activeByUser >= CONSUMER_FREE_MAX_ACTIVE_LISTINGS) {
-      return {
-        error: `Sinulla on jo ${CONSUMER_FREE_MAX_ACTIVE_LISTINGS} aktiivista ilmoitusta. Poista vanha tai odota sen päättymistä.`,
-      };
+    if (user) {
+      const activeByUser = await countActiveConsumerListings(user.id);
+      if (activeByUser >= CONSUMER_FREE_MAX_ACTIVE_LISTINGS) {
+        return {
+          error: `Sinulla on jo ${CONSUMER_FREE_MAX_ACTIVE_LISTINGS} aktiivista ilmoitusta. Poista vanha tai odota sen päättymistä.`,
+        };
+      }
     }
 
     const activeByEmail = await countActiveConsumerListingsByEmail(contactEmail);
@@ -132,9 +138,8 @@ export async function createConsumerListing(
       };
     }
 
-    const supabase = await createClient();
-
-    const { data: plan } = await supabase
+    const readClient = await createClient();
+    const { data: plan } = await readClient
       .from("marketplace_plans")
       .select("id")
       .eq("slug", "consumer_free")
@@ -142,36 +147,52 @@ export async function createConsumerListing(
 
     const { raw, hash } = generateProjectAccessToken();
 
-    const { data, error } = await supabase
-      .from("equipment_listings")
-      .insert({
-        seller_id: user.id,
-        seller_type: "customer",
-        plan_id: plan?.id ?? null,
-        status: "draft",
-        pending_publish: true,
-        listing_kind: input.listing_kind,
-        condition: input.condition,
-        title: input.title,
-        description: input.description,
-        price_eur: input.price_eur,
-        municipality: input.municipality,
-        postal_code: input.postal_code,
-        address_line: input.address_line || null,
-        product_category: input.product_category,
-        pump_type_slug: input.pump_type_slug || null,
-        manufacturer: input.manufacturer || null,
-        model: input.model || null,
-        year_manufactured: input.year_manufactured,
-        contact_email: contactEmail,
-        contact_phone: input.contact_phone,
-        is_free_listing: true,
-        verification_token_hash: hash,
-        published_at: null,
-        expires_at: null,
-      })
-      .select("id")
-      .single();
+    const baseInsert = {
+      seller_type: "customer" as const,
+      plan_id: plan?.id ?? null,
+      status: "draft" as const,
+      pending_publish: true,
+      listing_kind: input.listing_kind,
+      condition: input.condition,
+      title: input.title,
+      description: input.description,
+      price_eur: input.price_eur,
+      municipality: input.municipality,
+      postal_code: input.postal_code,
+      address_line: input.address_line || null,
+      product_category: input.product_category,
+      pump_type_slug: input.pump_type_slug || null,
+      manufacturer: input.manufacturer || null,
+      model: input.model || null,
+      year_manufactured: input.year_manufactured,
+      contact_email: contactEmail,
+      contact_phone: input.contact_phone,
+      is_free_listing: true,
+      verification_token_hash: hash,
+      published_at: null,
+      expires_at: null,
+    };
+
+    const writeClient = isGuest ? createAdminClient() : readClient;
+    const { data, error } = isGuest
+      ? await writeClient
+          .from("equipment_listings")
+          .insert({
+            ...baseInsert,
+            seller_id: null,
+            guest_seller_email: contactEmail,
+          })
+          .select("id")
+          .single()
+      : await writeClient
+          .from("equipment_listings")
+          .insert({
+            ...baseInsert,
+            seller_id: user!.id,
+            guest_seller_email: null,
+          })
+          .select("id")
+          .single();
 
     if (error) {
       console.error("[createConsumerListing] insert", error.code, error.message);
@@ -181,7 +202,7 @@ export async function createConsumerListing(
     try {
       await uploadListingPhotosFromFormData(data.id, formData);
     } catch (e) {
-      await supabase.from("equipment_listings").delete().eq("id", data.id);
+      await writeClient.from("equipment_listings").delete().eq("id", data.id);
       return {
         error: e instanceof Error ? e.message : "Kuvien tallennus epäonnistui.",
       };
@@ -195,7 +216,7 @@ export async function createConsumerListing(
     });
 
     if (!mailResult.ok && !mailResult.skipped) {
-      await supabase.from("equipment_listings").delete().eq("id", data.id);
+      await writeClient.from("equipment_listings").delete().eq("id", data.id);
       return {
         error:
           "Vahvistussähköpostin lähetys epäonnistui. Tarkista osoite ja yritä uudelleen.",
@@ -204,7 +225,7 @@ export async function createConsumerListing(
 
     return {
       ok: true,
-      redirectPath: `/markkinapaikka/ilmoita/vahvistus?email=${encodeURIComponent(contactEmail)}`,
+      redirectPath: `/markkinapaikka/ilmoita/vahvistus?email=${encodeURIComponent(contactEmail)}${isGuest ? "&vieras=1" : ""}`,
     };
   } catch (err) {
     console.error("[createConsumerListing]", err);
@@ -602,19 +623,30 @@ export async function removeSellerListing(
   _prev: ListingActionState,
   formData: FormData,
 ): Promise<ListingActionState> {
-  const user = await getSessionUser();
-  if (!user) return { error: "Kirjaudu sisään." };
-
   const listingId = String(formData.get("listing_id") ?? "");
   if (!listingId) return { error: "Ilmoitus puuttuu." };
 
-  const supabase = await createClient();
-  const { data: listing } = await supabase
+  const access = await resolveListingSellerAccess(listingId);
+  if (!access) return { error: "Kirjaudu sisään tai avaa ilmoitus sähköpostilinkistä." };
+
+  const readClient = await createClient();
+  const admin = access.kind === "guest" ? createAdminClient() : null;
+  const writeClient = admin ?? readClient;
+
+  const listingQuery = readClient
     .from("equipment_listings")
-    .select("id, seller_id, status, title, pending_publish")
-    .eq("id", listingId)
-    .eq("seller_id", user.id)
-    .single();
+    .select("id, seller_id, status, title, pending_publish, guest_seller_email")
+    .eq("id", listingId);
+
+  const { data: listing } =
+    access.kind === "user"
+      ? await listingQuery.eq("seller_id", access.userId).single()
+      : await (admin ?? readClient)
+          .from("equipment_listings")
+          .select("id, seller_id, status, title, pending_publish, guest_seller_email")
+          .eq("id", listingId)
+          .eq("guest_seller_email", access.guestEmail)
+          .single();
 
   if (!listing) {
     return { error: "Ilmoitusta ei löytynyt tai sinulla ei ole oikeutta poistaa sitä." };
@@ -634,11 +666,15 @@ export async function removeSellerListing(
   }
 
   if (pendingVerification) {
-    const { error: delErr } = await supabase
+    const deleteQuery = writeClient
       .from("equipment_listings")
       .delete()
-      .eq("id", listingId)
-      .eq("seller_id", user.id);
+      .eq("id", listingId);
+    const { error: delErr } =
+      access.kind === "user"
+        ? await deleteQuery.eq("seller_id", access.userId)
+        : await deleteQuery.eq("guest_seller_email", access.guestEmail);
+
     if (delErr) {
       console.error("[removeSellerListing] pending delete", delErr.message);
       return { error: "Ilmoituksen poisto epäonnistui." };
@@ -646,11 +682,14 @@ export async function removeSellerListing(
     return { success: "Ilmoitus poistettu." };
   }
 
-  const { error } = await supabase
+  const updateQuery = writeClient
     .from("equipment_listings")
     .update({ status: "removed" })
-    .eq("id", listingId)
-    .eq("seller_id", user.id);
+    .eq("id", listingId);
+  const { error } =
+    access.kind === "user"
+      ? await updateQuery.eq("seller_id", access.userId)
+      : await updateQuery.eq("guest_seller_email", access.guestEmail);
 
   if (error) {
     console.error("[removeSellerListing]", error.code, error.message);

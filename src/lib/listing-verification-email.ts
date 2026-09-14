@@ -38,6 +38,9 @@ export async function sendListingVerificationEmail(params: {
   const verifyUrl = siteUrl(
     `/auth/vahvista-ilmoitus?listing=${params.listingId}&token=${encodeURIComponent(params.rawToken)}`,
   );
+  const manageUrl = siteUrl(
+    `/auth/listing-guest-access?listing=${params.listingId}&token=${encodeURIComponent(params.rawToken)}`,
+  );
 
   const result = await sendEmail({
     to: params.to,
@@ -45,8 +48,9 @@ export async function sendListingVerificationEmail(params: {
     html: emailLayout(
       "Vahvista ja julkaise",
       `<p>Vahvista sähköpostiosoitteesi, jotta voimme julkaista ilmoituksesi <em>${escapeHtml(params.listingTitle)}</em> remonttitorilla.</p>
-       <p>Ilmoitus näkyy ostajille vasta vahvistuksen jälkeen.</p>
-       <p>Linkki on voimassa 24 tuntia. Vahvistamatta jääneet ilmoitukset poistetaan automaattisesti.</p>`,
+       <p>Ilmoitus näkyy ostajille vasta vahvistuksen jälkeen. Voit jättää ilmoituksen ilman tiliä — hallitse ja poista ilmoitus sähköpostilinkillä.</p>
+       <p>Linkki on voimassa 24 tuntia. Vahvistamatta jääneet ilmoitukset poistetaan automaattisesti.</p>
+       <p class="text-sm" style="margin-top:16px;color:#57534e">Julkaisun jälkeen voit palata ilmoitukseen <a href="${manageUrl}" style="color:#0369a1">tällä hallintalinkillä</a> (toimii vahvistuksen jälkeen).</p>`,
       verifyUrl,
       "Vahvista ja julkaise",
     ),

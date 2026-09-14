@@ -7,7 +7,7 @@ import { pageMetadata } from "@/lib/seo";
 
 export const metadata: Metadata = pageMetadata({
   title: "Ilmoita myytävä — remonttitori",
-  description: `Julkaise myynti-ilmoitus ${marketplaceBrand.nameShort.toLowerCase()}lle — remonttiin liittyvät laitteet, varaosat ja tarvikkeet. Yksityisille ilmaiseksi.`,
+  description: `Julkaise myynti-ilmoitus ${marketplaceBrand.nameShort.toLowerCase()}lle ilman tiliä — remonttiin liittyvät laitteet, varaosat ja tarvikkeet. Yksityisille ilmaiseksi sähköpostivahvistuksella.`,
   path: "/markkinapaikka/ilmoita",
 });
 import { ContractorActivationBanner } from "@/components/account/contractor-activation-banner";
@@ -46,7 +46,9 @@ export default async function MarketplaceCreateListingPage({
 
   if (tyyppi === "ostopyynto") {
     const user = await getSessionUser();
-    if (!user) redirect("/kirjaudu?redirect=/markkinapaikka/ilmoita?tyyppi=ostopyynto");
+    if (user && (await isContractor())) {
+      redirect("/markkinapaikka/ilmoita");
+    }
     return <ConsumerWantedListingInfo />;
   }
 
@@ -61,7 +63,7 @@ export default async function MarketplaceCreateListingPage({
   const user = await getSessionUser();
 
   if (!user) {
-    redirect("/kirjaudu?redirect=/markkinapaikka/ilmoita");
+    redirect("/markkinapaikka/ilmoita?tyyppi=kuluttaja");
   }
 
   const profile = await getProfile();
@@ -162,11 +164,14 @@ export default async function MarketplaceCreateListingPage({
 
 async function ConsumerWantedListingInfo() {
   const user = await getSessionUser();
-  if (!user) redirect("/kirjaudu?redirect=/markkinapaikka/ilmoita?tyyppi=ostopyynto");
-
-  const profile = await getProfile();
-  const contactEmail = normalizeListingContactEmail(user.email ?? "");
-  const slotsLeft = await countConsumerListingSlotsLeft(user.id, contactEmail);
+  const profile = user ? await getProfile() : null;
+  const isGuest = !user;
+  const contactEmail = user
+    ? normalizeListingContactEmail(user.email ?? "")
+    : "";
+  const slotsLeft = user
+    ? await countConsumerListingSlotsLeft(user.id, contactEmail)
+    : CONSUMER_FREE_MAX_ACTIVE_LISTINGS;
 
   return (
     <div className={brand.page}>
@@ -180,14 +185,22 @@ async function ConsumerWantedListingInfo() {
         </Link>
         <h1 className="mt-4 text-2xl font-bold">Haluan ostaa</h1>
         <p className="mt-2 text-sm text-stone-600">
-          Julkaise ostopyyntö torilla — myyjät näkevät mitä etsit. Ilmainen
-          yksityishenkilölle.
+          {isGuest
+            ? "Julkaise ostopyyntö ilman tiliä. Lähetämme vahvistuslinkin sähköpostiisi — ilmoitus näkyy torilla vasta vahvistuksen jälkeen."
+            : "Julkaise ostopyyntö torilla — myyjät näkevät mitä etsit. Ilmainen yksityishenkilölle."}
         </p>
+        {isGuest && (
+          <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50/80 px-4 py-3 text-sm text-amber-950">
+            <span className="font-medium">Ilman tiliä:</span> hallitse ilmoitusta
+            sähköpostiin tulevalla linkillä. Kirjautuneena näet ilmoitukset myös
+            kohdassa Omat ilmoitukset.
+          </p>
+        )}
 
         <ConsumerWantedListingForm
           slotsLeft={slotsLeft}
           defaults={{
-            contact_email: user.email ?? "",
+            contact_email: user?.email ?? "",
             contact_phone: profile?.phone ?? "",
           }}
         />
@@ -208,11 +221,14 @@ async function ConsumerWantedListingInfo() {
 
 async function ConsumerListingInfo() {
   const user = await getSessionUser();
-  if (!user) redirect("/kirjaudu?redirect=/markkinapaikka/ilmoita?tyyppi=kuluttaja");
-
-  const profile = await getProfile();
-  const contactEmail = normalizeListingContactEmail(user.email ?? "");
-  const slotsLeft = await countConsumerListingSlotsLeft(user.id, contactEmail);
+  const profile = user ? await getProfile() : null;
+  const isGuest = !user;
+  const contactEmail = user
+    ? normalizeListingContactEmail(user.email ?? "")
+    : "";
+  const slotsLeft = user
+    ? await countConsumerListingSlotsLeft(user.id, contactEmail)
+    : CONSUMER_FREE_MAX_ACTIVE_LISTINGS;
 
   return (
     <div className={brand.page}>
@@ -224,26 +240,42 @@ async function ConsumerListingInfo() {
         >
           ← {marketplaceBrand.nameShort}
         </Link>
-        <h1 className="mt-4 text-2xl font-bold">Ilmoita myytävä laite</h1>
+        <h1 className="mt-4 text-2xl font-bold">
+          {isGuest ? "Ilmoita myytävä — ilman tiliä" : "Ilmoita myytävä laite"}
+        </h1>
         <p className="mt-2 text-sm text-stone-600">
-          Yksityishenkilönä ilmoitus on maksuton. Vahvistamme sähköpostiosoitteen
-          ennen julkaisua. Enintään {CONSUMER_FREE_MAX_ACTIVE_LISTINGS} aktiivista
-          ilmoitusta per sähköpostiosoite.
+          {isGuest
+            ? "Täytä ilmoitus ilman rekisteröitymistä. Lähetämme vahvistuslinkin sähköpostiisi — ilmoitus julkaistaan vasta linkin avaamisen jälkeen. Linkki on voimassa 24 tuntia."
+            : "Yksityishenkilönä ilmoitus on maksuton. Vahvistamme sähköpostiosoitteen ennen julkaisua."}{" "}
+          Enintään {CONSUMER_FREE_MAX_ACTIVE_LISTINGS} aktiivista ilmoitusta per
+          sähköpostiosoite.
         </p>
 
-        <p className="mt-3 text-sm">
-          <Link
-            href="/markkinapaikka/omat-ilmoitukset"
-            className="font-medium text-sky-700 hover:underline"
-          >
-            Omat ilmoitukset
-          </Link>
-        </p>
+        {isGuest ? (
+          <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50/80 px-4 py-3 text-sm text-amber-950">
+            <span className="font-medium">Ilman tiliä:</span> hallitse ja poista
+            ilmoitus sähköpostiin tulevalla linkillä.{" "}
+            <Link href="/kirjaudu" className="font-medium text-sky-800 hover:underline">
+              Kirjaudu
+            </Link>
+            , jos haluat nähdä kaikki ilmoituksesi yhdessä paikassa.
+          </p>
+        ) : (
+          <p className="mt-3 text-sm">
+            <Link
+              href="/markkinapaikka/omat-ilmoitukset"
+              className="font-medium text-sky-700 hover:underline"
+            >
+              Omat ilmoitukset
+            </Link>
+          </p>
+        )}
 
         <ConsumerListingForm
           slotsLeft={slotsLeft}
+          isGuest={isGuest}
           defaults={{
-            contact_email: user.email ?? "",
+            contact_email: user?.email ?? "",
             contact_phone: profile?.phone ?? "",
           }}
         />

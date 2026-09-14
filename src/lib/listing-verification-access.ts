@@ -5,7 +5,8 @@ import { tryCreateAdminClient } from "@/lib/supabase/admin";
 
 export type PendingListingRow = {
   id: string;
-  seller_id: string;
+  seller_id: string | null;
+  guest_seller_email: string | null;
   seller_type: string;
   status: string;
   title: string;
@@ -26,7 +27,7 @@ export async function fetchPendingListingByToken(
   const { data, error } = await admin
     .from("equipment_listings")
     .select(
-      "id, seller_id, seller_type, status, title, contact_email, created_at, contact_email_verified_at, pending_publish",
+      "id, seller_id, guest_seller_email, seller_type, status, title, contact_email, created_at, contact_email_verified_at, pending_publish",
     )
     .eq("id", listingId)
     .eq("verification_token_hash", hash)
