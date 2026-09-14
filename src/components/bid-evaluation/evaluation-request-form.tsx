@@ -5,6 +5,7 @@ import {
   createBidEvaluationRequest,
   type BidEvaluationActionState,
 } from "@/app/actions/bid-evaluation";
+import { useActionRedirect } from "@/hooks/use-action-redirect";
 import { EVALUATOR_SCOPE_AREAS } from "@/lib/evaluator-scopes";
 import { HEAT_PUMP_JOB_SLUGS, HEAT_PUMP_MARKETING } from "@/constants/heat-pumps";
 import { brand } from "@/lib/brand-theme";
@@ -39,6 +40,8 @@ export function EvaluationRequestForm({
     BidEvaluationActionState,
     FormData
   >(createBidEvaluationRequest, {});
+
+  useActionRedirect(state);
 
   return (
     <form action={action} className={`${brand.section} p-6`}>

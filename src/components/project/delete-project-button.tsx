@@ -1,10 +1,10 @@
 "use client";
 
-import { useActionState } from "react";
 import {
   deleteCustomerProject,
   type DeleteProjectActionState,
 } from "@/app/actions/projects";
+import { useServerActionSubmit } from "@/hooks/use-server-action-submit";
 
 export function DeleteProjectButton({
   projectId,
@@ -13,10 +13,8 @@ export function DeleteProjectButton({
   projectId: string;
   title: string;
 }) {
-  const [state, action, pending] = useActionState<
-    DeleteProjectActionState,
-    FormData
-  >(deleteCustomerProject, {});
+  const { state, submit, pending } =
+    useServerActionSubmit<DeleteProjectActionState>(deleteCustomerProject);
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     if (
@@ -30,7 +28,7 @@ export function DeleteProjectButton({
 
   return (
     <div className="flex flex-col items-end gap-1">
-      <form action={action} onSubmit={handleSubmit} className="inline-flex">
+      <form action={submit} onSubmit={handleSubmit} className="inline-flex">
         <input type="hidden" name="project_id" value={projectId} />
         <button
           type="submit"

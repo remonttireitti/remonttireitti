@@ -46,7 +46,6 @@ import {
 import { issueGuestProjectAccess } from "@/app/actions/guest-projects";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
-import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 
 function parseAcceptOverBudgetFromForm(formData: FormData): boolean {
@@ -74,6 +73,7 @@ function shouldStoreGenericBudgetPrefs(detailsKind: string): boolean {
 
 export type ProjectActionState = {
   error?: string;
+  redirectPath?: string;
 };
 
 function parseTradeIds(raw: string): string[] {
@@ -358,9 +358,9 @@ export async function createProject(
       pendingPublish: publish,
     });
     revalidatePath(`/remontti/${data.id}`);
-    redirect(
-      `/remontti/uusi/lahetetty?email=${encodeURIComponent(contactEmail.toLowerCase())}`,
-    );
+    return {
+      redirectPath: `/remontti/uusi/lahetetty?email=${encodeURIComponent(contactEmail.toLowerCase())}`,
+    };
   }
 
   if (publish) {
@@ -406,7 +406,11 @@ export async function createProject(
   revalidatePath("/oma-tili");
   revalidatePath(`/remontti/${data.id}`);
   revalidatePath("/tarjoukset");
-  redirect(publish ? `/remontti/${data.id}?julkaistu=1` : `/remontti/${data.id}?luonnos=1`);
+  return {
+    redirectPath: publish
+      ? `/remontti/${data.id}?julkaistu=1`
+      : `/remontti/${data.id}?luonnos=1`,
+  };
 }
 
 export async function publishProject(
@@ -495,7 +499,7 @@ export async function publishProject(
   }
 
   revalidateCustomerProjectPaths(projectId);
-  redirect(`/remontti/${projectId}?julkaistu=1`);
+  return { redirectPath: `/remontti/${projectId}?julkaistu=1` };
 }
 
 const EDITABLE_PROJECT_STATUSES = ["draft", "published", "receiving_bids"] as const;
@@ -508,7 +512,7 @@ const CANCELLABLE_PROJECT_STATUSES = [
 
 export type CancelProjectActionState = { error?: string; success?: string };
 
-export type DeleteProjectActionState = { error?: string };
+export type DeleteProjectActionState = { error?: string; redirectPath?: string };
 
 function revalidateCustomerProjectPaths(projectId: string) {
   revalidatePath("/");
@@ -670,7 +674,7 @@ export async function deleteCustomerProject(
   }
 
   revalidateCustomerProjectPaths(projectId);
-  redirect("/oma-tili?poistettu=1");
+  return { redirectPath: "/oma-tili?poistettu=1" };
 }
 
 export async function updateProject(
@@ -956,5 +960,5 @@ export async function updateProject(
   revalidatePath(`/remontti/${projectId}/muokkaa`);
   revalidatePath("/tarjoukset");
   revalidatePath(`/tarjoukset/${projectId}`);
-  redirect(`/remontti/${projectId}?paivitetty=1`);
+  return { redirectPath: `/remontti/${projectId}?paivitetty=1` };
 }

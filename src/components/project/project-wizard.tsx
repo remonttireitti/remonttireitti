@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
+import { useServerActionSubmit } from "@/hooks/use-server-action-submit";
 import { LearnedCriteriaWarnings } from "@/components/project/learned-criteria-warnings";
 import type { LearnedCriterionWithJob } from "@/components/project/learned-criteria-warnings";
 import { ProjectQualityScorePanel } from "@/components/project/project-quality-score-panel";
@@ -187,9 +188,8 @@ export function ProjectWizard({
   const [submitIntent, setSubmitIntent] = useState<"draft" | "publish" | null>(
     null,
   );
-  const [state, action, pending] = useActionState<ProjectActionState, FormData>(
+  const { state, submit, pending } = useServerActionSubmit<ProjectActionState>(
     isEdit ? updateProject : createProject,
-    {},
   );
 
   const selectedJobType = useMemo(
@@ -438,7 +438,7 @@ export function ProjectWizard({
 
   return (
     <WizardShell step={step} steps={STEPS}>
-      <form action={action}>
+      <form action={submit}>
         {isEdit && editSnapshot && (
           <input type="hidden" name="project_id" value={editSnapshot.projectId} />
         )}

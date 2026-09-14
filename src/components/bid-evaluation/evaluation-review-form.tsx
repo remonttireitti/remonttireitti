@@ -5,6 +5,7 @@ import {
   submitEvaluationReview,
   type BidEvaluationActionState,
 } from "@/app/actions/bid-evaluation";
+import { useActionRedirect } from "@/hooks/use-action-redirect";
 import {
   BID_EVALUATION_DIMENSIONS,
   BID_EVALUATION_VERDICT_LABELS,
@@ -26,6 +27,8 @@ export function EvaluationReviewForm({
     BidEvaluationActionState,
     FormData
   >(submitEvaluationReview, {});
+
+  useActionRedirect(state);
 
   return (
     <form action={action} className="space-y-8">
