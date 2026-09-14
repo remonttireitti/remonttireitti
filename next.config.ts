@@ -18,6 +18,13 @@ function supabaseImagePatterns(): NonNullable<NextConfig["images"]>["remotePatte
 }
 
 const nextConfig: NextConfig = {
+  experimental: {
+    serverActions: {
+      // Ilmoituskuvat: enintään 8 × 5 Mt (+ lomaketeksti)
+      bodySizeLimit: "45mb",
+    },
+    proxyClientMaxBodySize: "45mb",
+  },
   images: {
     formats: ["image/avif", "image/webp"],
     remotePatterns: supabaseImagePatterns(),
