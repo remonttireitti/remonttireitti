@@ -17,6 +17,7 @@ import { ProjectPhotosGallery } from "@/components/project/project-photos-galler
 import { ListingChat } from "@/components/messaging/listing-chat";
 import { ListingInstallCta } from "@/components/marketplace/listing-install-cta";
 import { SiteHeader } from "@/components/site-header";
+import { ShareLinkPanel } from "@/components/ui/share-link-panel";
 import { getSessionUser, isContractor } from "@/lib/auth";
 import {
   getActiveContractorSubscription,
@@ -294,7 +295,19 @@ export default async function MarketplaceListingDetailPage({
           </p>
         )}
 
-        <h1 className="mt-1 text-2xl font-bold">{listing.title}</h1>
+        <div className="mt-1 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <h1 className="text-2xl font-bold">{listing.title}</h1>
+          {isPublic && (
+            <ShareLinkPanel
+              path={`/markkinapaikka/ilmoitukset/${id}`}
+              title="Jaa ilmoitus"
+              description="Kopioi linkki tai jaa se viestissä tai sähköpostissa."
+              label="Jaa ilmoitus"
+              compact
+              className="w-full sm:max-w-md sm:p-3"
+            />
+          )}
+        </div>
         <p className="mt-2 text-2xl font-bold text-sky-800">
           {isWanted
             ? listing.price_eur != null
