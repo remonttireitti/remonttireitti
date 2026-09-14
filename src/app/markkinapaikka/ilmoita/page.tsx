@@ -12,6 +12,7 @@ export const metadata: Metadata = pageMetadata({
 });
 import { ContractorActivationBanner } from "@/components/account/contractor-activation-banner";
 import { ContractorListingForm } from "@/components/marketplace/contractor-listing-form";
+import { ContractorListingPaywall } from "@/components/marketplace/contractor-listing-paywall";
 import { ConsumerListingForm } from "@/components/marketplace/consumer-listing-form";
 import { ConsumerWantedListingForm } from "@/components/marketplace/consumer-wanted-listing-form";
 import { SiteHeader } from "@/components/site-header";
@@ -20,7 +21,8 @@ import {
   shouldOfferContractorActivation,
 } from "@/lib/contractor-activation";
 import { getProfile, getSessionUser, isContractor } from "@/lib/auth";
-import { countActiveConsumerListings } from "@/app/actions/marketplace-listings";
+import { countConsumerListingSlotsLeft } from "@/app/actions/marketplace-listings";
+import { normalizeListingContactEmail } from "@/lib/listing-contact-email";
 import {
   getActiveContractorSubscription,
   subscriptionSlotsLeft,
@@ -33,13 +35,14 @@ export default async function MarketplaceCreateListingPage({
 }: {
   searchParams: Promise<{
     tyyppi?: string;
+    tapa?: string;
     lasku?: string;
     summa?: string;
     email?: string;
   }>;
 }) {
   const params = await searchParams;
-  const { tyyppi } = params;
+  const { tyyppi, tapa } = params;
 
   if (tyyppi === "ostopyynto") {
     const user = await getSessionUser();
@@ -94,6 +97,9 @@ export default async function MarketplaceCreateListingPage({
   const supabase = await createClient();
   const sub = await getActiveContractorSubscription(supabase, user.id);
   const slots = sub ? subscriptionSlotsLeft(sub) : 0;
+  const canUseSubscription = Boolean(sub && slots > 0);
+  const singleListingMode = tapa === "yksittainen";
+  const showListingForm = canUseSubscription || singleListingMode;
 
   return (
     <div className={brand.page}>
@@ -118,29 +124,36 @@ export default async function MarketplaceCreateListingPage({
             role="status"
           >
             Ilmoitus odottaa maksua ({params.summa ?? "29 €"}). Lasku lähetetään
-            osoitteeseen {params.email ?? "laskutus@remonttireitti.fi"}.
+            sähköpostiisi osoitteesta{" "}
+            {params.email ?? "laskutus@remonttireitti.fi"}.
           </p>
         )}
 
-        {!sub && params.lasku !== "1" && (
-          <p className="mt-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
-            Ei aktiivista kk-tilausta. Voit julkaista yksittäisellä ilmoituksella
-            tai{" "}
-            <Link href="/markkinapaikka/tilaa" className="font-medium underline">
-              tilata paketin
-            </Link>
-            .
-          </p>
-        )}
+        {showListingForm ? (
+          <>
+            {singleListingMode && !canUseSubscription && (
+              <p className="mt-4 rounded-lg bg-sky-50 p-3 text-sm text-sky-900">
+                Täytät yksittäistä maksullista ilmoitusta. Ilmoitus julkaistaan
+                laskun maksamisen jälkeen.
+              </p>
+            )}
 
-        <ContractorListingForm
-          subscriptionSlots={slots}
-          subscriptionPlanName={sub?.plan.name_fi ?? null}
-          defaults={{
-            contact_email: user.email ?? "",
-            contact_phone: profile?.phone ?? "",
-          }}
-        />
+            <ContractorListingForm
+              subscriptionSlots={slots}
+              subscriptionPlanName={sub?.plan.name_fi ?? null}
+              singleOnly={singleListingMode && !canUseSubscription}
+              defaults={{
+                contact_email: user.email ?? "",
+                contact_phone: profile?.phone ?? "",
+              }}
+            />
+          </>
+        ) : (
+          <ContractorListingPaywall
+            reason={sub && slots <= 0 ? "quota_full" : "no_subscription"}
+            singleListingHref="/markkinapaikka/ilmoita?tapa=yksittainen"
+          />
+        )}
 
       </main>
     </div>
@@ -152,8 +165,8 @@ async function ConsumerWantedListingInfo() {
   if (!user) redirect("/kirjaudu?redirect=/markkinapaikka/ilmoita?tyyppi=ostopyynto");
 
   const profile = await getProfile();
-  const active = await countActiveConsumerListings(user.id);
-  const slotsLeft = Math.max(0, CONSUMER_FREE_MAX_ACTIVE_LISTINGS - active);
+  const contactEmail = normalizeListingContactEmail(user.email ?? "");
+  const slotsLeft = await countConsumerListingSlotsLeft(user.id, contactEmail);
 
   return (
     <div className={brand.page}>
@@ -198,8 +211,8 @@ async function ConsumerListingInfo() {
   if (!user) redirect("/kirjaudu?redirect=/markkinapaikka/ilmoita?tyyppi=kuluttaja");
 
   const profile = await getProfile();
-  const active = await countActiveConsumerListings(user.id);
-  const slotsLeft = Math.max(0, CONSUMER_FREE_MAX_ACTIVE_LISTINGS - active);
+  const contactEmail = normalizeListingContactEmail(user.email ?? "");
+  const slotsLeft = await countConsumerListingSlotsLeft(user.id, contactEmail);
 
   return (
     <div className={brand.page}>
@@ -213,8 +226,9 @@ async function ConsumerListingInfo() {
         </Link>
         <h1 className="mt-4 text-2xl font-bold">Ilmoita myytävä laite</h1>
         <p className="mt-2 text-sm text-stone-600">
-          Yksityishenkilönä ilmoitus on maksuton. Myy remonttiin liittyvä laite,
-          varaosa tai tarvike — näkyy torilla 4 viikkoa tai kunnes poistat sen.
+          Yksityishenkilönä ilmoitus on maksuton. Vahvistamme sähköpostiosoitteen
+          ennen julkaisua. Enintään {CONSUMER_FREE_MAX_ACTIVE_LISTINGS} aktiivista
+          ilmoitusta per sähköpostiosoite.
         </p>
 
         <p className="mt-3 text-sm">

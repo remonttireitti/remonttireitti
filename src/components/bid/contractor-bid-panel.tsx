@@ -13,7 +13,6 @@ import { bidTotalAmountCents } from "@/lib/bid-amounts";
 import { bidStatusLabels, formatEurosFromCents } from "@/lib/bids";
 import type { ContractorBidDefaults } from "@/lib/contractor-bid-defaults-shared";
 import type { ProjectBudgetInfo } from "@/lib/project-budget";
-import type { ProjectQualityResult } from "@/lib/project-request-quality";
 import type { ProjectTradeContext } from "@/lib/project-trades-server";
 import type { BidStatus } from "@/types/database";
 
@@ -36,7 +35,6 @@ export function ContractorBidPanel({
   jobTypeSlug,
   tradeContext,
   serviceEngagement,
-  projectQuality,
 }: {
   projectId: string;
   bid: BidView | null;
@@ -48,7 +46,6 @@ export function ContractorBidPanel({
   jobTypeSlug?: string | null;
   tradeContext?: ProjectTradeContext;
   serviceEngagement?: import("@/lib/service-engagement").ServiceEngagement | null;
-  projectQuality?: ProjectQualityResult | null;
 }) {
   const bidFormProps = {
     projectId,
@@ -59,7 +56,6 @@ export function ContractorBidPanel({
     jobTypeSlug,
     tradeContext,
     serviceEngagement,
-    projectQuality,
   };
   const router = useRouter();
   const [withdrawError, setWithdrawError] = useState<string | null>(null);
@@ -67,12 +63,15 @@ export function ContractorBidPanel({
 
   if (!bid) {
     return (
-      <div id="tarjouslomake" className="mt-8 scroll-mt-24">
+      <>
         <h2 className="text-lg font-semibold">Jätä tarjous</h2>
+        <p className="mt-1 text-sm text-stone-600">
+          Täytä hinta ja ehdot — asiakas vertailee tarjouksia samassa muodossa.
+        </p>
         <div className="mt-4">
           <BidForm {...bidFormProps} mode="create" />
         </div>
-      </div>
+      </>
     );
   }
 

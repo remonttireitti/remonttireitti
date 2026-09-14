@@ -1,13 +1,7 @@
 "use client";
 
-import {
-  useActionState,
-  useEffect,
-  useState,
-  startTransition,
-  type FormEvent,
-} from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState, type FormEvent } from "react";
+import { useServerActionSubmit } from "@/hooks/use-server-action-submit";
 import {
   submitBid,
   updateBid,
@@ -22,7 +16,15 @@ import {
   validateBidFormClient,
 } from "@/lib/bid-form";
 import { BidCommitmentNotice } from "@/components/bid/bid-commitment-notice";
-import { BidAssistantPanel } from "@/components/bid/bid-assistant-panel";
+import { BidScopeLinesEditor } from "@/components/bid/bid-scope-lines-editor";
+import {
+  buildSeededScopeLines,
+  mergeScopeLines,
+  newScopeLineId,
+  parseScopeTerms,
+  serializeScopeLines,
+  type BidScopeLine,
+} from "@/lib/bid-scope-lines";
 import { BidTermsTemplatePicker } from "@/components/bid/bid-terms-template-picker";
 import {
   applyBidDefaultsToFields,
@@ -45,8 +47,8 @@ import {
   suggestedServicePricingModels,
   type ServiceEngagement,
 } from "@/lib/service-engagement";
-import type { ProjectQualityResult } from "@/lib/project-request-quality";
 import type { ProjectTradeContext } from "@/lib/project-trades-server";
+import { TURNKEY_COORDINATION_LABELS } from "@/lib/bid-trade-offer";
 
 const inputClass =
   "mt-1 w-full rounded-lg border border-stone-300 px-3 py-2 focus:border-sky-600 focus:outline-none focus:ring-1 focus:ring-sky-600";
@@ -78,7 +80,6 @@ export function BidForm({
   jobTypeSlug,
   tradeContext,
   serviceEngagement,
-  projectQuality,
 }: {
   projectId: string;
   /** Urakoitsija toimittaa laitteet (pakollinen laitetakuu). */
@@ -97,46 +98,81 @@ export function BidForm({
   tradeContext?: ProjectTradeContext;
   /** Jatkuva palvelu — hinnoittelu per käynti / kk / kausi. */
   serviceEngagement?: ServiceEngagement | null;
-  /** Tarjouspyynnön laatupiste — avustaja näyttää puuttuvat tiedot. */
-  projectQuality?: ProjectQualityResult | null;
 }) {
   const isServiceProject = Boolean(serviceEngagement);
-  const [fields, setFields] = useState<BidFormFields>(() => {
-    const base = initialFields ?? initialBidFormFields(
-      serviceEngagement
-        ? defaultServicePricingModel(serviceEngagement)
-        : "",
-    );
+  const initialFormFields = (() => {
+    const base =
+      initialFields ??
+      initialBidFormFields(
+        serviceEngagement ? defaultServicePricingModel(serviceEngagement) : "",
+      );
     if (initialFields || !defaultBidTerms) return base;
     return applyBidDefaultsToFields(base, defaultBidTerms);
-  });
+  })();
+  const [fields, setFields] = useState<BidFormFields>(initialFormFields);
   const [fieldErrors, setFieldErrors] = useState<
     Partial<Record<BidFormFieldKey, string>>
   >({});
   const [clientError, setClientError] = useState<string | null>(null);
-
+  const [scopeLines, setScopeLines] = useState<BidScopeLine[]>(() =>
+    buildSeededScopeLines(jobTypeSlug ?? null, initialFormFields.scope_terms),
+  );
   const saveAction = mode === "edit" ? updateBid : submitBid;
 
-  const router = useRouter();
-  const [state, formAction, pending] = useActionState<BidActionState, FormData>(
+  const { state, submit, pending } = useServerActionSubmit<BidActionState>(
     saveAction,
-    {},
   );
 
   useEffect(() => {
     if (initialFields) {
       setFields(initialFields);
+      setScopeLines(
+        buildSeededScopeLines(jobTypeSlug ?? null, initialFields.scope_terms),
+      );
     }
-  }, [initialFields]);
+  }, [initialFields, jobTypeSlug]);
 
   useEffect(() => {
     if (state.fields) {
       setFields(state.fields);
+      setScopeLines(
+        buildSeededScopeLines(jobTypeSlug ?? null, state.fields.scope_terms),
+      );
     }
     if (state.fieldErrors) {
       setFieldErrors(state.fieldErrors);
     }
   }, [state.fields, state.fieldErrors]);
+
+  function syncScopeLines(lines: BidScopeLine[]) {
+    setScopeLines(lines);
+    setFields((prev) => ({
+      ...prev,
+      scope_terms: serializeScopeLines(lines),
+    }));
+    setFieldErrors((prev) => {
+      if (!prev.scope_terms) return prev;
+      const next = { ...prev };
+      delete next.scope_terms;
+      return next;
+    });
+    setClientError(null);
+  }
+
+  function applyScopeTemplate(text: string, mode: "append" | "replace") {
+    const parsed = parseScopeTerms(text);
+    if (parsed.length === 0 && text.trim()) {
+      syncScopeLines(
+        mergeScopeLines(
+          scopeLines,
+          [{ id: newScopeLineId(), label: "", value: text.trim() }],
+          mode,
+        ),
+      );
+      return;
+    }
+    syncScopeLines(mergeScopeLines(scopeLines, parsed, mode));
+  }
 
   function applyTemplate(
     key: BidTermTemplateTarget,
@@ -153,15 +189,6 @@ export function BidForm({
             : text;
       return { ...prev, [key]: next };
     });
-  }
-
-  function appendScopeSuggestion(text: string) {
-    applyTemplate("scope_terms", text, "append");
-    document.getElementById("scope_terms")?.scrollIntoView({
-      behavior: "smooth",
-      block: "center",
-    });
-    document.getElementById("scope_terms")?.focus();
   }
 
   function update<K extends BidFormFieldKey>(key: K, value: BidFormFields[K]) {
@@ -187,6 +214,7 @@ export function BidForm({
       requiresDeviceAndInstallation,
       requiresOfferScope: tradeContext?.isMultiTrade ?? false,
       requiresServicePricing: isServiceProject,
+      matchingTradeCount: tradeContext?.matchingTrades.length ?? 0,
     });
     if (!validation.ok) {
       setClientError(validation.error);
@@ -209,9 +237,7 @@ export function BidForm({
 
     setClientError(null);
     setFieldErrors({});
-    startTransition(() => {
-      formAction(fd);
-    });
+    submit(fd);
   }
 
   const workEuros = Number(fields.amount_euros) || 0;
@@ -230,7 +256,44 @@ export function BidForm({
   const isMultiTrade = tradeContext?.isMultiTrade ?? false;
 
   function setOfferScope(scope: BidOfferScope) {
-    update("offer_scope", scope);
+    setFields((prev) => {
+      const next = { ...prev, offer_scope: scope };
+      if (scope === "own_trade" && tradeContext?.matchingTrades.length === 1) {
+        next.offered_trade_ids = [tradeContext.matchingTrades[0]!.id];
+        next.turnkey_coordination = "";
+      } else if (scope === "turnkey") {
+        next.offered_trade_ids = [];
+      } else if (scope === "own_trade") {
+        next.turnkey_coordination = "";
+      }
+      return next;
+    });
+    setFieldErrors((prev) => {
+      const next = { ...prev };
+      delete next.offer_scope;
+      delete next.offered_trade_ids;
+      delete next.turnkey_coordination;
+      return next;
+    });
+    setClientError(null);
+  }
+
+  function toggleOfferedTrade(tradeId: string) {
+    setFields((prev) => {
+      const selected = prev.offered_trade_ids.includes(tradeId);
+      return {
+        ...prev,
+        offered_trade_ids: selected
+          ? prev.offered_trade_ids.filter((id) => id !== tradeId)
+          : [...prev.offered_trade_ids, tradeId],
+      };
+    });
+    setFieldErrors((prev) => {
+      if (!prev.offered_trade_ids) return prev;
+      const next = { ...prev };
+      delete next.offered_trade_ids;
+      return next;
+    });
   }
 
   const amountLabel = isServiceProject && fields.service_pricing_model
@@ -251,6 +314,20 @@ export function BidForm({
       <input type="hidden" name="project_id" value={projectId} />
       {fields.offer_scope && (
         <input type="hidden" name="offer_scope" value={fields.offer_scope} />
+      )}
+      {fields.offered_trade_ids.length > 0 && (
+        <input
+          type="hidden"
+          name="offered_trade_ids"
+          value={JSON.stringify(fields.offered_trade_ids)}
+        />
+      )}
+      {fields.turnkey_coordination && (
+        <input
+          type="hidden"
+          name="turnkey_coordination"
+          value={fields.turnkey_coordination}
+        />
       )}
       <input
         type="hidden"
@@ -293,8 +370,8 @@ export function BidForm({
                   Kokonaisurakka
                 </span>
                 <span className="mt-0.5 block text-xs text-stone-600">
-                  Vastaat koko remontista tai koordinoit alihankkijat. Hinta
-                  koskee koko urakkaa.
+                  Vastaat koko remontista. Hinta koskee koko urakkaa — kerro
+                  alla miten puuttuvat ammatit hoidetaan.
                 </span>
               </span>
             </label>
@@ -308,15 +385,90 @@ export function BidForm({
               />
               <span className="min-w-0">
                 <span className="block text-sm font-medium text-stone-900">
-                  Vain oman ammattini osuus
+                  Vain valitsemieni ammattien osuus
                 </span>
                 <span className="mt-0.5 block text-xs text-stone-600">
-                  Tarjoat vain oman ammattisi työt. Kuvaa rajaukset selkeästi
-                  laajuuskentässä — asiakas voi yhdistää useita tarjouksia.
+                  Tarjoat vain osan työstä. Asiakas voi yhdistää useita
+                  tarjouksia tai tilata puuttuvat ammatit erikseen.
                 </span>
               </span>
             </label>
           </div>
+
+          {fields.offer_scope === "turnkey" && (
+            <div className="space-y-2 border-t border-sky-200/80 pt-3">
+              <p className="text-xs font-medium text-sky-950">
+                Miten puuttuvat ammatit hoidetaan? *
+              </p>
+              {(
+                [
+                  ["subcontract", TURNKEY_COORDINATION_LABELS.subcontract],
+                  ["customer_sources", TURNKEY_COORDINATION_LABELS.customer_sources],
+                ] as const
+              ).map(([value, label]) => (
+                <label
+                  key={value}
+                  className="flex cursor-pointer items-start gap-3 rounded-lg border border-transparent bg-white/80 px-3 py-2.5 has-[:checked]:border-sky-400 has-[:checked]:bg-white"
+                >
+                  <input
+                    type="radio"
+                    name="turnkey_coordination_choice"
+                    checked={fields.turnkey_coordination === value}
+                    onChange={() => update("turnkey_coordination", value)}
+                    className="mt-0.5"
+                  />
+                  <span className="text-sm text-stone-800">{label}</span>
+                </label>
+              ))}
+              {fieldErrors.turnkey_coordination && (
+                <p className="text-sm text-red-600" role="alert">
+                  {fieldErrors.turnkey_coordination}
+                </p>
+              )}
+            </div>
+          )}
+
+          {fields.offer_scope === "own_trade" &&
+            tradeContext.matchingTrades.length > 1 && (
+              <div className="space-y-2 border-t border-sky-200/80 pt-3">
+                <p className="text-xs font-medium text-sky-950">
+                  Mitä ammatteja tarjoat? *
+                </p>
+                <ul className="space-y-2">
+                  {tradeContext.matchingTrades.map((trade) => (
+                    <li key={trade.id}>
+                      <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-transparent bg-white/80 px-3 py-2.5 has-[:checked]:border-sky-400 has-[:checked]:bg-white">
+                        <input
+                          type="checkbox"
+                          checked={fields.offered_trade_ids.includes(trade.id)}
+                          onChange={() => toggleOfferedTrade(trade.id)}
+                          className="size-4 rounded border-stone-300 text-sky-700"
+                        />
+                        <span className="text-sm font-medium text-stone-900">
+                          {trade.name}
+                        </span>
+                      </label>
+                    </li>
+                  ))}
+                </ul>
+                {fieldErrors.offered_trade_ids && (
+                  <p className="text-sm text-red-600" role="alert">
+                    {fieldErrors.offered_trade_ids}
+                  </p>
+                )}
+              </div>
+            )}
+
+          {fields.offer_scope === "own_trade" &&
+            tradeContext.matchingTrades.length === 1 && (
+              <p className="border-t border-sky-200/80 pt-3 text-xs text-sky-900">
+                Tarjoat:{" "}
+                <span className="font-medium">
+                  {tradeContext.matchingTrades[0]!.name}
+                </span>
+              </p>
+            )}
+
           {fieldErrors.offer_scope && (
             <p className="text-sm text-red-600" role="alert">
               {fieldErrors.offer_scope}
@@ -395,7 +547,7 @@ export function BidForm({
         )}
         {blockedOverBudget && (
           <p className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">
-            Hinta ylittää asiakkaan hintatoiveen (
+            Hinta ylittää asiakkaan budjetin (
             {budgetInfo.budgetMaxEur!.toLocaleString("fi-FI")} €). Asiakas ei
             hyväksy tarjouksia tämän yli — tarjousta ei voi lähettää tällä
             hinnalla.
@@ -403,7 +555,7 @@ export function BidForm({
         )}
         {overBudget && !blockedOverBudget && (
           <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-950">
-            Hinta ylittää asiakkaan hintatoiveen (
+            Hinta ylittää asiakkaan budjetin (
             {budgetInfo.budgetMaxEur!.toLocaleString("fi-FI")} €). Lähetyksessä
             kysytään vahvistus.
           </p>
@@ -457,13 +609,6 @@ export function BidForm({
         )}
       </div>
 
-      <BidAssistantPanel
-        fields={fields}
-        jobTypeSlug={jobTypeSlug}
-        projectQuality={projectQuality}
-        onAppendScope={appendScopeSuggestion}
-      />
-
       <fieldset className="space-y-4 rounded-xl border border-stone-200 bg-stone-50/80 p-4">
         <legend className="px-1 text-sm font-semibold text-stone-800">
           Ehdot ja laajuus
@@ -474,32 +619,23 @@ export function BidForm({
         </p>
 
         <div>
-          <label htmlFor="scope_terms" className="block text-sm font-medium">
-            {fields.offer_scope === "own_trade" && isMultiTrade
-              ? "Oman ammattisi osuuden laajuus (mitä hinta sisältää)"
-              : fields.offer_scope === "turnkey" && isMultiTrade
-                ? "Kokonaisurakan laajuus (mitä hinta sisältää)"
-                : "Asennuksen laajuus (mitä hinta sisältää)"}
-          </label>
-          <textarea
-            id="scope_terms"
-            name="scope_terms"
-            rows={5}
-            value={fields.scope_terms}
-            onChange={(e) => update("scope_terms", e.target.value)}
-            className={inputClass}
-            placeholder={
-              fields.offer_scope === "own_trade"
-                ? "Esim. sähkökiukaan asennus ja kytkentä — ei sisällä rakennustöitä tai putkityötä…"
-                : fields.offer_scope === "turnkey"
-                  ? "Esim. kylpyhuone kokonaisuudessaan: purku, putket, vesieristys, laatoitus, kalusteet…"
-                  : "Esim. perusasennus, putket, käyttöönotto, mitä ei sisälly…"
+          <BidScopeLinesEditor
+            lines={scopeLines}
+            onChange={syncScopeLines}
+            inputClass={inputClass}
+            sectionLabel={
+              fields.offer_scope === "own_trade" && isMultiTrade
+                ? "Oman ammattisi osuuden laajuus (mitä hinta sisältää)"
+                : fields.offer_scope === "turnkey" && isMultiTrade
+                  ? "Kokonaisurakan laajuus (mitä hinta sisältää)"
+                  : "Asennuksen laajuus (mitä hinta sisältää)"
             }
           />
+          <input type="hidden" name="scope_terms" value={fields.scope_terms} />
           <BidTermsTemplatePicker
             target="scope_terms"
             jobTypeSlug={jobTypeSlug}
-            onApply={(text, mode) => applyTemplate("scope_terms", text, mode)}
+            onApply={(text, mode) => applyScopeTemplate(text, mode)}
           />
         </div>
 
@@ -683,16 +819,20 @@ export function BidForm({
 
       <div>
         <label htmlFor="message" className="block text-sm font-medium">
-          Viesti asiakkaalle *
+          Viesti asiakkaalle{" "}
+          <span className="font-normal text-stone-500">(valinnainen)</span>
         </label>
+        <p className="mt-0.5 text-xs text-stone-500">
+          Laajuus ja ehdot näkyvät vertailussa erikseen — viesti on lisähuomioille.
+        </p>
         <textarea
           id="message"
           name="message"
-          rows={4}
+          rows={3}
           value={fields.message}
           onChange={(e) => update("message", e.target.value)}
           className={fieldClass(!!fieldErrors.message)}
-          placeholder="Kerro mitä hinta sisältää ja muut huomiot…"
+          placeholder="Esim. voin aloittaa viikon sisällä tai teen kartoituksen ensin…"
           aria-invalid={!!fieldErrors.message}
           aria-describedby={fieldErrors.message ? "message-error" : undefined}
         />
@@ -776,7 +916,7 @@ export function BidForm({
       <button
         type="submit"
         disabled={pending || blockedOverBudget}
-        className="w-full rounded-lg bg-orange-700 py-2.5 font-medium text-white hover:bg-orange-800 disabled:opacity-60"
+        className="touch-target w-full min-h-[2.75rem] rounded-lg bg-orange-700 py-2.5 font-medium text-white hover:bg-orange-800 disabled:opacity-60"
       >
         {pending
           ? mode === "edit"

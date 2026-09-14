@@ -1,4 +1,4 @@
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createAdminClient, tryCreateAdminClient } from "@/lib/supabase/admin";
 
 const BUCKET = "listing-photos";
 const MAX_FILES = 8;
@@ -34,7 +34,12 @@ export async function uploadListingPhotosFromFormData(
     throw new Error(`Enintään ${MAX_FILES} kuvaa.`);
   }
 
-  const admin = createAdminClient();
+  const admin = tryCreateAdminClient();
+  if (!admin) {
+    throw new Error(
+      "Kuvien tallennus ei ole käytettävissä. Lähetä ilmoitus ilman kuvia tai ota yhteyttä tukeen.",
+    );
+  }
 
   for (let i = 0; i < entries.length; i++) {
     const file = entries[i];

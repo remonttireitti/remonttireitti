@@ -16,7 +16,12 @@ import { ReviewDisplay } from "@/components/review/review-display";
 import { ReviewForm } from "@/components/review/review-form";
 import { PlatformFeedbackPanel } from "@/components/feedback/platform-feedback-panel";
 import { SiteHeader } from "@/components/site-header";
-import { getSessionUser } from "@/lib/auth";
+import { GuestClaimBanner } from "@/components/project/guest-claim-banner";
+import { GuestMessagingNotice } from "@/components/project/guest-messaging-notice";
+import { GuestProjectHeader } from "@/components/project/guest-project-header";
+import { getProfile, getSessionUser } from "@/lib/auth";
+import { tryCreateAdminClient } from "@/lib/supabase/admin";
+import { resolveProjectPageAccess } from "@/lib/resolve-project-page-access";
 import { expirePendingAcceptanceForProject } from "@/lib/expire-pending-acceptance";
 import { expireStaleProjectIfNeeded } from "@/lib/expire-stale-projects";
 import { ProjectInactivityBanner } from "@/components/project/project-inactivity-banner";
@@ -35,10 +40,17 @@ import { ProjectQualityScorePanel } from "@/components/project/project-quality-s
 import { fetchLearnedCriteria } from "@/lib/template-criterion-stats";
 import { fetchOpenCompletionRequestsForProject } from "@/lib/project-completion-requests-server";
 import { countProjectViews } from "@/lib/project-views-server";
+import { fetchCustomerProjectActivity } from "@/lib/project-activity-server";
+import { countActiveEvaluatorsForCategory } from "@/lib/bid-evaluation-availability-server";
+import { evaluationCategoryForJobSlug } from "@/lib/bid-evaluation";
+import { ProjectActivityTimeline } from "@/components/project/project-activity-timeline";
 import { brand } from "@/lib/brand-theme";
 import { scoreProjectFromRow } from "@/lib/project-request-quality";
+import { fetchProjectTradeNamesById } from "@/lib/project-trades-server";
 import { createClient } from "@/lib/supabase/server";
 import type { ProjectStatus } from "@/types/database";
+
+export const dynamic = "force-dynamic";
 
 export default async function ProjectPage({
   params,
@@ -55,9 +67,13 @@ export default async function ProjectPage({
     auto_suljettu?: string;
     taydenna?: string;
     taydennetty?: string;
+    token?: string;
+    vahvistettu?: string;
+    from?: string;
   }>;
 }) {
   const { id } = await params;
+  const sp = await searchParams;
   const {
     hyvaksytty,
     virhe,
@@ -68,14 +84,40 @@ export default async function ProjectPage({
     auto_suljettu,
     taydenna,
     taydennetty,
-  } = await searchParams;
+    token,
+    vahvistettu,
+    from,
+  } = sp;
+
+  if (token && from !== "auth") {
+    const qs = new URLSearchParams();
+    qs.set("project", id);
+    qs.set("token", token);
+    if (julkaistu) qs.set("julkaistu", julkaistu);
+    if (vahvistettu) qs.set("vahvistettu", vahvistettu);
+    redirect(`/auth/guest-access?${qs}`);
+  }
+
   const user = await getSessionUser();
-  if (!user) redirect(`/kirjaudu?redirect=/remontti/${id}`);
-
+  const profile = user ? await getProfile() : null;
   const supabase = await createClient();
-  let project = await fetchCustomerProjectById(supabase, id, user.id);
 
-  if (!project) notFound();
+  const access = await resolveProjectPageAccess(supabase, id, {
+    userId: user?.id,
+    urlToken: token,
+  });
+
+  if (!access) {
+    redirect(`/kirjaudu?redirect=/remontti/${id}`);
+  }
+
+  let { project, isGuestAccess, guestEmail } = access;
+
+  const guestAdmin = isGuestAccess ? tryCreateAdminClient() : null;
+  if (isGuestAccess && !guestAdmin) {
+    redirect(`/kirjaudu?redirect=/remontti/${id}`);
+  }
+  const dataClient = guestAdmin ?? supabase;
 
   const expireResult = await expirePendingAcceptanceForProject(id);
   const acceptanceExpired = expireResult === "expired";
@@ -85,13 +127,13 @@ export default async function ProjectPage({
     redirect(`/remontti/${id}?auto_suljettu=1`);
   }
 
-  if (staleResult === "warned") {
+  if (staleResult === "warned" && user && !isGuestAccess) {
     project = (await fetchCustomerProjectById(supabase, id, user.id)) ?? project;
   }
 
   async function loadBidsAndInvoice() {
     const [invoiceRes, bidsRes] = await Promise.all([
-      supabase
+      dataClient
         .from("platform_invoices")
         .select(
           `
@@ -101,6 +143,8 @@ export default async function ProjectPage({
           paid_at,
           contractor_profiles (
             company_name,
+            founded_year,
+            company_size_band,
             refrigerant_license,
             electrical_qualification,
             lvi_qualifications
@@ -109,7 +153,7 @@ export default async function ProjectPage({
         )
         .eq("project_id", id)
         .maybeSingle(),
-      supabase
+      dataClient
         .from("bids")
         .select(
           `
@@ -126,6 +170,8 @@ export default async function ProjectPage({
           vat_included,
           scope_terms,
           offer_scope,
+          offered_trade_ids,
+          turnkey_coordination,
           contract_terms,
           warranty_work,
           warranty_equipment,
@@ -142,6 +188,8 @@ export default async function ProjectPage({
           rejected_at,
           contractor_profiles (
             company_name,
+            founded_year,
+            company_size_band,
             refrigerant_license,
             electrical_qualification,
             lvi_qualifications
@@ -157,22 +205,26 @@ export default async function ProjectPage({
     };
   }
 
-  if (acceptanceExpired) {
+  if (acceptanceExpired && user && !isGuestAccess) {
     project = (await fetchCustomerProjectById(supabase, id, user.id)) ?? project;
   }
 
-  const { platformInvoice, bids } = await loadBidsAndInvoice();
+  const [{ platformInvoice, bids }, projectTradeNamesById] = await Promise.all([
+    loadBidsAndInvoice(),
+    fetchProjectTradeNamesById(dataClient, id),
+  ]);
+  const projectTradeNamesRecord = Object.fromEntries(projectTradeNamesById);
 
   const contractorIds = [
     ...new Set((bids ?? []).map((b) => b.contractor_id as string)),
   ];
   const contractorRatings = await fetchContractorRatings(
-    supabase,
+    dataClient,
     contractorIds,
   );
-  const projectPhotos = await fetchProjectPhotos(supabase, id);
+  const projectPhotos = await fetchProjectPhotos(dataClient, id);
 
-  const { data: jobTypeRow } = await supabase
+  const { data: jobTypeRow } = await dataClient
     .from("projects")
     .select("job_types ( slug )")
     .eq("id", id)
@@ -200,17 +252,21 @@ export default async function ProjectPage({
   const openCompletionRequests = ["published", "receiving_bids", "draft"].includes(
     project.status,
   )
-    ? await fetchOpenCompletionRequestsForProject(supabase, id)
+    ? await fetchOpenCompletionRequestsForProject(dataClient, id)
     : [];
 
   const contractorViewCount =
     taydennetty === "1"
-      ? await countProjectViews(supabase, id)
+      ? await countProjectViews(dataClient, id)
       : 0;
+
+  const activityEvents = await fetchCustomerProjectActivity(id, dataClient);
+  const evaluationCategory = evaluationCategoryForJobSlug(jobSlug);
+  const evaluatorCount = await countActiveEvaluatorsForCategory(evaluationCategory);
 
   if (openCompletionRequests.length > 0) {
     const contractorIds = [...new Set(openCompletionRequests.map((r) => r.contractor_id))];
-    const { data: companies } = await supabase
+    const { data: companies } = await dataClient
       .from("contractor_profiles")
       .select("id, company_name")
       .in("id", contractorIds);
@@ -222,7 +278,7 @@ export default async function ProjectPage({
     }
   }
 
-  const { data: review } = await supabase
+  const { data: review } = await dataClient
     .from("reviews")
     .select("rating, body, would_recommend, created_at")
     .eq("project_id", id)
@@ -266,14 +322,14 @@ export default async function ProjectPage({
 
   const learnedCriteria =
     status === "draft"
-      ? (await fetchLearnedCriteria(supabase, jobSlug)).map((r) => ({
+      ? (await fetchLearnedCriteria(dataClient, jobSlug)).map((r) => ({
           ...r,
           jobSlug: jobSlug ?? "generic",
         }))
       : [];
 
   const platformFeedback =
-    status === "completed"
+    status === "completed" && user
       ? await fetchPlatformFeedbackForProject(supabase, user.id, id)
       : null;
   const pendingFinalization =
@@ -283,9 +339,10 @@ export default async function ProjectPage({
   });
   const ratingsMap = Object.fromEntries(contractorRatings);
 
-  const canCancelProject = ["draft", "published", "receiving_bids"].includes(
-    status,
-  );
+  const canCancelProject =
+    !isGuestAccess &&
+    Boolean(user) &&
+    ["draft", "published", "receiving_bids"].includes(status);
   const submittedBidCount = (bids ?? []).filter(
     (b) => b.status === "submitted",
   ).length;
@@ -296,12 +353,13 @@ export default async function ProjectPage({
     "completed",
   ].includes(status);
 
-  const biddingConversations = biddingPhase
-    ? await fetchCustomerProjectConversations(supabase, id, user.id)
-    : [];
+  const biddingConversations =
+    biddingPhase && user
+      ? await fetchCustomerProjectConversations(supabase, id, user.id)
+      : [];
 
   let chatData =
-    chatEnabled && acceptedBid
+    chatEnabled && acceptedBid && user
       ? await fetchContractorProjectConversation(
           supabase,
           id,
@@ -310,7 +368,7 @@ export default async function ProjectPage({
         )
       : null;
 
-  if (chatEnabled && !chatData && acceptedBid) {
+  if (chatEnabled && !chatData && acceptedBid && user) {
     await ensureProjectConversation(
       supabase,
       id,
@@ -325,12 +383,33 @@ export default async function ProjectPage({
     );
   }
 
+  const loggedInRoleLabel =
+    isGuestAccess && profile?.role === "admin"
+      ? "admin"
+      : isGuestAccess && profile?.role === "contractor"
+        ? "urakoitsija"
+        : isGuestAccess && profile?.role === "customer"
+          ? "asiakas"
+          : isGuestAccess && user
+            ? "käyttäjä"
+            : null;
+
   return (
     <div className={brand.page}>
-      <SiteHeader />
+      {isGuestAccess ? (
+        <GuestProjectHeader
+          guestEmail={guestEmail}
+          loggedInRole={loggedInRoleLabel}
+        />
+      ) : (
+        <SiteHeader />
+      )}
       <main className={brand.mainDetail}>
-        <Link href="/oma-tili" className="text-sm text-sky-700 hover:underline">
-          ← Oma tili
+        <Link
+          href={isGuestAccess ? "/" : "/oma-tili"}
+          className="text-sm text-sky-700 hover:underline"
+        >
+          {isGuestAccess ? "← Etusivu" : "← Oma tili"}
         </Link>
 
         <div className="mt-4 flex flex-wrap items-start justify-between gap-3">
@@ -373,6 +452,15 @@ export default async function ProjectPage({
             role="status"
           >
             Tarjouspyyntö julkaistu — urakoitsijat voivat nyt jättää tarjouksia.
+          </p>
+        )}
+        {vahvistettu === "1" && (
+          <p
+            className="mt-4 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-950"
+            role="status"
+          >
+            Sähköposti vahvistettu. Henkilökohtainen linkki toimii tästä eteenpäin
+            tässä selaimessa.
           </p>
         )}
         {peruttu === "1" && (
@@ -543,6 +631,8 @@ export default async function ProjectPage({
             budgetMax={project.budget_max}
             desiredStart={project.desired_start}
             completionNotes={project.completion_notes ?? undefined}
+            bidDeadline={project.bid_deadline}
+            bidDeadlineVariant="customer"
             contactHiddenHint={
               platformInvoice && platformInvoice.status !== "paid"
                 ? "Urakoitsija ei näe yhteystietoja ennen välitysmaksun maksamista."
@@ -551,7 +641,15 @@ export default async function ProjectPage({
           />
         </div>
 
-        <ProjectLifecyclePanel projectId={id} status={status} />
+        <div className="mt-8">
+          <ProjectActivityTimeline events={activityEvents} />
+        </div>
+
+        {isGuestAccess && guestEmail && (
+          <GuestClaimBanner guestEmail={guestEmail} projectId={id} />
+        )}
+
+        {!isGuestAccess && <ProjectLifecyclePanel projectId={id} status={status} />}
 
         <div id="tarjoukset">
           <CustomerBids
@@ -562,13 +660,27 @@ export default async function ProjectPage({
             contractorRatings={ratingsMap}
             acceptedBidId={acceptedBidId}
             jobSlug={jobSlug}
+            projectTradeNamesById={projectTradeNamesRecord}
           />
-          {submittedBidCount > 0 && biddingPhase && (
-            <BidEvaluationPromo projectId={id} />
+          {submittedBidCount > 0 && biddingPhase && evaluatorCount > 0 && (
+            <BidEvaluationPromo
+              projectId={id}
+              category={evaluationCategory}
+              jobSlug={jobSlug}
+            />
           )}
         </div>
 
-        {biddingPhase && (
+        {biddingPhase && isGuestAccess && (
+          <div className="mt-8">
+            <h2 className="text-lg font-semibold">Kysymykset urakoitsijoilta</h2>
+            <div className="mt-3">
+              <GuestMessagingNotice guestEmail={guestEmail} projectId={id} />
+            </div>
+          </div>
+        )}
+
+        {biddingPhase && user && !isGuestAccess && (
           <ProjectBiddingChats
             conversations={biddingConversations}
             currentUserId={user.id}
@@ -577,7 +689,7 @@ export default async function ProjectPage({
           />
         )}
 
-        {chatData && (
+        {chatData && user && (
           <ProjectChat
             conversationId={chatData.conversation.id}
             messages={chatData.messages}
@@ -590,7 +702,7 @@ export default async function ProjectPage({
           />
         )}
 
-        {status === "completed" && (
+        {status === "completed" && user && (
           <CompletedHuoltokirjaLink projectId={id} userId={user.id} />
         )}
 

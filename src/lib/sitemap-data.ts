@@ -51,3 +51,42 @@ export async function fetchSitemapProjects(): Promise<
     return [];
   }
 }
+
+/** Julkiset urakoitsijaprofiilit sitemapiin — E-E-A-T ja brändihaut. */
+export async function fetchSitemapContractors(): Promise<
+  { id: string; updated_at: string }[]
+> {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (!url || !anonKey) {
+    console.error("[sitemap contractors] Supabase URL tai anon key puuttuu");
+    return [];
+  }
+
+  try {
+    const supabase = process.env.SUPABASE_SERVICE_ROLE_KEY
+      ? createAdminClient()
+      : createSupabaseClient(url, anonKey, {
+          auth: { autoRefreshToken: false, persistSession: false },
+        });
+
+    const { data, error } = await supabase
+      .from("contractor_profiles")
+      .select("id, updated_at")
+      .neq("verification_status", "rejected")
+      .not("company_name", "is", null)
+      .order("updated_at", { ascending: false })
+      .limit(200);
+
+    if (error) {
+      console.error("[sitemap contractors]", error.message);
+      return [];
+    }
+
+    return (data ?? []) as { id: string; updated_at: string }[];
+  } catch (err) {
+    console.error("[sitemap contractors]", err);
+    return [];
+  }
+}

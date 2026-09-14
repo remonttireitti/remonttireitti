@@ -13,8 +13,14 @@ import {
   filterContractorProjects,
   parseContractorListFilter,
 } from "@/lib/contractor-work-filter";
+import { HomeNotifications } from "@/components/notifications/home-notifications";
 import { getSessionUser, isContractor } from "@/lib/auth";
 import { brand } from "@/lib/brand-theme";
+import {
+  countUnreadNotifications,
+  fetchArchivedUserNotifications,
+  fetchUserNotifications,
+} from "@/lib/notifications-server";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function ContractorProjectsPage({
@@ -34,7 +40,13 @@ export default async function ContractorProjectsPage({
   const activeFilter = parseContractorListFilter(nayta);
 
   const supabase = await createClient();
-  const profile = await loadContractorMatchProfile(supabase, user.id);
+  const [profile, notifications, archivedNotifications, unreadCount] =
+    await Promise.all([
+      loadContractorMatchProfile(supabase, user.id),
+      fetchUserNotifications(supabase, user.id, 12),
+      fetchArchivedUserNotifications(supabase, user.id, 50),
+      countUnreadNotifications(supabase, user.id),
+    ]);
   const allProjects = await fetchContractorOpenProjects(supabase, user.id, profile);
   const counts = countByFilter(allProjects);
   const projects = filterContractorProjects(allProjects, activeFilter);
@@ -87,7 +99,15 @@ export default async function ContractorProjectsPage({
     <div className={brand.page}>
       <SiteHeader />
       <main className={brand.mainStandard}>
-        <h1 className="text-2xl font-bold">Avoimet tarjouspyynnöt</h1>
+        <div className="-mx-4 border-b border-stone-200 bg-gradient-to-b from-sky-50/30 to-white sm:-mx-6 [&_#ilmoitukset]:scroll-mt-24">
+          <HomeNotifications
+            notifications={notifications}
+            archivedNotifications={archivedNotifications}
+            unreadCount={unreadCount}
+          />
+        </div>
+
+        <h1 className="mt-8 text-2xl font-bold">Avoimet tarjouspyynnöt</h1>
         <p className="mt-2 text-stone-600">
           Suodata työt alueen, budjetin ja oman kiinnostuksen mukaan.
         </p>

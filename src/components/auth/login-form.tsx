@@ -1,20 +1,17 @@
 "use client";
 
-import { useActionState } from "react";
 import { signIn, type AuthState } from "@/app/actions/auth";
+import { useServerActionSubmit } from "@/hooks/use-server-action-submit";
 import Link from "next/link";
 
 const inputClass =
   "mt-1 w-full rounded-lg border border-stone-300 px-3 py-2 text-stone-900 focus:border-sky-600 focus:outline-none focus:ring-1 focus:ring-sky-600";
 
 export function LoginForm({ redirectTo }: { redirectTo?: string }) {
-  const [state, action, pending] = useActionState<AuthState, FormData>(
-    signIn,
-    {},
-  );
+  const { state, submit, pending } = useServerActionSubmit<AuthState>(signIn);
 
   return (
-    <form action={action} className="space-y-4">
+    <form action={submit} className="space-y-4">
       {redirectTo && (
         <input type="hidden" name="redirect" value={redirectTo} />
       )}

@@ -1,9 +1,12 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useState } from "react";
 import { signUp, type AuthState } from "@/app/actions/auth";
+import { useServerActionSubmit } from "@/hooks/use-server-action-submit";
+import { ContractorCompanyFactsFields } from "@/components/contractor/contractor-company-facts-fields";
 import { ContractorQualificationFields } from "@/components/contractor/qualification-fields";
-import type { JobType, Trade } from "@/types/job-catalog";
+import type { SelectableTrade } from "@/lib/contractor-trade-options";
+import type { JobType } from "@/types/job-catalog";
 import Link from "next/link";
 
 const inputClass =
@@ -11,23 +14,22 @@ const inputClass =
 
 export function RegisterForm({
   defaultRole,
+  defaultEmail = "",
   trades = [],
   heatPumpJobTypes = [],
 }: {
   defaultRole?: "customer" | "contractor";
-  trades?: Pick<Trade, "id" | "slug" | "name_fi">[];
+  defaultEmail?: string;
+  trades?: SelectableTrade[];
   heatPumpJobTypes?: Pick<JobType, "id" | "slug">[];
 }) {
   const [role, setRole] = useState<"customer" | "contractor">(
     defaultRole ?? "customer",
   );
-  const [state, action, pending] = useActionState<AuthState, FormData>(
-    signUp,
-    {},
-  );
+  const { state, submit, pending } = useServerActionSubmit<AuthState>(signUp);
 
   return (
-    <form action={action} className="space-y-4">
+    <form action={submit} className="space-y-4">
       <input type="hidden" name="role" value={role} />
       <fieldset className="space-y-2">
         <legend className="text-sm font-medium">Olen</legend>
@@ -78,6 +80,7 @@ export function RegisterForm({
               className={inputClass}
             />
           </div>
+          <ContractorCompanyFactsFields required inputClassName={inputClass} />
           {trades.length > 0 && (
             <ContractorQualificationFields
               trades={trades}
@@ -97,6 +100,7 @@ export function RegisterForm({
           type="email"
           required
           autoComplete="email"
+          defaultValue={defaultEmail}
           className={inputClass}
         />
       </div>
@@ -137,7 +141,7 @@ export function RegisterForm({
       <button
         type="submit"
         disabled={pending}
-        className="w-full rounded-lg bg-orange-700 py-2.5 font-medium text-white hover:bg-orange-800 disabled:opacity-60"
+        className="touch-target w-full min-h-[2.75rem] rounded-lg bg-orange-700 py-2.5 font-medium text-white hover:bg-orange-800 disabled:opacity-60"
       >
         {pending ? "Luodaan tiliä…" : "Luo tili"}
       </button>

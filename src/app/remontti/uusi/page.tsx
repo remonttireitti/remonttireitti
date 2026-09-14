@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { ValuePromoBanner } from "@/components/promo/value-promo-banner";
 import { SiteHeader } from "@/components/site-header";
 import { ProjectWizard } from "@/components/project/project-wizard";
-import { getProfile, getSessionUser } from "@/lib/auth";
+import { getProfile, getSessionUser, isContractor } from "@/lib/auth";
 import { fetchProjectCatalog } from "@/lib/job-catalog-server";
 import { parseRemonttiPrefillFromSearchParams } from "@/lib/remontti-prefill";
 import { brand } from "@/lib/brand-theme";
@@ -22,16 +22,10 @@ export default async function NewProjectPage({
   const prefill = parseRemonttiPrefillFromSearchParams(params);
 
   const user = await getSessionUser();
-  if (!user) {
-    const qs = new URLSearchParams(
-      Object.entries(params).filter(([, v]) => v != null) as [string, string][],
-    ).toString();
-    redirect(`/kirjaudu?redirect=/remontti/uusi${qs ? `?${qs}` : ""}`);
-  }
+  const profile = user ? await getProfile() : null;
 
-  const profile = await getProfile();
-  if (profile?.role === "contractor") {
-    redirect("/oma-tili");
+  if (await isContractor()) {
+    redirect("/tarjoukset");
   }
 
   const supabase = await createClient();
@@ -57,23 +51,37 @@ export default async function NewProjectPage({
     );
   }
 
+  const isGuest = !user;
+
   return (
     <div className={brand.page}>
       <SiteHeader />
       <main className={brand.mainWide}>
-        <Link
-          href="/oma-tili"
-          className="text-sm text-sky-700 hover:underline"
-        >
-          ← Oma tili
-        </Link>
+        {user ? (
+          <Link href="/oma-tili" className="text-sm text-sky-700 hover:underline">
+            ← Oma tili
+          </Link>
+        ) : (
+          <Link href="/" className="text-sm text-sky-700 hover:underline">
+            ← Etusivu
+          </Link>
+        )}
         <h1 className="mt-4 text-2xl font-bold sm:text-3xl">
-          Kilpailuta remontti
+          {isGuest ? "Jätä tarjouspyyntö – maksutta" : "Kilpailuta remontti"}
         </h1>
         <p className="mt-2 max-w-2xl text-stone-600">
-          Valitse remontin tyyppi ja täytä pyyntö. Julkaise tarjouspyyntö
-          ilmaiseksi.
+          {isGuest
+            ? "Täytä pyyntö ilman tiliä. Lähetämme vahvistuslinkin sähköpostiisi — julkaisu ja urakoitsijailmoitukset tapahtuvat vasta vahvistuksen jälkeen. Linkki on voimassa 24 tuntia."
+            : "Valitse remontin tyyppi ja täytä pyyntö. Julkaise tarjouspyyntö ilmaiseksi."}
         </p>
+        {isGuest && (
+          <p className="mt-3 max-w-2xl rounded-xl border border-amber-200 bg-amber-50/80 px-4 py-3 text-sm text-amber-950">
+            <span className="font-medium">Huomio:</span> ilman tiliä et voi viestitellä
+            urakoitsijoiden kanssa sovelluksessa — tarjoukset ja ilmoitukset tulevat
+            sähköpostiin. Tilin luonnin jälkeen voit keskustella urakoitsijoiden kanssa
+            ennen tarjouksen valintaa.
+          </p>
+        )}
         <div className="mt-6 grid max-w-3xl gap-4 sm:grid-cols-2">
           <ValuePromoBanner variant="customer-free" />
           <ValuePromoBanner variant="customer-negotiate" />
@@ -84,17 +92,18 @@ export default async function NewProjectPage({
             role="status"
           >
             Työn tyyppi ja kuvaus on esitäytetty linkistä — tarkista tiedot ennen
-            julkaisua.
+            lähettämistä.
           </p>
         )}
         <div className="mt-8">
           <ProjectWizard
             catalog={catalog}
-            defaultEmail={user.email ?? ""}
+            defaultEmail={user?.email ?? ""}
             defaultPhone={profile?.phone ?? ""}
             prefill={prefill}
             emphasizedCriteria={emphasizedCriteria}
             learnedCriteria={learnedCriteria}
+            isGuest={isGuest}
           />
         </div>
       </main>

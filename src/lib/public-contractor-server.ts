@@ -18,6 +18,8 @@ export type PublicContractorProfile = {
   website_url: string | null;
   years_in_business: number | null;
   employee_count: number | null;
+  founded_year: number | null;
+  company_size_band: string | null;
   verification_status: "pending" | "verified" | "rejected";
   service_municipality: string | null;
   max_travel_km: number | null;
@@ -43,7 +45,7 @@ export async function fetchPublicContractorProfile(
   const { data: cp, error } = await admin
     .from("contractor_profiles")
     .select(
-      "id, company_name, description, website_url, years_in_business, employee_count, verification_status, service_municipality, max_travel_km",
+      "id, company_name, description, website_url, years_in_business, employee_count, founded_year, company_size_band, verification_status, service_municipality, max_travel_km",
     )
     .eq("id", contractorId)
     .maybeSingle();
@@ -111,6 +113,8 @@ export async function fetchPublicContractorProfile(
     website_url: cp.website_url,
     years_in_business: cp.years_in_business,
     employee_count: cp.employee_count,
+    founded_year: cp.founded_year,
+    company_size_band: cp.company_size_band,
     verification_status: cp.verification_status,
     service_municipality: cp.service_municipality,
     max_travel_km: cp.max_travel_km,

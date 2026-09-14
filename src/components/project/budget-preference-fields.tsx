@@ -24,11 +24,11 @@ export function BudgetPreferenceFields({
     <div className="space-y-3 rounded-xl border border-stone-200 bg-stone-50/60 p-4">
       <div>
         <label htmlFor={inputId} className="block text-sm font-medium text-stone-900">
-          Hintatoive (€)
+          Budjetti (€)
         </label>
         <p className="mt-1 text-xs leading-relaxed text-stone-500">
-          Valinnainen. Auttaa urakoitsijoita arvioimaan, sopivatko he tarjoukseensa
-          budettiisi.
+          Valinnainen. Auttaa urakoitsijoita arvioimaan, sopivatko he tarjoukseensa.
+          Voit myös kieltää tarjoukset, jotka ylittävät summan.
         </p>
         <input
           id={inputId}

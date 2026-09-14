@@ -2,10 +2,20 @@ import Link from "next/link";
 import { BetaPlatformFeeBanner } from "@/components/promo/beta-platform-fee-banner";
 import { brand } from "@/lib/brand-theme";
 
-export function HomeAudienceSplit() {
+type Props = {
+  hideCustomer?: boolean;
+  hideContractor?: boolean;
+};
+
+export function HomeAudienceSplit({ hideCustomer = false, hideContractor = false }: Props) {
+  const showBoth = !hideCustomer && !hideContractor;
+
   return (
     <div className="mx-auto mt-10 max-w-3xl">
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div
+        className={`grid gap-4 ${showBoth ? "sm:grid-cols-2" : "max-w-md mx-auto sm:max-w-lg"}`}
+      >
+        {!hideCustomer && (
         <Link
           href="/asiakkaalle"
           className="group rounded-2xl border border-sky-200 bg-gradient-to-br from-sky-50/80 to-white p-6 text-left shadow-sm transition hover:border-sky-300 hover:shadow-md"
@@ -29,7 +39,9 @@ export function HomeAudienceSplit() {
             Katso kaikki mitä saat →
           </span>
         </Link>
+        )}
 
+        {!hideContractor && (
         <div className="flex flex-col gap-3">
           <Link
             href="/urakoitsijaksi"
@@ -51,6 +63,7 @@ export function HomeAudienceSplit() {
           </Link>
           <BetaPlatformFeeBanner showCta={false} className="text-left" />
         </div>
+        )}
       </div>
 
       <ul className="mt-6 flex flex-wrap justify-center gap-x-4 gap-y-2 text-sm text-stone-600">

@@ -5,6 +5,7 @@ import {
   notifyBidAccepted,
   notifyBidRejected,
   notifyBidUpdated,
+  notifyBidWithdrawn,
   notifyCounterOffer,
   notifyCounterOfferAccepted,
   notifyCounterOfferDeclined,
@@ -13,6 +14,8 @@ import {
   notifyOrderFinalizing,
   notifyProjectMessage,
   notifyProjectCancelled,
+  notifyProjectCompletionRequested,
+  notifyProjectCompletionUpdated,
   notifyProjectUpdated,
   notifyProjectInactivityWarning,
   notifyProjectAutoClosed,
@@ -43,6 +46,7 @@ export async function userNotifyNewBid(params: {
   projectId: string;
   projectTitle: string;
   contractorCompany: string;
+  contactEmail?: string | null;
 }) {
   await inApp(
     params.customerId,
@@ -59,15 +63,37 @@ export async function userNotifyBidUpdated(params: {
   projectId: string;
   projectTitle: string;
   contractorCompany: string;
+  contactEmail?: string | null;
+  afterCompletion?: boolean;
 }) {
+  const body = params.afterCompletion
+    ? `${params.contractorCompany} päivitti tarjouksen täydennyksen jälkeen: ${params.projectTitle}`
+    : `${params.contractorCompany} päivitti tarjousta: ${params.projectTitle}`;
   await inApp(
     params.customerId,
     "new_bid",
     "Tarjous päivitetty",
-    `${params.contractorCompany} päivitti tarjousta: ${params.projectTitle}`,
+    body,
     `/remontti/${params.projectId}`,
   );
   await notifyBidUpdated(params);
+}
+
+export async function userNotifyBidWithdrawn(params: {
+  customerId: string;
+  projectId: string;
+  projectTitle: string;
+  contractorCompany: string;
+  contactEmail?: string | null;
+}) {
+  await inApp(
+    params.customerId,
+    "bid_withdrawn",
+    "Urakoitsija perui tarjouksen",
+    `${params.contractorCompany} perui tarjouksen: ${params.projectTitle}`,
+    `/remontti/${params.projectId}`,
+  );
+  await notifyBidWithdrawn(params);
 }
 
 export async function userNotifyCounterOffer(params: {
@@ -392,6 +418,7 @@ export async function userNotifyProjectCompletionRequested(params: {
     `${params.contractorCompany} pyytää ${params.criterionCount} lisätietoa: ${params.projectTitle}`,
     `/remontti/${params.projectId}/taydenna`,
   );
+  await notifyProjectCompletionRequested(params);
 }
 
 export async function userNotifyProjectCompletionUpdated(params: {
@@ -404,7 +431,13 @@ export async function userNotifyProjectCompletionUpdated(params: {
     params.contractorId,
     "project_completion_updated",
     "Asiakas täydensi tarjouspyyntöä",
-    `${params.projectTitle}: ${params.summary}`,
+    `${params.projectTitle}: ${params.summary}. Päivitä tarjouksesi.`,
     `/tarjoukset/${params.projectId}`,
   );
+  await notifyProjectCompletionUpdated({
+    contractorId: params.contractorId,
+    projectId: params.projectId,
+    projectTitle: params.projectTitle,
+    summary: params.summary,
+  });
 }

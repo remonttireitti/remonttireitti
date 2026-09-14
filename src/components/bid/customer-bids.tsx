@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import Link from "next/link";
 import { BidComparisonInsightsPanel } from "@/components/bid/bid-comparison-insights-panel";
 import { CounterOfferBadge } from "@/components/bid/counter-offer-badge";
@@ -5,7 +6,12 @@ import {
   ContractorQualificationsCell,
   type ContractorQualificationSummary,
 } from "@/components/bid/contractor-qualifications-cell";
+import { ContractorCompanyFactsCell } from "@/components/bid/contractor-company-facts-cell";
 import { ContractorTrustBanner } from "@/components/bid/contractor-trust-banner";
+import {
+  companyFactsFromRow,
+  type ContractorCompanyFacts,
+} from "@/lib/contractor-company-facts";
 import { CustomerBidActions } from "@/components/bid/customer-bid-actions";
 import { ValuePromoBanner } from "@/components/promo/value-promo-banner";
 import { StarRatingDisplay } from "@/components/review/star-rating-display";
@@ -20,10 +26,12 @@ import {
   bidResolvedAmountCents,
   formatBidAcceptScopeShort,
 } from "@/lib/bid-accept-scope";
+import { parseBidOfferScope } from "@/lib/bid-offer-scope";
 import {
-  BID_OFFER_SCOPE_LABELS,
-  parseBidOfferScope,
-} from "@/lib/bid-offer-scope";
+  formatBidTradeScopeSummary,
+  formatOfferedTradeNames,
+  parseTurnkeyCoordination,
+} from "@/lib/bid-trade-offer";
 import { bidTotalAmountCents } from "@/lib/bid-amounts";
 import {
   bidStatusLabels,
@@ -52,6 +60,8 @@ export type BidWithContractor = {
   vat_included: boolean;
   scope_terms: string | null;
   offer_scope?: string | null;
+  offered_trade_ids?: string[] | null;
+  turnkey_coordination?: string | null;
   contract_terms: string | null;
   warranty_work: string | null;
   warranty_equipment: string | null;
@@ -68,16 +78,29 @@ export type BidWithContractor = {
   rejected_at: string | null;
   contractor_profiles: {
     company_name: string;
+    founded_year?: number | null;
+    company_size_band?: string | null;
     refrigerant_license?: string | null;
     electrical_qualification?: string | null;
     lvi_qualifications?: string[] | null;
   } | {
     company_name: string;
+    founded_year?: number | null;
+    company_size_band?: string | null;
     refrigerant_license?: string | null;
     electrical_qualification?: string | null;
     lvi_qualifications?: string[] | null;
   }[] | null;
 };
+
+function contractorCompanyFactsFromBid(
+  bid: BidWithContractor,
+): ContractorCompanyFacts | null {
+  const cp = bid.contractor_profiles;
+  const profile = Array.isArray(cp) ? cp[0] : cp;
+  if (!profile) return null;
+  return companyFactsFromRow(profile);
+}
 
 function contractorQualificationsFromBid(
   bid: BidWithContractor,
@@ -195,6 +218,231 @@ function columnClass(status: BidStatus, pendingWinner: boolean): string {
   return "bg-white";
 }
 
+function MobileBidCard({
+  bid,
+  pendingWinner,
+  canAccept,
+  finalizing,
+  showEquipmentBreakdown,
+  showOfferScope,
+  showScopeTerms,
+  showContractTerms,
+  showEquipmentWarranty,
+  showQualificationsRow,
+  showCounterRow,
+  tradeNameMap,
+  projectId,
+  contentRevision,
+}: {
+  bid: BidWithContractor;
+  pendingWinner: boolean;
+  canAccept: boolean;
+  finalizing: boolean;
+  showEquipmentBreakdown: boolean;
+  showOfferScope: boolean;
+  showScopeTerms: boolean;
+  showContractTerms: boolean;
+  showEquipmentWarranty: boolean;
+  showQualificationsRow: boolean;
+  showCounterRow: boolean;
+  tradeNameMap: Map<string, string>;
+  projectId: string;
+  contentRevision: number;
+}) {
+  const company = getBidContractorName(bid.contractor_profiles);
+  const cardClass = `rounded-xl border p-4 ${columnClass(bid.status, pendingWinner)}`;
+
+  function Row({ label, children }: { label: string; children: ReactNode }) {
+    return (
+      <div className="border-t border-stone-100 py-2.5 first:border-t-0 first:pt-0">
+        <dt className="text-xs font-semibold uppercase tracking-wide text-stone-500">
+          {label}
+        </dt>
+        <dd className="mt-1 text-sm text-stone-800">{children}</dd>
+      </div>
+    );
+  }
+
+  const scope = parseBidOfferScope(bid.offer_scope);
+  const tradeSummary = formatBidTradeScopeSummary({
+    offerScope: scope,
+    offeredTradeNames: formatOfferedTradeNames(bid.offered_trade_ids, tradeNameMap),
+    turnkeyCoordination: parseTurnkeyCoordination(bid.turnkey_coordination),
+  });
+
+  return (
+    <article className={cardClass}>
+      <header>
+        <Link
+          href={`/urakoitsija/${bid.contractor_id}`}
+          className="text-base font-semibold text-stone-900 hover:text-sky-800 hover:underline"
+        >
+          {company}
+        </Link>
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <span className="rounded-full bg-stone-100 px-2 py-0.5 text-xs font-medium text-stone-700">
+            {pendingWinner ? "Valittu — odottaa maksua" : bidStatusLabels[bid.status]}
+          </span>
+          {bid.counter_status && bid.counter_amount_cents && (
+            <CounterOfferBadge status={bid.counter_status} />
+          )}
+        </div>
+      </header>
+
+      <dl className="mt-3">
+        {showEquipmentBreakdown ? (
+          <>
+            <Row label="Asennus ja työ">
+              {formatEurosFromCents(bid.amount_cents)}
+            </Row>
+            <Row label="Laite">
+              {bid.offers_equipment && bid.equipment_amount_cents ? (
+                <div>
+                  <p className="font-medium">{formatEurosFromCents(bid.equipment_amount_cents)}</p>
+                  {bid.equipment_description && (
+                    <p className="mt-1 text-xs text-stone-600">{bid.equipment_description}</p>
+                  )}
+                </div>
+              ) : (
+                <span className="text-stone-400">—</span>
+              )}
+            </Row>
+            <Row label="Yhteensä">
+              <span className="font-bold text-sky-800">
+                {formatEurosFromCents(bidTotalAmountCents(bid))}
+              </span>
+              {bid.vat_included && (
+                <span className="mt-0.5 block text-xs font-normal text-stone-500">sis. ALV</span>
+              )}
+            </Row>
+          </>
+        ) : (
+          <Row label="Hinta">
+            <PriceCell bid={bid} showEquipmentBreakdown={false} />
+          </Row>
+        )}
+
+        <Row label="Aloituspäivä">
+          {bid.earliest_start_date ? (
+            formatBidDate(bid.earliest_start_date)
+          ) : (
+            <span className="text-stone-400">—</span>
+          )}
+        </Row>
+
+        <Row label="Kesto">
+          {bid.estimated_days != null && bid.estimated_days > 0 ? (
+            `${bid.estimated_days} pv`
+          ) : (
+            <span className="text-stone-400">—</span>
+          )}
+        </Row>
+
+        <Row label="Yritys">
+          <ContractorCompanyFactsCell
+            facts={contractorCompanyFactsFromBid(bid)}
+          />
+        </Row>
+
+        {showOfferScope && (
+          <Row label="Tarjouksen tyyppi">
+            {tradeSummary ?? <span className="text-stone-400">—</span>}
+          </Row>
+        )}
+
+        {showScopeTerms && (
+          <Row label="Laajuus">
+            <ClampedText text={bid.scope_terms} />
+          </Row>
+        )}
+
+        {showContractTerms && (
+          <Row label="Sopimusehdot">
+            <ClampedText text={bid.contract_terms} />
+          </Row>
+        )}
+
+        <Row label="Takuu työlle">
+          <ClampedText text={bid.warranty_work} />
+        </Row>
+
+        {showEquipmentWarranty && (
+          <Row label="Takuu laitteelle">
+            <ClampedText text={bid.warranty_equipment} />
+          </Row>
+        )}
+
+        {showQualificationsRow && (
+          <Row label="Pätevyydet">
+            <ContractorQualificationsCell quals={contractorQualificationsFromBid(bid)} />
+          </Row>
+        )}
+
+        <Row label="Vakuutukset">
+          <GuaranteesCell bid={bid} />
+        </Row>
+
+        {showCounterRow && (
+          <Row label="Vastatarjous">
+            {formatCounterOfferStatus(bid) ? (
+              <div>
+                <p className="text-amber-950">{formatCounterOfferStatus(bid)}</p>
+                {bid.counter_message?.trim() && (
+                  <p className="mt-1 whitespace-pre-wrap text-xs text-stone-600">
+                    &ldquo;{bid.counter_message.trim()}&rdquo;
+                  </p>
+                )}
+              </div>
+            ) : canAccept && bid.status === "submitted" ? (
+              <span className="text-xs text-stone-600">
+                Voit ehdottaa alempaa hintaa alla olevista toiminnoista.
+              </span>
+            ) : (
+              <span className="text-stone-400">—</span>
+            )}
+          </Row>
+        )}
+
+        <Row label="Viesti">
+          <ClampedText text={bid.message} />
+        </Row>
+      </dl>
+
+      {(canAccept || finalizing || bid.status === "accepted") && (
+        <div className="mt-4 border-t border-stone-100 pt-4">
+          {pendingWinner && (
+            <p className="text-sm text-sky-800">
+              Valittu urakoitsijaksi. Odottaa välitysmaksun maksua — yhteystiedot avautuvat
+              sen jälkeen.
+            </p>
+          )}
+          {bid.status === "accepted" && (
+            <p className="text-sm text-sky-800">
+              Hyväksytty. Yhteystiedot urakoitsijalle välitysmaksun jälkeen.
+            </p>
+          )}
+          {canAccept && bid.status === "submitted" && !pendingWinner && (
+            <CustomerBidActions
+              bidId={bid.id}
+              projectId={projectId}
+              bid={bid}
+              stale={isBidStale(bid, contentRevision)}
+            />
+          )}
+          {bid.status === "rejected" && (
+            <div className="text-xs text-stone-600">
+              <p className="font-medium text-red-800">Hylätty</p>
+              {bid.rejection_message && (
+                <p className="mt-1 whitespace-pre-wrap">{bid.rejection_message}</p>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+    </article>
+  );
+}
+
 export function CustomerBids({
   projectId,
   projectStatus,
@@ -203,6 +451,7 @@ export function CustomerBids({
   contractorRatings = {},
   acceptedBidId = null,
   jobSlug = null,
+  projectTradeNamesById = {},
 }: {
   projectId: string;
   projectStatus: ProjectStatus;
@@ -211,7 +460,9 @@ export function CustomerBids({
   contractorRatings?: Record<string, ContractorRatingSummary>;
   acceptedBidId?: string | null;
   jobSlug?: string | null;
+  projectTradeNamesById?: Record<string, string>;
 }) {
+  const tradeNameMap = new Map(Object.entries(projectTradeNamesById));
   const canAccept = ["published", "receiving_bids"].includes(projectStatus);
   const finalizing =
     projectStatus === "bid_accepted" && acceptedBidId != null;
@@ -252,6 +503,10 @@ export function CustomerBids({
   const showQualificationsRow = sorted.some(
     (b) => contractorQualificationsFromBid(b) != null,
   );
+  const showCompanyFactsRow = sorted.some((b) => {
+    const facts = contractorCompanyFactsFromBid(b);
+    return facts?.founded_year != null || facts?.company_size_band != null;
+  });
 
   if (visibleBids.length === 0) {
     return (
@@ -297,7 +552,29 @@ export function CustomerBids({
         <BidComparisonInsightsPanel insights={comparisonInsights} />
       )}
 
-      <div className="-mx-1 overflow-x-auto px-1">
+      <div className="mt-4 space-y-4 md:hidden">
+        {sorted.map((bid) => (
+          <MobileBidCard
+            key={bid.id}
+            bid={bid}
+            pendingWinner={isPendingWinner(bid)}
+            canAccept={canAccept}
+            finalizing={finalizing}
+            showEquipmentBreakdown={showEquipmentBreakdown}
+            showOfferScope={showOfferScope}
+            showScopeTerms={showScopeTerms}
+            showContractTerms={showContractTerms}
+            showEquipmentWarranty={showEquipmentWarranty}
+            showQualificationsRow={showQualificationsRow}
+            showCounterRow={showCounterRow}
+            tradeNameMap={tradeNameMap}
+            projectId={projectId}
+            contentRevision={contentRevision}
+          />
+        ))}
+      </div>
+
+      <div className="-mx-1 hidden overflow-x-auto px-1 md:block">
         <table className="w-full min-w-[720px] border-collapse text-sm">
           <thead>
             <tr className="border-b border-stone-200">
@@ -454,6 +731,24 @@ export function CustomerBids({
               ))}
             </tr>
 
+            {showCompanyFactsRow && (
+              <tr className="border-b border-stone-100 bg-stone-50/50">
+                <th className={labelCell} scope="row">
+                  Yritys
+                </th>
+                {sorted.map((bid) => (
+                  <td
+                    key={bid.id}
+                    className={`${dataCell} border-l ${columnClass(bid.status, isPendingWinner(bid))}`}
+                  >
+                    <ContractorCompanyFactsCell
+                      facts={contractorCompanyFactsFromBid(bid)}
+                    />
+                  </td>
+                ))}
+              </tr>
+            )}
+
             {showOfferScope && (
               <tr className="border-b border-stone-100 bg-stone-50/50">
                 <th className={labelCell} scope="row">
@@ -461,14 +756,22 @@ export function CustomerBids({
                 </th>
                 {sorted.map((bid) => {
                   const scope = parseBidOfferScope(bid.offer_scope);
+                  const summary = formatBidTradeScopeSummary({
+                    offerScope: scope,
+                    offeredTradeNames: formatOfferedTradeNames(
+                      bid.offered_trade_ids,
+                      tradeNameMap,
+                    ),
+                    turnkeyCoordination: parseTurnkeyCoordination(
+                      bid.turnkey_coordination,
+                    ),
+                  });
                   return (
                     <td
                       key={bid.id}
                       className={`${dataCell} border-l ${columnClass(bid.status, isPendingWinner(bid))}`}
                     >
-                      {scope ? (
-                        BID_OFFER_SCOPE_LABELS[scope]
-                      ) : (
+                      {summary ?? (
                         <span className="text-stone-400">—</span>
                       )}
                     </td>

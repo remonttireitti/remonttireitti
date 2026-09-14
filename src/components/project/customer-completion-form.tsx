@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useActionState, useEffect, useState } from "react";
 import {
   submitProjectCompletionUpdate,
   type CompletionRequestActionState,
@@ -13,20 +14,32 @@ export function CustomerCompletionForm({
   projectId,
   needs,
   requestCount,
+  guestToken,
 }: {
   projectId: string;
   needs: AggregatedCompletionNeed;
   requestCount: number;
+  guestToken?: string;
 }) {
+  const router = useRouter();
   const [photos, setPhotos] = useState<File[]>([]);
   const [state, action, pending] = useActionState<
     CompletionRequestActionState,
     FormData
   >(submitProjectCompletionUpdate, {});
 
+  useEffect(() => {
+    if (state.ok && state.redirectPath) {
+      router.push(state.redirectPath);
+    }
+  }, [state.ok, state.redirectPath, router]);
+
   return (
     <form action={action} className="space-y-6">
       <input type="hidden" name="project_id" value={projectId} />
+      {guestToken && (
+        <input type="hidden" name="guest_token" value={guestToken} />
+      )}
 
       <section className="rounded-2xl border border-violet-200 bg-violet-50/60 p-5">
         <h2 className="font-semibold text-violet-950">Urakoitsija tarvitsee tarjousta varten</h2>
@@ -123,6 +136,11 @@ export function CustomerCompletionForm({
       {state.error && (
         <p className="text-sm text-red-600" role="alert">
           {state.error}
+        </p>
+      )}
+      {state.ok && (
+        <p className="text-sm text-emerald-800" role="status">
+          {state.ok}
         </p>
       )}
 

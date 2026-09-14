@@ -1,3 +1,4 @@
+import { parseCustomTradeNames } from "@/lib/community-trades";
 import type {
   ElectricalQualification,
   LviQualification,
@@ -69,9 +70,14 @@ export function parseLviQualifications(formData: FormData): LviQualification[] {
 export function validateContractorQualifications(formData: FormData): string | null {
   const jobTypeIds = parseJobTypeIds(formData);
   const tradeIds = parseTradeIds(formData);
+  const customTradeNames = parseCustomTradeNames(formData);
 
-  if (jobTypeIds.length === 0 && tradeIds.length === 0) {
-    return "Valitse vähintään yksi ammatti tai lämpöpumpputyyppi.";
+  if (
+    jobTypeIds.length === 0 &&
+    tradeIds.length === 0 &&
+    customTradeNames.length === 0
+  ) {
+    return "Valitse vähintään yksi ammatti, lisää oma ammattisi tai valitse lämpöpumpputyyppi.";
   }
 
   if (jobTypeIds.length > 0) {

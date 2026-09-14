@@ -1,11 +1,9 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useState } from "react";
+import { useListingFormSubmit } from "@/components/marketplace/use-listing-form-submit";
 import { ListingPhotoField } from "@/components/marketplace/listing-photo-field";
-import {
-  createConsumerListing,
-  type ListingActionState,
-} from "@/app/actions/marketplace-listings";
+import { createConsumerListing } from "@/app/actions/marketplace-listings";
 import { brand } from "@/lib/brand-theme";
 import { ListingFormFields } from "@/components/marketplace/listing-form-fields";
 
@@ -22,10 +20,7 @@ export function ConsumerWantedListingForm({
   slotsLeft: number;
 }) {
   const [photoFiles, setPhotoFiles] = useState<File[]>([]);
-  const [state, action, pending] = useActionState<
-    ListingActionState,
-    FormData
-  >(createConsumerListing, {});
+  const { state, submit, pending } = useListingFormSubmit(createConsumerListing);
 
   if (slotsLeft <= 0) {
     return (
@@ -37,12 +32,19 @@ export function ConsumerWantedListingForm({
   }
 
   return (
-    <form action={action} className="mt-6 space-y-4">
+    <form
+      encType="multipart/form-data"
+      onSubmit={(e) => {
+        e.preventDefault();
+        submit(new FormData(e.currentTarget));
+      }}
+      className="mt-6 space-y-4"
+    >
       <input type="hidden" name="listing_kind" value="wanted" />
 
       <p className="text-sm text-stone-600">
         Kerro mitä etsit — myyjät ja urakoitsijat voivat ottaa yhteyttä. Ilmainen
-        julkaisu ({slotsLeft} paikkaa jäljellä).
+        julkaisu ({slotsLeft} paikkaa jäljellä, max 2 / sähköposti).
       </p>
 
       {state.error && (
@@ -56,7 +58,7 @@ export function ConsumerWantedListingForm({
       <ListingPhotoField files={photoFiles} onFilesChange={setPhotoFiles} />
 
       <button type="submit" disabled={pending} className={`w-full ${brand.btnPrimary}`}>
-        {pending ? "Julkaistaan…" : "Julkaise ostopyyntö"}
+        {pending ? "Lähetetään…" : "Lähetä vahvistuslinkki"}
       </button>
     </form>
   );

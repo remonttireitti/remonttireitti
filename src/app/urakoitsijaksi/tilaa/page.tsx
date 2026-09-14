@@ -52,8 +52,8 @@ export default async function PlatformSubscriptionOrderPage({
           veroton + ALV)
         </p>
         <p className="mt-2 text-sm text-stone-500">
-          Lasku lähetetään osoitteeseen {PLATFORM_INVOICE_EMAIL}. Et maksa kortilla
-          sovelluksessa.
+          Lasku lähetetään sähköpostiisi osoitteesta {PLATFORM_INVOICE_EMAIL}. Et
+          maksa kortilla sovelluksessa.
         </p>
 
         <div className="mt-6 flex flex-wrap gap-2 text-sm">

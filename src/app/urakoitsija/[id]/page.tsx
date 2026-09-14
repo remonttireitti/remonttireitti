@@ -1,12 +1,18 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { ContractorJsonLd } from "@/components/seo/contractor-json-ld";
 import { ContractorQualificationsCell } from "@/components/bid/contractor-qualifications-cell";
 import { ContractorReviewsList } from "@/components/review/contractor-reviews-list";
 import { StarRatingDisplay } from "@/components/review/star-rating-display";
 import { SiteHeader } from "@/components/site-header";
 import { brand } from "@/lib/brand-theme";
 import { pageMetadata } from "@/lib/seo";
+import {
+  formatCompanySizeBandDisplay,
+  formatFoundedYearDisplay,
+  parseCompanySizeBand,
+} from "@/lib/contractor-company-facts";
 import { fetchPublicContractorProfile } from "@/lib/public-contractor-server";
 import {
   formatElectricalQualification,
@@ -58,9 +64,14 @@ export default async function PublicContractorPage({
     electrical_qualification: profile.qualifications.electricalQualification,
     lvi_qualifications: profile.qualifications.lviQualifications,
   };
+  const foundedLabel = formatFoundedYearDisplay(profile.founded_year);
+  const sizeLabel = formatCompanySizeBandDisplay(
+    parseCompanySizeBand(profile.company_size_band),
+  );
 
   return (
     <div className={brand.page}>
+      <ContractorJsonLd profile={profile} />
       <SiteHeader />
       <main className={brand.mainContent}>
         <Link
@@ -99,6 +110,16 @@ export default async function PublicContractorPage({
                 Toiminta-alue: {profile.service_municipality}
                 {profile.max_travel_km != null &&
                   ` (max ${profile.max_travel_km} km)`}
+              </li>
+            )}
+            {foundedLabel && (
+              <li className="rounded-full bg-stone-100 px-2.5 py-1">
+                {foundedLabel}
+              </li>
+            )}
+            {sizeLabel && (
+              <li className="rounded-full bg-stone-100 px-2.5 py-1">
+                {sizeLabel}
               </li>
             )}
           </ul>

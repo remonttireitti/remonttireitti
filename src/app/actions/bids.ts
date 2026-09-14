@@ -17,17 +17,21 @@ import {
   type BidFormFields,
 } from "@/lib/bid-form";
 import { formatBidSaveError } from "@/lib/bid-save-errors";
+import { insertBidRow, updateBidRow } from "@/lib/bid-save-persist";
 import {
   userNotifyBidAccepted,
   userNotifyContactsRevealedCustomer,
   userNotifyOrderFinalizing,
   userNotifyBidRejected,
-  userNotifyBidUpdated,
   userNotifyCounterOffer,
   userNotifyCounterOfferAccepted,
   userNotifyCounterOfferDeclined,
-  userNotifyNewBid,
 } from "@/lib/user-notify";
+import {
+  notifyCustomerAboutBid,
+  notifyCustomerAboutBidWithdrawn,
+} from "@/lib/bid-customer-notify";
+import { recordProjectActivityEvent } from "@/lib/project-activity-events-server";
 import { scheduleNotification } from "@/lib/schedule-notification";
 import { isBidStale, STALE_BID_CUSTOMER_MESSAGE } from "@/lib/bid-staleness";
 import {
@@ -41,10 +45,20 @@ import {
 import { bidFormTotalEuros } from "@/lib/bid-form";
 import { parseBidOfferScope } from "@/lib/bid-offer-scope";
 import {
+  parseOfferedTradeIds,
+  parseTurnkeyCoordination,
+} from "@/lib/bid-trade-offer";
+import {
   formatServicePricingScopeLine,
   isServicePricingModel,
 } from "@/lib/service-engagement";
 import { fetchProjectTradeContextForContractor } from "@/lib/project-trades-server";
+import {
+  companyFactsEnforcementActive,
+  companyFactsFromRow,
+  companyFactsMissingMessage,
+  isCompanyFactsComplete,
+} from "@/lib/contractor-company-facts";
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -52,6 +66,7 @@ import { redirect } from "next/navigation";
 export type BidActionState = {
   error?: string;
   success?: string;
+  redirectPath?: string;
   fields?: BidFormFields;
   fieldErrors?: Partial<Record<BidFormFieldKey, string>>;
 };
@@ -82,11 +97,15 @@ type ParsedBidPayload = {
     { ok: true }
   >["data"];
   offerScope: ReturnType<typeof parseBidOfferScope>;
+  offeredTradeIds: string[] | null;
+  turnkeyCoordination: ReturnType<typeof parseTurnkeyCoordination>;
   project: {
     id: string;
     status: string;
     title: string;
-    customer_id: string;
+    customer_id: string | null;
+    guest_email: string | null;
+    contact_email: string | null;
     details: unknown;
     content_revision: number;
   };
@@ -112,13 +131,8 @@ async function parseBidSubmission(
   const estimatedDaysRaw = String(formData.get("estimated_days") ?? "");
   const vatIncluded = formData.get("vat_included") === "on";
 
-  if (!projectId || !message) {
-    return bidError(formData, "Täytä viesti ja hinta.", {
-      ...(!message.trim() ? { message: "Kirjoita viesti asiakkaalle." } : {}),
-      ...(!workEuros || workEuros <= 0
-        ? { amount_euros: "Anna kelvollinen hinta euroina." }
-        : {}),
-    });
+  if (!projectId) {
+    return bidError(formData, "Puuttuva kohde.", {});
   }
 
   if (!workEuros || workEuros <= 0) {
@@ -140,7 +154,7 @@ async function parseBidSubmission(
   const { data: project } = await supabase
     .from("projects")
     .select(
-      "id, status, title, customer_id, details, budget_min, budget_max, content_revision",
+      "id, status, title, customer_id, guest_email, contact_email, details, budget_min, budget_max, content_revision",
     )
     .eq("id", projectId)
     .single();
@@ -216,6 +230,32 @@ async function parseBidSubmission(
     });
   }
 
+  const offeredTradeIdsRaw = parseOfferedTradeIds(formData.get("offered_trade_ids"));
+  const matchingIds = new Set(tradeContext.matchingTrades.map((t) => t.id));
+  let offeredTradeIds: string[] | null = null;
+  const turnkeyCoordination = parseTurnkeyCoordination(
+    String(formData.get("turnkey_coordination") ?? ""),
+  );
+
+  if (tradeContext.isMultiTrade && offerScope === "own_trade") {
+    if (tradeContext.matchingTrades.length === 1) {
+      offeredTradeIds = [tradeContext.matchingTrades[0]!.id];
+    } else if (tradeContext.matchingTrades.length > 1) {
+      offeredTradeIds = offeredTradeIdsRaw.filter((id) => matchingIds.has(id));
+      if (offeredTradeIds.length === 0) {
+        return bidError(formData, "Valitse vähintään yksi tarjoamasi ammatti.", {
+          offered_trade_ids: "Valitse vähintään yksi ammatti.",
+        });
+      }
+    }
+  }
+
+  if (tradeContext.isMultiTrade && offerScope === "turnkey" && !turnkeyCoordination) {
+    return bidError(formData, "Kerro miten puuttuvat ammatit hoidetaan.", {
+      turnkey_coordination: "Valitse alihankinta tai asiakkaan hankinta.",
+    });
+  }
+
   return {
     projectId,
     message,
@@ -229,6 +269,14 @@ async function parseBidSubmission(
     vatIncluded,
     terms: terms.data,
     offerScope: tradeContext.isMultiTrade ? offerScope : null,
+    offeredTradeIds:
+      tradeContext.isMultiTrade && offerScope === "own_trade"
+        ? offeredTradeIds
+        : null,
+    turnkeyCoordination:
+      tradeContext.isMultiTrade && offerScope === "turnkey"
+        ? turnkeyCoordination
+        : null,
     project,
   };
 }
@@ -236,6 +284,7 @@ async function parseBidSubmission(
 function bidRowFromPayload(
   payload: ParsedBidPayload,
   status: "submitted",
+  options?: { setSubmittedAt?: boolean; setContentUpdatedAt?: boolean },
 ) {
   return {
     status,
@@ -245,7 +294,7 @@ function bidRowFromPayload(
     equipment_description: payload.equipmentDescription,
     vat_included: payload.vatIncluded,
     estimated_days: payload.estimatedDays,
-    message: payload.message,
+    message: payload.message || "",
     scope_terms: payload.terms.scope_terms,
     contract_terms: payload.terms.contract_terms,
     warranty_work: payload.terms.warranty_work,
@@ -254,7 +303,14 @@ function bidRowFromPayload(
     confirms_licenses: payload.terms.confirms_licenses,
     confirms_building_standards: payload.terms.confirms_building_standards,
     offer_scope: payload.offerScope,
-    submitted_at: new Date().toISOString(),
+    offered_trade_ids: payload.offeredTradeIds,
+    turnkey_coordination: payload.turnkeyCoordination,
+    ...(options?.setSubmittedAt !== false
+      ? { submitted_at: new Date().toISOString() }
+      : {}),
+    ...(options?.setContentUpdatedAt
+      ? { content_updated_at: new Date().toISOString() }
+      : {}),
     confirmed_content_revision: payload.project.content_revision,
     rejection_message: null,
     rejected_at: null,
@@ -279,6 +335,18 @@ export async function submitBid(
   } = await supabase.auth.getUser();
 
   if (!user) return bidError(formData, "Kirjaudu sisään.");
+
+  if (companyFactsEnforcementActive()) {
+    const { data: cp } = await supabase
+      .from("contractor_profiles")
+      .select("founded_year, company_size_band")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (!isCompanyFactsComplete(companyFactsFromRow(cp))) {
+      return bidError(formData, companyFactsMissingMessage());
+    }
+  }
 
   const parsed = await parseBidSubmission(supabase, formData, user.id);
   if (!("project" in parsed)) return parsed;
@@ -305,11 +373,12 @@ export async function submitBid(
     existing?.status === "withdrawn" || existing?.status === "rejected";
 
   if (isResubmission) {
-    const { error } = await supabase
-      .from("bids")
-      .update(row)
-      .eq("id", existing!.id)
-      .eq("contractor_id", user.id);
+    const { error } = await updateBidRow(
+      supabase,
+      row,
+      existing!.id,
+      user.id,
+    );
 
     if (error) {
       console.error("[submitBid/resubmit]", error.code, error.message);
@@ -318,7 +387,7 @@ export async function submitBid(
   } else if (existing) {
     return bidError(formData, "Tähän pyyntöön et voi enää jättää tarjousta.");
   } else {
-    const { error } = await supabase.from("bids").insert({
+    const { error } = await insertBidRow(supabase, {
       project_id: payload.projectId,
       contractor_id: user.id,
       ...row,
@@ -338,16 +407,17 @@ export async function submitBid(
 
   const notifyPayload = {
     customerId: payload.project.customer_id,
+    guestEmail: payload.project.guest_email,
+    contactEmail: payload.project.contact_email,
     projectTitle: payload.project.title,
     projectId: payload.projectId,
     contractorCompany: contractor?.company_name ?? "Urakoitsija",
+    kind: (isResubmission && existing?.status === "rejected"
+      ? "updated"
+      : "new") as "new" | "updated",
   };
 
-  if (isResubmission && existing?.status === "rejected") {
-    scheduleNotification(() => userNotifyBidUpdated(notifyPayload));
-  } else {
-    scheduleNotification(() => userNotifyNewBid(notifyPayload));
-  }
+  scheduleNotification(() => notifyCustomerAboutBid(notifyPayload));
 
   if (payload.project.status === "published") {
     await supabase
@@ -357,7 +427,9 @@ export async function submitBid(
   }
 
   revalidateBidPaths(payload.projectId);
-  redirect(`/tarjoukset/${payload.projectId}?tarjous=lahetetty`);
+  return {
+    redirectPath: `/tarjoukset/${payload.projectId}?tarjous=lahetetty`,
+  };
 }
 
 export async function updateBid(
@@ -381,7 +453,7 @@ export async function updateBid(
 
   const { data: bid } = await supabase
     .from("bids")
-    .select("id, status")
+    .select("id, status, confirmed_content_revision")
     .eq("id", bidId)
     .eq("project_id", payload.projectId)
     .eq("contractor_id", user.id)
@@ -394,35 +466,56 @@ export async function updateBid(
     );
   }
 
-  const { error } = await supabase
-    .from("bids")
-    .update(bidRowFromPayload(payload, "submitted"))
-    .eq("id", bidId);
+  const wasStale =
+    bid.status === "submitted" &&
+    isBidStale(bid, payload.project.content_revision);
+
+  const { error } = await updateBidRow(
+    supabase,
+    bidRowFromPayload(payload, "submitted", {
+      setSubmittedAt: false,
+      setContentUpdatedAt: true,
+    }),
+    bidId,
+    user.id,
+  );
 
   if (error) {
     console.error("[updateBid]", error.code, error.message);
     return bidError(formData, formatBidSaveError(error));
   }
 
-  if (bid.status === "rejected") {
-    const { data: contractor } = await supabase
-      .from("contractor_profiles")
-      .select("company_name")
-      .eq("id", user.id)
-      .single();
+  await recordProjectActivityEvent({
+    projectId: payload.projectId,
+    eventType: "bid_updated",
+    kind: "contractor",
+    actorId: user.id,
+    referenceId: bidId,
+  });
 
-    scheduleNotification(() =>
-      userNotifyBidUpdated({
-        customerId: payload.project.customer_id,
-        projectTitle: payload.project.title,
-        projectId: payload.projectId,
-        contractorCompany: contractor?.company_name ?? "Urakoitsija",
-      }),
-    );
-  }
+  const { data: contractor } = await supabase
+    .from("contractor_profiles")
+    .select("company_name")
+    .eq("id", user.id)
+    .single();
+
+  scheduleNotification(() =>
+    notifyCustomerAboutBid({
+      customerId: payload.project.customer_id,
+      guestEmail: payload.project.guest_email,
+      contactEmail: payload.project.contact_email,
+      projectTitle: payload.project.title,
+      projectId: payload.projectId,
+      contractorCompany: contractor?.company_name ?? "Urakoitsija",
+      kind: "updated",
+      afterCompletion: wasStale,
+    }),
+  );
 
   revalidateBidPaths(payload.projectId);
-  redirect(`/tarjoukset/${payload.projectId}?tarjous=paivitetty`);
+  return {
+    redirectPath: `/tarjoukset/${payload.projectId}?tarjous=paivitetty`,
+  };
 }
 
 export async function withdrawBid(
@@ -442,7 +535,7 @@ export async function withdrawBid(
 
   const { data: project } = await supabase
     .from("projects")
-    .select("status")
+    .select("status, title, customer_id, guest_email, contact_email")
     .eq("id", projectId)
     .single();
 
@@ -471,6 +564,23 @@ export async function withdrawBid(
     .eq("id", bidId);
 
   if (error) return { error: "Tarjouksen peruminen epäonnistui." };
+
+  const { data: contractor } = await supabase
+    .from("contractor_profiles")
+    .select("company_name")
+    .eq("id", user.id)
+    .single();
+
+  scheduleNotification(() =>
+    notifyCustomerAboutBidWithdrawn({
+      customerId: project.customer_id,
+      guestEmail: project.guest_email,
+      contactEmail: project.contact_email,
+      projectTitle: project.title,
+      projectId,
+      contractorCompany: contractor?.company_name ?? "Urakoitsija",
+    }),
+  );
 
   revalidateBidPaths(projectId);
   return {};

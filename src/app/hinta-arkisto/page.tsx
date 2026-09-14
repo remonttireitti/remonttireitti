@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { PriceArchiveJsonLd } from "@/components/seo/price-archive-json-ld";
 import { SiteHeader } from "@/components/site-header";
 import { brand } from "@/lib/brand-theme";
 import { formatEurosFromCents } from "@/lib/bids";
@@ -14,12 +15,14 @@ import { seoDefByPath } from "@/lib/seo-pages";
 
 const seo = seoDefByPath("/hinta-arkisto")!;
 
-export const metadata: Metadata = pageMetadata({
-  title: seo.title,
-  description: seo.description,
-  path: "/hinta-arkisto",
-  keywords: seo.keywords,
-});
+export function generateMetadata(): Metadata {
+  return pageMetadata({
+    title: seo.title,
+    description: seo.description,
+    path: "/hinta-arkisto",
+    keywords: seo.keywords,
+  });
+}
 
 function StatCard({
   label,
@@ -60,6 +63,11 @@ export default async function PriceArchivePage({
 
   return (
     <div className={brand.page}>
+      <PriceArchiveJsonLd
+        stats={displayStats}
+        scopeLabel={scopeLabel ?? "Koko Suomi"}
+        totalSamples={data.totalSamples}
+      />
       <SiteHeader />
       <main className={brand.mainWide}>
         <Link href="/" className="text-sm text-sky-700 hover:underline">
@@ -68,9 +76,10 @@ export default async function PriceArchivePage({
 
         <h1 className="mt-4 text-2xl font-bold sm:text-3xl">Hinta-arkisto</h1>
         <p className="mt-2 max-w-2xl text-sm leading-relaxed text-stone-600">
-          Anonymisoitu yhteenveto hyväksytyistä tarjouksista Remonttireitillä.
-          Hinnat perustuvat asiakkaan hyväksymiin tarjouksiin — eivät takaa
-          tulevaa hintaa, mutta auttavat arvioimaan budjetin.
+          Anonymisoitu yhteenveto hyväksytyistä tarjouksista Remonttireitillä —
+          keittiö, katto, kylpyhuone, lämpöpumput ja muut työlajit. Hinnat
+          perustuvat asiakkaan hyväksymiin tarjouksiin. Työlaji näkyy listassa
+          kun vähintään {PRICE_ARCHIVE_MIN_SAMPLES} hyväksyttyä urakkaa on kertynyt.
         </p>
 
         <form
@@ -87,7 +96,7 @@ export default async function PriceArchivePage({
               defaultValue={tyo ?? ""}
               className="mt-1 w-full rounded-lg border border-stone-300 px-3 py-2 text-sm"
             >
-              <option value="">Kaikki lämpöpumpput</option>
+              <option value="">Kaikki työlajit</option>
               {data.national.map((row) => (
                 <option key={row.jobSlug} value={row.jobSlug}>
                   {row.jobName}
@@ -135,7 +144,7 @@ export default async function PriceArchivePage({
               <StatCard
                 label="Hyväksyttyjä urakoita"
                 value={String(data.totalSamples)}
-                hint="Lämpöpumpput yhteensä"
+                hint="Kaikki työlajit yhteensä"
               />
               <StatCard
                 label="Näytettävä alue"

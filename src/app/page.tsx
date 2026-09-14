@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { pageMetadata } from "@/lib/seo";
 import { seoDefByPath } from "@/lib/seo-pages";
 
@@ -24,13 +25,14 @@ import { HomeTrust } from "@/components/marketing/home-trust";
 import { ServiceCards } from "@/components/marketing/service-cards";
 import { HomeNotifications } from "@/components/notifications/home-notifications";
 import { SiteHeader } from "@/components/site-header";
-import { getSessionUser } from "@/lib/auth";
+import { getProfile, getSessionUser, isContractor } from "@/lib/auth";
 import {
   countUnreadNotifications,
   fetchArchivedUserNotifications,
   fetchUserNotifications,
 } from "@/lib/notifications-server";
 import { HomePlatformStats } from "@/components/marketing/home-platform-stats";
+import { HomeHeroVisual } from "@/components/marketing/home-hero-visual";
 import { HomeQualityRequest } from "@/components/marketing/home-quality-request";
 import {
   countPublicOpenProjects,
@@ -39,18 +41,27 @@ import {
 import { fetchPublicPlatformStats } from "@/lib/public-platform-stats";
 import { brand } from "@/lib/brand-theme";
 import { fetchBidEvaluationSettings } from "@/lib/bid-evaluation-server";
+import { hasAnyActiveEvaluator } from "@/lib/bid-evaluation-availability-server";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function Home() {
   const supabase = await createClient();
-  const [openProjects, openProjectCount, platformStats, bidEvaluationSettings] =
+  const user = await getSessionUser();
+  const contractor = user ? await isContractor() : false;
+  if (contractor) {
+    redirect("/tarjoukset");
+  }
+  const profile = user ? await getProfile() : null;
+  const isCustomer = !!user && profile?.role === "customer";
+
+  const [openProjects, openProjectCount, platformStats, bidEvaluationSettings, showTarjousvahti] =
     await Promise.all([
-      fetchPublicOpenProjects(12),
-      countPublicOpenProjects(),
+      isCustomer ? Promise.resolve([]) : fetchPublicOpenProjects(12),
+      isCustomer ? Promise.resolve(0) : countPublicOpenProjects(),
       fetchPublicPlatformStats(),
       fetchBidEvaluationSettings(supabase),
+      hasAnyActiveEvaluator(),
     ]);
-  const user = await getSessionUser();
   let notifications: Awaited<ReturnType<typeof fetchUserNotifications>> = [];
   let archivedNotifications: Awaited<
     ReturnType<typeof fetchArchivedUserNotifications>
@@ -75,53 +86,58 @@ export default async function Home() {
 
       <main className="pb-16">
         <section className={`${brand.containerWide} pt-6 sm:pt-10`}>
-          <div className={`${brand.hero} text-center`}>
-            <div className="mb-6 flex justify-center">
-              <Logo href="/" size="lg" />
+          <div className={`${brand.hero} lg:grid lg:grid-cols-2 lg:items-center lg:gap-10 lg:text-left`}>
+            <div className="text-center lg:text-left">
+              <div className="mb-6 flex justify-center lg:justify-start">
+                <Logo href="/" size="lg" />
+              </div>
+              <p className="mb-3 text-sm font-medium uppercase tracking-widest text-sky-800">
+                Ilmainen kilpailutus
+              </p>
+              <h1 className="text-3xl font-bold tracking-tight text-stone-900 sm:text-5xl">
+                Tarvitsetko remontille{" "}
+                <span className="text-sky-800">tekijän?</span>
+              </h1>
+              <p className="mx-auto mt-5 max-w-2xl text-base leading-relaxed text-stone-600 sm:text-lg lg:mx-0">
+                Julkaise tarjouspyyntö ilmaiseksi — ohjattu lomake, laatupiste ja
+                oppiva pohja auttavat kuvaamaan työn selkeästi. Urakoitsijat saavat
+                tarpeeksi tietoa tarkkaan tarjoukseen. Vertaa ja tingaa
+                vastatarjouksella ennen valintaa.
+              </p>
+              <ul className="mx-auto mt-6 flex max-w-2xl flex-wrap justify-center gap-2 text-xs font-medium text-stone-700 sm:text-sm lg:mx-0 lg:justify-start">
+                <li className="rounded-full bg-violet-50 px-3 py-1.5 shadow-sm ring-1 ring-violet-200">
+                  Ohjattu tarjouspyyntö
+                </li>
+                <li className="rounded-full bg-emerald-50 px-3 py-1.5 shadow-sm ring-1 ring-emerald-200">
+                  Oppiva pohja työlajeittain
+                </li>
+                <li className="rounded-full bg-white/90 px-3 py-1.5 shadow-sm ring-1 ring-sky-100">
+                  Laadukas pyyntö urakoitsijalle
+                </li>
+                <li className="rounded-full bg-white/90 px-3 py-1.5 shadow-sm ring-1 ring-sky-100">
+                  Asiakkaalle ilmainen
+                </li>
+              </ul>
+              <div className="mx-auto mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row lg:mx-0 lg:justify-start">
+                <Link
+                  href="/remontti/uusi"
+                  className={`${brand.btnPrimary} ${brand.btnPrimaryBlock}`}
+                >
+                  Jätä tarjouspyyntö – maksutta
+                </Link>
+                <Link
+                  href={isCustomer ? "/oma-tili" : "/asiakkaalle"}
+                  className={`${brand.btnSecondary} ${brand.btnSecondaryBlock}`}
+                >
+                  {isCustomer ? "Oma tili" : "Miten se toimii?"}
+                </Link>
+              </div>
+              <div className="mx-auto mt-8 lg:mx-0">
+                <HomeAudienceSplit hideContractor={isCustomer} />
+              </div>
             </div>
-            <p className="mb-3 text-sm font-medium uppercase tracking-widest text-sky-800">
-              Ilmainen kilpailutus
-            </p>
-            <h1 className="text-3xl font-bold tracking-tight text-stone-900 sm:text-5xl">
-              Tarvitsetko remontille{" "}
-              <span className="text-sky-800">tekijän?</span>
-            </h1>
-            <p className="mx-auto mt-5 max-w-2xl text-base leading-relaxed text-stone-600 sm:text-lg">
-              Julkaise tarjouspyyntö ilmaiseksi — ohjattu lomake, laatupiste ja
-              oppiva pohja auttavat kuvaamaan työn selkeästi. Urakoitsijat saavat
-              tarpeeksi tietoa tarkkaan tarjoukseen. Vertaa ja tingaa
-              vastatarjouksella ennen valintaa.
-            </p>
-            <ul className="mx-auto mt-6 flex max-w-2xl flex-wrap justify-center gap-2 text-xs font-medium text-stone-700 sm:text-sm">
-              <li className="rounded-full bg-violet-50 px-3 py-1.5 shadow-sm ring-1 ring-violet-200">
-                Ohjattu tarjouspyyntö
-              </li>
-              <li className="rounded-full bg-emerald-50 px-3 py-1.5 shadow-sm ring-1 ring-emerald-200">
-                Oppiva pohja työlajeittain
-              </li>
-              <li className="rounded-full bg-white/90 px-3 py-1.5 shadow-sm ring-1 ring-sky-100">
-                Laadukas pyyntö urakoitsijalle
-              </li>
-              <li className="rounded-full bg-white/90 px-3 py-1.5 shadow-sm ring-1 ring-sky-100">
-                Asiakkaalle ilmainen
-              </li>
-            </ul>
-            <div className="mx-auto mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-              <Link
-                href="/remontti/uusi"
-                className={`${brand.btnPrimary} ${brand.btnPrimaryBlock}`}
-              >
-                Aloita ilmainen tarjouspyyntö
-              </Link>
-              <Link
-                href="/asiakkaalle"
-                className={`${brand.btnSecondary} ${brand.btnSecondaryBlock}`}
-              >
-                Mitä saat ilmaiseksi?
-              </Link>
-            </div>
-            <div className="mx-auto mt-8">
-              <HomeAudienceSplit />
+            <div className="mt-10 lg:mt-0">
+              <HomeHeroVisual />
             </div>
           </div>
         </section>
@@ -136,12 +152,14 @@ export default async function Home() {
           </section>
         )}
 
-        <HomeQualityRequest />
+        <HomeQualityRequest hideContractorLink={isCustomer} />
 
-        <HomeOpenProjects
-          projects={openProjects}
-          totalCount={openProjectCount}
-        />
+        {!isCustomer && (
+          <HomeOpenProjects
+            projects={openProjects}
+            totalCount={openProjectCount}
+          />
+        )}
 
         {platformStats && <HomePlatformStats stats={platformStats} />}
 
@@ -164,7 +182,9 @@ export default async function Home() {
 
         <HomeSeoContent />
 
-        <HomeTarjousvahti settings={bidEvaluationSettings} />
+        {showTarjousvahti && (
+          <HomeTarjousvahti settings={bidEvaluationSettings} />
+        )}
 
         <HomeFaq />
 
@@ -182,11 +202,13 @@ export default async function Home() {
             <div className="mt-6">
               <HomeDifferentiators />
             </div>
-            <p className="mt-8 text-center text-sm text-stone-700">
-              <Link href="/urakoitsijaksi" className={brand.link}>
-                Urakoitsijalle: tuomme sopivat tarjouspyynnöt →
-              </Link>
-            </p>
+            {!isCustomer && (
+              <p className="mt-8 text-center text-sm text-stone-700">
+                <Link href="/urakoitsijaksi" className={brand.link}>
+                  Urakoitsijalle: tuomme sopivat tarjouspyynnöt →
+                </Link>
+              </p>
+            )}
           </div>
         </section>
       </main>

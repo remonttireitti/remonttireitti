@@ -1,13 +1,18 @@
 import Link from "next/link";
+import { getProfile, getSessionUser, isContractor } from "@/lib/auth";
 import { marketplaceBrand } from "@/lib/marketplace-brand";
 import { siteConfig } from "@/lib/site-config";
 
-export function SiteFooter() {
+export async function SiteFooter() {
   const year = new Date().getFullYear();
+  const user = await getSessionUser();
+  const contractor = user ? await isContractor() : false;
+  const profile = user ? await getProfile() : null;
+  const isCustomer = !!user && !contractor && profile?.role === "customer";
 
   return (
     <footer className="mt-auto border-t border-stone-200 bg-white">
-      <div className="mx-auto max-w-7xl px-6 py-10">
+      <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
         <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
           <div>
             <p className="font-semibold text-stone-900">{siteConfig.name}</p>
@@ -30,25 +35,69 @@ export function SiteFooter() {
                   Kaikki palvelut
                 </Link>
               </li>
-              <li>
-                <Link href="/remontti/uusi" className="text-stone-600 hover:text-sky-700">
-                  Kilpailuta remontti
-                </Link>
-              </li>
+              {!contractor && (
+                <li>
+                  <Link href="/remontti/uusi" className="text-stone-600 hover:text-sky-700">
+                    Kilpailuta remontti
+                  </Link>
+                </li>
+              )}
               <li>
                 <Link href="/markkinapaikka" className="text-stone-600 hover:text-sky-700">
                   {marketplaceBrand.nameShort}
                 </Link>
               </li>
-              <li>
-                <Link href="/urakoitsijaksi" className="text-stone-600 hover:text-sky-700">
-                  Urakoitsijaksi
-                </Link>
-              </li>
+              {!user && (
+                <li>
+                  <Link href="/urakoitsijaksi" className="text-stone-600 hover:text-sky-700">
+                    Urakoitsijaksi
+                  </Link>
+                </li>
+              )}
+              {contractor && (
+                <li>
+                  <Link
+                    href="/oma-tili#yritystiedot"
+                    className="text-stone-600 hover:text-sky-700"
+                  >
+                    Yritystiedot
+                  </Link>
+                </li>
+              )}
+              {isCustomer && (
+                <li>
+                  <Link href="/oma-tili" className="text-stone-600 hover:text-sky-700">
+                    Oma tili
+                  </Link>
+                </li>
+              )}
               <li>
                 <Link href="/hinta-arkisto" className="text-stone-600 hover:text-sky-700">
                   Hinta-arkisto
                 </Link>
+              </li>
+              <li>
+                <Link
+                  href={contractor ? "/tarjoukset" : "/tarjouspyynnot"}
+                  className="text-stone-600 hover:text-sky-700"
+                >
+                  {contractor ? "Tarjouspyynnöt" : "Avoimet pyynnöt"}
+                </Link>
+              </li>
+              {!contractor && (
+                <li>
+                  <Link href="/tarjousarvio" className="text-stone-600 hover:text-sky-700">
+                    Tarjousvahti
+                  </Link>
+                </li>
+              )}
+              <li>
+                <a
+                  href="/tarjouspyynnot/feed.xml"
+                  className="text-stone-600 hover:text-sky-700"
+                >
+                  RSS-syöte
+                </a>
               </li>
             </ul>
           </div>

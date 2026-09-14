@@ -1,12 +1,14 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { tryCreateAdminClient } from "@/lib/supabase/admin";
 import type { UserRole } from "@/types/database";
 
 /** Näitä rooleja ei lasketa eikä tallenneta urakoitsijakatseluiksi. */
 const UNTRACKED_VIEWER_ROLES = new Set<UserRole>(["admin"]);
 
 async function isTrackedViewer(userId: string): Promise<boolean> {
-  const admin = createAdminClient();
+  const admin = tryCreateAdminClient();
+  if (!admin) return true;
+
   const { data } = await admin
     .from("profiles")
     .select("role")
@@ -20,7 +22,9 @@ async function isTrackedViewer(userId: string): Promise<boolean> {
 async function filterTrackedViewerIds(viewerIds: string[]): Promise<string[]> {
   if (viewerIds.length === 0) return [];
 
-  const admin = createAdminClient();
+  const admin = tryCreateAdminClient();
+  if (!admin) return viewerIds;
+
   const { data: profiles } = await admin
     .from("profiles")
     .select("id, role")
@@ -54,7 +58,9 @@ export async function recordProjectView(
   );
 
   if (error) {
-    const admin = createAdminClient();
+    const admin = tryCreateAdminClient();
+    if (!admin) return;
+
     await admin.from("project_contractor_views").upsert(
       {
         project_id: projectId,
@@ -70,7 +76,9 @@ export async function countProjectViews(
   _supabase: SupabaseClient,
   projectId: string,
 ): Promise<number> {
-  const admin = createAdminClient();
+  const admin = tryCreateAdminClient();
+  if (!admin) return 0;
+
   const { data } = await admin
     .from("project_contractor_views")
     .select("contractor_id")
@@ -84,7 +92,8 @@ export async function countProjectViews(
 export async function fetchProjectViewContractorIds(
   projectId: string,
 ): Promise<string[]> {
-  const admin = createAdminClient();
+  const admin = tryCreateAdminClient();
+  if (!admin) return [];
   const { data } = await admin
     .from("project_contractor_views")
     .select("contractor_id")

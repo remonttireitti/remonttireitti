@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
+import { useServerActionSubmit } from "@/hooks/use-server-action-submit";
 import { LearnedCriteriaWarnings } from "@/components/project/learned-criteria-warnings";
 import type { LearnedCriterionWithJob } from "@/components/project/learned-criteria-warnings";
 import { ProjectQualityScorePanel } from "@/components/project/project-quality-score-panel";
@@ -21,6 +22,7 @@ import {
 import { genericDescriptionPlaceholder } from "@/constants/project-areas";
 import { isServiceJobSlug } from "@/constants/service-jobs";
 import { isFreeFormJobSlug } from "@/constants/free-form-job";
+import { BudgetGuidancePanel } from "@/components/project/budget-guidance-panel";
 import { IlmalampopumppuDetailsStep } from "@/components/project/ilmalampopumppu-details-step";
 import { ProjectPhotoUpload } from "@/components/project/project-photo-upload";
 import { IlmavesilampopumppuDetailsStep } from "@/components/project/ilmavesilampopumppu-details-step";
@@ -62,6 +64,8 @@ import {
   validateServiceEngagement,
   type ServiceEngagement,
 } from "@/lib/service-engagement";
+import { BidWindowFields } from "@/components/project/bid-window-fields";
+import { PROJECT_BID_WINDOW_DAYS } from "@/lib/project-inactivity";
 import { brand, formInputClass } from "@/lib/brand-theme";
 import type { JobCatalog, JobTypeWithTrades } from "@/types/job-catalog";
 import {
@@ -94,6 +98,7 @@ type FormState = {
   address_line: string;
   contact_email: string;
   contact_phone: string;
+  bid_window_days: string;
 };
 
 const initialForm: FormState = {
@@ -112,6 +117,7 @@ const initialForm: FormState = {
   address_line: "",
   contact_email: "",
   contact_phone: "",
+  bid_window_days: String(PROJECT_BID_WINDOW_DAYS),
 };
 
 type ProjectWizardProps = {
@@ -123,6 +129,7 @@ type ProjectWizardProps = {
   prefill?: RemonttiPrefill;
   emphasizedCriteria?: EmphasizedCriterion[];
   learnedCriteria?: LearnedCriterionWithJob[];
+  isGuest?: boolean;
 };
 
 export function ProjectWizard({
@@ -134,6 +141,7 @@ export function ProjectWizard({
   prefill,
   emphasizedCriteria = [],
   learnedCriteria = [],
+  isGuest = false,
 }: ProjectWizardProps) {
   const isEdit = Boolean(editSnapshot);
   const prefillApplied = !isEdit && prefill
@@ -149,7 +157,7 @@ export function ProjectWizard({
   );
   const [form, setForm] = useState<FormState>(() =>
     editSnapshot
-      ? { ...editSnapshot.form }
+      ? { ...initialForm, ...editSnapshot.form }
       : {
           ...initialForm,
           ...prefillApplied?.formPatch,
@@ -180,9 +188,8 @@ export function ProjectWizard({
   const [submitIntent, setSubmitIntent] = useState<"draft" | "publish" | null>(
     null,
   );
-  const [state, action, pending] = useActionState<ProjectActionState, FormData>(
+  const { state, submit, pending } = useServerActionSubmit<ProjectActionState>(
     isEdit ? updateProject : createProject,
-    {},
   );
 
   const selectedJobType = useMemo(
@@ -431,7 +438,7 @@ export function ProjectWizard({
 
   return (
     <WizardShell step={step} steps={STEPS}>
-      <form action={action}>
+      <form action={submit}>
         {isEdit && editSnapshot && (
           <input type="hidden" name="project_id" value={editSnapshot.projectId} />
         )}
@@ -457,6 +464,7 @@ export function ProjectWizard({
         <input type="hidden" name="address_line" value={form.address_line} />
         <input type="hidden" name="contact_email" value={form.contact_email} />
         <input type="hidden" name="contact_phone" value={form.contact_phone} />
+        <input type="hidden" name="bid_window_days" value={form.bid_window_days} />
         {hasStructuredForm && (
           <>
             <input type="hidden" name="details_kind" value={detailsKind} />
@@ -498,6 +506,17 @@ export function ProjectWizard({
               details={ilpDetails}
               onChange={setIlpDetails}
             />
+            <div className="mt-4">
+              <BudgetGuidancePanel
+                jobSlug="ilmalampopumppu"
+                budgetMax={
+                  ilpDetails.budget_max_eur != null
+                    ? String(ilpDetails.budget_max_eur)
+                    : ""
+                }
+                postalCode={form.postal_code}
+              />
+            </div>
             <div className="mt-6 rounded-2xl border border-stone-200 bg-white p-5">
               <p className="text-sm font-semibold text-stone-800">
                 Kuvat tarjouspyyntöön
@@ -542,6 +561,17 @@ export function ProjectWizard({
               details={ivlpDetails}
               onChange={setIvlpDetails}
             />
+            <div className="mt-4">
+              <BudgetGuidancePanel
+                jobSlug="ilmavesilampopumppu"
+                budgetMax={
+                  ivlpDetails.budget_max_eur != null
+                    ? String(ivlpDetails.budget_max_eur)
+                    : ""
+                }
+                postalCode={form.postal_code}
+              />
+            </div>
           </>
         )}
 
@@ -556,11 +586,27 @@ export function ProjectWizard({
               details={maalampDetails}
               onChange={setMaalampDetails}
             />
+            <div className="mt-4">
+              <BudgetGuidancePanel
+                jobSlug="maalampopumppu"
+                budgetMax={
+                  maalampDetails.budget_max_eur != null
+                    ? String(maalampDetails.budget_max_eur)
+                    : ""
+                }
+                postalCode={form.postal_code}
+              />
+            </div>
           </>
         )}
 
         {step === 1 && !hasStructuredForm && (
           <div className="space-y-4">
+            <p className="rounded-xl border border-sky-100 bg-sky-50/70 px-4 py-3 text-sm leading-relaxed text-sky-950">
+              <span className="font-medium">Ei tarvitse täyttää kaikkea.</span> Riittää
+              lyhyt kuvaus ja sijainti — voit julkaista heti. Mitä enemmän kerrot, sitä
+              tarkempia tarjouksia yleensä saat.
+            </p>
             <ProjectRequestGuide
               jobSlug={selectedJobType?.slug ?? null}
               description={form.description}
@@ -623,6 +669,11 @@ export function ProjectWizard({
                 update("accept_offers_over_budget", v)
               }
             />
+            <BudgetGuidancePanel
+              jobSlug={selectedJobType?.slug ?? null}
+              budgetMax={form.budget_max}
+              postalCode={form.postal_code}
+            />
             {isServiceJob && (
               <ServiceEngagementFields
                 engagement={serviceEngagement}
@@ -651,12 +702,16 @@ export function ProjectWizard({
                 <label htmlFor="desired_start" className="block text-sm font-medium">
                   {isServiceJob ? "Toivottu aloitus / ensimmäinen käynti" : "Toivottu aloitus"}
                 </label>
+                <p className="mt-1 text-xs text-stone-500">
+                  Valinnainen. Jätä tyhjäksi, jos aikataulu on joustava — kerro kiireestä
+                  kuvauksessa, jos se on tärkeää.
+                </p>
                 <input
                   id="desired_start"
                   type="date"
                   value={form.desired_start}
                   onChange={(e) => update("desired_start", e.target.value)}
-                  className={inputClass}
+                  className={`${inputClass} mt-2`}
                 />
               </div>
               <div>
@@ -683,9 +738,23 @@ export function ProjectWizard({
 
         {step === 2 && (
           <div className="space-y-4">
+            {isGuest && (
+              <div className="space-y-3">
+                <p className="rounded-xl border border-sky-200 bg-sky-50/70 px-4 py-3 text-sm text-sky-950">
+                  <span className="font-medium">Mihin lähetämme tarjouspyynnön ja tarjoukset?</span>{" "}
+                  Sähköpostiin tulee vahvistuslinkki ja henkilökohtainen linkki pyyntöösi.
+                  Kirjautumista ei tarvita.
+                </p>
+                <p className="rounded-xl border border-amber-200 bg-amber-50/80 px-4 py-3 text-sm text-amber-950">
+                  <span className="font-medium">Viestittely vaatii tilin.</span> Ilman tiliä
+                  et voi keskustella urakoitsijoiden kanssa sovelluksessa — tarjoukset ja
+                  tarkentavat ilmoitukset tulevat sähköpostiin.
+                </p>
+              </div>
+            )}
             <div>
               <label htmlFor="contact_email" className="block text-sm font-medium">
-                Sähköpostiosoite *
+                {isGuest ? "Sähköpostiosoite *" : "Sähköpostiosoite *"}
               </label>
               <input
                 id="contact_email"
@@ -775,6 +844,12 @@ export function ProjectWizard({
 
         {step === 3 && (
           <>
+          <div className="mb-6 rounded-2xl border border-stone-200 bg-white p-5">
+            <BidWindowFields
+              value={form.bid_window_days}
+              onChange={(value) => update("bid_window_days", value)}
+            />
+          </div>
           <ProjectQualityScorePanel quality={quality} />
           <LearnedCriteriaWarnings
             learned={learnedCriteria}
@@ -850,6 +925,17 @@ export function ProjectWizard({
               className={`${brand.btnPrimary} disabled:opacity-60`}
             >
               {pending ? "Tallennetaan…" : "Tallenna muutokset"}
+            </button>
+          ) : isGuest ? (
+            <button
+              type="submit"
+              name="publish"
+              value="true"
+              disabled={pending}
+              onClick={() => setSubmitIntent("publish")}
+              className={`${brand.btnPrimary} disabled:opacity-60`}
+            >
+              {pending ? "Lähetetään…" : "Jätä tarjouspyyntö – maksutta"}
             </button>
           ) : (
             <>

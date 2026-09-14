@@ -1,9 +1,11 @@
-import { createAdminClient } from "@/lib/supabase/admin";
+import { tryCreateAdminClient } from "@/lib/supabase/admin";
 import { sendEmail, siteUrl } from "@/lib/email";
 import { getNotificationPrefs } from "@/lib/notification-prefs";
 
 async function userEmail(userId: string): Promise<string | null> {
-  const admin = createAdminClient();
+  const admin = tryCreateAdminClient();
+  if (!admin) return null;
+
   const { data } = await admin.auth.admin.getUserById(userId);
   return data.user?.email ?? null;
 }
@@ -41,11 +43,15 @@ async function sendUserEmail(
   bodyHtml: string,
   ctaPath: string,
   ctaLabel: string,
+  fallbackEmail?: string | null,
 ) {
   const prefs = await getNotificationPrefs(userId);
   if (!prefs.notifyEmail) return;
 
-  const to = await userEmail(userId);
+  let to = await userEmail(userId);
+  if (!to && fallbackEmail?.includes("@")) {
+    to = fallbackEmail.trim();
+  }
   if (!to) {
     console.warn("[email-notify] no email for user", userId, subject);
     return;
@@ -82,6 +88,7 @@ export async function notifyNewBid(params: {
   projectTitle: string;
   projectId: string;
   contractorCompany: string;
+  contactEmail?: string | null;
 }) {
   await sendUserEmail(
     params.customerId,
@@ -90,6 +97,7 @@ export async function notifyNewBid(params: {
     `<p><strong>${escapeHtml(params.contractorCompany)}</strong> jätti tarjouksen pyyntöösi <em>${escapeHtml(params.projectTitle)}</em>.</p>`,
     `/remontti/${params.projectId}`,
     "Avaa tarjoukset",
+    params.contactEmail,
   );
 }
 
@@ -98,14 +106,38 @@ export async function notifyBidUpdated(params: {
   projectTitle: string;
   projectId: string;
   contractorCompany: string;
+  contactEmail?: string | null;
+  afterCompletion?: boolean;
 }) {
+  const extra = params.afterCompletion
+    ? "<p>Urakoitsija on päivittänyt tarjouksen täydennettyjen tietojen jälkeen — voit nyt hyväksyä tarjouksen.</p>"
+    : "";
   await sendUserEmail(
     params.customerId,
     `Tarjous päivitetty: ${params.projectTitle}`,
     "Tarjous päivitetty",
-    `<p><strong>${escapeHtml(params.contractorCompany)}</strong> päivitti tarjoustaan urakkaan <em>${escapeHtml(params.projectTitle)}</em>.</p>`,
+    `<p><strong>${escapeHtml(params.contractorCompany)}</strong> päivitti tarjoustaan urakkaan <em>${escapeHtml(params.projectTitle)}</em>.</p>${extra}`,
     `/remontti/${params.projectId}`,
     "Avaa tarjoukset",
+    params.contactEmail,
+  );
+}
+
+export async function notifyBidWithdrawn(params: {
+  customerId: string;
+  projectTitle: string;
+  projectId: string;
+  contractorCompany: string;
+  contactEmail?: string | null;
+}) {
+  await sendUserEmail(
+    params.customerId,
+    `Tarjous peruttu: ${params.projectTitle}`,
+    "Urakoitsija perui tarjouksen",
+    `<p><strong>${escapeHtml(params.contractorCompany)}</strong> perui tarjouksensa urakkaan <em>${escapeHtml(params.projectTitle)}</em>.</p><p>Muut tarjoukset ovat edelleen näkyvissä.</p>`,
+    `/remontti/${params.projectId}`,
+    "Avaa tarjoukset",
+    params.contactEmail,
   );
 }
 
@@ -158,6 +190,23 @@ export async function notifyCounterOfferDeclined(params: {
   );
 }
 
+export async function notifyProjectCompletionRequested(params: {
+  customerId: string;
+  projectTitle: string;
+  projectId: string;
+  contractorCompany: string;
+  criterionCount: number;
+}) {
+  await sendUserEmail(
+    params.customerId,
+    `Täydennä tarjouspyyntöä: ${params.projectTitle}`,
+    "Urakoitsija pyytää lisätietoja",
+    `<p><strong>${escapeHtml(params.contractorCompany)}</strong> tarvitsee ${params.criterionCount} lisätietoa tarkempaa tarjousta varten: <em>${escapeHtml(params.projectTitle)}</em>.</p><p>Avaa linkki ja täydennä pyyntö.</p>`,
+    `/remontti/${params.projectId}/taydenna`,
+    "Täydennä tarjouspyyntö",
+  );
+}
+
 export async function notifyProjectUpdated(params: {
   contractorId: string;
   projectTitle: string;
@@ -168,6 +217,22 @@ export async function notifyProjectUpdated(params: {
     `Tarjouspyyntö päivitetty: ${params.projectTitle}`,
     "Tarjouspyyntö muuttui",
     `<p>Asiakas muokkasi tarjouspyyntöä <em>${escapeHtml(params.projectTitle)}</em>.</p><p>Päivitä tarjouksesi, jotta asiakas voi hyväksyä sen.</p>`,
+    `/tarjoukset/${params.projectId}`,
+    "Päivitä tarjous",
+  );
+}
+
+export async function notifyProjectCompletionUpdated(params: {
+  contractorId: string;
+  projectTitle: string;
+  projectId: string;
+  summary: string;
+}) {
+  await sendUserEmail(
+    params.contractorId,
+    `Asiakas täydensi pyyntöä: ${params.projectTitle}`,
+    "Asiakas täydensi tarjouspyyntöä",
+    `<p>Asiakas täydensi tarjouspyyntöä <em>${escapeHtml(params.projectTitle)}</em>: ${escapeHtml(params.summary)}.</p><p>Päivitä tarjouksesi uusien tietojen perusteella.</p>`,
     `/tarjoukset/${params.projectId}`,
     "Päivitä tarjous",
   );

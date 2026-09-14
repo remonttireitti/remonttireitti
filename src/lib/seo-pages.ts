@@ -9,6 +9,7 @@ import {
   PUBLIC_SERVICE_SLUGS,
   SERVICE_KEYWORDS,
   SITE_KEYWORDS,
+  TARJOUSARVIO_KEYWORDS,
 } from "@/lib/seo-keywords";
 import { SYMPTOM_SLUGS_BY_PUMP, isHeatPumpSlug } from "@/lib/troubleshooting-guides";
 
@@ -72,6 +73,15 @@ export const STATIC_SEO_PAGES: SeoPageDef[] = [
     ]),
     changeFrequency: "monthly",
     priority: 0.9,
+  },
+  {
+    path: "/tarjousarvio",
+    title: "Tarjousvahti — ilmainen puolueeton tarjousarvio",
+    description:
+      "Saitko tarjoukset muualta? Lähetä ne Remonttireittiin — asiantuntija auttaa ymmärtämään hintaa ja sisältöä. 0 €, ei suositusta urakoitsijasta.",
+    keywords: mergeKeywords(SITE_KEYWORDS, TARJOUSARVIO_KEYWORDS, HEAT_PUMP_KEYWORDS.slice(0, 3)),
+    changeFrequency: "monthly",
+    priority: 0.88,
   },
   {
     path: "/tarjouspyynnot",
@@ -152,17 +162,19 @@ export const STATIC_SEO_PAGES: SeoPageDef[] = [
   },
   {
     path: "/hinta-arkisto",
-    title: "Hinta-arkisto — toteutuneet lämpöpumppuhinnat",
+    title: "Hinta-arkisto — toteutuneet remontti- ja asennushinnat",
     description:
-      "Anonymisoitu yhteenveto hyväksytyistä tarjouksista: lämpöpumpun asennus, huolto ja korjaus. Vertaa alueen hintoja ennen kilpailutusta.",
-    keywords: mergeKeywords(HEAT_PUMP_KEYWORDS, [
-      "hinta",
+      "Anonymisoitu yhteenveto hyväksytyistä tarjouksista: keittiö, kylpyhuone, katto, lämpöpumput ja muut työlajit. Vertaa alueen mediaanihintoja ennen kilpailutusta.",
+    keywords: mergeKeywords(SERVICE_KEYWORDS, HEAT_PUMP_KEYWORDS, [
+      "remontti hinta",
+      "keittiöremontti hinta",
+      "kylpyhuoneremontti hinta",
+      "kattoremontti hinta",
       "hinta-arvio",
-      "asennushinta",
-      "huoltohinta",
+      "mediaanihinta",
     ]),
     changeFrequency: "weekly",
-    priority: 0.75,
+    priority: 0.78,
   },
   {
     path: "/tietosuoja",
@@ -233,6 +245,18 @@ export function publicServiceSitemapEntries(
     lastModified: now,
     changeFrequency: "weekly" as const,
     priority: 0.82,
+  }));
+}
+
+export function contractorProfileSitemapEntries(
+  base: string,
+  contractors: { id: string; updated_at: string }[],
+): MetadataRoute.Sitemap {
+  return contractors.map((row) => ({
+    url: `${base}/urakoitsija/${row.id}`,
+    lastModified: new Date(row.updated_at),
+    changeFrequency: "weekly" as const,
+    priority: 0.55,
   }));
 }
 

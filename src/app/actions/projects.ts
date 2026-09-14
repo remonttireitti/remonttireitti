@@ -20,7 +20,9 @@ import {
 } from "@/lib/contractor-project-notify";
 import { scheduleNotification } from "@/lib/schedule-notification";
 import {
+  extendBidDeadlineFromForm,
   extendBidDeadlineFromNow,
+  parseBidWindowDays,
 } from "@/lib/project-inactivity";
 import type { DeviceCategory } from "@/constants/maintenance";
 import {
@@ -41,8 +43,9 @@ import {
   parseServiceEngagementJson,
   validateServiceEngagement,
 } from "@/lib/service-engagement";
+import { issueGuestProjectAccess } from "@/app/actions/guest-projects";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
-import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 
 function parseAcceptOverBudgetFromForm(formData: FormData): boolean {
@@ -70,6 +73,7 @@ function shouldStoreGenericBudgetPrefs(detailsKind: string): boolean {
 
 export type ProjectActionState = {
   error?: string;
+  redirectPath?: string;
 };
 
 function parseTradeIds(raw: string): string[] {
@@ -91,11 +95,11 @@ export async function createProject(
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) {
-    return { error: "Kirjaudu sisään jatkaaksesi." };
-  }
+  const isGuest = !user;
 
-  await ensureProfile(user);
+  if (!isGuest) {
+    await ensureProfile(user);
+  }
 
   const jobTypeId = String(formData.get("job_type_id") ?? "");
   let categoryId = String(formData.get("category_id") ?? "");
@@ -202,6 +206,10 @@ export async function createProject(
     return { error: "Täytä kaikki pakolliset kentät." };
   }
 
+  if (isGuest && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmail)) {
+    return { error: "Anna kelvollinen sähköpostiosoite." };
+  }
+
   if (!categoryId) {
     const { data: jt } = await supabase
       .from("job_types")
@@ -249,13 +257,25 @@ export async function createProject(
     return { error: "Budjetin minimi ei voi olla suurempi kuin maksimi." };
   }
 
-  const now = new Date();
-  const bidDeadlineIso = publish ? extendBidDeadlineFromNow() : null;
+  if (isGuest) {
+    projectDetails = {
+      ...projectDetails,
+      bid_window_days: parseBidWindowDays(
+        String(formData.get("bid_window_days") ?? ""),
+      ),
+    };
+  }
 
-  const { data, error } = await supabase
+  const now = new Date();
+  const bidDeadlineIso =
+    !isGuest && publish ? extendBidDeadlineFromForm(formData) : null;
+  const db = isGuest ? createAdminClient() : supabase;
+
+  const { data, error } = await db
     .from("projects")
     .insert({
-      customer_id: user.id,
+      customer_id: isGuest ? null : user.id,
+      guest_email: isGuest ? contactEmail.toLowerCase() : null,
       category_id: categoryId,
       job_type_id: jobTypeId,
       title,
@@ -270,9 +290,10 @@ export async function createProject(
       desired_start: desiredStart || null,
       flexibility_weeks: flexibilityWeeks,
       details: projectDetails,
-      status: publish ? "published" : "draft",
-      published_at: publish ? now.toISOString() : null,
+      status: isGuest ? "draft" : publish ? "published" : "draft",
+      published_at: isGuest ? null : publish ? now.toISOString() : null,
       bid_deadline: bidDeadlineIso,
+      pending_publish: isGuest ? publish : false,
     })
     .select("id")
     .single();
@@ -282,7 +303,7 @@ export async function createProject(
     return { error: formatProjectSaveError(error) };
   }
 
-  const { error: contactErr } = await supabase.from("project_contacts").insert({
+  const { error: contactErr } = await db.from("project_contacts").insert({
     project_id: data.id,
     contact_email: contactEmail,
     contact_phone: contactPhone,
@@ -293,7 +314,7 @@ export async function createProject(
     return { error: "Yhteystietojen tallennus epäonnistui. Yritä uudelleen." };
   }
 
-  const { error: tradesErr } = await supabase.from("project_trades").insert(
+  const { error: tradesErr } = await db.from("project_trades").insert(
     tradeIds.map((trade_id) => ({
       project_id: data.id,
       trade_id,
@@ -322,9 +343,24 @@ export async function createProject(
     if (isSetupIssue) {
       console.error("[createProject] photos skipped:", message);
     } else {
-      await supabase.from("projects").delete().eq("id", data.id);
+      await db.from("projects").delete().eq("id", data.id);
       return { error: `${message} Yritä uudelleen.` };
     }
+  }
+
+  if (isGuest) {
+    // Vieras: tallennetaan luonnoksena (draft). Julkaisu + urakoitsijailmoitukset
+    // vasta sähköpostivahvistuksen jälkeen. Vahvistamaton poistuu 24 h kuluttua.
+    await issueGuestProjectAccess({
+      projectId: data.id,
+      guestEmail: contactEmail.toLowerCase(),
+      projectTitle: title,
+      pendingPublish: publish,
+    });
+    revalidatePath(`/remontti/${data.id}`);
+    return {
+      redirectPath: `/remontti/uusi/lahetetty?email=${encodeURIComponent(contactEmail.toLowerCase())}`,
+    };
   }
 
   if (publish) {
@@ -370,7 +406,11 @@ export async function createProject(
   revalidatePath("/oma-tili");
   revalidatePath(`/remontti/${data.id}`);
   revalidatePath("/tarjoukset");
-  redirect(publish ? `/remontti/${data.id}?julkaistu=1` : `/remontti/${data.id}?luonnos=1`);
+  return {
+    redirectPath: publish
+      ? `/remontti/${data.id}?julkaistu=1`
+      : `/remontti/${data.id}?luonnos=1`,
+  };
 }
 
 export async function publishProject(
@@ -410,7 +450,7 @@ export async function publishProject(
     .update({
       status: "published",
       published_at: now.toISOString(),
-      bid_deadline: extendBidDeadlineFromNow(),
+      bid_deadline: extendBidDeadlineFromForm(formData),
       inactivity_warning_sent_at: null,
     })
     .eq("id", projectId);
@@ -459,7 +499,7 @@ export async function publishProject(
   }
 
   revalidateCustomerProjectPaths(projectId);
-  redirect(`/remontti/${projectId}?julkaistu=1`);
+  return { redirectPath: `/remontti/${projectId}?julkaistu=1` };
 }
 
 const EDITABLE_PROJECT_STATUSES = ["draft", "published", "receiving_bids"] as const;
@@ -472,7 +512,7 @@ const CANCELLABLE_PROJECT_STATUSES = [
 
 export type CancelProjectActionState = { error?: string; success?: string };
 
-export type DeleteProjectActionState = { error?: string };
+export type DeleteProjectActionState = { error?: string; redirectPath?: string };
 
 function revalidateCustomerProjectPaths(projectId: string) {
   revalidatePath("/");
@@ -634,7 +674,7 @@ export async function deleteCustomerProject(
   }
 
   revalidateCustomerProjectPaths(projectId);
-  redirect("/oma-tili?poistettu=1");
+  return { redirectPath: "/oma-tili?poistettu=1" };
 }
 
 export async function updateProject(
@@ -920,5 +960,5 @@ export async function updateProject(
   revalidatePath(`/remontti/${projectId}/muokkaa`);
   revalidatePath("/tarjoukset");
   revalidatePath(`/tarjoukset/${projectId}`);
-  redirect(`/remontti/${projectId}?paivitetty=1`);
+  return { redirectPath: `/remontti/${projectId}?paivitetty=1` };
 }

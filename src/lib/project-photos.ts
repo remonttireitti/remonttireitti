@@ -72,6 +72,31 @@ export async function uploadProjectPhotosFromFormData(
   }
 }
 
+export async function deleteProjectStoragePhotos(projectId: string): Promise<void> {
+  const admin = createAdminClient();
+
+  const { data: rows, error } = await admin
+    .from("project_photos")
+    .select("storage_path")
+    .eq("project_id", projectId);
+
+  if (error) {
+    console.error("[deleteProjectStoragePhotos]", projectId, error.message);
+    return;
+  }
+
+  const paths = (rows ?? [])
+    .map((row) => row.storage_path as string)
+    .filter(Boolean);
+
+  if (paths.length > 0) {
+    const { error: storageErr } = await admin.storage.from(BUCKET).remove(paths);
+    if (storageErr) {
+      console.error("[deleteProjectStoragePhotos] storage", projectId, storageErr.message);
+    }
+  }
+}
+
 export async function fetchProjectPhotos(
   supabase: SupabaseClient,
   projectId: string,

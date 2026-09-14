@@ -1,4 +1,5 @@
 import { expireEquipmentListings } from "@/lib/expire-listings";
+import { expireAllUnverifiedListings } from "@/lib/expire-unverified-listings";
 import { NextResponse } from "next/server";
 
 export async function GET(request: Request) {
@@ -9,7 +10,10 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const expired = await expireEquipmentListings();
+  const [expired, unverifiedDeleted] = await Promise.all([
+    expireEquipmentListings(),
+    expireAllUnverifiedListings(),
+  ]);
 
-  return NextResponse.json({ ok: true, expired });
+  return NextResponse.json({ ok: true, expired, unverifiedDeleted });
 }

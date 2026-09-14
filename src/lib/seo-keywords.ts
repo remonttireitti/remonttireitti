@@ -12,6 +12,22 @@ export const SITE_KEYWORDS = [
   "vertaile tarjouksia",
   "palvelut kotiin",
   "remonttitori",
+  "kylpyhuoneremontti hinta",
+  "keittiöremontti hinta",
+  "kattoremontti hinta",
+  "remontti hinta-arvio",
+  "tarjouspyyntö remontti",
+  "remontin vertailu",
+  "urakoitsijan tarjous",
+] as const;
+
+export const TARJOUSARVIO_KEYWORDS = [
+  "tarjousarvio",
+  "tarjousvahti",
+  "tarjouksen arviointi",
+  "remonttitarjouksen arviointi",
+  "lämpöpumppu tarjous arvio",
+  "puolueeton tarjousarvio",
 ] as const;
 
 export const SERVICE_KEYWORDS = [
@@ -24,6 +40,15 @@ export const SERVICE_KEYWORDS = [
   "muuttopalvelu",
   "jatkuva palvelu",
   "kunnossapito",
+  "kylpyhuoneremontti",
+  "keittiöremontti",
+  "kattoremontti",
+  "sähköremontti",
+  "LVI-remontti",
+  "julkisivuremontti",
+  "terassiremontti",
+  "aurinkopaneelit asennus",
+  "latauspiste asennus",
 ] as const;
 
 export const HEAT_PUMP_KEYWORDS = [

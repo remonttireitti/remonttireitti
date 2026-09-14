@@ -474,7 +474,7 @@ export function HeatingSystemDetailsStep({
 
         <FormSection
           title="Budjetti ja lisätiedot"
-          description="Hintatoive ja vapaat huomiot"
+          description="Budjetti ja vapaat huomiot"
           span={showOutdoorFields ? "half" : "full"}
         >
           <FieldGroup label="Budjetin yläraja (€)">

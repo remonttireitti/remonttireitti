@@ -4,6 +4,7 @@ export type Trade = {
   name_fi: string;
   description_fi: string | null;
   sort_order: number;
+  source?: "seed" | "community";
 };
 
 export type JobType = {

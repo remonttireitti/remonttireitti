@@ -33,6 +33,14 @@ export function JsonLd() {
         publisher: { "@id": `${base}/#organization` },
         description:
           "Kilpailuta remontit ilmaiseksi, vertaa tarjouksia ja tingaa vastatarjouksella. Lämpöpumpun vian selvitys ja huolto.",
+        potentialAction: {
+          "@type": "SearchAction",
+          target: {
+            "@type": "EntryPoint",
+            urlTemplate: `${base}/tarjouspyynnot?q={search_term_string}`,
+          },
+          "query-input": "required name=search_term_string",
+        },
       },
       {
         "@type": "Service",
@@ -61,7 +69,7 @@ export function JsonLd() {
         "@id": `${base}/#services`,
         name: "Palvelut",
         numberOfItems: PUBLIC_SERVICE_SLUGS.length,
-        itemListElement: PUBLIC_SERVICE_SLUGS.slice(0, 20).map((slug, i) => ({
+        itemListElement: PUBLIC_SERVICE_SLUGS.map((slug, i) => ({
           "@type": "ListItem",
           position: i + 1,
           url: `${base}/palvelut/${slug}`,

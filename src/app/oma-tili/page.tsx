@@ -16,7 +16,7 @@ import { ContractorProfileForm } from "@/components/contractor/contractor-profil
 import { ContractorServiceAreaForm } from "@/components/contractor/contractor-service-area-form";
 import { ContractorWorkPreferencesForm } from "@/components/contractor/contractor-work-preferences-form";
 import { fetchContractorBidDefaultsBundle } from "@/lib/contractor-bid-defaults-server";
-import { PUBLIC_CONTRACTOR_TRADE_SLUGS } from "@/constants/contractor-trades";
+import { getContractorSelectableTrades } from "@/lib/contractor-trade-options";
 import { fetchHeatPumpCatalog, fetchJobCatalog } from "@/lib/job-catalog-server";
 import { getContractorQualifications } from "@/lib/save-contractor-qualifications";
 import {
@@ -26,6 +26,12 @@ import {
   formatRefrigerant,
   formatTrades,
 } from "@/lib/format-qualifications";
+import {
+  companyFactsEnforcementActive,
+  companyFactsFromRow,
+  parseCompanySizeBand,
+  type CompanySizeBand,
+} from "@/lib/contractor-company-facts";
 import { getContractorCompanyBypass } from "@/lib/profile-read";
 import { getNotificationPrefs } from "@/lib/notification-prefs";
 import { syncContractorAccount } from "@/lib/sync-contractor";
@@ -68,6 +74,8 @@ export default async function AccountPage({
     maxTravelKm: 100,
   };
   let minBudgetEur: number | null = null;
+  let foundedYear: number | null = null;
+  let companySizeBand: CompanySizeBand | null = null;
   let billingFields = {
     businessId: "",
     billingEmail: "",
@@ -86,10 +94,7 @@ export default async function AccountPage({
       fetchJobCatalog(),
       fetchHeatPumpCatalog(),
     ]);
-    const tradeSlugs = new Set<string>(PUBLIC_CONTRACTOR_TRADE_SLUGS);
-    contractorTrades = jobCatalog.trades
-      .filter((t) => tradeSlugs.has(t.slug))
-      .map((t) => ({ id: t.id, slug: t.slug, name_fi: t.name_fi }));
+    contractorTrades = getContractorSelectableTrades(jobCatalog.trades);
     heatPumpJobTypes = pumpCatalog.jobTypes.map((j) => ({
       id: j.id,
       slug: j.slug,
@@ -98,7 +103,7 @@ export default async function AccountPage({
     const { data: billingRow } = await supabase
       .from("contractor_profiles")
       .select(
-        "business_id, billing_email, billing_address_line, billing_postal_code, billing_city, service_postal_code, service_municipality, max_travel_km, min_budget_eur",
+        "business_id, billing_email, billing_address_line, billing_postal_code, billing_city, service_postal_code, service_municipality, max_travel_km, min_budget_eur, founded_year, company_size_band",
       )
       .eq("id", user.id)
       .maybeSingle();
@@ -116,6 +121,8 @@ export default async function AccountPage({
         maxTravelKm: billingRow.max_travel_km ?? 100,
       };
       minBudgetEur = (billingRow.min_budget_eur as number | null) ?? null;
+      foundedYear = (billingRow.founded_year as number | null) ?? null;
+      companySizeBand = parseCompanySizeBand(billingRow.company_size_band);
     }
   }
 
@@ -445,7 +452,8 @@ export default async function AccountPage({
             <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
               {contractorTrades.length > 0 && contractorQuals && (
                 <ContractorProfileForm
-                  className="mt-0"
+                  id="yritystiedot"
+                  className="mt-0 scroll-mt-24"
                   trades={contractorTrades}
                   jobTypes={heatPumpJobTypes}
                   companyName={contractorQuals.companyName}
@@ -454,6 +462,9 @@ export default async function AccountPage({
                   refrigerantLicense={contractorQuals.refrigerantLicense}
                   electricalQualification={contractorQuals.electricalQualification}
                   lviQualifications={contractorQuals.lviQualifications}
+                  foundedYear={foundedYear}
+                  companySizeBand={companySizeBand}
+                  requireCompanyFacts={companyFactsEnforcementActive()}
                 />
               )}
 

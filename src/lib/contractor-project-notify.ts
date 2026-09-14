@@ -49,23 +49,32 @@ export async function notifyContractorsNewPublishedProject(params: {
     ...new Set((jobMatches ?? []).map((r) => r.contractor_id as string)),
   ];
 
-  if (contractorIds.length === 0) {
-    const { data: projectTrades } = await admin
-      .from("project_trades")
-      .select("trade_id")
-      .eq("project_id", params.projectId);
+  const { data: projectTrades } = await admin
+    .from("project_trades")
+    .select("trade_id")
+    .eq("project_id", params.projectId);
 
-    const tradeIds = (projectTrades ?? []).map((r) => r.trade_id as string);
-    if (tradeIds.length > 0) {
-      const { data: tradeMatches } = await admin
-        .from("contractor_trades")
-        .select("contractor_id")
-        .in("trade_id", tradeIds);
+  const tradeIds = (projectTrades ?? []).map((r) => r.trade_id as string);
 
-      contractorIds = [
-        ...new Set((tradeMatches ?? []).map((r) => r.contractor_id as string)),
-      ];
-    }
+  if (contractorIds.length === 0 && tradeIds.length > 0) {
+    const { data: tradeMatches } = await admin
+      .from("contractor_trades")
+      .select("contractor_id")
+      .in("trade_id", tradeIds);
+
+    contractorIds = [
+      ...new Set((tradeMatches ?? []).map((r) => r.contractor_id as string)),
+    ];
+  } else if (contractorIds.length > 0 && tradeIds.length > 0) {
+    const { data: tradeMatches } = await admin
+      .from("contractor_trades")
+      .select("contractor_id")
+      .in("contractor_id", contractorIds)
+      .in("trade_id", tradeIds);
+
+    contractorIds = [
+      ...new Set((tradeMatches ?? []).map((r) => r.contractor_id as string)),
+    ];
   }
 
   if (contractorIds.length === 0) return;

@@ -4,7 +4,13 @@ import { LoginForm } from "@/components/auth/login-form";
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ redirect?: string; vahvistus?: string; virhe?: string; salasana?: string }>;
+  searchParams: Promise<{
+    redirect?: string;
+    vahvistus?: string;
+    virhe?: string;
+    salasana?: string;
+    reason?: string;
+  }>;
 }) {
   const params = await searchParams;
 
@@ -29,6 +35,12 @@ export default async function LoginPage({
           role="status"
         >
           Salasana vaihdettu. Voit nyt kirjautua uudella salasanallasi.
+        </p>
+      )}
+      {params.reason === "idle" && (
+        <p className="mb-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-950" role="status">
+          Istuntosi päättyi 30 minuutin passiivisuuden jälkeen. Kirjaudu uudelleen
+          jatkaaksesi.
         </p>
       )}
       <LoginForm redirectTo={params.redirect} />

@@ -31,7 +31,7 @@ export function CookieConsentBanner() {
 
   return (
     <div
-      className="fixed inset-x-0 bottom-0 z-50 border-t border-stone-200 bg-white p-4 shadow-lg sm:p-6"
+      className="fixed inset-x-0 bottom-0 z-50 border-t border-stone-200 bg-white p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] shadow-lg sm:p-6 sm:pb-[calc(1.5rem+env(safe-area-inset-bottom))]"
       role="dialog"
       aria-label="Evästeilmoitus"
     >
@@ -52,14 +52,14 @@ export function CookieConsentBanner() {
           <button
             type="button"
             onClick={() => save("essential")}
-            className="rounded-lg border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-50"
+            className="touch-target rounded-lg border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-50"
           >
             Vain välttämättömät
           </button>
           <button
             type="button"
             onClick={() => save("all")}
-            className="rounded-lg bg-sky-700 px-4 py-2 text-sm font-medium text-white hover:bg-sky-800"
+            className="touch-target rounded-lg bg-sky-700 px-4 py-2 text-sm font-medium text-white hover:bg-sky-800"
           >
             Hyväksy kaikki
           </button>

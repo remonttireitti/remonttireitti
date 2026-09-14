@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { CustomerLandingContent } from "@/components/marketing/customer-landing-content";
 import { SiteHeader } from "@/components/site-header";
+import { isContractor } from "@/lib/auth";
 import { brand } from "@/lib/brand-theme";
 import { pageMetadata } from "@/lib/seo";
 import { seoDefByPath } from "@/lib/seo-pages";
@@ -15,7 +17,11 @@ export const metadata: Metadata = pageMetadata({
   keywords: seo.keywords,
 });
 
-export default function CustomerLandingPage() {
+export default async function CustomerLandingPage() {
+  if (await isContractor()) {
+    redirect("/tarjoukset");
+  }
+
   return (
     <div className={brand.page}>
       <SiteHeader />

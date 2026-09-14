@@ -5,6 +5,7 @@ import { getProfile, getSessionUser, isContractor } from "@/lib/auth";
 import { isAdmin } from "@/lib/admin";
 import { isEvaluator } from "@/lib/evaluator";
 import { countUnreadNotifications } from "@/lib/notifications-server";
+import { hasAnyActiveEvaluator } from "@/lib/bid-evaluation-availability-server";
 import { createClient } from "@/lib/supabase/server";
 
 export async function SiteHeader() {
@@ -20,6 +21,8 @@ export async function SiteHeader() {
     unreadNotifications = await countUnreadNotifications(supabase, user.id);
   }
 
+  const showTarjousvahti = await hasAnyActiveEvaluator();
+
   const navProps = {
     loggedIn: !!user,
     isCustomer: profile?.role === "customer",
@@ -27,6 +30,7 @@ export async function SiteHeader() {
     isAdmin: admin,
     isEvaluator: evaluator,
     unreadNotifications,
+    showTarjousvahti,
   };
 
   return (

@@ -9,6 +9,8 @@ import {
   parseTradeIds,
   validateContractorQualifications,
 } from "@/lib/contractor-qualifications";
+import { validateCompanyFactsForm } from "@/lib/contractor-company-facts";
+import { resolveContractorTradeIdsFromForm } from "@/lib/resolve-contractor-trades";
 import { saveContractorQualifications } from "@/lib/save-contractor-qualifications";
 import { notifyAdminsNewRegistration } from "@/lib/admin-user-notify";
 import { syncContractorAccount } from "@/lib/sync-contractor";
@@ -18,6 +20,7 @@ import { headers } from "next/headers";
 export type AuthState = {
   error?: string;
   success?: string;
+  redirectPath?: string;
 };
 
 export type PasswordResetRequestState = {
@@ -28,6 +31,7 @@ export type PasswordResetRequestState = {
 export type UpdatePasswordState = {
   error?: string;
   success?: string;
+  redirectPath?: string;
 };
 
 const MIN_PASSWORD_LENGTH = 8;
@@ -57,9 +61,12 @@ export async function signUp(
     return { error: "Urakoitsijana rekisteröityessä yrityksen nimi vaaditaan." };
   }
 
+  let contractorFacts: ReturnType<typeof validateCompanyFactsForm> | null = null;
   if (role === "contractor") {
     const qualErr = validateContractorQualifications(formData);
     if (qualErr) return { error: qualErr };
+    contractorFacts = validateCompanyFactsForm(formData);
+    if (!contractorFacts.ok) return { error: contractorFacts.error };
   }
 
   const supabase = await createClient();
@@ -83,7 +90,7 @@ export async function signUp(
   }
 
   if (data.user && !data.session) {
-    redirect("/kirjaudu?vahvistus=1");
+    return { redirectPath: "/kirjaudu?vahvistus=1" };
   }
 
   if (data.user && role === "contractor") {
@@ -92,10 +99,18 @@ export async function signUp(
       .update({ role: "contractor" })
       .eq("id", data.user.id);
 
+    const resolvedTrades = await resolveContractorTradeIdsFromForm(
+      formData,
+      data.user.id,
+    );
+    if (resolvedTrades.error) {
+      return { error: resolvedTrades.error };
+    }
+
     const saveRes = await saveContractorQualifications({
       contractorId: data.user.id,
       companyName: companyName || "Yritys (täydennä profiilissa)",
-      tradeIds: parseTradeIds(formData),
+      tradeIds: resolvedTrades.tradeIds,
       jobTypeIds: parseJobTypeIds(formData),
       refrigerantLicense: parseRefrigerantLicense(formData),
       electricalQualification: parseElectricalQualification(formData),
@@ -104,6 +119,24 @@ export async function signUp(
 
     if (saveRes.error) {
       return { error: `Tilin luonti onnistui, mutta pätevyydet epäonnistuivat: ${saveRes.error}` };
+    }
+
+    if (contractorFacts?.ok) {
+      const { founded_year, company_size_band } = contractorFacts.facts;
+      const { error: factsErr } = await supabase
+        .from("contractor_profiles")
+        .update({
+          founded_year,
+          company_size_band,
+          years_in_business: new Date().getFullYear() - founded_year,
+        })
+        .eq("id", data.user.id);
+
+      if (factsErr) {
+        return {
+          error: `Tilin luonti onnistui, mutta yritystietojen tallennus epäonnistui: ${factsErr.message}`,
+        };
+      }
     }
 
     await syncContractorAccount(data.user);
@@ -116,7 +149,7 @@ export async function signUp(
       email,
     });
 
-    redirect("/tarjoukset");
+    return { redirectPath: "/tarjoukset" };
   }
 
   if (data.user) {
@@ -128,7 +161,7 @@ export async function signUp(
     });
   }
 
-  redirect("/oma-tili");
+  return { redirectPath: "/oma-tili" };
 }
 
 export async function signIn(
@@ -173,15 +206,17 @@ export async function signIn(
       profile?.role === "contractor" || !!contractorProfile;
 
     if (isContractorUser && redirectTo === "/oma-tili") {
-      redirect("/tarjoukset");
+      return { redirectPath: "/tarjoukset" };
     }
 
     if (isContractorUser && redirectTo.startsWith("/tarjoukset")) {
-      redirect(redirectTo);
+      return { redirectPath: redirectTo };
     }
   }
 
-  redirect(redirectTo.startsWith("/") ? redirectTo : "/oma-tili");
+  return {
+    redirectPath: redirectTo.startsWith("/") ? redirectTo : "/oma-tili",
+  };
 }
 
 export async function signOut() {
@@ -257,5 +292,5 @@ export async function updatePasswordAfterRecovery(
     return { error: "Salasanan vaihto epäonnistui. Yritä uudelleen." };
   }
 
-  redirect("/kirjaudu?salasana=1");
+  return { redirectPath: "/kirjaudu?salasana=1" };
 }

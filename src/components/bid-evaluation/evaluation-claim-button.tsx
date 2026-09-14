@@ -5,12 +5,15 @@ import {
   claimEvaluationRequest,
   type BidEvaluationActionState,
 } from "@/app/actions/bid-evaluation";
+import { useActionRedirect } from "@/hooks/use-action-redirect";
 
 export function EvaluationClaimButton({ requestId }: { requestId: string }) {
-  const [, action, pending] = useActionState<
+  const [state, action, pending] = useActionState<
     BidEvaluationActionState,
     FormData
   >(claimEvaluationRequest, {});
+
+  useActionRedirect(state);
 
   return (
     <form action={action}>

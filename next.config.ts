@@ -18,6 +18,13 @@ function supabaseImagePatterns(): NonNullable<NextConfig["images"]>["remotePatte
 }
 
 const nextConfig: NextConfig = {
+  experimental: {
+    serverActions: {
+      // Ilmoituskuvat: enintään 8 × 5 Mt (+ lomaketeksti)
+      bodySizeLimit: "45mb",
+    },
+    proxyClientMaxBodySize: "45mb",
+  },
   images: {
     formats: ["image/avif", "image/webp"],
     remotePatterns: supabaseImagePatterns(),
@@ -49,6 +56,24 @@ const nextConfig: NextConfig = {
           {
             key: "Cache-Control",
             value: "public, max-age=86400, stale-while-revalidate=604800",
+          },
+        ],
+      },
+      {
+        source: "/opengraph-image.png",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=86400, stale-while-revalidate=604800",
+          },
+        ],
+      },
+      {
+        source: "/tarjouspyynnot/feed.xml",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=3600, stale-while-revalidate=86400",
           },
         ],
       },

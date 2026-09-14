@@ -91,6 +91,16 @@ export const rootMetadata: Metadata = {
       "max-snippet": -1,
     },
   },
+  alternates: {
+    canonical: getSiteUrl(),
+    languages: {
+      fi: getSiteUrl(),
+      "x-default": getSiteUrl(),
+    },
+    types: {
+      "application/rss+xml": `${getSiteUrl()}/tarjouspyynnot/feed.xml`,
+    },
+  },
 };
 
 export function pageMetadata({

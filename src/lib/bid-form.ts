@@ -5,6 +5,11 @@ import {
   type BidOfferScope,
 } from "@/lib/bid-offer-scope";
 import {
+  parseOfferedTradeIds,
+  parseTurnkeyCoordination,
+  type TurnkeyCoordination,
+} from "@/lib/bid-trade-offer";
+import {
   isServicePricingModel,
   parseServicePricingFromScopeTerms,
   type ServicePricingModel,
@@ -14,6 +19,8 @@ export type BidFormFields = {
   amount_euros: string;
   service_pricing_model: ServicePricingModel | "";
   offer_scope: BidOfferScope | "";
+  offered_trade_ids: string[];
+  turnkey_coordination: TurnkeyCoordination | "";
   offers_equipment: boolean;
   equipment_amount_euros: string;
   equipment_description: string;
@@ -47,6 +54,8 @@ export type BidRecordForForm = {
   confirms_licenses: boolean | null;
   confirms_building_standards: boolean | null;
   offer_scope?: string | null;
+  offered_trade_ids?: string[] | null;
+  turnkey_coordination?: string | null;
 };
 
 export function bidToFormFields(bid: BidRecordForForm): BidFormFields {
@@ -67,6 +76,8 @@ export function bidToFormFields(bid: BidRecordForForm): BidFormFields {
       bid.estimated_days != null ? String(bid.estimated_days) : "",
     earliest_start_date: bid.earliest_start_date ?? "",
     offer_scope: parseBidOfferScope(bid.offer_scope) ?? "",
+    offered_trade_ids: bid.offered_trade_ids ?? [],
+    turnkey_coordination: parseTurnkeyCoordination(bid.turnkey_coordination) ?? "",
     scope_terms: rest,
     contract_terms: bid.contract_terms ?? "",
     warranty_work: bid.warranty_work ?? "",
@@ -90,6 +101,8 @@ export function initialBidFormFields(
     estimated_days: "",
     earliest_start_date: "",
     offer_scope: "",
+    offered_trade_ids: [],
+    turnkey_coordination: "",
     scope_terms: "",
     contract_terms: "",
     warranty_work: "",
@@ -115,6 +128,10 @@ export function extractBidFormFields(formData: FormData): BidFormFields {
     estimated_days: String(formData.get("estimated_days") ?? ""),
     earliest_start_date: String(formData.get("earliest_start_date") ?? ""),
     offer_scope: parseBidOfferScope(String(formData.get("offer_scope") ?? "")) ?? "",
+    offered_trade_ids: parseOfferedTradeIds(formData.get("offered_trade_ids")),
+    turnkey_coordination:
+      parseTurnkeyCoordination(String(formData.get("turnkey_coordination") ?? "")) ??
+      "",
     scope_terms: String(formData.get("scope_terms") ?? ""),
     contract_terms: String(formData.get("contract_terms") ?? ""),
     warranty_work: String(formData.get("warranty_work") ?? ""),
@@ -148,6 +165,12 @@ export function bidFieldsToFormData(
   fd.set("estimated_days", fields.estimated_days);
   fd.set("earliest_start_date", fields.earliest_start_date);
   if (fields.offer_scope) fd.set("offer_scope", fields.offer_scope);
+  if (fields.offered_trade_ids.length > 0) {
+    fd.set("offered_trade_ids", JSON.stringify(fields.offered_trade_ids));
+  }
+  if (fields.turnkey_coordination) {
+    fd.set("turnkey_coordination", fields.turnkey_coordination);
+  }
   fd.set("scope_terms", fields.scope_terms);
   fd.set("contract_terms", fields.contract_terms);
   fd.set("warranty_work", fields.warranty_work);
@@ -177,6 +200,7 @@ export function validateBidFormClient(
     requiresDeviceAndInstallation: boolean;
     requiresOfferScope?: boolean;
     requiresServicePricing?: boolean;
+    matchingTradeCount?: number;
   },
 ): BidFormValidation {
   const fieldErrors: Partial<Record<BidFormFieldKey, string>> = {};
@@ -184,6 +208,24 @@ export function validateBidFormClient(
 
   if (options.requiresOfferScope && !fields.offer_scope) {
     fieldErrors.offer_scope = "Valitse tarjouksen laajuus.";
+  }
+
+  if (
+    options.requiresOfferScope &&
+    fields.offer_scope === "own_trade" &&
+    (options.matchingTradeCount ?? 0) > 1 &&
+    fields.offered_trade_ids.length === 0
+  ) {
+    fieldErrors.offered_trade_ids = "Valitse vähintään yksi ammatti.";
+  }
+
+  if (
+    options.requiresOfferScope &&
+    fields.offer_scope === "turnkey" &&
+    !fields.turnkey_coordination
+  ) {
+    fieldErrors.turnkey_coordination =
+      "Kerro miten puuttuvat ammatit hoidetaan.";
   }
 
   if (options.requiresServicePricing && !fields.service_pricing_model) {
@@ -213,10 +255,6 @@ export function validateBidFormClient(
       fieldErrors.equipment_description =
         "Kuvaile lyhyesti tarjoamasi laite (malli / toimitus).";
     }
-  }
-
-  if (!fields.message.trim()) {
-    fieldErrors.message = "Kirjoita viesti asiakkaalle.";
   }
 
   const requiresEquipmentWarranty =

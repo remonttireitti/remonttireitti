@@ -21,19 +21,27 @@ import { ContractorProjectInterestButtons } from "@/components/contractor/contra
 import { ProjectMatchBadges } from "@/components/contractor/contractor-service-area-form";
 import { fetchProjectInterest } from "@/lib/contractor-project-interest-server";
 import { budgetBelowMin } from "@/lib/contractor-work-filter";
-import {
-  evaluateProjectMatch,
-} from "@/lib/contractor-project-match";
+import { evaluateProjectMatch } from "@/lib/contractor-project-match";
 import { loadContractorMatchProfile } from "@/lib/contractor-projects-server";
 import { projectDistanceKm } from "@/lib/geo-distance";
 import { fetchProjectTradeContextForContractor } from "@/lib/project-trades-server";
 import { serviceEngagementFromDetails } from "@/lib/service-engagement";
+import { ContractorCompanyFactsBanner } from "@/components/contractor/contractor-company-facts-banner";
 import { ContractorCompletionRequestPanel } from "@/components/project/contractor-completion-request-panel";
+import {
+  companyFactsEnforcementActive,
+  companyFactsFromRow,
+  isCompanyFactsComplete,
+} from "@/lib/contractor-company-facts";
 import { brand } from "@/lib/brand-theme";
 import { fetchContractorSentCompletionRequest } from "@/lib/project-completion-requests-server";
 import { recordProjectView } from "@/lib/project-views-server";
+import { fetchContractorProjectActivity } from "@/lib/project-activity-server";
+import { ProjectActivityTimeline } from "@/components/project/project-activity-timeline";
 import { scoreProjectFromRow } from "@/lib/project-request-quality";
 import { createClient } from "@/lib/supabase/server";
+
+export const dynamic = "force-dynamic";
 
 export default async function ContractorProjectPage({
   params,
@@ -71,7 +79,10 @@ export default async function ContractorProjectPage({
 
   await recordProjectView(supabase, id, user.id);
 
-  const projectPhotos = await fetchProjectPhotos(supabase, id);
+  const [projectPhotos, activityEvents] = await Promise.all([
+    fetchProjectPhotos(supabase, id),
+    fetchContractorProjectActivity(id, user.id, supabase),
+  ]);
 
   const { data: existingBid } = await supabase
     .from("bids")
@@ -104,12 +115,14 @@ export default async function ContractorProjectPage({
     existingBid?.status === "submitted" &&
     isBidStale(existingBid, contentRevision);
 
-  await ensureProjectConversation(
-    supabase,
-    id,
-    project.customer_id,
-    user.id,
-  );
+  if (project.customer_id) {
+    await ensureProjectConversation(
+      supabase,
+      id,
+      project.customer_id,
+      user.id,
+    );
+  }
 
   let jobTypeSlug = resolveProjectJobTypeSlug({
     job_type_id: project.job_type_id,
@@ -140,7 +153,17 @@ export default async function ContractorProjectPage({
   );
   const serviceEngagement = serviceEngagementFromDetails(project.details);
 
-  const contractorProfile = await loadContractorMatchProfile(supabase, user.id);
+  const [contractorProfile, { data: companyFactsRow }] = await Promise.all([
+    loadContractorMatchProfile(supabase, user.id),
+    supabase
+      .from("contractor_profiles")
+      .select("founded_year, company_size_band")
+      .eq("id", user.id)
+      .maybeSingle(),
+  ]);
+  const companyFacts = companyFactsFromRow(companyFactsRow);
+  const companyFactsBlocked =
+    companyFactsEnforcementActive() && !isCompanyFactsComplete(companyFacts);
   const { data: projectTrades } = await supabase
     .from("project_trades")
     .select("trade_id, trades ( slug )")
@@ -219,49 +242,35 @@ export default async function ContractorProjectPage({
     project.budget_max as number | null,
   );
 
+  const bidPanelProps = {
+    projectId: id,
+    bid: existingBid,
+    requiresDeviceAndInstallation,
+    allowOptionalEquipmentOffer,
+    budgetInfo,
+    bidStale,
+    defaultBidTerms,
+    jobTypeSlug,
+    tradeContext,
+    serviceEngagement,
+    projectQuality,
+  };
+
   return (
     <div className={brand.page}>
       <SiteHeader />
-      <main className={brand.mainDetail}>
+      <main className={brand.mainStandard}>
         <Link href="/tarjoukset" className="text-sm text-sky-700 hover:underline">
           ← Pyynnöt
         </Link>
 
-        <h1 className="mt-4 text-2xl font-bold tracking-tight sm:text-3xl">
-          {project.title}
-        </h1>
-        <p className="text-stone-500">{categoryName}</p>
-        <ProjectMatchBadges match={projectMatch} />
-        <div className="mt-4 rounded-xl border border-stone-200 bg-stone-50/80 p-4">
-          <p className="text-sm font-medium text-stone-900">Työfiltteri</p>
-          <p className="mt-1 text-xs text-stone-600">
-            Merkitse onko pyyntö sinulle relevantti. Piilotetut pyynnöt eivät näy
-            oletuslistassa.
-          </p>
-          <div className="mt-3">
-            <ContractorProjectInterestButtons
-              projectId={id}
-              currentInterest={projectInterest}
-            />
-          </div>
-          {belowMinBudget && (
-            <>
-              <p className="mt-3 text-xs font-medium text-amber-800">
-                Budjetti on alle profiilisi minimin (
-                {contractorProfile.minBudgetEur?.toLocaleString("fi-FI")} €).
-              </p>
-              <p className="mt-1 text-xs text-stone-500">
-                Voit silti tarjota — minimibudjetti vaikuttaa vain oletussuodattimeen.
-              </p>
-            </>
-          )}
-        </div>
-        {projectMatch.qualificationFit === "none" && (
-          <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-            Profiilisi pätevyydet eivät täysin vastaa pyyntöä. Voit silti jättää
-            tarjouksen, jos hoidat puuttuvat työt alihankkijalla tai muulla tavalla.
-          </p>
-        )}
+        <header className="mt-4">
+          <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
+            {project.title}
+          </h1>
+          <p className="mt-1 text-stone-500">{categoryName}</p>
+          <ProjectMatchBadges match={projectMatch} />
+        </header>
 
         {tarjous === "lahetetty" && (
           <p
@@ -283,8 +292,18 @@ export default async function ContractorProjectPage({
           </p>
         )}
 
-        <div className={brand.detailSplit}>
-          <div className={brand.detailSplitMain}>
+        {projectMatch.qualificationFit === "none" && (
+          <p className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+            Profiilisi pätevyydet eivät täysin vastaa pyyntöä. Voit silti jättää
+            tarjouksen, jos hoidat puuttuvat työt alihankkijalla tai muulla tavalla.
+          </p>
+        )}
+
+        <section className="mt-6">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-stone-500">
+            Tarjouspyyntö
+          </h2>
+          <div className="mt-3">
             <ProjectOverviewCards
               description={project.description}
               details={
@@ -303,53 +322,79 @@ export default async function ContractorProjectPage({
               showContact={false}
               showLocationOnly
               bidDeadline={project.bid_deadline}
-            />
-
-            <ContractorCompletionRequestPanel
-              projectId={id}
-              qualityScore={projectQuality.score}
-              missingItems={projectQuality.items}
-              alreadySent={sentCompletionRequest != null}
-              hasBid={existingBid != null && existingBid.status !== "withdrawn"}
-            />
-
-            {chatData && (
-              <ProjectChat
-                conversationId={chatData.conversation.id}
-                messages={chatData.messages}
-                currentUserId={user.id}
-                customerId={chatData.conversation.customer_id}
-                customerLabel="Asiakas"
-                contractorLabel="Sinä"
-                revalidatePaths={[`/tarjoukset/${id}`]}
-                perspective="contractor"
-                contactRestricted
-              />
-            )}
-
-            <ValuePromoBanner variant="contractor-pay-on-win" className="lg:hidden" />
-          </div>
-
-          <div id="tarjouslomake" className={`${brand.detailSplitSticky} scroll-mt-24`}>
-            <ValuePromoBanner
-              variant="contractor-pay-on-win"
-              className="mb-6 hidden lg:block"
-            />
-            <ContractorBidPanel
-              projectId={id}
-              bid={existingBid}
-              requiresDeviceAndInstallation={requiresDeviceAndInstallation}
-              allowOptionalEquipmentOffer={allowOptionalEquipmentOffer}
-              budgetInfo={budgetInfo}
-              bidStale={bidStale}
-              defaultBidTerms={defaultBidTerms}
-              jobTypeSlug={jobTypeSlug}
-              tradeContext={tradeContext}
-              serviceEngagement={serviceEngagement}
-              projectQuality={projectQuality}
+              bidDeadlineVariant={
+                existingBid?.status === "submitted" ? "info" : "invite"
+              }
             />
           </div>
+        </section>
+
+        <ContractorCompletionRequestPanel
+          projectId={id}
+          qualityScore={projectQuality.score}
+          missingItems={projectQuality.items}
+          alreadySent={sentCompletionRequest != null}
+          hasBid={existingBid != null && existingBid.status !== "withdrawn"}
+        />
+
+        <div className="mt-8">
+          <ProjectActivityTimeline
+            events={activityEvents}
+            title="Tapahtumaloki (sinun ja asiakkaan toimet)"
+          />
         </div>
+
+        <section id="tarjouslomake" className="mt-8 scroll-mt-24">
+          <ValuePromoBanner variant="contractor-pay-on-win" className="mb-4" />
+          <ContractorCompanyFactsBanner facts={companyFacts} />
+          {companyFactsBlocked ? (
+            <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+              Tarjouslomake avautuu, kun yritystiedot on täydennetty Oma tili
+              -sivulla.
+            </p>
+          ) : (
+            <ContractorBidPanel {...bidPanelProps} />
+          )}
+        </section>
+
+        <details className="mt-8 rounded-xl border border-stone-200 bg-white p-4">
+          <summary className="cursor-pointer text-sm font-medium text-stone-800">
+            Työfiltteri ja merkinnät
+          </summary>
+          <div className="mt-4 space-y-3 border-t border-stone-100 pt-4">
+            <p className="text-xs text-stone-600">
+              Merkitse onko pyyntö sinulle relevantti. Piilotetut pyynnöt eivät näy
+              oletuslistassa.
+            </p>
+            <ContractorProjectInterestButtons
+              projectId={id}
+              currentInterest={projectInterest}
+            />
+            {belowMinBudget && (
+              <p className="text-xs font-medium text-amber-800">
+                Budjetti on alle profiilisi minimin (
+                {contractorProfile.minBudgetEur?.toLocaleString("fi-FI")} €). Voit silti
+                tarjota.
+              </p>
+            )}
+          </div>
+        </details>
+
+        {chatData && (
+          <div className="mt-8">
+            <ProjectChat
+              conversationId={chatData.conversation.id}
+              messages={chatData.messages}
+              currentUserId={user.id}
+              customerId={chatData.conversation.customer_id}
+              customerLabel="Asiakas"
+              contractorLabel="Sinä"
+              revalidatePaths={[`/tarjoukset/${id}`]}
+              perspective="contractor"
+              contactRestricted
+            />
+          </div>
+        )}
       </main>
     </div>
   );

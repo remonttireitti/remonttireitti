@@ -64,6 +64,8 @@ jobs:
           NEXT_PUBLIC_COMPANY_NAME: Remonttireitti
           NEXT_PUBLIC_COMPANY_EMAIL: info@remonttireitti.fi
           NEXT_PUBLIC_PRIVACY_EMAIL: info@remonttireitti.fi
+          NEXT_PUBLIC_GA_MEASUREMENT_ID: ${{ secrets.NEXT_PUBLIC_GA_MEASUREMENT_ID }}
+          NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION: ${{ secrets.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           EMAIL_FROM: Remonttireitti <noreply@remonttireitti.fi>

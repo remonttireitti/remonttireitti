@@ -15,6 +15,7 @@ type NavProps = {
   isAdmin: boolean;
   isEvaluator: boolean;
   unreadNotifications?: number;
+  showTarjousvahti?: boolean;
 };
 
 const linkBase =
@@ -56,6 +57,7 @@ export function SiteHeaderNav({
   isAdmin,
   isEvaluator,
   unreadNotifications = 0,
+  showTarjousvahti = false,
 }: NavProps) {
   const ctaLabel = isCustomer
     ? "Kilpailuta remontti"
@@ -93,7 +95,7 @@ export function SiteHeaderNav({
         )}
         {loggedIn ? (
           <>
-            <NavItem href="/#ilmoitukset">
+            <NavItem href={isContractor ? "/tarjoukset#ilmoitukset" : "/#ilmoitukset"}>
               <span className="inline-flex items-center gap-1.5">
                 Ilmoitukset
                 {unreadNotifications > 0 && (
@@ -104,15 +106,17 @@ export function SiteHeaderNav({
               </span>
             </NavItem>
             {isCustomer && <NavItem href="/oma-tili/huoltokirja">Huoltokirja</NavItem>}
+            {isContractor && (
+              <NavItem href="/oma-tili#yritystiedot">Yritystiedot</NavItem>
+            )}
             <NavItem href="/oma-tili">Oma tili</NavItem>
             {isEvaluator && <NavItem href="/arvioija">Arvioija</NavItem>}
             {isAdmin && <NavItem href="/admin">Admin</NavItem>}
           </>
         ) : (
           <>
-            <NavItem href="/tarjousarvio">Tarjousvahti</NavItem>
+            {showTarjousvahti && <NavItem href="/tarjousarvio">Tarjousvahti</NavItem>}
             <NavItem href="/tarjouspyynnot">Tarjouspyynnöt</NavItem>
-            <NavItem href="/urakoitsijaksi">Urakoitsijalle</NavItem>
             <NavItem href="/kirjaudu">Kirjaudu</NavItem>
           </>
         )}
@@ -134,8 +138,8 @@ export function SiteHeaderNav({
             <Link href="/remontti/uusi" className={navLinkClass(false)}>
               <NavLinkPendingContent>Kilpailuta</NavLinkPendingContent>
             </Link>
-            <Link href="/rekisteroidy?rooli=urakoitsija" className={ctaClass}>
-              <NavLinkPendingContent>Rekisteröidy</NavLinkPendingContent>
+            <Link href="/urakoitsijaksi" className={ctaClass}>
+              <NavLinkPendingContent>Urakoitsijalle</NavLinkPendingContent>
             </Link>
           </>
         )}
