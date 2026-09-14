@@ -44,25 +44,65 @@ function StarRatingField({
   );
 }
 
+function RoleSelector({ defaultRole }: { defaultRole?: "customer" | "contractor" }) {
+  return (
+    <fieldset>
+      <legend className="text-sm font-medium text-stone-900">
+        Kenen näkökulmasta annat palautteen? *
+      </legend>
+      <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+        {[
+          { value: "customer", label: "Asiakas — käytin palvelua tekijän etsintään" },
+          { value: "contractor", label: "Urakoitsija — käytin palvelua töiden hakuun" },
+        ].map((opt) => (
+          <label
+            key={opt.value}
+            className="flex min-h-[2.75rem] flex-1 cursor-pointer items-center rounded-2xl border border-stone-200 bg-white px-4 py-2.5 text-sm has-checked:border-sky-500 has-checked:bg-sky-50"
+          >
+            <input
+              type="radio"
+              name="feedback_role"
+              value={opt.value}
+              required
+              defaultChecked={defaultRole === opt.value}
+              className="mr-2 shrink-0"
+            />
+            {opt.label}
+          </label>
+        ))}
+      </div>
+    </fieldset>
+  );
+}
+
 export function PlatformFeedbackForm({
-  role,
+  defaultRole,
   projectId,
   compact = false,
+  requireGuestEmail = false,
+  userEmail,
 }: {
-  role: "customer" | "contractor";
+  defaultRole?: "customer" | "contractor";
   projectId?: string;
   compact?: boolean;
+  requireGuestEmail?: boolean;
+  userEmail?: string | null;
 }) {
   const [state, action, pending] = useActionState<
     PlatformFeedbackActionState,
     FormData
   >(submitPlatformFeedback, {});
 
-  const roleLabel = role === "customer" ? "asiakkaana" : "urakoitsijana";
-
   if (state.success) {
     return (
-      <p className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900" role="status">
+      <p
+        className={`rounded-xl border px-4 py-3 text-sm ${
+          state.pendingVerification
+            ? "border-amber-200 bg-amber-50 text-amber-950"
+            : "border-sky-200 bg-sky-50 text-sky-900"
+        }`}
+        role="status"
+      >
         {state.success}
       </p>
     );
@@ -72,11 +112,40 @@ export function PlatformFeedbackForm({
     <form action={action} className={compact ? "space-y-4" : "mt-4 space-y-5"}>
       {projectId && <input type="hidden" name="project_id" value={projectId} />}
 
-      {!compact && (
+      {projectId && defaultRole ? (
+        <input type="hidden" name="feedback_role" value={defaultRole} />
+      ) : (
+        !projectId && <RoleSelector defaultRole={defaultRole} />
+      )}
+
+      {requireGuestEmail && (
+        <div>
+          <label htmlFor="guest_email" className="text-sm font-medium text-stone-900">
+            Sähköposti *
+          </label>
+          <p className="mt-0.5 text-xs text-stone-600">
+            Lähetämme vahvistuslinkin — palaute lasketaan tilastoihin vasta
+            vahvistuksen jälkeen. Yksi palaute per sähköposti.
+          </p>
+          <input
+            id="guest_email"
+            name="guest_email"
+            type="email"
+            required
+            autoComplete="email"
+            defaultValue={userEmail ?? ""}
+            readOnly={Boolean(userEmail)}
+            className={`${formInputClass} mt-2 w-full rounded-xl border border-stone-200 px-3 py-2 text-sm`}
+            placeholder="nimi@esimerkki.fi"
+          />
+        </div>
+      )}
+
+      {!compact && !projectId && (
         <p className="text-sm text-stone-600">
-          Arvioi Remonttivalitys-palvelun käyttökokemus {roleLabel}. Tämä on
-          erillinen urakoitsijan arvostelusta — kerro meille, miten palvelu
-          toimi.
+          Arvioi Remonttireitti-palvelun käyttökokemus valitsemastasi
+          näkökulmasta. Palaute auttaa kehittämään palvelua — se on erillinen
+          urakoitsijan tähtiarvosteluista.
         </p>
       )}
 
@@ -119,7 +188,10 @@ export function PlatformFeedbackForm({
       </fieldset>
 
       <div>
-        <label htmlFor="platform_feedback_suggestions" className="text-sm font-medium text-stone-900">
+        <label
+          htmlFor="platform_feedback_suggestions"
+          className="text-sm font-medium text-stone-900"
+        >
           Parannusehdotukset ja muu palaute
         </label>
         <p className="mt-0.5 text-xs text-stone-600">
@@ -140,12 +212,8 @@ export function PlatformFeedbackForm({
         </p>
       )}
 
-      <button
-        type="submit"
-        disabled={pending}
-        className={brand.btnPrimary}
-      >
-        {pending ? "Lähetetään…" : "Lähetä palaute"}
+      <button type="submit" disabled={pending} className={brand.btnPrimary}>
+        {pending ? "Lähetetään…" : requireGuestEmail ? "Lähetä ja vahvista sähköpostilla" : "Lähetä palaute"}
       </button>
     </form>
   );

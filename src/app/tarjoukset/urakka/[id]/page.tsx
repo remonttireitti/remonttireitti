@@ -277,7 +277,7 @@ export default async function ContractorWonProjectPage({
 
         {project.status === "completed" && (
           <PlatformFeedbackPanel
-            role="contractor"
+            defaultRole="contractor"
             projectId={id}
             existing={platformFeedback}
           />

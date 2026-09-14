@@ -31,6 +31,7 @@ import {
   fetchArchivedUserNotifications,
   fetchUserNotifications,
 } from "@/lib/notifications-server";
+import { HomeFeedbackStats } from "@/components/marketing/home-feedback-stats";
 import { HomePlatformStats } from "@/components/marketing/home-platform-stats";
 import { HomeHeroVisual } from "@/components/marketing/home-hero-visual";
 import { HomeQualityRequest } from "@/components/marketing/home-quality-request";
@@ -43,6 +44,10 @@ import { brand } from "@/lib/brand-theme";
 import { fetchBidEvaluationSettings } from "@/lib/bid-evaluation-server";
 import { hasAnyActiveEvaluator } from "@/lib/bid-evaluation-availability-server";
 import { createClient } from "@/lib/supabase/server";
+import {
+  fetchGeneralPlatformFeedbackForUser,
+  fetchPublicFeedbackStats,
+} from "@/lib/platform-feedback-server";
 
 export default async function Home() {
   const supabase = await createClient();
@@ -54,14 +59,23 @@ export default async function Home() {
   const profile = user ? await getProfile() : null;
   const isCustomer = !!user && profile?.role === "customer";
 
-  const [openProjects, openProjectCount, platformStats, bidEvaluationSettings, showTarjousvahti] =
-    await Promise.all([
-      isCustomer ? Promise.resolve([]) : fetchPublicOpenProjects(12),
-      isCustomer ? Promise.resolve(0) : countPublicOpenProjects(),
-      fetchPublicPlatformStats(),
-      fetchBidEvaluationSettings(supabase),
-      hasAnyActiveEvaluator(),
-    ]);
+  const [
+    openProjects,
+    openProjectCount,
+    platformStats,
+    feedbackStats,
+    existingFeedback,
+    bidEvaluationSettings,
+    showTarjousvahti,
+  ] = await Promise.all([
+    isCustomer ? Promise.resolve([]) : fetchPublicOpenProjects(12),
+    isCustomer ? Promise.resolve(0) : countPublicOpenProjects(),
+    fetchPublicPlatformStats(),
+    fetchPublicFeedbackStats(),
+    user ? fetchGeneralPlatformFeedbackForUser(supabase, user.id) : Promise.resolve(null),
+    fetchBidEvaluationSettings(supabase),
+    hasAnyActiveEvaluator(),
+  ]);
   let notifications: Awaited<ReturnType<typeof fetchUserNotifications>> = [];
   let archivedNotifications: Awaited<
     ReturnType<typeof fetchArchivedUserNotifications>
@@ -185,6 +199,14 @@ export default async function Home() {
         {showTarjousvahti && (
           <HomeTarjousvahti settings={bidEvaluationSettings} />
         )}
+
+        <HomeFeedbackStats
+          stats={feedbackStats}
+          existingFeedback={existingFeedback}
+          defaultRole={isCustomer ? "customer" : undefined}
+          requireGuestEmail={!user}
+          userEmail={user?.email}
+        />
 
         <HomeFaq />
 
