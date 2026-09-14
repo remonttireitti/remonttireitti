@@ -197,6 +197,7 @@ export default async function ProjectPage({
         `,
         )
         .eq("project_id", id)
+        .eq("is_admin_preview", false)
         .order("submitted_at", { ascending: true }),
     ]);
     return {

@@ -45,6 +45,7 @@ export async function fetchContractorOpenProjects(
        job_types ( name_fi, slug )`,
     )
     .in("status", ["published", "receiving_bids"])
+    .eq("is_admin_preview", false)
     .order("created_at", { ascending: false });
 
   type RawRow = {

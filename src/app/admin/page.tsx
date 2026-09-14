@@ -20,7 +20,19 @@ import {
 import { brand } from "@/lib/brand-theme";
 import { ALL_EVALUATOR_SCOPE_SLUGS } from "@/lib/evaluator-scopes";
 
-export default async function AdminPage() {
+const previewHints: Record<string, string> = {
+  "valitse-asiakas-esikatselu":
+    "Valitse yläreunan valikosta Selaa asiakkaana ennen tarjouspyynnön testausta.",
+  "valitse-urakoitsija-esikatselu":
+    "Valitse yläreunan valikosta Selaa urakoitsijana ennen tarjousten testausta.",
+};
+
+export default async function AdminPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ viesti?: string }>;
+}) {
+  const params = await searchParams;
   const user = await getSessionUser();
   if (!user) redirect("/kirjaudu?redirect=/admin");
 
@@ -82,6 +94,17 @@ export default async function AdminPage() {
           ← Oma tili
         </Link>
         <h1 className="mt-4 text-2xl font-bold">Admin — käyttäjähallinta</h1>
+        {params.viesti && previewHints[params.viesti] && (
+          <p className="mt-3 rounded-xl border border-violet-200 bg-violet-50 px-4 py-3 text-sm text-violet-950">
+            {previewHints[params.viesti]}
+          </p>
+        )}
+        <p className="mt-3 max-w-2xl text-sm text-stone-600">
+          Kokeile palvelua oikealla käyttöliittymällä: valitse yläreunan violetista
+          palkista <strong>Selaa asiakkaana</strong> tai{" "}
+          <strong>Selaa urakoitsijana</strong>. Testidata ei näy muille eikä lähetä
+          ilmoituksia.
+        </p>
         <p className="mt-2 text-sm text-stone-600">
           Kehitystyökalu: korjaa roolit ja poista käyttäjiä. Käytä vain luotettavassa
           ympäristössä.
