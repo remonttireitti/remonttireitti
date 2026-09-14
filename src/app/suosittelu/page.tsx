@@ -159,7 +159,12 @@ export default async function ReferralInfoPage() {
               </li>
               <li>
                 Bonukset myönnetään kerran per suosittelusuhde, kun ehto täyttyy
-                (hyväksytty tarjous / voitettu diili).
+                (hyväksytty tarjous / voitettu diili). Molempien osapuolten
+                sähköposti pitää olla vahvistettu.
+              </li>
+              <li>
+                Suosittelusuhde tallentuu vasta, kun uusi käyttäjä on vahvistannut
+                sähköpostinsa.
               </li>
               <li>
                 Saatavilla olevat asiakasbonukset näkyvät{" "}

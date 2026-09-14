@@ -79,8 +79,9 @@ export function RegisterForm({
             Suosittelijan sähköposti (valinnainen)
           </label>
           <p className="mt-1 text-xs text-stone-600">
-            Jos joku asiakas suositteli sinua, anna hänen sähköpostinsa. Hän saa
-            bonuksen, kun urakkasi johtaa hyväksyttyyn tarjoukseen.
+            Jos joku asiakas suositteli sinua, anna hänen sähköpostinsa. Suosittelu
+            tallentuu vasta kun olet vahvistannut oman tilisi. Bonuksen saa vain
+            vahvistettu suosittelija, kun urakkasi johtaa hyväksyttyyn tarjoukseen.
           </p>
           <input
             id="customer_referrer_email"
@@ -120,8 +121,9 @@ export function RegisterForm({
               Suosittelijan sähköposti *
             </label>
             <p className="mt-1 text-xs text-stone-600">
-              Anna sen henkilön sähköposti, joka suositteli sinua — urakoitsijan tai
-              asiakkaan, jolla on jo tili Remonttireitillä.
+              Anna sen henkilön sähköposti, joka suositteli sinua — vahvistetun
+              urakoitsijan tai asiakkaan, jolla on jo tili Remonttireitillä.
+              Suosittelu tallentuu vasta kun olet vahvistannut oman tilisi.
             </p>
             <input
               id="referrer_email"

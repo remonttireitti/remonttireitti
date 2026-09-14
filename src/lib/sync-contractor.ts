@@ -1,7 +1,5 @@
-import { ensureContractorSignupReferralFromMetadata } from "@/lib/customer-referral";
 import { createClient } from "@/lib/supabase/server";
 import { setContractorBypass } from "@/lib/profile-read";
-import { tryCreateAdminClient } from "@/lib/supabase/admin";
 import type { User } from "@supabase/supabase-js";
 
 /**
@@ -49,10 +47,4 @@ export async function syncContractorAccount(user: User): Promise<void> {
     await setContractorBypass(user.id, companyName, fullName);
   }
 
-  const referrerEmail =
-    typeof meta.referrer_email === "string" ? meta.referrer_email : null;
-  const admin = tryCreateAdminClient();
-  if (admin && referrerEmail) {
-    await ensureContractorSignupReferralFromMetadata(admin, user.id, referrerEmail);
-  }
 }
