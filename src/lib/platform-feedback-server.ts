@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { normalizeFeedbackEmail } from "@/lib/platform-feedback-access";
+import type { PlatformFeedbackGuestUsage } from "@/lib/platform-feedback-labels";
 
 export type PlatformFeedbackRow = {
   id: string;
@@ -14,6 +15,7 @@ export type PlatformFeedbackRow = {
   experience_rating: number;
   would_recommend: boolean;
   suggestions: string | null;
+  guest_usage_context: PlatformFeedbackGuestUsage | null;
   created_at: string;
 };
 
@@ -32,13 +34,22 @@ export type PublicFeedbackStats = {
 };
 
 const FEEDBACK_SELECT =
-  "id, user_id, guest_email, email_verified_at, role, context, project_id, clarity_rating, experience_rating, would_recommend, suggestions, created_at";
+  "id, user_id, guest_email, email_verified_at, role, context, project_id, clarity_rating, experience_rating, would_recommend, suggestions, guest_usage_context, created_at";
 
 function isVerifiedFeedback(row: {
   user_id: string | null;
   email_verified_at: string | null;
 }): boolean {
   return Boolean(row.user_id || row.email_verified_at);
+}
+
+function countsTowardPublicStats(row: {
+  user_id: string | null;
+  email_verified_at: string | null;
+  guest_usage_context: PlatformFeedbackGuestUsage | null;
+}): boolean {
+  if (!isVerifiedFeedback(row)) return false;
+  return !row.guest_usage_context || row.guest_usage_context === "used_service";
 }
 
 export async function fetchPlatformFeedbackForProject(
@@ -116,7 +127,7 @@ export async function fetchPublicFeedbackStats(): Promise<PublicFeedbackStats | 
     const { data, error } = await admin
       .from("platform_feedback")
       .select(
-        "role, clarity_rating, experience_rating, would_recommend, user_id, email_verified_at",
+        "role, clarity_rating, experience_rating, would_recommend, user_id, email_verified_at, guest_usage_context",
       )
       .eq("context", "general");
 
@@ -133,7 +144,7 @@ export async function fetchPublicFeedbackStats(): Promise<PublicFeedbackStats | 
         : null;
     }
 
-    const verified = data.filter(isVerifiedFeedback);
+    const verified = data.filter(countsTowardPublicStats);
     if (!verified.length) {
       return {
         totalCount: 0,

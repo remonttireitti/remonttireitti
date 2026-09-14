@@ -44,6 +44,46 @@ function StarRatingField({
   );
 }
 
+function GuestUsageContextSelector() {
+  return (
+    <fieldset>
+      <legend className="text-sm font-medium text-stone-900">
+        Oletko käyttänyt Remonttireitti-palvelua vai vain selannut sivustoa? *
+      </legend>
+      <p className="mt-0.5 text-xs text-stone-600">
+        Esim. tarjouspyynnön luonti, tarjouksen jättäminen tai urakan seuranta lasketaan
+        palvelun käytöksi.
+      </p>
+      <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+        {[
+          {
+            value: "used_service",
+            label: "Käytin palvelua",
+          },
+          {
+            value: "browsed_only",
+            label: "Vain selasin sivustoa",
+          },
+        ].map((opt) => (
+          <label
+            key={opt.value}
+            className="flex min-h-[2.75rem] flex-1 cursor-pointer items-center rounded-2xl border border-stone-200 bg-white px-4 py-2.5 text-sm has-checked:border-sky-500 has-checked:bg-sky-50"
+          >
+            <input
+              type="radio"
+              name="guest_usage_context"
+              value={opt.value}
+              required
+              className="mr-2 shrink-0"
+            />
+            {opt.label}
+          </label>
+        ))}
+      </div>
+    </fieldset>
+  );
+}
+
 function RoleSelector({ defaultRole }: { defaultRole?: "customer" | "contractor" }) {
   return (
     <fieldset>
@@ -117,6 +157,8 @@ export function PlatformFeedbackForm({
       ) : (
         !projectId && <RoleSelector defaultRole={defaultRole} />
       )}
+
+      {requireGuestEmail && !projectId && <GuestUsageContextSelector />}
 
       {requireGuestEmail && (
         <div>

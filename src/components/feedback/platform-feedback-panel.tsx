@@ -1,5 +1,6 @@
 import { PlatformFeedbackForm } from "@/components/feedback/platform-feedback-form";
 import { PlatformFeedbackSupportForm } from "@/components/feedback/platform-feedback-support-form";
+import { guestUsageLabels } from "@/lib/platform-feedback-labels";
 import type { PlatformFeedbackRow } from "@/lib/platform-feedback-server";
 
 function formatWhen(iso: string): string {
@@ -68,6 +69,14 @@ export function PlatformFeedbackPanel({
                   {existing.would_recommend ? "Kyllä" : "En"}
                 </dd>
               </div>
+              {existing.guest_usage_context && (
+                <div className="sm:col-span-2">
+                  <dt className="text-stone-500">Palvelun käyttö</dt>
+                  <dd className="font-medium text-stone-900">
+                    {guestUsageLabels[existing.guest_usage_context]}
+                  </dd>
+                </div>
+              )}
               {existing.suggestions && (
                 <div className="sm:col-span-2">
                   <dt className="text-stone-500">Kommentti</dt>
