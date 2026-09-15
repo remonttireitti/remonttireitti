@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { PlatformFeedbackPanel } from "@/components/feedback/platform-feedback-panel";
+import { ShareLinkPanel } from "@/components/ui/share-link-panel";
 import type { PlatformFeedbackRow, PublicFeedbackStats } from "@/lib/platform-feedback-server";
 import { brand } from "@/lib/brand-theme";
 
@@ -97,7 +98,14 @@ export function HomeFeedbackStats({
           </div>
         )}
 
-        <div className="mx-auto mt-8 max-w-2xl">
+        <div className="mx-auto mt-8 max-w-2xl space-y-4">
+          <ShareLinkPanel
+            path="/palaute"
+            title="Jaa palautekysely"
+            description="Kutsu muita antamaan palautetta — toimii ilman tiliä."
+            label="Jaa linkki"
+            compact
+          />
           <PlatformFeedbackPanel
             existing={existingFeedback}
             defaultRole={defaultRole}

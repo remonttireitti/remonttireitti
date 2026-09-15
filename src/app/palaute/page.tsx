@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { PlatformFeedbackPanel } from "@/components/feedback/platform-feedback-panel";
 import { SiteHeader } from "@/components/site-header";
+import { ShareLinkPanel } from "@/components/ui/share-link-panel";
 import { getProfile, getSessionUser, isContractor } from "@/lib/auth";
 import { brand } from "@/lib/brand-theme";
 import {
@@ -66,6 +67,14 @@ export default async function PublicFeedbackPage({
             {decodeURIComponent(params.virhe)}
           </p>
         )}
+
+        <ShareLinkPanel
+          path="/palaute"
+          title="Jaa palautekysely"
+          description="Lähetä linkki kollegalle tai asiakkaalle — palaute toimii myös ilman tiliä."
+          label="Jaa kysely"
+          className="mt-6"
+        />
 
         {stats && stats.totalCount > 0 && (
           <div className="mt-6 grid gap-3 rounded-2xl border border-stone-200 bg-stone-50 p-4 sm:grid-cols-3">
