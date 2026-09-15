@@ -5,10 +5,14 @@ import { NavigationProgress } from "@/components/navigation/navigation-progress"
 import { PageViewTracker } from "@/components/page-view-tracker";
 import { SiteFooter } from "@/components/site-footer";
 import { siteConfig } from "@/lib/site-config";
+import { headers } from "next/headers";
 import type { ReactNode } from "react";
 import { Suspense } from "react";
 
-export function AppShell({ children }: { children: ReactNode }) {
+export async function AppShell({ children }: { children: ReactNode }) {
+  const pathname = (await headers()).get("x-pathname") ?? "";
+  const hideSiteChrome = pathname.startsWith("/mainos");
+
   return (
     <>
       <Suspense fallback={null}>
@@ -17,10 +21,12 @@ export function AppShell({ children }: { children: ReactNode }) {
         <SessionIdleGuard />
       </Suspense>
       {children}
-      <Suspense fallback={null}>
-        <SiteFooter />
-      </Suspense>
-      <CookieConsentBanner />
+      {!hideSiteChrome && (
+        <Suspense fallback={null}>
+          <SiteFooter />
+        </Suspense>
+      )}
+      {!hideSiteChrome && <CookieConsentBanner />}
       {siteConfig.gaId ? (
         <GoogleAnalytics measurementId={siteConfig.gaId} />
       ) : null}
