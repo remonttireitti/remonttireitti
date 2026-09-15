@@ -1,0 +1,2509 @@
+# Kopioi TÄMÄ koko YAML Lovelace-näkymän editoriin (korvaa koko näkymä).
+# Osioilla on omat reunustetut kortit: Lämmitys ohjaus, Keittiö ILP, Aurinkolämpö, Huoneet, Sähkö, IV.
+
+title: Etusivu
+path: sahko-hinta
+layout:
+  height: 600
+  width: 800
+cards:
+  - type: custom:apexcharts-card
+    experimental:
+      color_threshold: true
+    apex_config:
+      responsive:
+        - breakpoint: 500
+          options:
+            chart:
+              height: 150px
+        - breakpoint: 1200
+          options:
+            chart:
+              height: 240px
+        - breakpoint: 3000
+          options:
+            chart:
+              height: 200px
+      legend:
+        show: false
+      title:
+        floating: false
+        align: center
+        style:
+          fontSize: 20px
+          fontWeight: bold
+      xaxis:
+        labels:
+          datetimeFormatter:
+            hour: HH
+      plotOptions:
+        bar:
+          columnWidth: 70%
+          barGap: 1px
+    graph_span: 2d
+    show:
+      last_updated: true
+    header:
+      title: Sähkö hinta
+      show: true
+      show_states: true
+      colorize_states: true
+    span:
+      start: day
+    now:
+      show: true
+      label: Now
+    series:
+      - entity: sensor.energi_data_service
+        yaxis_id: cents
+        type: column
+        show:
+          extremas: true
+          in_header: false
+        float_precision: 2
+        color: green
+        color_threshold:
+          - value: 0
+            color: '#00ff77'
+          - value: 4
+            color: '#8cff00'
+          - value: 8
+            color: '#c3ff00'
+          - value: 12
+            color: '#ffee00'
+          - value: 18
+            color: '#ffae00'
+          - value: 24
+            color: '#ff8000'
+          - value: 30
+            color: '#ff4400'
+          - value: 35
+            color: '#ff0019'
+        data_generator: |
+          const today = entity.attributes.raw_today || [];
+          const tomorrow = entity.attributes.raw_tomorrow || [];
+          const combined = [...today, ...tomorrow].map((entry) => {
+            const start = new Date(entry.hour).getTime();
+            return [start, entry.price];
+          });
+          return combined;
+      - entity: sensor.energi_data_service
+        name: Hinta nyt
+        yaxis_id: cents
+        float_precision: 2
+        show:
+          in_header: true
+          in_chart: false
+        unit: c/kWh
+        color: black
+      - entity: sensor.energi_data_service
+        attribute: today_min
+        name: Halvin hinta tänään
+        yaxis_id: cents
+        float_precision: 2
+        show:
+          in_header: true
+          in_chart: false
+        unit: c/kWh
+        data_generator: |
+          return [[null, entity.attributes.today_min.price]];
+        color: green
+      - entity: sensor.energi_data_service
+        attribute: today_mean
+        name: Tänään keskihinta
+        yaxis_id: cents
+        float_precision: 2
+        show:
+          in_header: true
+          in_chart: false
+        unit: c/kWh
+        color: yellow
+      - entity: sensor.energi_data_service
+        attribute: today_max
+        name: Kallein hinta tänään
+        yaxis_id: cents
+        float_precision: 2
+        show:
+          in_header: true
+          in_chart: false
+        unit: c/kWh
+        data_generator: |
+          return [[null, entity.attributes.today_max.price]];
+        color: red
+      - entity: sensor.hetkellinen_kustannus
+        name: Hetkellinen kustannus
+        yaxis_id: cost
+        type: line
+        float_precision: 2
+        group_by:
+          func: avg
+          duration: 30min
+        show:
+          in_header: true
+          in_chart: true
+        unit: c/t
+        color: blue
+        stroke_width: 0.8
+        extend_to: now
+    yaxis:
+      - id: cents
+        min: 0
+        max: auto
+        apex_config:
+          tickAmount: 8
+          forceNiceScale: true
+          title:
+            text: c/kWh
+      - id: cost
+        opposite: true
+        min: 0
+        max: 120
+        apex_config:
+          tickAmount: 8
+          forceNiceScale: true
+          title:
+            text: Kustannus (c/t)
+  - type: custom:mod-card
+    card_mod:
+      style: |
+        ha-card {
+          border-radius: 16px;
+          border: 2px solid rgba(234, 88, 12, 0.50);
+          border-left: 8px solid rgb(234, 88, 12);
+          background: rgba(234, 88, 12, 0.22);
+          box-shadow: none;
+          overflow: hidden;
+          --stack-card-margin: 2px;
+          margin: 8px 0;
+          padding: 4px 0 6px;
+          --ha-card-border-width: 0;
+          --ha-card-background: transparent;
+        }
+    card:
+      type: vertical-stack
+      cards:
+        - type: custom:mushroom-template-card
+          layout: horizontal
+          fill_container: true
+          primary: "{{ states('sensor.lammitys_ohjaus_tila') }}"
+          secondary: "{{ state_attr('sensor.lammitys_ohjaus_tila', 'syy') }}"
+          icon: >
+            {% set t = states('sensor.lammitys_ohjaus_tila') %}
+            {% if t == 'Huone alarajalla' %}mdi:thermometer-low
+            {% elif t == 'Lämmitysvesi kylmä' %}mdi:snowflake-alert
+            {% elif t == 'Liian korkea hetkellinen kulutus' %}mdi:cash-remove
+            {% elif t == 'Asetusta nostettu' %}mdi:thermometer-chevron-up
+            {% elif t == 'Ennakoiva lämmitys' %}mdi:chart-timeline-variant
+            {% elif t == 'Halpa sähkö' %}mdi:cash
+            {% elif t == 'Kallis sähkö' %}mdi:cash-clock
+            {% else %}mdi:radiator{% endif %}
+          icon_color: >
+            {% set t = states('sensor.lammitys_ohjaus_tila') %}
+            {% if t in ['Huone alarajalla', 'Lämmitysvesi kylmä', 'Liian korkea hetkellinen kulutus'] %}red
+            {% elif t == 'Asetusta nostettu' %}blue
+            {% elif t == 'Ennakoiva lämmitys' %}orange
+            {% elif t == 'Halpa sähkö' %}green
+            {% elif t == 'Kallis sähkö' %}amber
+            {% else %}disabled{% endif %}
+          tap_action:
+            action: more-info
+            entity: sensor.lammitys_ohjaus_tila
+          card_mod:
+            style: |
+              ha-card {
+                background: none !important;
+                border: none !important;
+                box-shadow: none !important;
+              }
+        - type: custom:mushroom-chips-card
+          alignment: center
+          chips:
+            - type: template
+              icon: mdi:thermometer-alert
+              icon_color: "{{ 'red' if is_state('binary_sensor.lammitys_rajoitettu', 'on') else 'grey' }}"
+              content: "{{ 'Lämmitys rajoitettu' if is_state('binary_sensor.lammitys_rajoitettu', 'on') else 'Ei rajoitusta' }}"
+              tap_action:
+                action: more-info
+                entity: sensor.lammitys_ohjaus_tila
+            - type: template
+              icon: mdi:cash-remove
+              icon_color: "{{ 'red' if is_state('binary_sensor.lammitys_hetki_rajoita_huone', 'on') or is_state('binary_sensor.lammitys_hetki_rajoita_vesi', 'on') else 'grey' }}"
+              content: >
+                {% if is_state('binary_sensor.lammitys_hetki_rajoita_vesi', 'on') %}Hetkellinen korkea — huoneet ja vastus
+                {% elif is_state('binary_sensor.lammitys_hetki_rajoita_huone', 'on') %}Hetkellinen korkea — huoneet
+                {% else %}Hetkellinen ok{% endif %}
+              tap_action:
+                action: more-info
+                entity: sensor.hetkellinen_kustannus
+            - type: template
+              icon: mdi:thermometer-chevron-up
+              icon_color: "{{ 'blue' if is_state('binary_sensor.lammitys_korotus_paalla', 'on') else 'grey' }}"
+              content: "{{ 'Asetusta nostettu' if is_state('binary_sensor.lammitys_korotus_paalla', 'on') else 'Ei korotusta' }}"
+              tap_action:
+                action: more-info
+                entity: binary_sensor.lammitys_korotus_paalla
+            - type: template
+              icon: mdi:cash
+              icon_color: "{{ 'green' if is_state('binary_sensor.lammitys_halpa_sahko', 'on') or is_state('binary_sensor.lammitys_ennakoiva', 'on') else 'amber' }}"
+              content: "{{ 'Halpa sähkö' if is_state('binary_sensor.lammitys_halpa_sahko', 'on') or is_state('binary_sensor.lammitys_ennakoiva', 'on') else 'Kallis sähkö' }}"
+              tap_action:
+                action: more-info
+                entity: binary_sensor.lammitys_halpa_sahko
+            - type: template
+              icon: mdi:chart-timeline-variant
+              icon_color: "{{ 'orange' if is_state('binary_sensor.lammitys_ennakoiva', 'on') else 'grey' }}"
+              content: "{{ 'Lattia vara' if is_state('binary_sensor.lammitys_ennakoiva', 'on') else 'Ei ennakkoa' }}"
+              tap_action:
+                action: more-info
+                entity: binary_sensor.lammitys_ennakoiva
+            - type: template
+              icon: mdi:water-thermometer
+              icon_color: >
+                {% if is_state('binary_sensor.lammitys_menovesi_nosto', 'on') %}green
+                {% elif is_state('binary_sensor.lammitys_menovesi_rajoitus', 'on') %}orange
+                {% else %}grey{% endif %}
+              content: >
+                {% set adj = states('sensor.lammitys_sekoitus_hinta_korjaus') | float(0) %}
+                {% if adj > 0.3 %}Menovesi +{{ adj | round(1) }}°
+                {% elif adj < -0.3 %}Menovesi {{ adj | round(1) }}°
+                {% else %}Menovesi käyrällä{% endif %}
+              tap_action:
+                action: more-info
+                entity: sensor.lammitys_sekoitus_hinta_korjaus
+        - type: custom:mushroom-template-card
+          layout: horizontal
+          fill_container: true
+          primary: Lämmitys ohjaus
+          secondary: "{{ states('sensor.lammitys_menovesi_teksti') }}"
+          icon: mdi:radiator
+          icon_color: "{{ 'green' if is_state('binary_sensor.lammitys_sekoituspumppu_paalla', 'on') else ('orange' if is_state('binary_sensor.lammitys_sekoitus_sallittu', 'on') else 'disabled') }}"
+          tap_action:
+            action: more-info
+            entity: sensor.lammitys_menovesi_teksti
+          card_mod:
+            style: |
+              ha-card {
+                background: none !important;
+                border: none !important;
+                box-shadow: none !important;
+              }
+        - type: custom:mushroom-template-card
+          layout: horizontal
+          fill_container: true
+          primary: "Meno {{ states('sensor.vilp_ohjaus_lampotilat_air_temperature_10') }}° · tavoite {{ states('sensor.lammitys_sekoitus_kaytto') }}° · paluu {{ states('sensor.vilp_ohjaus_lampotilat_air_temperature_9') }}°"
+          secondary: "{{ states('sensor.lammitys_sekoitus_teksti') }}"
+          icon: mdi:pipe-valve
+          icon_color: "{{ 'green' if is_state('binary_sensor.lammitys_sekoitus_sallittu', 'on') else 'disabled' }}"
+          tap_action:
+            action: more-info
+            entity: sensor.lammitys_sekoitus_teksti
+          card_mod:
+            style: |
+              ha-card {
+                background: none !important;
+                border: none !important;
+                box-shadow: none !important;
+              }
+        - type: custom:mod-card
+          card_mod:
+            style: |
+              ha-card { background: none !important; box-shadow: none !important; border: none !important; }
+          card:
+            type: grid
+            square: false
+            columns: 4
+            cards:
+              - type: custom:mod-card
+                card_mod:
+                  style:
+                    power-gauge-card$: |
+                      .title { font-size: 10px !important; font-weight: 700 !important; }
+                      .value { font-size: 15px !important; font-weight: 700 !important; }
+                      .unit-inline { font-size: 8px !important; font-weight: 600 !important; }
+                      .panel { padding: 6px 4px 4px !important; }
+                      .stage { margin: 0 !important; }
+                      .gauge { max-width: 160px !important; }
+                      .subtitle, .status { display: none !important; }
+                      .label-now { font-size: 0 !important; }
+                      .label-now::after { content: "NYT"; font-size: 6px !important; font-weight: 700; letter-spacing: 1.5px; }
+                      .unit { font-size: 0 !important; }
+                      .unit::after { content: "{% set t = states('sensor.vilp_ohjaus_lampotilat_air_temperature_13') | float(none) %}{{ 'Ei dataa' if t is none else ('Kriittinen' if t > 50 else ('Varoitus' if t > 40 else ('Matala' if t < 35 else 'Normaali'))) }}"; font-size: 7px !important; font-weight: 700; }
+                card:
+                  type: custom:power-gauge-card
+                  entity: sensor.vilp_ohjaus_lampotilat_air_temperature_13
+                  name: Varaaja
+                  unit: °C
+                  min: 20
+                  max: 60
+                  normal: 40
+                  warning: 41
+                  critical: 50
+                  precision: 1
+                  rolling_numbers: false
+                  background: transparent
+              - type: custom:mod-card
+                card_mod:
+                  style:
+                    power-gauge-card$: |
+                      .title { font-size: 10px !important; font-weight: 700 !important; }
+                      .value { font-size: 15px !important; font-weight: 700 !important; }
+                      .unit-inline { font-size: 8px !important; font-weight: 600 !important; }
+                      .panel { padding: 6px 4px 4px !important; }
+                      .stage { margin: 0 !important; }
+                      .gauge { max-width: 160px !important; }
+                      .subtitle, .status { display: none !important; }
+                      .label-now { font-size: 0 !important; }
+                      .label-now::after { content: "NYT"; font-size: 6px !important; font-weight: 700; letter-spacing: 1.5px; }
+                      .unit { font-size: 0 !important; }
+                      .unit::after { content: "{% set t = states('sensor.vilp_ohjaus_lampotilat_air_temperature_8') | float(none) %}{{ 'Ei dataa' if t is none else ('Kriittinen' if t > 80 else ('Varoitus' if t >= 75 else ('Matala' if t < 65 else 'Normaali'))) }}"; font-size: 7px !important; font-weight: 700; }
+                card:
+                  type: custom:power-gauge-card
+                  entity: sensor.vilp_ohjaus_lampotilat_air_temperature_8
+                  name: Käyttövesi
+                  unit: °C
+                  min: 40
+                  max: 90
+                  normal: 70
+                  warning: 75
+                  critical: 80
+                  precision: 1
+                  rolling_numbers: false
+                  background: transparent
+              - type: custom:mod-card
+                card_mod:
+                  style:
+                    power-gauge-card$: |
+                      .title { font-size: 10px !important; font-weight: 700 !important; }
+                      .value { font-size: 15px !important; font-weight: 700 !important; }
+                      .unit-inline { font-size: 8px !important; font-weight: 600 !important; }
+                      .panel { padding: 6px 4px 4px !important; }
+                      .stage { margin: 0 !important; }
+                      .gauge { max-width: 160px !important; }
+                      .subtitle, .status { display: none !important; }
+                      .label-now { font-size: 0 !important; }
+                      .label-now::after { content: "NYT"; font-size: 6px !important; font-weight: 700; letter-spacing: 1.5px; }
+                      .unit { font-size: 0 !important; }
+                      .unit::after { content: "{% set t = states('sensor.vilp_ohjaus_lampotilat_air_temperature_10') | float(none) %}{{ 'Ei dataa' if t is none else ('Kriittinen' if t >= 42 else ('Varoitus' if t >= 36 else 'Normaali')) }}"; font-size: 7px !important; font-weight: 700; }
+                card:
+                  type: custom:power-gauge-card
+                  entity: sensor.vilp_ohjaus_lampotilat_air_temperature_10
+                  name: LL meno
+                  unit: °C
+                  min: 20
+                  max: 45
+                  normal: 28
+                  warning: 36
+                  critical: 42
+                  precision: 1
+                  rolling_numbers: false
+                  background: transparent
+              - type: custom:mod-card
+                card_mod:
+                  style:
+                    power-gauge-card$: |
+                      .title { font-size: 10px !important; font-weight: 700 !important; }
+                      .value { font-size: 15px !important; font-weight: 700 !important; }
+                      .unit-inline { font-size: 8px !important; font-weight: 600 !important; }
+                      .panel { padding: 6px 4px 4px !important; }
+                      .stage { margin: 0 !important; }
+                      .gauge { max-width: 160px !important; }
+                      .subtitle, .status { display: none !important; }
+                      .label-now { font-size: 0 !important; }
+                      .label-now::after { content: "NYT"; font-size: 6px !important; font-weight: 700; letter-spacing: 1.5px; }
+                      .unit { font-size: 0 !important; }
+                      .unit::after { content: "{% set t = states('sensor.vilp_ohjaus_lampotilat_air_temperature_9') | float(none) %}{{ 'Ei dataa' if t is none else ('Kriittinen' if t >= 40 else ('Varoitus' if t >= 34 else 'Normaali')) }}"; font-size: 7px !important; font-weight: 700; }
+                card:
+                  type: custom:power-gauge-card
+                  entity: sensor.vilp_ohjaus_lampotilat_air_temperature_9
+                  name: LL paluu
+                  unit: °C
+                  min: 20
+                  max: 45
+                  normal: 26
+                  warning: 34
+                  critical: 40
+                  precision: 1
+                  rolling_numbers: false
+                  background: transparent
+        - type: custom:mushroom-chips-card
+          alignment: center
+          chips:
+            - type: template
+              icon: mdi:pump
+              icon_color: "{{ 'green' if is_state('switch.sonoff_4_ch_pro_2_tasmota2', 'on') else 'grey' }}"
+              content: "{{ 'Kierto päällä' if is_state('switch.sonoff_4_ch_pro_2_tasmota2', 'on') else 'Kierto pois' }}"
+              tap_action:
+                action: more-info
+                entity: switch.sonoff_4_ch_pro_2_tasmota2
+            - type: template
+              icon: mdi:pump
+              icon_color: "{{ 'orange' if is_state('timer.lammitys_sekoitus_pulssi', 'active') else ('blue' if is_state('timer.lammitys_sekoitus_odota', 'active') else ('green' if is_state('binary_sensor.lammitys_sekoituspumppu_paalla', 'on') else 'grey')) }}"
+              content: >
+                {% if is_state('timer.lammitys_sekoitus_pulssi', 'active') %}Sekoitus pulssi
+                {% elif is_state('timer.lammitys_sekoitus_odota', 'active') %}Sekoitus odottaa KV
+                {% elif is_state('binary_sensor.lammitys_sekoituspumppu_paalla', 'on') %}Sekoitus päällä
+                {% else %}Sekoitus pois{% endif %}
+              tap_action:
+                action: more-info
+                entity: sensor.lammitys_menovesi_teksti
+              hold_action:
+                action: more-info
+                entity: switch.sonoff_4_ch_pro_2_tasmota4
+            - type: template
+              icon: mdi:water-boiler
+              icon_color: >
+                {% if is_state('timer.lammitys_sekoitus_pulssi', 'active') or is_state('binary_sensor.lammitys_sekoituspumppu_paalla', 'on') %}green
+                {% elif is_state('switch.pannuhuone_lapivirtausvastus', 'on') %}orange
+                {% elif is_state('binary_sensor.lammitys_varaaja_tarve', 'on') %}red
+                {% else %}grey{% endif %}
+              content: >
+                {% set t = state_attr('climate.lattialammitys', 'temperature') %}
+                {% if is_state('timer.lammitys_sekoitus_pulssi', 'active') or is_state('binary_sensor.lammitys_sekoituspumppu_paalla', 'on') %}Varaaja ← KV
+                {% elif is_state('switch.pannuhuone_lapivirtausvastus', 'on') %}Varaaja ← vastus
+                {% elif is_state('binary_sensor.lammitys_varaaja_tarve', 'on') %}Varaaja kutsuu
+                {% else %}Varaaja {{ t }}°{% endif %}
+              tap_action:
+                action: more-info
+                entity: climate.lattialammitys
+            - type: entity
+              entity: input_number.lammitys_menovesi_hystereesi
+              icon: mdi:thermometer-chevron-down
+              content_info: state
+            - type: entity
+              entity: input_number.lammitys_kayra_ulko_vih
+              icon: mdi:weather-sunny
+              content_info: state
+            - type: entity
+              entity: input_number.lammitys_kayra_ulko_kylma
+              icon: mdi:snowflake
+              content_info: state
+            - type: entity
+              entity: input_number.lammitys_kayra_meno_min
+              icon: mdi:thermometer-low
+              content_info: state
+            - type: entity
+              entity: input_number.lammitys_kayra_meno_max
+              icon: mdi:thermometer-high
+              content_info: state
+            - type: entity
+              entity: input_number.lammitys_hinta_halpa
+              icon: mdi:currency-eur
+              content_info: state
+            - type: entity
+              entity: input_number.lammitys_hinta_kallis
+              icon: mdi:currency-eur-off
+              content_info: state
+            - type: entity
+              entity: input_number.lammitys_hinta_nosto_max
+              icon: mdi:thermometer-chevron-up
+              content_info: state
+            - type: entity
+              entity: input_number.lammitys_hinta_rajoitus_max
+              icon: mdi:thermometer-minus
+              content_info: state
+            - type: entity
+              entity: input_number.lammitys_hinta_ennakko_h
+              icon: mdi:clock-outline
+              content_info: state
+            - type: entity
+              entity: input_number.lammitys_kv_pumppu_paalle
+              icon: mdi:water-thermometer
+              content_info: state
+            - type: entity
+              entity: input_number.lammitys_kv_pumppu_pois
+              icon: mdi:water-alert
+              content_info: state
+            - type: entity
+              entity: input_number.lammitys_sekoitus_pulssi_s
+              icon: mdi:timer-outline
+              content_info: state
+            - type: entity
+              entity: input_number.lammitys_sekoitus_odota_s
+              icon: mdi:timer-sand
+              content_info: state
+            - type: entity
+              entity: input_number.lammitys_kv_pulse_max_lasku
+              icon: mdi:thermometer-chevron-down
+              content_info: state
+            - type: entity
+              entity: input_number.lammitys_kv_viime_lasku
+              icon: mdi:delta
+              content_info: state
+            - type: template
+              icon: mdi:heating-coil
+              icon_color: >
+                {% if is_state('switch.pannuhuone_lapivirtausvastus', 'on') %}red
+                {% elif is_state('timer.lammitys_vastus_odota', 'active') %}orange
+                {% elif is_state('timer.lammitys_ll_pumppu_viive', 'active') %}blue
+                {% elif is_state('binary_sensor.lammitys_vastus_sallittu', 'on') %}green
+                {% else %}grey{% endif %}
+              content: "{{ states('sensor.lammitys_vastus_teksti') }}"
+              tap_action:
+                action: more-info
+                entity: sensor.lammitys_vastus_teksti
+              hold_action:
+                action: more-info
+                entity: input_select.lammitys_vastus
+        - type: custom:mushroom-template-card
+          primary: Katso toimintahistoria
+          icon: mdi:history
+          icon_color: grey
+          tap_action:
+            action: navigate
+            navigation_path: >-
+              /logbook?entity_id=sensor.lammitys_ohjaus_tila,switch.sonoff_4_ch_pro_2_tasmota4,switch.pannuhuone_lapivirtausvastus,switch.sonoff_4_ch_pro_2_tasmota2,binary_sensor.lammitys_hetki_rajoita_huone,binary_sensor.lammitys_hetki_rajoita_vesi,binary_sensor.lammitys_korotus_paalla,binary_sensor.lammitys_ennakoiva,binary_sensor.lammitys_halpa_sahko,binary_sensor.lammitys_menovesi_nosto,binary_sensor.lammitys_menovesi_rajoitus
+          card_mod:
+            style: |
+              ha-card {
+                background: none !important;
+                border: none !important;
+                box-shadow: none !important;
+              }
+  - type: custom:mod-card
+    card_mod:
+      style: |
+        ha-card {
+          border-radius: 16px;
+          border: 1px solid rgba(0, 0, 0, 0.16);
+          box-shadow: none;
+          margin: 6px 0;
+          overflow: hidden;
+          --stack-card-margin: 0px;
+          --mush-spacing: 4px;
+          --icon-size: 32px;
+          --ha-card-background: transparent;
+          {% set tila = states('input_select.keittio_ilp_tila') %}
+          {% set ulko = states('sensor.ulkolampotila_met_no') | float(0) %}
+          {% set action = state_attr('climate.keittio_ilp', 'hvac_action') %}
+          {% if tila == 'Pois' %}
+            background: rgba(100, 116, 139, 0.28);
+            border: 2px solid rgba(100, 116, 139, 0.55);
+            border-left: 8px solid rgb(100, 116, 139);
+          {% elif action == 'cooling' %}
+            background: rgba(59, 130, 246, 0.26);
+            border: 2px solid rgba(37, 99, 235, 0.55);
+            border-left: 8px solid rgb(37, 99, 235);
+          {% elif action == 'heating' %}
+            background: rgba(239, 68, 68, 0.26);
+            border: 2px solid rgba(220, 38, 38, 0.55);
+            border-left: 8px solid rgb(220, 38, 38);
+          {% elif ulko > 20 %}
+            background: rgba(148, 163, 184, 0.24);
+            border: 2px solid rgba(100, 116, 139, 0.50);
+            border-left: 8px solid rgb(100, 116, 139);
+          {% else %}
+            background: rgba(34, 197, 94, 0.22);
+            border: 2px solid rgba(22, 163, 74, 0.55);
+            border-left: 8px solid rgb(22, 163, 74);
+          {% endif %}
+        }
+    card:
+      type: vertical-stack
+      cards:
+        - type: custom:mushroom-template-card
+          layout: horizontal
+          fill_container: false
+          primary: >
+            Keittiö ILP · {{ state_attr('climate.keittio_ilp',
+            'current_temperature') | float(0) | round(1) }} → {{
+            state_attr('climate.keittio_ilp', 'temperature') | float(0) |
+            round(1) }} °C
+          secondary: >
+            {% set s1 = states('input_text.keittio_ilp') %}
+            {% set s2 = states('input_text.keittio_ilp_status') %}
+            {{ s2 if s1 in ['unknown', 'unavailable', 'none', ''] else s1 }}
+          icon: mdi:air-conditioner
+          icon_color: >
+            {% set tila = states('input_select.keittio_ilp_tila') %} {% set
+            action = state_attr('climate.keittio_ilp', 'hvac_action') %} {% if
+            tila == 'Pois' %}disabled {% elif action == 'cooling' %}blue {% elif
+            action == 'heating' %}orange {% elif
+            is_state('input_select.keittio_ilp_tila', 'Manuaali') %}deep-orange
+            {% else %}green{% endif %}
+          tap_action:
+            action: more-info
+            entity: climate.keittio_ilp
+          card_mod:
+            style: |
+              ha-card {
+                padding: 2px 8px 0 !important;
+                background: none !important;
+                border: none !important;
+                box-shadow: none !important;
+              }
+        - type: custom:mushroom-chips-card
+          alignment: center
+          card_mod:
+            style: |
+              ha-card {
+                padding: 0 4px 4px !important;
+                background: none !important;
+                border: none !important;
+                box-shadow: none !important;
+              }
+          chips:
+            - type: template
+              icon: mdi:robot-outline
+              content: Auto
+              icon_color: >-
+                {{ 'green' if is_state('input_select.keittio_ilp_tila',
+                'Automaatti') else 'grey' }}
+              tap_action:
+                action: call-service
+                service: script.keittio_ilp_automaatti
+            - type: template
+              icon: mdi:power-off
+              content: Pois
+              icon_color: >-
+                {{ 'red' if is_state('input_select.keittio_ilp_tila', 'Pois')
+                else 'grey' }}
+              tap_action:
+                action: call-service
+                service: script.keittio_ilp_pois
+            - type: template
+              icon: mdi:hand-back-right
+              content: Käsi
+              icon_color: >-
+                {{ 'deep-orange' if is_state('input_select.keittio_ilp_tila',
+                'Manuaali') else 'grey' }}
+              tap_action:
+                action: call-service
+                service: input_select.select_option
+                data:
+                  entity_id: input_select.keittio_ilp_tila
+                  option: Manuaali
+            - type: template
+              icon: mdi:cash
+              icon_color: "{{ 'orange' if is_state('binary_sensor.lammitys_ennakoiva', 'on') else 'green' }}"
+              content: >
+                {% set p = states('sensor.energi_data_service') | float(0) | round(1) %}
+                {{ 'ILP + lattia vara' if is_state('binary_sensor.lammitys_ennakoiva', 'on') else 'ILP olo+keittiö' }} {{ p }} snt
+              tap_action:
+                action: more-info
+                entity: binary_sensor.lammitys_halpa_sahko
+            - type: entity
+              entity: input_number.keittio_ilp_lampo
+              icon: mdi:fire
+              content_info: state
+            - type: entity
+              entity: input_number.lammitys_hinta_lattia_raja
+              icon: mdi:cash
+              content_info: state
+            - type: entity
+              entity: input_number.lammitys_lattia_tausta_olokeittio
+              icon: mdi:thermometer-minus
+              content_info: state
+            - type: entity
+              entity: input_number.keittio_ilp_lepoasetus
+              icon: mdi:sleep
+              content_info: state
+            - type: entity
+              entity: input_number.keittio_ilp_jaahdytys
+              icon: mdi:snowflake
+              content_info: state
+            - type: entity
+              entity: input_number.keittio_ilp_jaahdytys_keski
+              icon: mdi:calendar-clock
+              content_info: state
+            - type: entity
+              entity: sensor.keittio_ilp_ulko_keski_24h
+              icon: mdi:thermometer-lines
+              content_info: state
+            - type: entity
+              entity: sensor.keittio_ilp_tavoite
+              icon: mdi:chart-bell-curve-cumulative
+              content_info: state
+            - type: entity
+              entity: sensor.ulkolampotila_met_no
+              icon: mdi:thermometer
+              content_info: state
+            - type: entity
+              entity: binary_sensor.terassi_ovi_contact
+              icon: mdi:door
+              content_info: name
+        - type: conditional
+          conditions:
+            - condition: state
+              entity: input_select.keittio_ilp_tila
+              state: Manuaali
+          card:
+            type: custom:mushroom-chips-card
+            alignment: center
+            card_mod:
+              style: |
+                ha-card {
+                  padding: 0 4px 6px !important;
+                  background: none !important;
+                  border: none !important;
+                  box-shadow: none !important;
+                }
+            chips:
+              - type: template
+                icon: mdi:fire
+                content: Lämmitys
+                icon_color: >-
+                  {{ 'orange' if
+                  is_state('input_select.keittio_ilp_manuaali_tila', 'Lämmitys')
+                  else 'grey' }}
+                tap_action:
+                  action: call-service
+                  service: input_select.select_option
+                  data:
+                    entity_id: input_select.keittio_ilp_manuaali_tila
+                    option: Lämmitys
+              - type: template
+                icon: mdi:snowflake
+                content: Jäähdytys
+                icon_color: >-
+                  {{ 'blue' if
+                  is_state('input_select.keittio_ilp_manuaali_tila',
+                  'Jäähdytys') else 'grey' }}
+                tap_action:
+                  action: call-service
+                  service: input_select.select_option
+                  data:
+                    entity_id: input_select.keittio_ilp_manuaali_tila
+                    option: Jäähdytys
+              - type: template
+                icon: mdi:play
+                content: Aja
+                icon_color: green
+                tap_action:
+                  action: call-service
+                  service: script.keittio_ilp_manuaali
+  - type: custom:mod-card
+    card_mod:
+      style: |
+        ha-card {
+          border-radius: 16px;
+          border: 2px solid rgba(217, 119, 6, 0.50);
+          border-left: 8px solid rgb(217, 119, 6);
+          background: rgba(245, 158, 11, 0.24);
+          box-shadow: none;
+          overflow: hidden;
+          --stack-card-margin: 2px;
+          margin: 8px 0;
+          padding: 4px 0 6px;
+          --ha-card-border-width: 0;
+          --ha-card-background: transparent;
+        }
+    card:
+      type: vertical-stack
+      cards:
+        - type: custom:mushroom-template-card
+          layout: horizontal
+          fill_container: true
+          primary: Aurinkolämpö
+          secondary: "{{ states('sensor.aurinkolampo_tuotto_teksti') }}"
+          icon: mdi:solar-power-variant
+          icon_color: "{{ 'amber' if is_state('binary_sensor.lammitys_aurinko_lammittaa', 'on') else 'disabled' }}"
+          tap_action:
+            action: more-info
+            entity: sensor.aurinkolampo_tuotto_tanaan
+          card_mod:
+            style: |
+              ha-card {
+                background: none !important;
+                border: none !important;
+                box-shadow: none !important;
+              }
+        - type: custom:mod-card
+          card_mod:
+            style:
+              hui-grid-card$:
+                power-gauge-card$: >
+                  .title { font-size: 10px !important; font-weight: 700 !important; }
+                  .subtitle { font-size: 7px !important; font-weight: 600 !important; }
+                  .value { font-size: 15px !important; font-weight: 700 !important; }
+                  .unit-inline { font-size: 8px !important; font-weight: 600 !important; }
+                  .label-now { font-size: 6px !important; font-weight: 700 !important; }
+                  .unit { font-size: 7px !important; font-weight: 600 !important; }
+                  .status { font-size: 7px !important; font-weight: 600 !important; }
+                  .panel { padding: 6px 4px 4px !important; }
+                  .stage { margin: 0 !important; }
+                  .gauge { max-width: 160px !important; }
+              .: >
+                ha-card { background: none !important; box-shadow: none !important; border: none !important; }
+          card:
+            type: grid
+            square: false
+            columns: 4
+            cards:
+              - type: custom:power-gauge-card
+                entity: sensor.nele_ja_keittio_lattialammitys_anturit_air_temperature_8
+                name: Kenno
+                unit: °C
+                min: 0
+                max: 80
+                normal: 35
+                warning: 55
+                critical: 70
+                precision: 1
+                rolling_numbers: false
+                background: transparent
+              - type: custom:power-gauge-card
+                entity: sensor.vilp_ohjaus_lampotilat_air_temperature_12
+                name: Aur.meno
+                unit: °C
+                min: 0
+                max: 80
+                normal: 35
+                warning: 55
+                critical: 70
+                precision: 1
+                rolling_numbers: false
+                background: transparent
+              - type: custom:power-gauge-card
+                entity: sensor.vilp_ohjaus_lampotilat_air_temperature_11
+                name: Aur.paluu
+                unit: °C
+                min: 0
+                max: 80
+                normal: 35
+                warning: 55
+                critical: 70
+                precision: 1
+                rolling_numbers: false
+                background: transparent
+              - type: custom:power-gauge-card
+                entity: sensor.aurinkolampo_teho_kw
+                name: Aur.teho
+                unit: kW
+                min: 0
+                max: 12
+                normal: 2
+                warning: 6
+                critical: 10
+                precision: 2
+                rolling_numbers: false
+                background: transparent
+        - type: custom:mushroom-chips-card
+          alignment: center
+          chips:
+            - type: template
+              icon: mdi:flash
+              content: "Spot {{ states('sensor.energi_data_service') | float(0) | round(1) }} c"
+            - type: template
+              icon: mdi:chart-timeline-variant
+              content: "Ennakko {{ states('sensor.lammitys_hinta_ennakko') }} c"
+              tap_action:
+                action: more-info
+                entity: sensor.lammitys_hinta_ennakko
+            - type: template
+              icon: mdi:compare
+              content: >-
+                Ero {{
+                (states('sensor.nele_ja_keittio_lattialammitys_anturit_air_temperature_8')
+                | float(0) -
+                states('sensor.vilp_ohjaus_lampotilat_air_temperature_13') | float(0))
+                | round(1) }}°
+            - type: template
+              icon: mdi:solar-power
+              content: >-
+                {{ now().strftime('%d.%m.') }} {{ states('sensor.aurinkolampo_tuotto_tanaan') | float(0) | round(1) }} / talo {{ states('sensor.energia_paivittain') | float(0) | round(1) }}
+              tap_action:
+                action: more-info
+                entity: sensor.aurinkolampo_tuotto_tanaan
+            - type: template
+              icon: mdi:calendar-clock
+              content: Eilen {{ states('sensor.aurinkolampo_tuotto_eilen') | float(0) | round(1) }} kWh
+              tap_action:
+                action: more-info
+                entity: sensor.aurinkolampo_tuotto_eilen
+            - type: template
+              icon: mdi:calendar-week
+              content: >-
+                Vko {{ states('sensor.aurinkolampo_tuotto_viikko') | float(0) | round(1) }} / talo {{ states('sensor.energia_viikottain') | float(0) | round(1) }}
+              tap_action:
+                action: more-info
+                entity: sensor.aurinkolampo_tuotto_viikko
+            - type: template
+              icon: mdi:calendar-month
+              content: >-
+                Kk {{ states('sensor.aurinkolampo_tuotto_kuukausi') | float(0) | round(1) }} / talo {{ states('sensor.energia_kuukausittain') | float(0) | round(1) }}
+              tap_action:
+                action: more-info
+                entity: sensor.aurinkolampo_tuotto_kuukausi
+            - type: template
+              icon: mdi:water-boiler
+              icon_color: "{{ 'green' if is_state('binary_sensor.aurinkolampo_riittaa', 'on') else ('amber' if is_state('switch.sonoff_4_ch_pro_2_tasmota3', 'on') else 'grey') }}"
+              content: "{{ states('sensor.aurinkolampo_riitto_teksti') }}"
+              tap_action:
+                action: more-info
+                entity: sensor.aurinkolampo_riitto_teksti
+            - type: entity
+              entity: switch.sonoff_4_ch_pro_2_tasmota3
+              icon: mdi:solar-power-variant
+              content_info: name
+            - type: entity
+              entity: input_select.lammitys_aurinkopumppu
+              icon: mdi:cog
+              content_info: state
+            - type: entity
+              entity: input_number.lammitys_aurinko_varo
+              icon: mdi:solar-power
+              content_info: state
+            - type: entity
+              entity: input_number.lammitys_aurinko_teho_raja
+              icon: mdi:solar-power-variant
+              content_info: state
+  - type: custom:mod-card
+    card_mod:
+      style: |
+        ha-card {
+          border-radius: 16px;
+          border: 2px solid rgba(37, 99, 235, 0.50);
+          border-left: 8px solid rgb(37, 99, 235);
+          background: rgba(59, 130, 246, 0.16);
+          box-shadow: none;
+          overflow: hidden;
+          --stack-card-margin: 2px;
+          margin: 8px 0;
+          padding: 4px 0 6px;
+          --ha-card-border-width: 0;
+          --ha-card-background: transparent;
+        }
+    card:
+      type: vertical-stack
+      cards:
+        - type: custom:mushroom-template-card
+          layout: horizontal
+          fill_container: true
+          primary: Huoneet
+          secondary: >
+            {% if is_state('binary_sensor.lammitys_hetki_rajoita_huone', 'on') %}
+              Hetkellinen {{ states('sensor.hetkellinen_kustannus') }} c/t — termostaatit rajoitettu
+            {% else %}Auto / pois / korotus jokaisessa ruudussa{% endif %}
+          icon: mdi:home-thermometer
+          icon_color: "{{ 'orange' if is_state('binary_sensor.lammitys_hetki_rajoita_huone', 'on') else 'blue' }}"
+          tap_action:
+            action: more-info
+            entity: sensor.lammitys_ohjaus_tila
+          card_mod:
+            style: |
+              ha-card {
+                background: none !important;
+                border: none !important;
+                box-shadow: none !important;
+              }
+        - type: grid
+          columns: 2
+          square: false
+          cards:
+            - type: custom:mod-card
+              card_mod:
+                style: |
+                  ha-card {
+                    border-radius: 16px;
+                    border: 1px solid rgba(0, 0, 0, 0.08);
+                    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+                    overflow: hidden;
+                    {% set pois = is_state('input_select.lammitys_tila_olohuone_keittio', 'Pois') %}
+                    {% set heat = state_attr('climate.olohuone_lattialammitys', 'hvac_action') == 'heating' or state_attr('climate.keittio_lattialammitys', 'hvac_action') == 'heating' %}
+                    {% set matala = state_attr('climate.olohuone_lattialammitys', 'temperature') | float(99) <= 17 and state_attr('climate.keittio_lattialammitys', 'temperature') | float(99) <= 17 %}
+                    {% if pois or matala %}
+                      background: rgba(100, 116, 139, 0.12);
+                    {% elif heat %}
+                      background: rgba(239, 68, 68, 0.16);
+                    {% else %}
+                      background: rgba(34, 197, 94, 0.14);
+                    {% endif %}
+                  }
+              card:
+                type: vertical-stack
+                cards:
+                  - type: custom:mushroom-template-card
+                    entity: climate.olohuone_lattialammitys
+                    layout: horizontal
+                    fill_container: true
+                    primary: >
+                      {% set o = state_attr('climate.olohuone_lattialammitys',
+                      'current_temperature') %}
+                      {% set k = state_attr('climate.keittio_lattialammitys',
+                      'current_temperature') %}
+                      {% set o_r = o | round(1) if o is not none else none %}
+                      {% set k_r = k | round(1) if k is not none else none %}
+                      Olo+keit · {% if o_r is not none and k_r is not none and o_r ==
+                      k_r %}{{ o_r }}{% elif o_r is not none and k_r is not none %}{{
+                      o_r }}/{{ k_r }}{% elif o_r is not none %}{{ o_r }}{% elif k_r
+                      is not none %}{{ k_r }}{% else %}—{% endif %}°C
+                    secondary: >
+                      {% set auto_s =
+                      states('sensor.lammitys_kaytto_olohuone_keittio') %}
+                      {% set auto_t = auto_s | float(none) if auto_s not in
+                      ['unknown','unavailable','none',''] else none %}
+                      {% set olo_t = state_attr('climate.olohuone_lattialammitys',
+                      'temperature') %}
+                      {% set keitt_t = state_attr('climate.keittio_lattialammitys',
+                      'temperature') %}
+                      {% set olo_tr = olo_t | round(1) if olo_t is not none else none
+                      %}
+                      {% set keitt_tr = keitt_t | round(1) if keitt_t is not none else
+                      none %}
+                      {% set h1 = state_attr('climate.olohuone_lattialammitys',
+                      'hvac_action') %}
+                      {% set h2 = state_attr('climate.keittio_lattialammitys',
+                      'hvac_action') %}
+                      {% set ohj =
+                      states('input_select.lammitys_tila_olohuone_keittio') %}
+                      {% set kor = is_state('timer.lammitys_korotus_olohuone_keittio',
+                      'active') %}
+                      {% set terassi_auki =
+                      is_state('binary_sensor.lammitys_terassi_auki', 'on') %}
+                      Auto {% if auto_t is not none %}{{ auto_t | round(1) }}{% else
+                      %}—{% endif %}° · Termo {% if olo_tr is not none and keitt_tr is
+                      not none and olo_tr == keitt_tr %}{{ olo_tr }}{% elif olo_tr is
+                      not none and keitt_tr is not none %}{{ olo_tr }}/{{ keitt_tr
+                      }}{% elif olo_tr is not none %}{{ olo_tr }}{% elif keitt_tr is
+                      not none %}{{ keitt_tr }}{% else %}—{% endif %}° · {% if ohj ==
+                      'Pois' or (olo_t is not none and olo_t | float(99) <= 17 and
+                      keitt_t is not none and keitt_t | float(99) <= 17) %}📉 Matala{%
+                      elif h1 == 'heating' or h2 == 'heating' %}♨️ Lämmittää{% else
+                      %}⏸ Odottaa{% endif %} · {% if ohj == 'Pois' %}Ohjaus pois{%
+                      elif kor %}Korotus ⏱{% else %}Ohjaus auto{% endif %}{% if
+                      terassi_auki %} · 🚪 Terassi auki{% endif %}                      {% if ohj != 'Pois'
+                      and (is_state('binary_sensor.lammitys_ennakoiva', 'on')
+                      or is_state('binary_sensor.lammitys_halpa_sahko', 'on')) %}
+                      · Lattia vara{% elif ohj != 'Pois' %} · ILP
+                      painotteinen{% endif %}
+                    icon: mdi:sofa-outline
+                    icon_color: >
+                      {% if is_state('input_select.lammitys_tila_olohuone_keittio',
+                      'Pois') %}grey {% elif
+                      state_attr('climate.olohuone_lattialammitys', 'temperature') |
+                      float(99) <= 17 and state_attr('climate.keittio_lattialammitys',
+                      'temperature') | float(99) <= 17 %}disabled {% elif
+                      state_attr('climate.olohuone_lattialammitys', 'hvac_action') ==
+                      'heating' or state_attr('climate.keittio_lattialammitys',
+                      'hvac_action') == 'heating' %}orange {% elif
+                      is_state('timer.lammitys_korotus_olohuone_keittio', 'active')
+                      %}deep-orange {% else %}blue{% endif %}
+                  - type: custom:mushroom-chips-card
+                    alignment: center
+                    chips:
+                      - type: template
+                        icon: mdi:robot-outline
+                        content: Auto
+                        icon_color: >-
+                          {{ 'green' if
+                          is_state('input_select.lammitys_tila_olohuone_keittio',
+                          'Automaatti') else 'grey' }}
+                        tap_action:
+                          action: call-service
+                          service: input_select.select_option
+                          data:
+                            entity_id: input_select.lammitys_tila_olohuone_keittio
+                            option: Automaatti
+                      - type: template
+                        icon: mdi:power-off
+                        content: Pois
+                        icon_color: >-
+                          {{ 'red' if
+                          is_state('input_select.lammitys_tila_olohuone_keittio',
+                          'Pois') else 'grey' }}
+                        tap_action:
+                          action: call-service
+                          service: input_select.select_option
+                          data:
+                            entity_id: input_select.lammitys_tila_olohuone_keittio
+                            option: Pois
+                      - type: conditional
+                        conditions:
+                          - entity: timer.lammitys_korotus_olohuone_keittio
+                            state: active
+                        chip:
+                          type: template
+                          icon: mdi:fire-off
+                          content: Korotus pois
+                          icon_color: red
+                          tap_action:
+                            action: call-service
+                            service: script.lammitys_korotus_lopeta
+                            data:
+                              alue: olohuone_keittio
+                      - type: conditional
+                        conditions:
+                          - entity: timer.lammitys_korotus_olohuone_keittio
+                            state_not: active
+                        chip:
+                          type: template
+                          icon: mdi:fire
+                          content: Korotus
+                          icon_color: grey
+                          tap_action:
+                            action: call-service
+                            service: script.lammitys_korotus_kaynnista
+                            data:
+                              alue: olohuone_keittio
+                      - type: entity
+                        entity: input_number.lammitys_korotus_olohuone_keittio
+                        icon: mdi:thermometer-plus
+                        content_info: state
+                      - type: entity
+                        entity: input_number.lammitys_kesto_olohuone_keittio
+                        icon: mdi:timer-outline
+                        content_info: state
+                      - type: conditional
+                        conditions:
+                          - entity: timer.lammitys_korotus_olohuone_keittio
+                            state: active
+                        chip:
+                          type: entity
+                          entity: timer.lammitys_korotus_olohuone_keittio
+                          icon: mdi:timer-sand
+                          content_info: state
+                  - type: custom:mushroom-chips-card
+                    alignment: center
+                    chips:
+                      - type: template
+                        entity: switch.keittio_valokytkin
+                        icon: mdi:light-switch
+                        content: >-
+                          Keittiö · {{ 'Päällä' if
+                          is_state('switch.keittio_valokytkin', 'on') else 'Pois' }}
+                        icon_color: >-
+                          {{ 'amber' if is_state('switch.keittio_valokytkin', 'on')
+                          else 'grey' }}
+                        tap_action:
+                          action: toggle
+                      - type: template
+                        entity: switch.olohuone_valokytkin_2
+                        icon: mdi:light-switch
+                        content: >-
+                          Olohuone · {{ 'Päällä' if
+                          is_state('switch.olohuone_valokytkin_2', 'on') else 'Pois'
+                          }}
+                        icon_color: >-
+                          {{ 'amber' if is_state('switch.olohuone_valokytkin_2', 'on')
+                          else 'grey' }}
+                        tap_action:
+                          action: toggle
+                      - type: template
+                        entity: switch.terassi_valokytkin
+                        icon: mdi:light-switch
+                        content: >-
+                          Kukkahylly · {{ 'Päällä' if
+                          is_state('switch.terassi_valokytkin', 'on') else 'Pois' }}
+                        icon_color: >-
+                          {{ 'amber' if is_state('switch.terassi_valokytkin', 'on')
+                          else 'grey' }}
+                        tap_action:
+                          action: toggle
+            - type: custom:mod-card
+              card_mod:
+                style: |
+                  ha-card {
+                    border-radius: 16px;
+                    border: 1px solid rgba(0, 0, 0, 0.08);
+                    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+                    overflow: hidden;
+                    {% set pois = is_state('input_select.lammitys_tila_hm', 'Pois') %}
+                    {% set heat = state_attr('climate.hm_lattialammitys', 'hvac_action') == 'heating' %}
+                    {% set matala = state_attr('climate.hm_lattialammitys', 'temperature') | float(99) <= 17 %}
+                    {% if pois or matala %}
+                      background: rgba(100, 116, 139, 0.12);
+                    {% elif heat %}
+                      background: rgba(239, 68, 68, 0.16);
+                    {% else %}
+                      background: rgba(34, 197, 94, 0.14);
+                    {% endif %}
+                  }
+              card:
+                type: vertical-stack
+                cards:
+                  - type: custom:mushroom-template-card
+                    entity: climate.hm_lattialammitys
+                    layout: horizontal
+                    fill_container: true
+                    primary: >
+                      {% set h = state_attr('climate.hm_lattialammitys',
+                      'current_temperature') %}
+                      HM · {{ h | round(1) if h is not none else '—' }}°C
+                    secondary: >
+                      {% set auto_s = states('sensor.lammitys_kaytto_hm') %}
+                      {% set auto_t = auto_s | float(none) if auto_s not in
+                      ['unknown','unavailable','none',''] else none %}
+                      {% set termo = state_attr('climate.hm_lattialammitys',
+                      'temperature') %}
+                      {% set heat = state_attr('climate.hm_lattialammitys',
+                      'hvac_action') %}
+                      {% set ohj = states('input_select.lammitys_tila_hm') %}
+                      {% set kor = is_state('timer.lammitys_korotus_hm', 'active') %}
+                      Auto {% if auto_t is not none %}{{ auto_t | round(1) }}{% else
+                      %}—{% endif %}° · Termo {% if termo is not none %}{{ termo |
+                      round(1) }}{% else %}—{% endif %}° · {% if ohj == 'Pois' or
+                      (termo is not none and termo | float(99) <= 17) %}📉 Matala{%
+                      elif heat == 'heating' %}♨️ Lämmittää{% else %}⏸ Odottaa{% endif
+                      %} · {% if ohj == 'Pois' %}Ohjaus pois{% elif kor %}Korotus ⏱{%
+                      else %}Ohjaus auto{% endif %}{% if ohj != 'Pois'
+                      and is_state('binary_sensor.lammitys_ennakoiva', 'on') %} ·
+                      Lattia vara{% endif %}
+                    icon: mdi:bed-king-outline
+                    icon_color: >
+                      {% if is_state('input_select.lammitys_tila_hm', 'Pois') %}grey
+                      {% elif state_attr('climate.hm_lattialammitys', 'temperature') |
+                      float(99) <= 17 %}disabled {% elif
+                      state_attr('climate.hm_lattialammitys', 'hvac_action') ==
+                      'heating' %}orange {% elif is_state('timer.lammitys_korotus_hm',
+                      'active') %}deep-orange {% else %}blue{% endif %}
+                  - type: custom:mushroom-chips-card
+                    alignment: center
+                    chips:
+                      - type: template
+                        icon: mdi:robot-outline
+                        content: Auto
+                        icon_color: >-
+                          {{ 'green' if is_state('input_select.lammitys_tila_hm',
+                          'Automaatti') else 'grey' }}
+                        tap_action:
+                          action: call-service
+                          service: input_select.select_option
+                          data:
+                            entity_id: input_select.lammitys_tila_hm
+                            option: Automaatti
+                      - type: template
+                        icon: mdi:power-off
+                        content: Pois
+                        icon_color: >-
+                          {{ 'red' if is_state('input_select.lammitys_tila_hm',
+                          'Pois') else 'grey' }}
+                        tap_action:
+                          action: call-service
+                          service: input_select.select_option
+                          data:
+                            entity_id: input_select.lammitys_tila_hm
+                            option: Pois
+                      - type: conditional
+                        conditions:
+                          - entity: timer.lammitys_korotus_hm
+                            state: active
+                        chip:
+                          type: template
+                          icon: mdi:fire-off
+                          content: Korotus pois
+                          icon_color: red
+                          tap_action:
+                            action: call-service
+                            service: script.lammitys_korotus_lopeta
+                            data:
+                              alue: hm
+                      - type: conditional
+                        conditions:
+                          - entity: timer.lammitys_korotus_hm
+                            state_not: active
+                        chip:
+                          type: template
+                          icon: mdi:fire
+                          content: Korotus
+                          icon_color: grey
+                          tap_action:
+                            action: call-service
+                            service: script.lammitys_korotus_kaynnista
+                            data:
+                              alue: hm
+                      - type: entity
+                        entity: input_number.lammitys_korotus_hm
+                        icon: mdi:thermometer-plus
+                        content_info: state
+                      - type: entity
+                        entity: input_number.lammitys_kesto_hm
+                        icon: mdi:timer-outline
+                        content_info: state
+                      - type: conditional
+                        conditions:
+                          - entity: timer.lammitys_korotus_hm
+                            state: active
+                        chip:
+                          type: entity
+                          entity: timer.lammitys_korotus_hm
+                          icon: mdi:timer-sand
+                          content_info: state
+                  - type: custom:mushroom-chips-card
+                    alignment: center
+                    chips:
+                      - type: template
+                        entity: switch.makuhune_valokytkin
+                        icon: mdi:light-switch
+                        content: >-
+                          HM · {{ 'Päällä' if is_state('switch.makuhune_valokytkin',
+                          'on') else 'Pois' }}
+                        icon_color: >-
+                          {{ 'amber' if is_state('switch.makuhune_valokytkin', 'on')
+                          else 'grey' }}
+                        tap_action:
+                          action: toggle
+            - type: custom:mod-card
+              card_mod:
+                style: |
+                  ha-card {
+                    border-radius: 16px;
+                    border: 1px solid rgba(0, 0, 0, 0.08);
+                    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+                    overflow: hidden;
+                    {% set pois = is_state('input_select.lammitys_tila_makuhuone', 'Pois') %}
+                    {% set heat = state_attr('climate.makuhuone_lattialammitys', 'hvac_action') == 'heating' %}
+                    {% set matala = state_attr('climate.makuhuone_lattialammitys', 'temperature') | float(99) <= 17 %}
+                    {% if pois or matala %}
+                      background: rgba(100, 116, 139, 0.12);
+                    {% elif heat %}
+                      background: rgba(239, 68, 68, 0.16);
+                    {% else %}
+                      background: rgba(34, 197, 94, 0.14);
+                    {% endif %}
+                  }
+              card:
+                type: vertical-stack
+                cards:
+                  - type: custom:mushroom-template-card
+                    entity: climate.makuhuone_lattialammitys
+                    layout: horizontal
+                    fill_container: true
+                    primary: >
+                      {% set h = state_attr('climate.makuhuone_lattialammitys',
+                      'current_temperature') %}
+                      Makuhuone · {{ h | round(1) if h is not none else '—' }}°C
+                    secondary: >
+                      {% set auto_s = states('sensor.lammitys_kaytto_makuhuone') %}
+                      {% set auto_t = auto_s | float(none) if auto_s not in
+                      ['unknown','unavailable','none',''] else none %}
+                      {% set termo = state_attr('climate.makuhuone_lattialammitys',
+                      'temperature') %}
+                      {% set heat = state_attr('climate.makuhuone_lattialammitys',
+                      'hvac_action') %}
+                      {% set ohj = states('input_select.lammitys_tila_makuhuone') %}
+                      {% set kor = is_state('timer.lammitys_korotus_makuhuone',
+                      'active') %}
+                      Auto {% if auto_t is not none %}{{ auto_t | round(1) }}{% else
+                      %}—{% endif %}° · Termo {% if termo is not none %}{{ termo |
+                      round(1) }}{% else %}—{% endif %}° · {% if ohj == 'Pois' or
+                      (termo is not none and termo | float(99) <= 17) %}📉 Matala{%
+                      elif heat == 'heating' %}♨️ Lämmittää{% else %}⏸ Odottaa{% endif
+                      %} · {% if ohj == 'Pois' %}Ohjaus pois{% elif kor %}Korotus ⏱{%
+                      else %}Ohjaus auto{% endif %}{% if ohj != 'Pois'
+                      and is_state('binary_sensor.lammitys_ennakoiva', 'on') %} ·
+                      Lattia vara{% endif %}
+                    icon: mdi:silverware-fork-knife
+                    icon_color: >
+                      {% if is_state('input_select.lammitys_tila_makuhuone', 'Pois')
+                      %}grey {% elif state_attr('climate.makuhuone_lattialammitys',
+                      'temperature') | float(99) <= 17 %}disabled {% elif
+                      state_attr('climate.makuhuone_lattialammitys', 'hvac_action') ==
+                      'heating' %}orange {% elif
+                      is_state('timer.lammitys_korotus_makuhuone', 'active')
+                      %}deep-orange {% else %}green{% endif %}
+                  - type: custom:mushroom-chips-card
+                    alignment: center
+                    chips:
+                      - type: template
+                        icon: mdi:robot-outline
+                        content: Auto
+                        icon_color: >-
+                          {{ 'green' if
+                          is_state('input_select.lammitys_tila_makuhuone',
+                          'Automaatti') else 'grey' }}
+                        tap_action:
+                          action: call-service
+                          service: input_select.select_option
+                          data:
+                            entity_id: input_select.lammitys_tila_makuhuone
+                            option: Automaatti
+                      - type: template
+                        icon: mdi:power-off
+                        content: Pois
+                        icon_color: >-
+                          {{ 'red' if is_state('input_select.lammitys_tila_makuhuone',
+                          'Pois') else 'grey' }}
+                        tap_action:
+                          action: call-service
+                          service: input_select.select_option
+                          data:
+                            entity_id: input_select.lammitys_tila_makuhuone
+                            option: Pois
+                      - type: conditional
+                        conditions:
+                          - entity: timer.lammitys_korotus_makuhuone
+                            state: active
+                        chip:
+                          type: template
+                          icon: mdi:fire-off
+                          content: Korotus pois
+                          icon_color: red
+                          tap_action:
+                            action: call-service
+                            service: script.lammitys_korotus_lopeta
+                            data:
+                              alue: makuhuone
+                      - type: conditional
+                        conditions:
+                          - entity: timer.lammitys_korotus_makuhuone
+                            state_not: active
+                        chip:
+                          type: template
+                          icon: mdi:fire
+                          content: Korotus
+                          icon_color: grey
+                          tap_action:
+                            action: call-service
+                            service: script.lammitys_korotus_kaynnista
+                            data:
+                              alue: makuhuone
+                      - type: entity
+                        entity: input_number.lammitys_korotus_makuhuone
+                        icon: mdi:thermometer-plus
+                        content_info: state
+                      - type: entity
+                        entity: input_number.lammitys_kesto_makuhuone
+                        icon: mdi:timer-outline
+                        content_info: state
+                      - type: conditional
+                        conditions:
+                          - entity: timer.lammitys_korotus_makuhuone
+                            state: active
+                        chip:
+                          type: entity
+                          entity: timer.lammitys_korotus_makuhuone
+                          icon: mdi:timer-sand
+                          content_info: state
+                  - type: custom:mushroom-chips-card
+                    alignment: center
+                    chips:
+                      - type: template
+                        entity: switch.makuhuone_valokytkin
+                        icon: mdi:light-switch
+                        content: >-
+                          Makuhuone · {{ 'Päällä' if
+                          is_state('switch.makuhuone_valokytkin', 'on') else 'Pois' }}
+                        icon_color: >-
+                          {{ 'amber' if is_state('switch.makuhuone_valokytkin', 'on')
+                          else 'grey' }}
+                        tap_action:
+                          action: toggle
+            - type: custom:mod-card
+              card_mod:
+                style: |
+                  ha-card {
+                    border-radius: 16px;
+                    border: 1px solid rgba(0, 0, 0, 0.08);
+                    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+                    overflow: hidden;
+                    {% set pois = is_state('input_select.lammitys_tila_glen', 'Pois') %}
+                    {% set heat = state_attr('climate.glen_lattialammitys', 'hvac_action') == 'heating' %}
+                    {% set matala = state_attr('climate.glen_lattialammitys', 'temperature') | float(99) <= 17 %}
+                    {% if pois or matala %}
+                      background: rgba(100, 116, 139, 0.12);
+                    {% elif heat %}
+                      background: rgba(239, 68, 68, 0.16);
+                    {% else %}
+                      background: rgba(34, 197, 94, 0.14);
+                    {% endif %}
+                  }
+              card:
+                type: vertical-stack
+                cards:
+                  - type: custom:mushroom-template-card
+                    entity: climate.glen_lattialammitys
+                    layout: horizontal
+                    fill_container: true
+                    primary: >
+                      {% set h = state_attr('climate.glen_lattialammitys',
+                      'current_temperature') %}
+                      Glen · {{ h | round(1) if h is not none else '—' }}°C
+                    secondary: >
+                      {% set auto_s = states('sensor.lammitys_kaytto_glen') %}
+                      {% set auto_t = auto_s | float(none) if auto_s not in
+                      ['unknown','unavailable','none',''] else none %}
+                      {% set termo = state_attr('climate.glen_lattialammitys',
+                      'temperature') %}
+                      {% set heat = state_attr('climate.glen_lattialammitys',
+                      'hvac_action') %}
+                      {% set ohj = states('input_select.lammitys_tila_glen') %}
+                      {% set kor = is_state('timer.lammitys_korotus_glen', 'active')
+                      %}
+                      Auto {% if auto_t is not none %}{{ auto_t | round(1) }}{% else
+                      %}—{% endif %}° · Termo {% if termo is not none %}{{ termo |
+                      round(1) }}{% else %}—{% endif %}° · {% if ohj == 'Pois' or
+                      (termo is not none and termo | float(99) <= 17) %}📉 Matala{%
+                      elif heat == 'heating' %}♨️ Lämmittää{% else %}⏸ Odottaa{% endif
+                      %} · {% if ohj == 'Pois' %}Ohjaus pois{% elif kor %}Korotus ⏱{%
+                      else %}Ohjaus auto{% endif %}{% if ohj != 'Pois'
+                      and is_state('binary_sensor.lammitys_ennakoiva', 'on') %} ·
+                      Lattia vara{% endif %}
+                    icon: mdi:account-child
+                    icon_color: >
+                      {% if is_state('input_select.lammitys_tila_glen', 'Pois') %}grey
+                      {% elif state_attr('climate.glen_lattialammitys', 'temperature')
+                      | float(99) <= 17 %}disabled {% elif
+                      state_attr('climate.glen_lattialammitys', 'hvac_action') ==
+                      'heating' %}orange {% elif
+                      is_state('timer.lammitys_korotus_glen', 'active') %}deep-orange
+                      {% else %}cyan{% endif %}
+                  - type: custom:mushroom-chips-card
+                    alignment: center
+                    chips:
+                      - type: template
+                        icon: mdi:robot-outline
+                        content: Auto
+                        icon_color: >-
+                          {{ 'green' if is_state('input_select.lammitys_tila_glen',
+                          'Automaatti') else 'grey' }}
+                        tap_action:
+                          action: call-service
+                          service: input_select.select_option
+                          data:
+                            entity_id: input_select.lammitys_tila_glen
+                            option: Automaatti
+                      - type: template
+                        icon: mdi:power-off
+                        content: Pois
+                        icon_color: >-
+                          {{ 'red' if is_state('input_select.lammitys_tila_glen',
+                          'Pois') else 'grey' }}
+                        tap_action:
+                          action: call-service
+                          service: input_select.select_option
+                          data:
+                            entity_id: input_select.lammitys_tila_glen
+                            option: Pois
+                      - type: conditional
+                        conditions:
+                          - entity: timer.lammitys_korotus_glen
+                            state: active
+                        chip:
+                          type: template
+                          icon: mdi:fire-off
+                          content: Korotus pois
+                          icon_color: red
+                          tap_action:
+                            action: call-service
+                            service: script.lammitys_korotus_lopeta
+                            data:
+                              alue: glen
+                      - type: conditional
+                        conditions:
+                          - entity: timer.lammitys_korotus_glen
+                            state_not: active
+                        chip:
+                          type: template
+                          icon: mdi:fire
+                          content: Korotus
+                          icon_color: grey
+                          tap_action:
+                            action: call-service
+                            service: script.lammitys_korotus_kaynnista
+                            data:
+                              alue: glen
+                      - type: entity
+                        entity: input_number.lammitys_korotus_glen
+                        icon: mdi:thermometer-plus
+                        content_info: state
+                      - type: entity
+                        entity: input_number.lammitys_kesto_glen
+                        icon: mdi:timer-outline
+                        content_info: state
+                      - type: conditional
+                        conditions:
+                          - entity: timer.lammitys_korotus_glen
+                            state: active
+                        chip:
+                          type: entity
+                          entity: timer.lammitys_korotus_glen
+                          icon: mdi:timer-sand
+                          content_info: state
+                  - type: custom:mushroom-chips-card
+                    alignment: center
+                    chips:
+                      - type: template
+                        entity: switch.glen_valokytkin
+                        icon: mdi:light-switch
+                        content: >-
+                          Glen · {{ 'Päällä' if is_state('switch.glen_valokytkin',
+                          'on') else 'Pois' }}
+                        icon_color: >-
+                          {{ 'amber' if is_state('switch.glen_valokytkin', 'on') else
+                          'grey' }}
+                        tap_action:
+                          action: toggle
+            - type: custom:mod-card
+              card_mod:
+                style: |
+                  ha-card {
+                    border-radius: 16px;
+                    border: 1px solid rgba(0, 0, 0, 0.08);
+                    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+                    overflow: hidden;
+                    {% set pois = is_state('input_select.lammitys_tila_nele', 'Pois') %}
+                    {% set heat = state_attr('climate.nele_lattialammitys', 'hvac_action') == 'heating' %}
+                    {% set matala = state_attr('climate.nele_lattialammitys', 'temperature') | float(99) <= 17 %}
+                    {% if pois or matala %}
+                      background: rgba(100, 116, 139, 0.12);
+                    {% elif heat %}
+                      background: rgba(239, 68, 68, 0.16);
+                    {% else %}
+                      background: rgba(34, 197, 94, 0.14);
+                    {% endif %}
+                  }
+              card:
+                type: vertical-stack
+                cards:
+                  - type: custom:mushroom-template-card
+                    entity: climate.nele_lattialammitys
+                    layout: horizontal
+                    fill_container: true
+                    primary: >
+                      {% set h = state_attr('climate.nele_lattialammitys',
+                      'current_temperature') %}
+                      Nele · {{ h | round(1) if h is not none else '—' }}°C
+                    secondary: >
+                      {% set auto_s = states('sensor.lammitys_kaytto_nele') %}
+                      {% set auto_t = auto_s | float(none) if auto_s not in
+                      ['unknown','unavailable','none',''] else none %}
+                      {% set termo = state_attr('climate.nele_lattialammitys',
+                      'temperature') %}
+                      {% set heat = state_attr('climate.nele_lattialammitys',
+                      'hvac_action') %}
+                      {% set ohj = states('input_select.lammitys_tila_nele') %}
+                      {% set kor = is_state('timer.lammitys_korotus_nele', 'active')
+                      %}
+                      Auto {% if auto_t is not none %}{{ auto_t | round(1) }}{% else
+                      %}—{% endif %}° · Termo {% if termo is not none %}{{ termo |
+                      round(1) }}{% else %}—{% endif %}° · {% if ohj == 'Pois' or
+                      (termo is not none and termo | float(99) <= 17) %}📉
+                      Matala{% elif heat == 'heating' %}♨️ Lämmittää{% else %}⏸
+                      Odottaa{% endif %} · {% if ohj == 'Pois' %}Ohjaus pois{% elif
+                      kor %}Korotus ⏱{% else %}Ohjaus auto{% endif %}{% if ohj !=
+                      'Pois' and is_state('binary_sensor.lammitys_ennakoiva', 'on') %}
+                      · Lattia vara{% endif %}
+                    icon: mdi:human-female-girl
+                    icon_color: >
+                      {% if is_state('input_select.lammitys_tila_nele', 'Pois') %}grey
+                      {% elif state_attr('climate.nele_lattialammitys', 'temperature')
+                      | float(99) <= 17 %}disabled {% elif
+                      state_attr('climate.nele_lattialammitys', 'hvac_action') ==
+                      'heating' %}orange {% elif
+                      is_state('timer.lammitys_korotus_nele', 'active') %}deep-orange
+                      {% else %}pink{% endif %}
+                  - type: custom:mushroom-chips-card
+                    alignment: center
+                    chips:
+                      - type: template
+                        icon: mdi:robot-outline
+                        content: Auto
+                        icon_color: >-
+                          {{ 'green' if is_state('input_select.lammitys_tila_nele',
+                          'Automaatti') else 'grey' }}
+                        tap_action:
+                          action: call-service
+                          service: input_select.select_option
+                          data:
+                            entity_id: input_select.lammitys_tila_nele
+                            option: Automaatti
+                      - type: template
+                        icon: mdi:power-off
+                        content: Pois
+                        icon_color: >-
+                          {{ 'red' if is_state('input_select.lammitys_tila_nele',
+                          'Pois') else 'grey' }}
+                        tap_action:
+                          action: call-service
+                          service: input_select.select_option
+                          data:
+                            entity_id: input_select.lammitys_tila_nele
+                            option: Pois
+                      - type: conditional
+                        conditions:
+                          - entity: timer.lammitys_korotus_nele
+                            state: active
+                        chip:
+                          type: template
+                          icon: mdi:fire-off
+                          content: Korotus pois
+                          icon_color: red
+                          tap_action:
+                            action: call-service
+                            service: script.lammitys_korotus_lopeta
+                            data:
+                              alue: nele
+                      - type: conditional
+                        conditions:
+                          - entity: timer.lammitys_korotus_nele
+                            state_not: active
+                        chip:
+                          type: template
+                          icon: mdi:fire
+                          content: Korotus
+                          icon_color: grey
+                          tap_action:
+                            action: call-service
+                            service: script.lammitys_korotus_kaynnista
+                            data:
+                              alue: nele
+                      - type: entity
+                        entity: input_number.lammitys_korotus_nele
+                        icon: mdi:thermometer-plus
+                        content_info: state
+                      - type: entity
+                        entity: input_number.lammitys_kesto_nele
+                        icon: mdi:timer-outline
+                        content_info: state
+                      - type: conditional
+                        conditions:
+                          - entity: timer.lammitys_korotus_nele
+                            state: active
+                        chip:
+                          type: entity
+                          entity: timer.lammitys_korotus_nele
+                          icon: mdi:timer-sand
+                          content_info: state
+                  - type: custom:mushroom-chips-card
+                    alignment: center
+                    chips:
+                      - type: template
+                        entity: switch.nele_valokytkin
+                        icon: mdi:light-switch
+                        content: >-
+                          Nele · {{ 'Päällä' if is_state('switch.nele_valokytkin',
+                          'on') else 'Pois' }}
+                        icon_color: >-
+                          {{ 'amber' if is_state('switch.nele_valokytkin', 'on') else
+                          'grey' }}
+                        tap_action:
+                          action: toggle
+            - type: custom:mod-card
+              card_mod:
+                style: |
+                  ha-card {
+                    border-radius: 16px;
+                    border: 1px solid rgba(0, 0, 0, 0.08);
+                    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+                    overflow: hidden;
+                    {% set pois = is_state('input_select.lammitys_tila_eteinen', 'Pois') %}
+                    {% set heat = state_attr('climate.eteisen_lattialammitys', 'hvac_action') == 'heating' %}
+                    {% set matala = state_attr('climate.eteisen_lattialammitys', 'temperature') | float(99) <= 17 %}
+                    {% if pois or matala %}
+                      background: rgba(100, 116, 139, 0.12);
+                    {% elif heat %}
+                      background: rgba(239, 68, 68, 0.16);
+                    {% else %}
+                      background: rgba(34, 197, 94, 0.14);
+                    {% endif %}
+                  }
+              card:
+                type: vertical-stack
+                cards:
+                  - type: custom:mushroom-template-card
+                    entity: climate.eteisen_lattialammitys
+                    layout: horizontal
+                    fill_container: true
+                    primary: >
+                      {% set h = state_attr('climate.eteisen_lattialammitys',
+                      'current_temperature') %}
+                      Eteinen · {{ h | round(1) if h is not none else '—' }}°C
+                    secondary: >
+                      {% set auto_s = states('sensor.lammitys_kaytto_eteinen') %}
+                      {% set auto_t = auto_s | float(none) if auto_s not in
+                      ['unknown','unavailable','none',''] else none %}
+                      {% set termo = state_attr('climate.eteisen_lattialammitys',
+                      'temperature') %}
+                      {% set heat = state_attr('climate.eteisen_lattialammitys',
+                      'hvac_action') %}
+                      {% set ohj = states('input_select.lammitys_tila_eteinen') %}
+                      {% set kor = is_state('timer.lammitys_korotus_eteinen',
+                      'active') %}
+                      {% set ovi_auki =
+                      is_state('binary_sensor.lammitys_eteinen_ovi_auki', 'on') %}
+                      Auto {% if auto_t is not none %}{{ auto_t | round(1) }}{% else
+                      %}—{% endif %}° · Termo {% if termo is not none %}{{ termo |
+                      round(1) }}{% else %}—{% endif %}° · {% if ohj == 'Pois' or
+                      (termo is not none and termo | float(99) <= 17) %}📉 Matala{%
+                      elif heat == 'heating' %}♨️ Lämmittää{% else %}⏸ Odottaa{% endif
+                      %} · {% if ohj == 'Pois' %}Ohjaus pois{% elif kor %}Korotus ⏱{%
+                      else %}Ohjaus auto{% endif %}{% if ohj != 'Pois'
+                      and is_state('binary_sensor.lammitys_ennakoiva', 'on') %} ·
+                      Lattia vara{% endif %}{% if ovi_auki %} · 🚪 Ovi auki{%
+                      endif %}
+                    icon: mdi:door-closed
+                    icon_color: >
+                      {% if is_state('input_select.lammitys_tila_eteinen', 'Pois')
+                      %}grey {% elif state_attr('climate.eteisen_lattialammitys',
+                      'temperature') | float(99) <= 17 %}disabled {% elif
+                      state_attr('climate.eteisen_lattialammitys', 'hvac_action') ==
+                      'heating' %}orange {% elif
+                      is_state('timer.lammitys_korotus_eteinen', 'active')
+                      %}deep-orange {% else %}amber{% endif %}
+                  - type: custom:mushroom-chips-card
+                    alignment: center
+                    chips:
+                      - type: template
+                        icon: mdi:robot-outline
+                        content: Auto
+                        icon_color: >-
+                          {{ 'green' if is_state('input_select.lammitys_tila_eteinen',
+                          'Automaatti') else 'grey' }}
+                        tap_action:
+                          action: call-service
+                          service: input_select.select_option
+                          data:
+                            entity_id: input_select.lammitys_tila_eteinen
+                            option: Automaatti
+                      - type: template
+                        icon: mdi:power-off
+                        content: Pois
+                        icon_color: >-
+                          {{ 'red' if is_state('input_select.lammitys_tila_eteinen',
+                          'Pois') else 'grey' }}
+                        tap_action:
+                          action: call-service
+                          service: input_select.select_option
+                          data:
+                            entity_id: input_select.lammitys_tila_eteinen
+                            option: Pois
+                      - type: conditional
+                        conditions:
+                          - entity: timer.lammitys_korotus_eteinen
+                            state: active
+                        chip:
+                          type: template
+                          icon: mdi:fire-off
+                          content: Korotus pois
+                          icon_color: red
+                          tap_action:
+                            action: call-service
+                            service: script.lammitys_korotus_lopeta
+                            data:
+                              alue: eteinen
+                      - type: conditional
+                        conditions:
+                          - entity: timer.lammitys_korotus_eteinen
+                            state_not: active
+                        chip:
+                          type: template
+                          icon: mdi:fire
+                          content: Korotus
+                          icon_color: grey
+                          tap_action:
+                            action: call-service
+                            service: script.lammitys_korotus_kaynnista
+                            data:
+                              alue: eteinen
+                      - type: entity
+                        entity: input_number.lammitys_korotus_eteinen
+                        icon: mdi:thermometer-plus
+                        content_info: state
+                      - type: entity
+                        entity: input_number.lammitys_kesto_eteinen
+                        icon: mdi:timer-outline
+                        content_info: state
+                      - type: conditional
+                        conditions:
+                          - entity: timer.lammitys_korotus_eteinen
+                            state: active
+                        chip:
+                          type: entity
+                          entity: timer.lammitys_korotus_eteinen
+                          icon: mdi:timer-sand
+                          content_info: state
+                  - type: custom:mushroom-chips-card
+                    alignment: center
+                    chips:
+                      - type: template
+                        entity: switch.eteisen_valokytkin
+                        icon: mdi:light-switch
+                        content: >-
+                          Eteinen · {{ 'Päällä' if
+                          is_state('switch.eteisen_valokytkin', 'on') else 'Pois' }}
+                        icon_color: >-
+                          {{ 'amber' if is_state('switch.eteisen_valokytkin', 'on')
+                          else 'grey' }}
+                        tap_action:
+                          action: toggle
+                      - type: template
+                        entity: switch.sauna_valokytkin_eteisessa
+                        icon: mdi:light-switch
+                        content: >-
+                          Sauna · {{ 'Päällä' if
+                          is_state('switch.sauna_valokytkin_eteisessa', 'on') else
+                          'Pois' }}
+                        icon_color: >-
+                          {{ 'amber' if is_state('switch.sauna_valokytkin_eteisessa',
+                          'on') else 'grey' }}
+                        tap_action:
+                          action: toggle
+                      - type: template
+                        entity: switch.suihku_valokytkin_eteisessa
+                        icon: mdi:light-switch
+                        content: >-
+                          Suihku · {{ 'Päällä' if
+                          is_state('switch.suihku_valokytkin_eteisessa', 'on') else
+                          'Pois' }}
+                        icon_color: >-
+                          {{ 'amber' if is_state('switch.suihku_valokytkin_eteisessa',
+                          'on') else 'grey' }}
+                        tap_action:
+                          action: toggle
+  - type: custom:mod-card
+    card_mod:
+      style: |
+        ha-card {
+          border-radius: 16px;
+          border: 2px solid rgba(202, 138, 4, 0.55);
+          border-left: 8px solid rgb(202, 138, 4);
+          background: rgba(250, 204, 21, 0.26);
+          box-shadow: none;
+          overflow: hidden;
+          --stack-card-margin: 2px;
+          margin: 8px 0;
+          padding: 4px 0 6px;
+          --ha-card-border-width: 0;
+          --ha-card-background: transparent;
+        }
+    card:
+      type: vertical-stack
+      cards:
+        - type: custom:mushroom-template-card
+          layout: horizontal
+          fill_container: false
+          primary: Sähkö ohjaus
+          icon: mdi:flash
+          icon_color: blue
+          tap_action:
+            action: none
+          card_mod:
+            style: |
+              ha-card {
+                padding: 4px 8px 0 !important;
+                background: none !important;
+                border: none !important;
+                box-shadow: none !important;
+              }
+        - type: custom:mushroom-template-card
+          layout: horizontal
+          fill_container: false
+          primary: >
+            {% set w = states('sensor.energia_vaiheiden_summa') | float(0) %}
+            {% if w == 0 %}
+              {% set w = states('sensor.l1_vaihe_power') | float(0)
+                       + states('sensor.l2_vaihe_power') | float(0)
+                       + states('sensor.l3_vaihe_power') | float(0) %}
+            {% endif %}
+            {% set c = states('sensor.energia_tanaan_kustannus_eur') %}
+            {% set a = states('sensor.energia_kulutusarvio') %}
+            ⚡ {{ w | round(0) }} W{% if c not in ['unknown','unavailable','none','']
+            %} · {{ c }} €{% endif %} · {{ a }}
+          secondary: "{{ states('sensor.energia_vertailu_teksti') }}"
+          icon: mdi:flash
+          icon_color: >
+            {% set a = states('sensor.energia_kulutusarvio') %}
+            {% if a == 'Maltillinen' %}green
+            {% elif a == 'Korkea' %}red
+            {% elif a == 'Normaali' %}amber
+            {% else %}disabled{% endif %}
+          tap_action:
+            action: more-info
+            entity: sensor.energia_paivittain
+          card_mod:
+            style: |
+              ha-card {
+                padding: 4px 8px 0 !important;
+              }
+        - type: custom:mushroom-chips-card
+          alignment: center
+          card_mod:
+            style: |
+              ha-card {
+                padding: 0 4px 4px !important;
+                background: none !important;
+                border: none !important;
+                box-shadow: none !important;
+              }
+          chips:
+            - type: template
+              icon: mdi:trending-down
+              content: Maltillinen
+              icon_color: >
+                {{ 'green' if is_state('sensor.energia_kulutusarvio', 'Maltillinen') else 'disabled' }}
+              tap_action:
+                action: more-info
+                entity: sensor.energia_vs_eilen_pct
+            - type: template
+              icon: mdi:approximately-equal
+              content: Normaali
+              icon_color: >
+                {{ 'amber' if is_state('sensor.energia_kulutusarvio', 'Normaali') else 'disabled' }}
+              tap_action:
+                action: more-info
+                entity: sensor.energia_vs_eilen_pct
+            - type: template
+              icon: mdi:trending-up
+              content: Korkea
+              icon_color: >
+                {{ 'red' if is_state('sensor.energia_kulutusarvio', 'Korkea') else 'disabled' }}
+              tap_action:
+                action: more-info
+                entity: sensor.energia_vs_eilen_pct
+            - type: entity
+              entity: sensor.energia_eilen_samaan_aikaan
+              icon: mdi:calendar-clock
+              content_info: state
+        - type: custom:mod-card
+          card_mod:
+            style: |
+              ha-card { background: none !important; box-shadow: none !important; border: none !important; }
+          card:
+            type: grid
+            columns: 4
+            square: false
+            cards:
+              - type: custom:mod-card
+                card_mod:
+                  style:
+                    power-gauge-card$: |
+                      .title { font-size: 10px !important; font-weight: 700 !important; }
+                      .value { font-size: 15px !important; font-weight: 700 !important; }
+                      .unit-inline { font-size: 8px !important; font-weight: 600 !important; }
+                      .panel { padding: 6px 4px 4px !important; }
+                      .stage { margin: 0 !important; }
+                      .gauge { max-width: 160px !important; }
+                      .subtitle, .status { display: none !important; }
+                      .label-now { font-size: 0 !important; }
+                      .label-now::after { content: "NYT"; font-size: 6px !important; font-weight: 700; letter-spacing: 1.5px; }
+                      .unit { font-size: 0 !important; }
+                      .unit::after { content: "{% set t = states('sensor.energia_vaiheiden_summa') | float(none) %}{% if t is none %}Ei dataa{% else %}{{ (t / 1000) | round(2) }} kW · {{ 'Kriittinen' if t > 4500 else ('Korkea' if t >= 3600 else ('Matala' if t < 2500 else 'Normaali')) }}{% endif %}"; font-size: 7px !important; font-weight: 700; }
+                card:
+                  type: custom:power-gauge-card
+                  entity: sensor.energia_vaiheiden_summa
+                  name: Kokonaisteho
+                  unit: W
+                  min: 0
+                  max: 12000
+                  normal: 3600
+                  warning: 4050
+                  critical: 4500
+                  rolling_numbers: false
+                  background: transparent
+              - type: custom:mod-card
+                card_mod:
+                  style:
+                    power-gauge-card$: |
+                      .title { font-size: 10px !important; font-weight: 700 !important; }
+                      .value { font-size: 15px !important; font-weight: 700 !important; }
+                      .unit-inline { font-size: 8px !important; font-weight: 600 !important; }
+                      .panel { padding: 6px 4px 4px !important; }
+                      .stage { margin: 0 !important; }
+                      .gauge { max-width: 160px !important; }
+                      .subtitle, .status { display: none !important; }
+                      .label-now { font-size: 0 !important; }
+                      .label-now::after { content: "NYT"; font-size: 6px !important; font-weight: 700; letter-spacing: 1.5px; }
+                      .unit { font-size: 0 !important; }
+                      .unit::after { content: "{% set t = states('sensor.l1_vaihe_power') | float(none) %}{% if t is none %}Ei dataa{% else %}{{ (t / 1000) | round(2) }} kW · {{ 'Kriittinen' if t > 3500 else ('Korkea' if t >= 3000 else ('Matala' if t < 1000 else 'Normaali')) }}{% endif %}"; font-size: 7px !important; font-weight: 700; }
+                card:
+                  type: custom:power-gauge-card
+                  entity: sensor.l1_vaihe_power
+                  name: L1
+                  unit: W
+                  min: 0
+                  max: 4000
+                  normal: 3000
+                  warning: 3250
+                  critical: 3500
+                  rolling_numbers: false
+                  background: transparent
+              - type: custom:mod-card
+                card_mod:
+                  style:
+                    power-gauge-card$: |
+                      .title { font-size: 10px !important; font-weight: 700 !important; }
+                      .value { font-size: 15px !important; font-weight: 700 !important; }
+                      .unit-inline { font-size: 8px !important; font-weight: 600 !important; }
+                      .panel { padding: 6px 4px 4px !important; }
+                      .stage { margin: 0 !important; }
+                      .gauge { max-width: 160px !important; }
+                      .subtitle, .status { display: none !important; }
+                      .label-now { font-size: 0 !important; }
+                      .label-now::after { content: "NYT"; font-size: 6px !important; font-weight: 700; letter-spacing: 1.5px; }
+                      .unit { font-size: 0 !important; }
+                      .unit::after { content: "{% set t = states('sensor.l2_vaihe_power') | float(none) %}{% if t is none %}Ei dataa{% else %}{{ (t / 1000) | round(2) }} kW · {{ 'Kriittinen' if t > 3500 else ('Korkea' if t >= 3000 else ('Matala' if t < 1000 else 'Normaali')) }}{% endif %}"; font-size: 7px !important; font-weight: 700; }
+                card:
+                  type: custom:power-gauge-card
+                  entity: sensor.l2_vaihe_power
+                  name: L2
+                  unit: W
+                  min: 0
+                  max: 4000
+                  normal: 3000
+                  warning: 3250
+                  critical: 3500
+                  rolling_numbers: false
+                  background: transparent
+              - type: custom:mod-card
+                card_mod:
+                  style:
+                    power-gauge-card$: |
+                      .title { font-size: 10px !important; font-weight: 700 !important; }
+                      .value { font-size: 15px !important; font-weight: 700 !important; }
+                      .unit-inline { font-size: 8px !important; font-weight: 600 !important; }
+                      .panel { padding: 6px 4px 4px !important; }
+                      .stage { margin: 0 !important; }
+                      .gauge { max-width: 160px !important; }
+                      .subtitle, .status { display: none !important; }
+                      .label-now { font-size: 0 !important; }
+                      .label-now::after { content: "NYT"; font-size: 6px !important; font-weight: 700; letter-spacing: 1.5px; }
+                      .unit { font-size: 0 !important; }
+                      .unit::after { content: "{% set t = states('sensor.l3_vaihe_power') | float(none) %}{% if t is none %}Ei dataa{% else %}{{ (t / 1000) | round(2) }} kW · {{ 'Kriittinen' if t > 3500 else ('Korkea' if t >= 3000 else ('Matala' if t < 1000 else 'Normaali')) }}{% endif %}"; font-size: 7px !important; font-weight: 700; }
+                card:
+                  type: custom:power-gauge-card
+                  entity: sensor.l3_vaihe_power
+                  name: L3
+                  unit: W
+                  min: 0
+                  max: 4000
+                  normal: 3000
+                  warning: 3250
+                  critical: 3500
+                  rolling_numbers: false
+                  background: transparent
+  - type: custom:mod-card
+    card_mod:
+      style: |
+        ha-card {
+          border-radius: 16px;
+          border: 2px solid rgba(8, 145, 178, 0.55);
+          border-left: 8px solid rgb(8, 145, 178);
+          background: rgba(6, 182, 212, 0.18);
+          box-shadow: none;
+          overflow: hidden;
+          --stack-card-margin: 2px;
+          margin: 8px 0;
+          padding: 4px 0 6px;
+          --ha-card-border-width: 0;
+          --ha-card-background: transparent;
+        }
+    card:
+      type: vertical-stack
+      cards:
+        - type: custom:mushroom-template-card
+          layout: horizontal
+          fill_container: false
+          primary: IV ohjaus
+          icon: mdi:fan
+          icon_color: blue
+          tap_action:
+            action: none
+          card_mod:
+            style: |
+              ha-card {
+                padding: 4px 8px 0 !important;
+                background: none !important;
+                border: none !important;
+                box-shadow: none !important;
+              }
+        - type: custom:mushroom-chips-card
+          alignment: justify
+          card_mod:
+            style: |
+              ha-card {
+                padding: 2px 4px 0 !important;
+                background: none !important;
+                border: none !important;
+                box-shadow: none !important;
+              }
+          chips:
+            - type: template
+              icon: mdi:fan
+              icon_color: >-
+                {{ 'orange' if is_state('input_boolean.iv_sauna', 'on') or
+                states('sensor.airfi_saunatila') | int(0) > 0 else ('blue' if
+                is_state('input_select.iv_ohjaus', 'Manuaali') else ('red' if
+                is_state('input_select.iv_ohjaus', 'Tehostus') else ('disabled' if
+                is_state('input_select.iv_ohjaus', 'Pois') else 'green'))) }}
+              content: >-
+                {{ 'Sauna' if is_state('input_boolean.iv_sauna', 'on') or
+                states('sensor.airfi_saunatila') | int(0) > 0 else
+                states('input_select.iv_ohjaus') }}
+              tap_action:
+                action: more-info
+                entity: input_select.iv_ohjaus
+            - type: template
+              icon: mdi:fan
+              content: >
+                {% set s = states('sensor.airfi_poistoilmapuhallin_nopeus') %}
+                {{ 'P —' if s in ['unknown', 'unavailable', 'none', ''] else 'P ' ~ (s | int) ~ ' %' }}
+              tap_action:
+                action: more-info
+                entity: sensor.airfi_poistoilmapuhallin_nopeus
+            - type: template
+              icon: mdi:fan-plus
+              content: >
+                {% set s = states('sensor.airfi_tuloilmapuhallin_nopeus') %}
+                {{ 'T —' if s in ['unknown', 'unavailable', 'none', ''] else 'T ' ~ (s | int) ~ ' %' }}
+              tap_action:
+                action: more-info
+                entity: sensor.airfi_tuloilmapuhallin_nopeus
+            - type: template
+              icon: mdi:thermometer
+              content: >
+                {% set s = states('sensor.airfi_lampotila_asetus_luku') %}
+                {{ 'L —' if s in ['unknown', 'unavailable', 'none', ''] else (s | float(0) | round(1)) ~ ' °' }}
+              tap_action:
+                action: more-info
+                entity: sensor.airfi_lampotila_asetus_luku
+            - type: template
+              icon: mdi:thermometer
+              content: "T1 {{ states('sensor.airfi_t1_ulkoilma') }}"
+              tap_action:
+                action: more-info
+                entity: sensor.airfi_t1_ulkoilma
+            - type: template
+              icon: mdi:thermometer
+              content: "T3 {{ states('sensor.airfi_t3_poistoilma') }}"
+              tap_action:
+                action: more-info
+                entity: sensor.airfi_t3_poistoilma
+            - type: template
+              icon: mdi:thermometer
+              content: "T5 {{ states('sensor.airfi_t5_tuloilma') }}"
+              tap_action:
+                action: more-info
+                entity: sensor.airfi_t5_tuloilma
+            - type: template
+              icon: mdi:check-bold
+              icon_color: orange
+              content: Aseta
+              tap_action:
+                action: call-service
+                service: script.turn_on
+                service_data:
+                  entity_id: script.iv_kirjoita
+        - type: custom:mushroom-chips-card
+          alignment: center
+          card_mod:
+            style: |
+              ha-card {
+                padding: 0 4px !important;
+                background: none !important;
+                border: none !important;
+                box-shadow: none !important;
+              }
+          chips:
+            - type: template
+              icon: mdi:robot-outline
+              icon_color: "{{ 'green' if is_state('input_select.iv_ohjaus', 'Automaatti') else 'grey' }}"
+              content: Auto
+              tap_action:
+                action: call-service
+                service: script.turn_on
+                service_data:
+                  entity_id: script.iv_automaatti
+            - type: template
+              icon: mdi:gesture-tap
+              icon_color: "{{ 'blue' if is_state('input_select.iv_ohjaus', 'Manuaali') else 'grey' }}"
+              content: Käsi
+              tap_action:
+                action: call-service
+                service: script.turn_on
+                service_data:
+                  entity_id: script.iv_manuaali
+            - type: template
+              icon: mdi:fan-plus
+              icon_color: "{{ 'red' if is_state('input_select.iv_ohjaus', 'Tehostus') else 'grey' }}"
+              content: "{{ 'Teho ' ~ states('sensor.iv_tehostus_jaljella') if is_state('timer.iv_tehostus', 'active') else 'Teho' }}"
+              tap_action:
+                action: call-service
+                service: script.turn_on
+                service_data:
+                  entity_id: script.iv_tehostus
+            - type: template
+              icon: mdi:plus
+              icon_color: red
+              content: "+15"
+              tap_action:
+                action: call-service
+                service: script.turn_on
+                service_data:
+                  entity_id: script.iv_tehostus_lisaa
+            - type: template
+              icon: mdi:stop
+              content: Lopeta
+              tap_action:
+                action: call-service
+                service: script.turn_on
+                service_data:
+                  entity_id: script.iv_tehostus_lopeta
+            - type: template
+              icon: mdi:fan-off
+              icon_color: "{{ 'red' if is_state('input_select.iv_ohjaus', 'Pois') else 'grey' }}"
+              content: Pois
+              tap_action:
+                action: call-service
+                service: script.turn_on
+                service_data:
+                  entity_id: script.iv_pois
+            - type: template
+              icon: mdi:hot-tub
+              icon_color: "{{ 'orange' if is_state('input_boolean.iv_sauna', 'on') or states('sensor.airfi_saunatila') | int(0) > 0 else 'grey' }}"
+              content: "{{ 'Sauna ' ~ states('sensor.iv_sauna_jaljella') if is_state('timer.iv_sauna', 'active') else 'Sauna' }}"
+              tap_action:
+                action: call-service
+                service: script.turn_on
+                service_data:
+                  entity_id: script.iv_sauna
+            - type: template
+              icon: mdi:plus
+              icon_color: orange
+              content: "+15"
+              tap_action:
+                action: call-service
+                service: script.turn_on
+                service_data:
+                  entity_id: script.iv_sauna_lisaa
+            - type: template
+              icon: mdi:stop
+              content: Lopeta
+              tap_action:
+                action: call-service
+                service: script.turn_on
+                service_data:
+                  entity_id: script.iv_sauna_lopeta
+        - type: custom:mushroom-chips-card
+          alignment: center
+          card_mod:
+            style: |
+              ha-card {
+                padding: 0 4px 4px !important;
+                background: none !important;
+                border: none !important;
+                box-shadow: none !important;
+              }
+          chips:
+            - type: template
+              icon: mdi:water-percent
+              content: "RH {{ states('sensor.airfi_kosteus_rh') }}"
+              tap_action:
+                action: more-info
+                entity: sensor.airfi_kosteus_rh
+            - type: template
+              icon: mdi:molecule-co2
+              content: >
+                {% set c = states('sensor.iv_co2') %}
+                {{ 'CO2 —' if c in ['unknown', 'unavailable', 'none', ''] else 'CO2 ' ~ (c | int) }}
+              tap_action:
+                action: more-info
+                entity: sensor.iv_co2
+            - type: template
+              icon: mdi:alert-octagon
+              icon_color: "{{ 'red' if states('sensor.airfi_hataseis_tila') | int(0) > 0 or states('sensor.airfi_vikatila') | int(0) > 0 else 'green' }}"
+              content: "Hälytys {{ states('sensor.airfi_hataseis_tila') }}/{{ states('sensor.airfi_vikatila') }}"
+              tap_action:
+                action: more-info
+                entity: sensor.airfi_hataseis_tila
+            - type: template
+              icon: mdi:alert-decagram-outline
+              icon_color: red
+              content: Kuittaa
+              tap_action:
+                action: call-service
+                service: script.turn_on
+                service_data:
+                  entity_id: script.iv_kuittaa
+            - type: entity
+              entity: input_select.iv_auto_anturit
+              icon: mdi:tune-variant
+              content_info: state
+            - type: entity
+              entity: input_number.iv_lampo_asetus
+              icon: mdi:thermometer
+              content_info: state
+            - type: entity
+              entity: input_number.iv_poissa_lampo
+              icon: mdi:home-export-outline
+              content_info: state
+            - type: entity
+              entity: input_number.iv_ohitus_asetus
+              icon: mdi:swap-horizontal
+              content_info: state
+            - type: entity
+              entity: input_number.iv_ohitus_ulko
+              icon: mdi:thermometer-low
+              content_info: state
+            - type: entity
+              entity: input_number.iv_ohitus_viive
+              icon: mdi:timer-sand
+              content_info: state
+        - type: conditional
+          conditions:
+            - condition: state
+              entity: input_select.iv_ohjaus
+              state: Manuaali
+          card:
+            type: custom:mushroom-chips-card
+            alignment: center
+            card_mod:
+              style: |
+                ha-card {
+                  padding: 0 4px 6px !important;
+                  background: none !important;
+                  border: none !important;
+                  box-shadow: none !important;
+                }
+            chips:
+              - type: entity
+                entity: input_number.iv_manuaali_poisto
+                icon: mdi:fan
+                content_info: state
+              - type: entity
+                entity: input_number.iv_manuaali_tulo
+                icon: mdi:fan-plus
+                content_info: state
+type: sidebar
+subview: false
+visible:
+  - user: 4b09bf8b532647a0addb874f54b75dab
+theme: minimalist-desktop
+badges:
+  - type: custom:button-card
+    entity: input_text.keittio_ilp
+    name: Keittiön ILP
+    state_color: true
+    show_state: true
+    show_icon: false
+    styles:
+      card:
+        - display: |
+            [[[
+              return states['input_text.keittio_ilp'].state === "Pois päältä, lukitus päällä" ? "block" : "none";
+            ]]]
+  - type: custom:button-card
+    entity: input_text.sahkovastusten_tilatieto
+    name: Sähkö vastukset
+    state_color: true
+    show_state: true
+    show_icon: false
+    styles:
+      card:
+        - display: |
+            [[[
+              return states['input_text.sahkovastusten_tilatieto'].state === "Pois päältä, lukitus päällä" ? "block" : "none";
+            ]]]
+  - type: custom:button-card
+    entity: input_text.varaajan_sekoitus_pumppu
+    name: Sekoituspumppu
+    state_color: true
+    show_state: true
+    show_icon: false
+    styles:
+      card:
+        - display: |
+            [[[
+              return states['input_text.varaajan_sekoitus_pumppu'].state === "Pois päältä, lukitus päällä" ? "block" : "none";
+            ]]]
+  - type: custom:button-card
+    entity: input_text.autotallin_ilp_tila
+    name: Autotalli ILP
+    state_color: true
+    show_state: true
+    show_icon: false
+    styles:
+      card:
+        - display: |
+            [[[
+              return states['input_text.autotallin_ilp_tila'].state === "Pois päältä, lukitus päällä" ? "block" : "none";
+            ]]]

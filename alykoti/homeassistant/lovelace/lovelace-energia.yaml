@@ -1,0 +1,227 @@
+# Kopioi TÄMÄ koko YAML Lovelace-kortin editoriin (korvaa koko kortti).
+# Maltillinen / Normaali / Korkea = tänään 00:00→nyt vs eilen 00:00→sama kello.
+# Ei hetkellistä tehoa.
+
+type: vertical-stack
+cards:
+  - type: custom:mod-card
+    card_mod:
+      style: |
+        ha-card {
+          border-radius: 16px;
+          border: 2px solid rgba(202, 138, 4, 0.55);
+          border-left: 8px solid rgb(202, 138, 4);
+          background: rgba(250, 204, 21, 0.26);
+          box-shadow: none;
+          overflow: hidden;
+          --stack-card-margin: 2px;
+          margin: 8px 0;
+          padding: 4px 0 6px;
+          --ha-card-border-width: 0;
+          --ha-card-background: transparent;
+        }
+    card:
+      type: vertical-stack
+      cards:
+        - type: custom:mushroom-template-card
+          layout: horizontal
+          fill_container: false
+          primary: Sähkö ohjaus
+          icon: mdi:flash
+          icon_color: blue
+          tap_action:
+            action: none
+          card_mod:
+            style: |
+              ha-card {
+                padding: 4px 8px 0 !important;
+                background: none !important;
+                border: none !important;
+                box-shadow: none !important;
+              }
+        - type: custom:mushroom-template-card
+          layout: horizontal
+          fill_container: false
+          primary: >
+            {% set w = states('sensor.energia_vaiheiden_summa') | float(0) %}
+            {% if w == 0 %}
+              {% set w = states('sensor.l1_vaihe_power') | float(0)
+                       + states('sensor.l2_vaihe_power') | float(0)
+                       + states('sensor.l3_vaihe_power') | float(0) %}
+            {% endif %}
+            {% set c = states('sensor.energia_tanaan_kustannus_eur') %}
+            {% set a = states('sensor.energia_kulutusarvio') %}
+            ⚡ {{ w | round(0) }} W{% if c not in ['unknown','unavailable','none','']
+            %} · {{ c }} €{% endif %} · {{ a }}
+          secondary: "{{ states('sensor.energia_vertailu_teksti') }}"
+          icon: mdi:flash
+          icon_color: >
+            {% set a = states('sensor.energia_kulutusarvio') %}
+            {% if a == 'Maltillinen' %}green
+            {% elif a == 'Korkea' %}red
+            {% elif a == 'Normaali' %}amber
+            {% else %}disabled{% endif %}
+          tap_action:
+            action: more-info
+            entity: sensor.energia_paivittain
+          card_mod:
+            style: |
+              ha-card {
+                padding: 4px 8px 0 !important;
+              }
+        - type: custom:mushroom-chips-card
+          alignment: center
+          card_mod:
+            style: |
+              ha-card {
+                padding: 0 4px 4px !important;
+                background: none !important;
+                border: none !important;
+                box-shadow: none !important;
+              }
+          chips:
+            - type: template
+              icon: mdi:trending-down
+              content: Maltillinen
+              icon_color: >
+                {{ 'green' if is_state('sensor.energia_kulutusarvio', 'Maltillinen') else 'disabled' }}
+              tap_action:
+                action: more-info
+                entity: sensor.energia_vs_eilen_pct
+            - type: template
+              icon: mdi:approximately-equal
+              content: Normaali
+              icon_color: >
+                {{ 'amber' if is_state('sensor.energia_kulutusarvio', 'Normaali') else 'disabled' }}
+              tap_action:
+                action: more-info
+                entity: sensor.energia_vs_eilen_pct
+            - type: template
+              icon: mdi:trending-up
+              content: Korkea
+              icon_color: >
+                {{ 'red' if is_state('sensor.energia_kulutusarvio', 'Korkea') else 'disabled' }}
+              tap_action:
+                action: more-info
+                entity: sensor.energia_vs_eilen_pct
+            - type: entity
+              entity: sensor.energia_eilen_samaan_aikaan
+              icon: mdi:calendar-clock
+              content_info: state
+        - type: custom:mod-card
+          card_mod:
+            style: |
+              ha-card { background: none !important; box-shadow: none !important; border: none !important; }
+          card:
+            type: grid
+            columns: 4
+            square: false
+            cards:
+              - type: custom:mod-card
+                card_mod:
+                  style:
+                    power-gauge-card$: |
+                      .title { font-size: 10px !important; font-weight: 700 !important; }
+                      .value { font-size: 15px !important; font-weight: 700 !important; }
+                      .unit-inline { font-size: 8px !important; font-weight: 600 !important; }
+                      .panel { padding: 6px 4px 4px !important; }
+                      .stage { margin: 0 !important; }
+                      .gauge { max-width: 160px !important; }
+                      .subtitle, .status { display: none !important; }
+                      .label-now { font-size: 0 !important; }
+                      .label-now::after { content: "NYT"; font-size: 6px !important; font-weight: 700; letter-spacing: 1.5px; }
+                      .unit { font-size: 0 !important; }
+                      .unit::after { content: "{% set t = states('sensor.energia_vaiheiden_summa') | float(none) %}{% if t is none %}Ei dataa{% else %}{{ (t / 1000) | round(2) }} kW · {{ 'Kriittinen' if t > 4500 else ('Korkea' if t >= 3600 else ('Matala' if t < 2500 else 'Normaali')) }}{% endif %}"; font-size: 7px !important; font-weight: 700; }
+                card:
+                  type: custom:power-gauge-card
+                  entity: sensor.energia_vaiheiden_summa
+                  name: Kokonaisteho
+                  unit: W
+                  min: 0
+                  max: 12000
+                  normal: 3600
+                  warning: 4050
+                  critical: 4500
+                  rolling_numbers: false
+                  background: transparent
+              - type: custom:mod-card
+                card_mod:
+                  style:
+                    power-gauge-card$: |
+                      .title { font-size: 10px !important; font-weight: 700 !important; }
+                      .value { font-size: 15px !important; font-weight: 700 !important; }
+                      .unit-inline { font-size: 8px !important; font-weight: 600 !important; }
+                      .panel { padding: 6px 4px 4px !important; }
+                      .stage { margin: 0 !important; }
+                      .gauge { max-width: 160px !important; }
+                      .subtitle, .status { display: none !important; }
+                      .label-now { font-size: 0 !important; }
+                      .label-now::after { content: "NYT"; font-size: 6px !important; font-weight: 700; letter-spacing: 1.5px; }
+                      .unit { font-size: 0 !important; }
+                      .unit::after { content: "{% set t = states('sensor.l1_vaihe_power') | float(none) %}{% if t is none %}Ei dataa{% else %}{{ (t / 1000) | round(2) }} kW · {{ 'Kriittinen' if t > 3500 else ('Korkea' if t >= 3000 else ('Matala' if t < 1000 else 'Normaali')) }}{% endif %}"; font-size: 7px !important; font-weight: 700; }
+                card:
+                  type: custom:power-gauge-card
+                  entity: sensor.l1_vaihe_power
+                  name: L1
+                  unit: W
+                  min: 0
+                  max: 4000
+                  normal: 3000
+                  warning: 3250
+                  critical: 3500
+                  rolling_numbers: false
+                  background: transparent
+              - type: custom:mod-card
+                card_mod:
+                  style:
+                    power-gauge-card$: |
+                      .title { font-size: 10px !important; font-weight: 700 !important; }
+                      .value { font-size: 15px !important; font-weight: 700 !important; }
+                      .unit-inline { font-size: 8px !important; font-weight: 600 !important; }
+                      .panel { padding: 6px 4px 4px !important; }
+                      .stage { margin: 0 !important; }
+                      .gauge { max-width: 160px !important; }
+                      .subtitle, .status { display: none !important; }
+                      .label-now { font-size: 0 !important; }
+                      .label-now::after { content: "NYT"; font-size: 6px !important; font-weight: 700; letter-spacing: 1.5px; }
+                      .unit { font-size: 0 !important; }
+                      .unit::after { content: "{% set t = states('sensor.l2_vaihe_power') | float(none) %}{% if t is none %}Ei dataa{% else %}{{ (t / 1000) | round(2) }} kW · {{ 'Kriittinen' if t > 3500 else ('Korkea' if t >= 3000 else ('Matala' if t < 1000 else 'Normaali')) }}{% endif %}"; font-size: 7px !important; font-weight: 700; }
+                card:
+                  type: custom:power-gauge-card
+                  entity: sensor.l2_vaihe_power
+                  name: L2
+                  unit: W
+                  min: 0
+                  max: 4000
+                  normal: 3000
+                  warning: 3250
+                  critical: 3500
+                  rolling_numbers: false
+                  background: transparent
+              - type: custom:mod-card
+                card_mod:
+                  style:
+                    power-gauge-card$: |
+                      .title { font-size: 10px !important; font-weight: 700 !important; }
+                      .value { font-size: 15px !important; font-weight: 700 !important; }
+                      .unit-inline { font-size: 8px !important; font-weight: 600 !important; }
+                      .panel { padding: 6px 4px 4px !important; }
+                      .stage { margin: 0 !important; }
+                      .gauge { max-width: 160px !important; }
+                      .subtitle, .status { display: none !important; }
+                      .label-now { font-size: 0 !important; }
+                      .label-now::after { content: "NYT"; font-size: 6px !important; font-weight: 700; letter-spacing: 1.5px; }
+                      .unit { font-size: 0 !important; }
+                      .unit::after { content: "{% set t = states('sensor.l3_vaihe_power') | float(none) %}{% if t is none %}Ei dataa{% else %}{{ (t / 1000) | round(2) }} kW · {{ 'Kriittinen' if t > 3500 else ('Korkea' if t >= 3000 else ('Matala' if t < 1000 else 'Normaali')) }}{% endif %}"; font-size: 7px !important; font-weight: 700; }
+                card:
+                  type: custom:power-gauge-card
+                  entity: sensor.l3_vaihe_power
+                  name: L3
+                  unit: W
+                  min: 0
+                  max: 4000
+                  normal: 3000
+                  warning: 3250
+                  critical: 3500
+                  rolling_numbers: false
+                  background: transparent

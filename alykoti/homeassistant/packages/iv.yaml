@@ -1,0 +1,1634 @@
+# iv.yaml — käsinajo + automaatti (CO2 / kosteus / PM).
+#
+# Yhteys on VAIN configuration.yaml → modbus: !include modbus.yaml
+# (hub name: airfi). Tähän tiedostoon EI SAA laittaa `modbus:`-avainta.
+#
+# TCP-kirjoitus (testattu Yellow/web): h8=0, h1=0, h2=0, h12=0, h3=0,
+# sitten h8=1, odota 1s, sitten h10=tulo % ja h11=poisto %.
+# Älä kirjoita holding 2 = 1 (tässä koneessa E1).
+#
+# Automaatti: tulo = tavoite, poisto = tavoite + 5 % (max 100).
+# Oletusanturit: CO2 + kosteus + PM (suurin nostaa).
+# CO2: sensor.olohuone_ilmanlaatu_anturi_carbon_dioxide.
+# LTO-ohituspelti (h46/h47/h48): vain kun lämmitystä ei tarvita.
+# Lämmitys päällä → ohitus kielletty (ulkoraja 25 °C), ettei IV jäähdytä.
+# Nopeuspäivitys kirjoittaa VAIN h10/h11 (ei h8=0). Täysi jakso vain kun
+# vakiopaine ei ole päällä tai hätäseis on aktiivinen.
+# Auto: hystereesi 5 %, max ±5–15 %/kirjoitus, vähintään 5 min väli.
+# Älä vertaa mitattuun P/T:hen — kirjoitusdippi aiheuttaisi heilunnan.
+# Käsi-liukujat seuraavat mitattua P/T muissa tiloissa; säätö vain Käsi.
+# Pois = holding 1 (hätäseis) = 1. Ei nopeus 0 %. Kuittaa / Auto / Käsi nollaa h1.
+
+input_select:
+  iv_ohjaus:
+    name: "IV tila: Automaatti antureilla, Käsi liukusäätimillä, Tehostus ajastin, Pois = hätäseis"
+    options:
+      - Automaatti
+      - Manuaali
+      - Tehostus
+      - Pois
+    initial: Automaatti
+    icon: mdi:fan
+  iv_auto_anturit:
+    name: "Mitä antureita automaatti käyttää nopeuden nostoon. Oletus: CO2, kosteus ja PM"
+    options:
+      - Kaikki kolme
+      - CO2 ja PM
+      - Kosteus ja PM
+      - Kosteus ja CO2
+      - Vain CO2
+      - Vain PM
+      - Vain kosteus
+    initial: Kaikki kolme
+    icon: mdi:tune-variant
+
+input_boolean:
+  iv_modbus_kirjoitus:
+    name: Salli kirjoitus AirFiin. Pois = vain luku, koneeseen ei lähetetä
+    icon: mdi:upload-network
+    initial: true
+  iv_sauna:
+    name: "Saunatila: nostaa poistoa, ei tuhoa asetuksia"
+    icon: mdi:hot-tub
+    initial: false
+  iv_ohita_vaihto:
+    name: "Sisäinen: estää tilanvaihdon kesken kirjoituksen"
+    icon: mdi:debug-step-over
+    initial: false
+
+input_number:
+  iv_manuaali_poisto:
+    name: "Käsi-tila: poistoilmapuhaltimen nopeus %. Automaatissa seurataan mitattua"
+    min: 0
+    max: 100
+    step: 5
+    mode: slider
+    unit_of_measurement: "%"
+    icon: mdi:fan
+    initial: 40
+  iv_manuaali_tulo:
+    name: "Käsi-tila: tuloilmapuhaltimen nopeus %. Automaatissa poisto on tulo + 5 %"
+    min: 0
+    max: 100
+    step: 5
+    mode: slider
+    unit_of_measurement: "%"
+    icon: mdi:fan-plus
+    initial: 35
+  iv_lampo_asetus:
+    name: "IV:n tuloilman lämpöasetus, kirjoitetaan koneelle"
+    min: 5
+    max: 26
+    step: 0.5
+    mode: slider
+    unit_of_measurement: "°C"
+    icon: mdi:thermometer
+    initial: 21
+  iv_ohitus_asetus:
+    name: "LTO-ohituspelti: sisätavoite jolloin lämmöntalteenotto ohitetaan. Kielletty kun lämmitys lämmittää"
+    min: 10
+    max: 30
+    step: 0.5
+    mode: slider
+    unit_of_measurement: "°C"
+    icon: mdi:thermometer-chevron-up
+    initial: 22
+  iv_ohitus_ulko:
+    name: LTO-ohitus kielletty jos ulko on tämän alle. Lämmityksen aikana koneelle kirjoitetaan 25 °C
+    min: 0
+    max: 25
+    step: 1
+    mode: slider
+    unit_of_measurement: "°C"
+    icon: mdi:thermometer-low
+    initial: 12
+  iv_ohitus_viive:
+    name: Kuinka monta minuuttia ehtoa pitää täyttyä ennen LTO-ohitusta
+    min: 0
+    max: 120
+    step: 1
+    mode: box
+    unit_of_measurement: min
+    icon: mdi:timer-outline
+    initial: 15
+  iv_poissa_lampo:
+    name: IV lämpöasetus poissaollessa
+    min: 5
+    max: 26
+    step: 0.5
+    mode: slider
+    unit_of_measurement: "°C"
+    icon: mdi:home-thermometer-outline
+    initial: 18
+  iv_ennen_poisto:
+    name: IV nopeus ennen tilaa poisto
+    min: 0
+    max: 100
+    step: 1
+    mode: box
+    unit_of_measurement: "%"
+    initial: 40
+  iv_ennen_tulo:
+    name: IV nopeus ennen tilaa tulo
+    min: 0
+    max: 100
+    step: 1
+    mode: box
+    unit_of_measurement: "%"
+    initial: 35
+  iv_kirjoitettu_poisto:
+    name: IV viimeksi kirjoitettu poisto
+    min: 0
+    max: 100
+    step: 1
+    mode: box
+    unit_of_measurement: "%"
+    initial: 40
+  iv_kirjoitettu_tulo:
+    name: IV viimeksi kirjoitettu tulo
+    min: 0
+    max: 100
+    step: 1
+    mode: box
+    unit_of_measurement: "%"
+    initial: 40
+
+input_text:
+  iv_co2_entiteetti:
+    name: IV CO2-entiteetti
+    initial: sensor.olohuone_ilmanlaatu_anturi_carbon_dioxide
+    max: 128
+    icon: mdi:molecule-co2
+  iv_kosteus_entiteetti:
+    name: IV kosteus-entiteetti
+    initial: sensor.airfi_kosteus_rh
+    max: 128
+    icon: mdi:water-percent
+  iv_pm_entiteetti:
+    name: IV PM-entiteetti
+    initial: sensor.iv_pm_skaala
+    max: 128
+    icon: mdi:air-filter
+  iv_sauna_valo:
+    name: IV sauna valo
+    initial: switch.sauna_valokytkin_eteisessa
+    max: 128
+    icon: mdi:lightbulb
+  iv_sauna_nappi_lisaa:
+    name: IV sauna nappi lisää
+    initial: sensor.aqara_termostaatti_action
+    max: 128
+    icon: mdi:plus
+  iv_sauna_nappi_lopeta:
+    name: IV sauna nappi lopeta
+    initial: sensor.aqara_termostaatti_action
+    max: 128
+    icon: mdi:stop
+
+input_datetime:
+  iv_modbus_tauko:
+    name: IV viimeisin Modbus-kirjoitus
+    has_date: true
+    has_time: true
+
+timer:
+  iv_tehostus:
+    name: IV tehostus
+    duration: "00:15:00"
+    restore: true
+  iv_sauna:
+    name: "Saunatila: nostaa poistoa, ei tuhoa asetuksia"
+    duration: "00:15:00"
+    restore: true
+
+template:
+  - sensor:
+      - name: IV auto CO2 tavoite
+        unique_id: iv_auto_co2_tavoite
+        unit_of_measurement: "%"
+        availability: |
+          {% set e = states('input_text.iv_co2_entiteetti') | trim %}
+          {{ (e not in ['unknown', 'unavailable', 'none', ''] and states(e) not in ['unknown', 'unavailable', 'none', ''])
+             or states('sensor.olohuone_ilmanlaatu_anturi_carbon_dioxide') not in ['unknown', 'unavailable', 'none', '']
+             or states('sensor.olohuone_ilmanlaatu_anturi_hiilidioksidi') not in ['unknown', 'unavailable', 'none', '']
+             or states('sensor.olohuone_ilmanlaatu_hiilidioksidi') not in ['unknown', 'unavailable', 'none', '']
+             or states('sensor.olohuone_ilmanlaatu_anturi_co2') not in ['unknown', 'unavailable', 'none', '']
+             or states('sensor.olohuone_co2') not in ['unknown', 'unavailable', 'none', ''] }}
+        state: |
+          {% set e = states('input_text.iv_co2_entiteetti') | trim %}
+          {% set alts = [
+            e,
+            'sensor.olohuone_ilmanlaatu_anturi_carbon_dioxide',
+            'sensor.olohuone_ilmanlaatu_anturi_hiilidioksidi',
+            'sensor.olohuone_ilmanlaatu_hiilidioksidi',
+            'sensor.olohuone_ilmanlaatu_anturi_co2',
+            'sensor.olohuone_co2'
+          ] %}
+          {% set src = namespace(e='') %}
+          {% for a in alts if src.e == '' and a not in ['', 'unknown', 'none'] and states(a) not in ['unknown', 'unavailable', 'none', ''] %}
+            {% set src.e = a %}
+          {% endfor %}
+          {% set s = states(src.e) | float(0) if src.e else 0 %}
+          {% if 'skaala' in src.e %}
+            {% set raw = s %}
+          {% elif s <= 700 %}
+            {% set raw = 35 %}
+          {% elif s <= 900 %}
+            {% set raw = 35 + (s - 700) / 200 * 15 %}
+          {% elif s <= 1100 %}
+            {% set raw = 50 + (s - 900) / 200 * 20 %}
+          {% else %}
+            {% set raw = 70 + ([1, (s - 1100) / 400] | min) * 20 %}
+          {% endif %}
+          {{ [25, [100, ((raw / 5) | round(0) * 5)] | min] | max | int }}
+
+      - name: IV CO2
+        unique_id: iv_co2
+        device_class: carbon_dioxide
+        unit_of_measurement: "ppm"
+        state_class: measurement
+        availability: |
+          {% set e = states('input_text.iv_co2_entiteetti') | trim %}
+          {{ (e not in ['unknown', 'unavailable', 'none', ''] and states(e) not in ['unknown', 'unavailable', 'none', ''])
+             or states('sensor.olohuone_ilmanlaatu_anturi_carbon_dioxide') not in ['unknown', 'unavailable', 'none', '']
+             or states('sensor.olohuone_ilmanlaatu_anturi_hiilidioksidi') not in ['unknown', 'unavailable', 'none', '']
+             or states('sensor.olohuone_ilmanlaatu_hiilidioksidi') not in ['unknown', 'unavailable', 'none', '']
+             or states('sensor.olohuone_ilmanlaatu_anturi_co2') not in ['unknown', 'unavailable', 'none', '']
+             or states('sensor.olohuone_co2') not in ['unknown', 'unavailable', 'none', ''] }}
+        state: |
+          {% set e = states('input_text.iv_co2_entiteetti') | trim %}
+          {% set alts = [
+            e,
+            'sensor.olohuone_ilmanlaatu_anturi_carbon_dioxide',
+            'sensor.olohuone_ilmanlaatu_anturi_hiilidioksidi',
+            'sensor.olohuone_ilmanlaatu_hiilidioksidi',
+            'sensor.olohuone_ilmanlaatu_anturi_co2',
+            'sensor.olohuone_co2'
+          ] %}
+          {% set src = namespace(e='') %}
+          {% for a in alts if src.e == '' and a not in ['', 'unknown', 'none'] and states(a) not in ['unknown', 'unavailable', 'none', ''] %}
+            {% set src.e = a %}
+          {% endfor %}
+          {{ states(src.e) | float(0) | round(0) if src.e else none }}
+
+      - name: IV auto kosteus tavoite
+        unique_id: iv_auto_kosteus_tavoite
+        unit_of_measurement: "%"
+        availability: |
+          {% set e = states('input_text.iv_kosteus_entiteetti') | trim %}
+          {{ e not in ['unknown', 'unavailable', 'none', '']
+             and states(e) not in ['unknown', 'unavailable', 'none', ''] }}
+        state: |
+          {% set e = states('input_text.iv_kosteus_entiteetti') | trim %}
+          {% set s = states(e) | float(0) %}
+          {% set raw = s if ('skaala' in e or 'bonus' in e) else (35 if s <= 55 else (35 + (s - 55) / 10 * 15 if s <= 65 else (50 + (s - 65) / 10 * 20 if s <= 75 else 70 + ([1, (s - 75) / 15] | min) * 20))) %}
+          {{ [25, [100, ((raw / 5) | round(0) * 5)] | min] | max | int }}
+
+      - name: IV auto PM tavoite
+        unique_id: iv_auto_pm_tavoite
+        unit_of_measurement: "%"
+        availability: |
+          {% set e = states('input_text.iv_pm_entiteetti') | trim %}
+          {{ e not in ['unknown', 'unavailable', 'none', '']
+             and states(e) not in ['unknown', 'unavailable', 'none', ''] }}
+        state: |
+          {% set e = states('input_text.iv_pm_entiteetti') | trim %}
+          {% set s = states(e) | float(0) %}
+          {% set raw = s if 'skaala' in e else (35 if s <= 12 else (35 + (s - 12) / 13 * 15 if s <= 25 else (50 + (s - 25) / 25 * 20 if s <= 50 else 70 + ([1, (s - 50) / 50] | min) * 20))) %}
+          {{ [25, [100, ((raw / 5) | round(0) * 5)] | min] | max | int }}
+
+      - name: IV auto tavoite
+        unique_id: iv_auto_tavoite
+        unit_of_measurement: "%"
+        availability: |
+          {% set m = states('input_select.iv_auto_anturit') %}
+          {% set use_c = m in ['Kaikki kolme', 'CO2 ja PM', 'Kosteus ja CO2', 'Vain CO2'] %}
+          {% set use_k = m in ['Kaikki kolme', 'Kosteus ja PM', 'Kosteus ja CO2', 'Vain kosteus'] %}
+          {% set use_p = m in ['Kaikki kolme', 'CO2 ja PM', 'Kosteus ja PM', 'Vain PM'] %}
+          {% set ok_c = states('sensor.iv_auto_co2_tavoite') not in ['unknown', 'unavailable', 'none', ''] %}
+          {% set ok_k = states('sensor.iv_auto_kosteus_tavoite') not in ['unknown', 'unavailable', 'none', ''] %}
+          {% set ok_p = states('sensor.iv_auto_pm_tavoite') not in ['unknown', 'unavailable', 'none', ''] %}
+          {{ (use_c and ok_c) or (use_k and ok_k) or (use_p and ok_p) }}
+        state: |
+          {% set m = states('input_select.iv_auto_anturit') %}
+          {% set use_c = m in ['Kaikki kolme', 'CO2 ja PM', 'Kosteus ja CO2', 'Vain CO2'] %}
+          {% set use_k = m in ['Kaikki kolme', 'Kosteus ja PM', 'Kosteus ja CO2', 'Vain kosteus'] %}
+          {% set use_p = m in ['Kaikki kolme', 'CO2 ja PM', 'Kosteus ja PM', 'Vain PM'] %}
+          {% set c = states('sensor.iv_auto_co2_tavoite') | float(-1) %}
+          {% set k = states('sensor.iv_auto_kosteus_tavoite') | float(-1) %}
+          {% set p = states('sensor.iv_auto_pm_tavoite') | float(-1) %}
+          {% set arvot = ([c] if use_c and c >= 0 else []) + ([k] if use_k and k >= 0 else []) + ([p] if use_p and p >= 0 else []) %}
+          {{ [25, [100, arvot | max] | min] | max | int if arvot | count > 0 else none }}
+
+      - name: IV auto lahde
+        unique_id: iv_auto_lahde
+        availability: |
+          {{ states('sensor.iv_auto_tavoite') not in ['unknown', 'unavailable', 'none', ''] }}
+        state: |
+          {% set m = states('input_select.iv_auto_anturit') %}
+          {% set use_c = m in ['Kaikki kolme', 'CO2 ja PM', 'Kosteus ja CO2', 'Vain CO2'] %}
+          {% set use_k = m in ['Kaikki kolme', 'Kosteus ja PM', 'Kosteus ja CO2', 'Vain kosteus'] %}
+          {% set use_p = m in ['Kaikki kolme', 'CO2 ja PM', 'Kosteus ja PM', 'Vain PM'] %}
+          {% set t = states('sensor.iv_auto_tavoite') | float(0) %}
+          {% set c = states('sensor.iv_auto_co2_tavoite') | float(-1) %}
+          {% set k = states('sensor.iv_auto_kosteus_tavoite') | float(-1) %}
+          {% set p = states('sensor.iv_auto_pm_tavoite') | float(-1) %}
+          {% set nimet = (['CO2'] if use_c and c == t else []) + (['kosteus'] if use_k and k == t else []) + (['PM'] if use_p and p == t else []) %}
+          {{ nimet | join(' + ') if nimet | count > 0 else '—' }}
+
+  - binary_sensor:
+      - name: IV ohitus kielletty
+        unique_id: iv_ohitus_kielletty
+        icon: mdi:valve-closed
+        state: >
+          {% set ilp_auto = is_state('input_select.keittio_ilp_tila', 'Automaatti')
+             and is_state('input_select.keittio_ilp_kausi', 'Lämmitys')
+             and not is_state('climate.keittio_ilp', 'off') %}
+          {% set ilp_kasi = is_state('input_select.keittio_ilp_tila', 'Manuaali')
+             and is_state('input_select.keittio_ilp_manuaali_tila', 'Lämmitys')
+             and not is_state('climate.keittio_ilp', 'off') %}
+          {{ ilp_auto or ilp_kasi or is_state('climate.keittio_ilp', 'heat')
+             or is_state('binary_sensor.lammitys_ll_tarve', 'on')
+             or is_state('binary_sensor.lammitys_ennakoiva', 'on') }}
+
+  - trigger:
+      - platform: time_pattern
+        seconds: "/1"
+      - platform: state
+        entity_id:
+          - timer.iv_sauna
+          - timer.iv_tehostus
+    sensor:
+      - name: IV sauna jaljella
+        unique_id: iv_sauna_jaljella
+        icon: mdi:timer-sand
+        state: |
+          {% if is_state('timer.iv_sauna', 'active') %}
+            {% set fin = state_attr('timer.iv_sauna', 'finishes_at') %}
+            {% set s = (as_timestamp(fin, now().timestamp()) - now().timestamp()) | int %}
+            {% set s = [0, s] | max %}
+            {{ '%d:%02d' | format((s // 60) | int, (s % 60) | int) }}
+          {% else %}
+            —
+          {% endif %}
+      - name: IV tehostus jaljella
+        unique_id: iv_tehostus_jaljella
+        icon: mdi:timer-sand
+        state: |
+          {% if is_state('timer.iv_tehostus', 'active') %}
+            {% set fin = state_attr('timer.iv_tehostus', 'finishes_at') %}
+            {% set s = (as_timestamp(fin, now().timestamp()) - now().timestamp()) | int %}
+            {% set s = [0, s] | max %}
+            {{ '%d:%02d' | format((s // 60) | int, (s % 60) | int) }}
+          {% else %}
+            —
+          {% endif %}
+
+script:
+  iv_odota_tauko:
+    alias: IV odota ettei väylä jumitu
+    mode: single
+    sequence:
+      - variables:
+          viime: "{{ as_timestamp(states('input_datetime.iv_modbus_tauko'), 0) | float(0) }}"
+          odota: "{{ [0, 2 - (now().timestamp() - viime)] | max }}"
+      - delay:
+          seconds: "{{ odota | float(0) }}"
+
+  iv_kirjoita_sana:
+    alias: IV kirjoita yksi holding
+    mode: queued
+    max: 8
+    fields:
+      osoite:
+        selector:
+          number:
+      arvo:
+        selector:
+          number:
+    sequence:
+      - service: modbus.write_register
+        data:
+          hub: airfi
+          slave: 1
+          address: "{{ osoite | int }}"
+          value: "{{ arvo | int }}"
+        continue_on_error: true
+
+  iv_kirjoita:
+    alias: IV kirjoita puhaltimet
+    mode: queued
+    max: 3
+    fields:
+      poisto:
+        selector:
+          number:
+      tulo:
+        selector:
+          number:
+      koko:
+        selector:
+          boolean:
+    sequence:
+      - condition: not
+        conditions:
+          - condition: state
+            entity_id: input_select.iv_ohjaus
+            state: Pois
+      - variables:
+          p: "{{ [0, [100, (poisto | default(states('input_number.iv_manuaali_poisto'), true) | int(40))] | min] | max | int }}"
+          t: "{{ [0, [100, (tulo | default(states('input_number.iv_manuaali_tulo'), true) | int(35))] | min] | max | int }}"
+          koko_nyt: "{{ 1 if ((koko | string | lower) in ['true', 'on', '1', 'yes'] or states('sensor.airfi_hataseis_tila') | int(0) > 0 or states('sensor.airfi_vakiopaine_luku') | int(0) != 1) else 0 }}"
+      - service: script.iv_odota_tauko
+      - if:
+          - condition: template
+            value_template: "{{ koko_nyt | int(0) == 1 }}"
+        then:
+          - service: script.iv_kirjoita_sana
+            data:
+              osoite: 8
+              arvo: 0
+          - delay:
+              milliseconds: 200
+          - service: script.iv_kirjoita_sana
+            data:
+              osoite: 1
+              arvo: 0
+          - delay:
+              milliseconds: 200
+          - service: script.iv_kirjoita_sana
+            data:
+              osoite: 2
+              arvo: 0
+          - delay:
+              milliseconds: 200
+          - service: script.iv_kirjoita_sana
+            data:
+              osoite: 12
+              arvo: 0
+          - delay:
+              milliseconds: 200
+          - service: script.iv_kirjoita_sana
+            data:
+              osoite: 3
+              arvo: 0
+          - delay:
+              milliseconds: 200
+          - service: script.iv_kirjoita_sana
+            data:
+              osoite: 8
+              arvo: 1
+          - delay:
+              seconds: 1
+      - service: script.iv_kirjoita_sana
+        data:
+          osoite: 10
+          arvo: "{{ t | int }}"
+      - delay:
+          milliseconds: 200
+      - service: script.iv_kirjoita_sana
+        data:
+          osoite: 11
+          arvo: "{{ p | int }}"
+      - service: input_number.set_value
+        target:
+          entity_id: input_number.iv_kirjoitettu_tulo
+        data:
+          value: "{{ t | int }}"
+      - service: input_number.set_value
+        target:
+          entity_id: input_number.iv_kirjoitettu_poisto
+        data:
+          value: "{{ p | int }}"
+      - service: input_datetime.set_datetime
+        target:
+          entity_id: input_datetime.iv_modbus_tauko
+        data:
+          datetime: "{{ now().strftime('%Y-%m-%d %H:%M:%S') }}"
+
+  iv_kirjoita_pois:
+    alias: IV hätäseis
+    mode: queued
+    max: 2
+    sequence:
+      - service: script.iv_odota_tauko
+      - service: script.iv_kirjoita_sana
+        data:
+          osoite: 8
+          arvo: 0
+      - delay:
+          milliseconds: 200
+      - service: script.iv_kirjoita_sana
+        data:
+          osoite: 56
+          arvo: 0
+      - delay:
+          milliseconds: 200
+      - service: script.iv_kirjoita_sana
+        data:
+          osoite: 12
+          arvo: 0
+      - delay:
+          milliseconds: 200
+      - service: script.iv_kirjoita_sana
+        data:
+          osoite: 2
+          arvo: 0
+      - delay:
+          milliseconds: 200
+      - service: script.iv_kirjoita_sana
+        data:
+          osoite: 3
+          arvo: 0
+      - delay:
+          milliseconds: 200
+      - service: script.iv_kirjoita_sana
+        data:
+          osoite: 1
+          arvo: 1
+      - service: input_datetime.set_datetime
+        target:
+          entity_id: input_datetime.iv_modbus_tauko
+        data:
+          datetime: "{{ now().strftime('%Y-%m-%d %H:%M:%S') }}"
+
+  iv_auto_aja:
+    alias: IV auto kirjoita tavoite
+    mode: queued
+    max: 2
+    fields:
+      pako:
+        selector:
+          boolean:
+    sequence:
+      - condition: state
+        entity_id: input_select.iv_ohjaus
+        state: Automaatti
+      - condition: state
+        entity_id: input_boolean.iv_sauna
+        state: "off"
+      - condition: not
+        conditions:
+          - condition: state
+            entity_id: timer.iv_sauna
+            state: active
+      - condition: not
+        conditions:
+          - condition: state
+            entity_id: timer.iv_tehostus
+            state: active
+      - variables:
+          rh: "{{ states('sensor.airfi_kosteus_rh') | float(50) }}"
+          rh_pct: "{{ 35 if rh | float(50) <= 55 else (50 if rh | float(50) <= 65 else (70 if rh | float(50) <= 75 else 90)) }}"
+          auto: "{{ states('sensor.iv_auto_tavoite') }}"
+          tavoite: "{{ auto | int(rh_pct) if auto not in ['unknown', 'unavailable', 'none', ''] else rh_pct | int }}"
+          tulo_t: "{{ [25, [100, tavoite | int] | min] | max | int }}"
+          poisto_t: "{{ [25, [100, (tulo_t | int) + 5] | min] | max | int }}"
+          last_t: "{{ states('input_number.iv_kirjoitettu_tulo') | float(40) }}"
+          last_p: "{{ states('input_number.iv_kirjoitettu_poisto') | float(40) }}"
+          seis: "{{ states('sensor.airfi_hataseis_tila') | int(0) }}"
+          viime: "{{ as_timestamp(states('input_datetime.iv_modbus_tauko'), 0) | float(0) }}"
+          liian_heti: "{{ 1 if viime | float(0) > 0 and (now().timestamp() - viime | float(0)) < 300 else 0 }}"
+          ero_t: "{{ (tulo_t | float - last_t | float) }}"
+          tulo_w: >-
+            {% set d = ero_t | float(0) %}
+            {% set last = last_t | float(40) %}
+            {% set tgt = tulo_t | float(40) %}
+            {% if (d | abs) <= 5 %}
+              {{ tgt | int }}
+            {% elif (d | abs) > 20 %}
+              {{ [25, [100, last + (15 if d > 0 else -15)] | min] | max | int }}
+            {% elif (d | abs) > 10 %}
+              {{ [25, [100, last + (10 if d > 0 else -10)] | min] | max | int }}
+            {% else %}
+              {{ [25, [100, last + (5 if d > 0 else -5)] | min] | max | int }}
+            {% endif %}
+          poisto_w: "{{ [25, [100, (tulo_w | int) + 5] | min] | max | int }}"
+      - condition: template
+        value_template: "{{ pako | default(false) | bool or (seis | int(0) > 0) or ((liian_heti | int(0) == 0) and ((tulo_t | float - last_t | float) | abs >= 5 or (poisto_t | float - last_p | float) | abs >= 5)) }}"
+      - service: script.iv_kirjoita
+        data:
+          poisto: "{{ (poisto_t | int) if (pako | default(false) | bool or (seis | int(0) > 0)) else (poisto_w | int) }}"
+          tulo: "{{ (tulo_t | int) if (pako | default(false) | bool or (seis | int(0) > 0)) else (tulo_w | int) }}"
+          koko: "{{ 1 if (pako | default(false) | bool or (seis | int(0) > 0)) else 0 }}"
+
+  iv_kuittaa:
+    alias: IV kuittaa hätäseis
+    mode: queued
+    max: 2
+    sequence:
+      - service: script.iv_odota_tauko
+      - service: script.iv_kirjoita_sana
+        data:
+          osoite: 8
+          arvo: 0
+      - delay:
+          milliseconds: 200
+      - service: script.iv_kirjoita_sana
+        data:
+          osoite: 1
+          arvo: 0
+      - delay:
+          milliseconds: 200
+      - service: script.iv_kirjoita_sana
+        data:
+          osoite: 2
+          arvo: 0
+      - delay:
+          milliseconds: 200
+      - service: script.iv_kirjoita_sana
+        data:
+          osoite: 12
+          arvo: 0
+      - service: input_datetime.set_datetime
+        target:
+          entity_id: input_datetime.iv_modbus_tauko
+        data:
+          datetime: "{{ now().strftime('%Y-%m-%d %H:%M:%S') }}"
+      - service: input_select.select_option
+        target:
+          entity_id: input_select.iv_ohjaus
+        data:
+          option: Automaatti
+
+  iv_automaatti:
+    alias: IV automaatti
+    mode: single
+    sequence:
+      - service: input_select.select_option
+        target:
+          entity_id: input_select.iv_ohjaus
+        data:
+          option: Automaatti
+
+  iv_manuaali:
+    alias: IV käsinajo
+    mode: single
+    sequence:
+      - service: input_select.select_option
+        target:
+          entity_id: input_select.iv_ohjaus
+        data:
+          option: Manuaali
+
+  iv_tehostus:
+    alias: IV tehostus 15 min
+    mode: single
+    sequence:
+      - service: script.iv_tehostus_lisaa
+
+  iv_ajastin_plus15:
+    alias: IV ajastin +15 min
+    mode: queued
+    max: 6
+    fields:
+      ajastin:
+        selector:
+          entity:
+            domain: timer
+    sequence:
+      - variables:
+          e: "{{ ajastin }}"
+          fin: "{{ state_attr(e, 'finishes_at') }}"
+          left: "{{ [0, as_timestamp(fin, now().timestamp()) - now().timestamp()] | max if is_state(e, 'active') else 0 }}"
+          sek: "{{ (left | float(0) + 900) | int }}"
+          dur: "{{ '%02d:%02d:%02d' | format((sek // 3600) | int, ((sek % 3600) // 60) | int, (sek % 60) | int) }}"
+      - service: timer.start
+        target:
+          entity_id: "{{ e }}"
+        data:
+          duration: "{{ dur }}"
+
+  iv_tehostus_peru_hiljaa:
+    alias: IV tehostus pois ilman kirjoitusta
+    mode: single
+    sequence:
+      - service: timer.cancel
+        target:
+          entity_id: timer.iv_tehostus
+        continue_on_error: true
+      - service: input_boolean.turn_on
+        target:
+          entity_id: input_boolean.iv_ohita_vaihto
+      - service: input_select.select_option
+        target:
+          entity_id: input_select.iv_ohjaus
+        data:
+          option: Automaatti
+
+  iv_tehostus_lisaa:
+    alias: IV tehostus +15 min
+    mode: queued
+    max: 3
+    sequence:
+      - if:
+          - condition: or
+            conditions:
+              - condition: state
+                entity_id: timer.iv_sauna
+                state: active
+              - condition: state
+                entity_id: input_boolean.iv_sauna
+                state: "on"
+        then:
+          - service: script.iv_sauna_lopeta
+      - if:
+          - condition: state
+            entity_id: input_select.iv_ohjaus
+            state: Tehostus
+          - condition: state
+            entity_id: timer.iv_tehostus
+            state: active
+        then:
+          - service: script.iv_ajastin_plus15
+            data:
+              ajastin: timer.iv_tehostus
+        else:
+          - service: input_select.select_option
+            target:
+              entity_id: input_select.iv_ohjaus
+            data:
+              option: Tehostus
+
+  iv_tehostus_lopeta:
+    alias: IV tehostus lopeta
+    mode: single
+    sequence:
+      - service: timer.cancel
+        target:
+          entity_id: timer.iv_tehostus
+        continue_on_error: true
+      - service: input_select.select_option
+        target:
+          entity_id: input_select.iv_ohjaus
+        data:
+          option: Automaatti
+
+  iv_pois:
+    alias: IV pois hätäseis
+    mode: single
+    sequence:
+      - service: input_select.select_option
+        target:
+          entity_id: input_select.iv_ohjaus
+        data:
+          option: Pois
+
+  iv_sauna_valo_aseta:
+    alias: IV sauna valo
+    mode: queued
+    max: 4
+    fields:
+      paalle:
+        selector:
+          boolean:
+    sequence:
+      - variables:
+          valo: "{{ states('input_text.iv_sauna_valo') | trim }}"
+      - if:
+          - condition: template
+            value_template: "{{ paalle | bool }}"
+        then:
+          - service: homeassistant.turn_on
+            target:
+              entity_id: switch.sauna_valokytkin_eteisessa
+            continue_on_error: true
+          - service: homeassistant.turn_on
+            target:
+              entity_id: "{{ valo }}"
+            continue_on_error: true
+        else:
+          - service: homeassistant.turn_off
+            target:
+              entity_id: switch.sauna_valokytkin_eteisessa
+            continue_on_error: true
+          - service: homeassistant.turn_off
+            target:
+              entity_id: "{{ valo }}"
+            continue_on_error: true
+
+  iv_sauna:
+    alias: IV sauna
+    mode: single
+    sequence:
+      - service: script.iv_sauna_lisaa
+
+  iv_sauna_lisaa:
+    alias: IV sauna +15 min
+    mode: queued
+    max: 5
+    sequence:
+      - if:
+          - condition: state
+            entity_id: input_select.iv_ohjaus
+            state: Pois
+        then:
+          - service: input_boolean.turn_on
+            target:
+              entity_id: input_boolean.iv_ohita_vaihto
+          - service: input_select.select_option
+            target:
+              entity_id: input_select.iv_ohjaus
+            data:
+              option: Automaatti
+      - if:
+          - condition: or
+            conditions:
+              - condition: state
+                entity_id: input_select.iv_ohjaus
+                state: Tehostus
+              - condition: state
+                entity_id: timer.iv_tehostus
+                state: active
+        then:
+          - service: script.iv_tehostus_peru_hiljaa
+      - if:
+          - condition: state
+            entity_id: timer.iv_sauna
+            state: active
+        then:
+          - service: script.iv_ajastin_plus15
+            data:
+              ajastin: timer.iv_sauna
+          - service: script.iv_ajastin_plus15
+            data:
+              ajastin: timer.sauna_tila
+            continue_on_error: true
+        else:
+          - variables:
+              nyt_p: "{{ states('sensor.airfi_poistoilmapuhallin_nopeus') | float(40) }}"
+              nyt_t: "{{ states('sensor.airfi_tuloilmapuhallin_nopeus') | float(35) }}"
+              pohja_p: "{{ 40 if nyt_p | float(0) < 10 else nyt_p | float(40) }}"
+              sauna_p: "{{ [100, pohja_p | float(40)] | min | int }}"
+              sauna_t: "{{ [100, (pohja_p | float(40)) + 20] | min | int }}"
+          - service: input_number.set_value
+            target:
+              entity_id: input_number.iv_ennen_poisto
+            data:
+              value: "{{ nyt_p | float(40) }}"
+          - service: input_number.set_value
+            target:
+              entity_id: input_number.iv_ennen_tulo
+            data:
+              value: "{{ nyt_t | float(35) }}"
+          - service: input_boolean.turn_on
+            target:
+              entity_id: input_boolean.iv_sauna
+          - service: timer.start
+            target:
+              entity_id: timer.iv_sauna
+            data:
+              duration: "00:15:00"
+          - service: input_boolean.turn_on
+            target:
+              entity_id: input_boolean.sauna_tila
+            continue_on_error: true
+          - service: timer.start
+            target:
+              entity_id: timer.sauna_tila
+            data:
+              duration: "00:15:00"
+            continue_on_error: true
+          - service: script.iv_kirjoita
+            data:
+              poisto: "{{ sauna_p }}"
+              tulo: "{{ sauna_t }}"
+          - service: script.iv_kirjoita_sana
+            data:
+              osoite: 56
+              arvo: 1
+      - service: script.iv_sauna_valo_aseta
+        data:
+          paalle: true
+      - service: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.iv_ohita_vaihto
+
+  iv_sauna_lopeta:
+    alias: IV sauna lopeta
+    mode: single
+    sequence:
+      - service: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.iv_sauna
+      - service: timer.cancel
+        target:
+          entity_id: timer.iv_sauna
+        continue_on_error: true
+      - service: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.sauna_tila
+        continue_on_error: true
+      - service: timer.cancel
+        target:
+          entity_id: timer.sauna_tila
+        continue_on_error: true
+      - service: script.iv_sauna_valo_aseta
+        data:
+          paalle: false
+      - service: script.iv_kirjoita_sana
+        data:
+          osoite: 56
+          arvo: 0
+      - if:
+          - condition: state
+            entity_id: input_select.iv_ohjaus
+            state: Pois
+        then:
+          - service: script.iv_kirjoita_pois
+        else:
+          - service: script.iv_kirjoita
+            data:
+              poisto: "{{ states('input_number.iv_ennen_poisto') | float(40) }}"
+              tulo: "{{ states('input_number.iv_ennen_tulo') | float(35) }}"
+
+  iv_auto_anturit_kytke:
+    alias: IV auto anturit kytke
+    mode: restart
+    sequence:
+      - variables:
+          valittu: >
+            {% set m = {
+              'Kaikki kolme': 'automation.iv_auto_co2_kosteus_pm',
+              'CO2 ja PM': 'automation.iv_auto_co2_pm',
+              'Kosteus ja PM': 'automation.iv_auto_kosteus_pm',
+              'Kosteus ja CO2': 'automation.iv_auto_kosteus_co2',
+              'Vain CO2': 'automation.iv_auto_vain_co2',
+              'Vain PM': 'automation.iv_auto_vain_pm',
+              'Vain kosteus': 'automation.iv_auto_vain_kosteus'
+            } %}
+            {{ m.get(states('input_select.iv_auto_anturit'), 'automation.iv_auto_co2_kosteus_pm') }}
+      - service: automation.turn_off
+        target:
+          entity_id:
+            - automation.iv_auto_co2_kosteus_pm
+            - automation.iv_auto_co2_pm
+            - automation.iv_auto_kosteus_pm
+            - automation.iv_auto_kosteus_co2
+            - automation.iv_auto_vain_co2
+            - automation.iv_auto_vain_pm
+            - automation.iv_auto_vain_kosteus
+        continue_on_error: true
+      - service: automation.turn_on
+        target:
+          entity_id: "{{ valittu }}"
+        continue_on_error: true
+
+automation:
+  - id: iv_ohjaus_manuaali_saato
+    alias: IV kasi liukusaadin
+    initial_state: true
+    mode: restart
+    trigger:
+      - platform: state
+        entity_id:
+          - input_number.iv_manuaali_poisto
+          - input_number.iv_manuaali_tulo
+        for:
+          seconds: 1
+      - platform: state
+        entity_id:
+          - number.airfi_poistoilmapuhallin_asetus
+          - number.airfi_tuloilmapuhallin_asetus
+        for:
+          seconds: 1
+    condition:
+      - condition: template
+        value_template: "{{ trigger.to_state.context.user_id is not none }}"
+      - condition: state
+        entity_id: input_select.iv_ohjaus
+        state: Manuaali
+    action:
+      - service: script.iv_kirjoita
+        data:
+          poisto: "{{ [25, [100, states('input_number.iv_manuaali_poisto') | float(40)] | min] | max }}"
+          tulo: "{{ [25, [100, states('input_number.iv_manuaali_tulo') | float(35)] | min] | max }}"
+
+  - id: iv_ohjaus_vaihto
+    alias: IV ohjaus vaihto
+    initial_state: true
+    mode: restart
+    trigger:
+      - platform: state
+        entity_id: input_select.iv_ohjaus
+    condition:
+      - condition: state
+        entity_id: input_boolean.iv_ohita_vaihto
+        state: "off"
+    action:
+      - choose:
+          - conditions:
+              - condition: state
+                entity_id: input_select.iv_ohjaus
+                state: Automaatti
+            sequence:
+              - service: timer.cancel
+                target:
+                  entity_id: timer.iv_tehostus
+                continue_on_error: true
+              - service: script.iv_auto_anturit_kytke
+                continue_on_error: true
+              - service: script.iv_auto_aja
+                data:
+                  pako: true
+                continue_on_error: true
+          - conditions:
+              - condition: state
+                entity_id: input_select.iv_ohjaus
+                state: Manuaali
+            sequence:
+              - variables:
+                  p: "{{ [25, [100, states('input_number.iv_manuaali_poisto') | float(40)] | min] | max | int }}"
+                  t: "{{ [25, [100, states('input_number.iv_manuaali_tulo') | float(35)] | min] | max | int }}"
+              - service: timer.cancel
+                target:
+                  entity_id: timer.iv_tehostus
+                continue_on_error: true
+              - service: input_number.set_value
+                target:
+                  entity_id: input_number.iv_manuaali_poisto
+                data:
+                  value: "{{ p }}"
+              - service: input_number.set_value
+                target:
+                  entity_id: input_number.iv_manuaali_tulo
+                data:
+                  value: "{{ t }}"
+              - service: script.iv_kirjoita
+                data:
+                  poisto: "{{ p }}"
+                  tulo: "{{ t }}"
+          - conditions:
+              - condition: state
+                entity_id: input_select.iv_ohjaus
+                state: Tehostus
+            sequence:
+              - variables:
+                  nyt_p: "{{ states('sensor.airfi_poistoilmapuhallin_nopeus') | float(40) }}"
+                  nyt_t: "{{ states('sensor.airfi_tuloilmapuhallin_nopeus') | float(35) }}"
+                  pohja_p: "{{ 40 if nyt_p | float(0) < 10 else nyt_p | float(40) }}"
+                  pohja_t: "{{ 35 if nyt_t | float(0) < 10 else nyt_t | float(35) }}"
+                  teho_p: "{{ [100, (pohja_p | float(40)) + 20] | min | int }}"
+                  teho_t: "{{ [100, (pohja_t | float(35)) + 20] | min | int }}"
+              - service: input_number.set_value
+                target:
+                  entity_id: input_number.iv_ennen_poisto
+                data:
+                  value: "{{ nyt_p | float(40) }}"
+              - service: input_number.set_value
+                target:
+                  entity_id: input_number.iv_ennen_tulo
+                data:
+                  value: "{{ nyt_t | float(35) }}"
+              - service: timer.start
+                target:
+                  entity_id: timer.iv_tehostus
+                data:
+                  duration: "00:15:00"
+              - service: script.iv_kirjoita
+                data:
+                  poisto: "{{ teho_p }}"
+                  tulo: "{{ teho_t }}"
+          - conditions:
+              - condition: state
+                entity_id: input_select.iv_ohjaus
+                state: Pois
+            sequence:
+              - service: timer.cancel
+                target:
+                  entity_id: timer.iv_tehostus
+                continue_on_error: true
+              - service: script.iv_kirjoita_pois
+
+  - id: iv_tehostus_loppu
+    alias: IV tehostus päättyi
+    initial_state: true
+    trigger:
+      - platform: event
+        event_type: timer.finished
+        event_data:
+          entity_id: timer.iv_tehostus
+    action:
+      - service: input_select.select_option
+        target:
+          entity_id: input_select.iv_ohjaus
+        data:
+          option: Automaatti
+
+  - id: iv_sauna_loppu
+    alias: IV sauna päättyi
+    initial_state: true
+    trigger:
+      - platform: event
+        event_type: timer.finished
+        event_data:
+          entity_id: timer.iv_sauna
+    action:
+      - service: script.iv_sauna_lopeta
+
+  - id: iv_sauna_aqara_nappi
+    alias: IV sauna Aqara termostaatti
+    initial_state: true
+    mode: single
+    trigger:
+      - platform: state
+        entity_id:
+          - sensor.aqara_termostaatti_action
+          - sensor.aqara_termostaatti_toiminto
+          - event.aqara_termostaatti_action
+          - event.aqara_termostaatti
+      - platform: mqtt
+        topic: zigbee2mqtt/Aqara termostaatti
+      - platform: mqtt
+        topic: zigbee2mqtt/Aqara termostaatti/action
+      - platform: mqtt
+        topic: zigbee2mqtt/aqara_termostaatti
+      - platform: mqtt
+        topic: zigbee2mqtt/aqara_termostaatti/action
+      - platform: mqtt
+        topic: zigbee2mqtt/Aqara Termostaatti
+      - platform: mqtt
+        topic: zigbee2mqtt/Aqara Termostaatti/action
+    condition:
+      - condition: template
+        value_template: >
+          {% set s = trigger.to_state.state | default('', true) | lower if trigger.to_state is defined else '' %}
+          {% set ev = trigger.to_state.attributes.get('event', '') | lower if trigger.to_state is defined else '' %}
+          {% set ac = trigger.to_state.attributes.get('action', '') | lower if trigger.to_state is defined else '' %}
+          {% set mqj = trigger.payload_json.action | default('', true) | lower if trigger.payload_json is defined else '' %}
+          {% set mqp = trigger.payload | default('', true) | lower if trigger.payload is defined else '' %}
+          {{ s in ['single_plus', 'single_minus']
+             or ev in ['single_plus', 'single_minus']
+             or ac in ['single_plus', 'single_minus']
+             or mqj in ['single_plus', 'single_minus']
+             or mqp in ['single_plus', 'single_minus'] }}
+    action:
+      - variables:
+          nappi: >
+            {% set s = trigger.to_state.state | default('', true) | lower if trigger.to_state is defined else '' %}
+            {% set ev = trigger.to_state.attributes.get('event', '') | lower if trigger.to_state is defined else '' %}
+            {% set ac = trigger.to_state.attributes.get('action', '') | lower if trigger.to_state is defined else '' %}
+            {% set mqj = trigger.payload_json.action | default('', true) | lower if trigger.payload_json is defined else '' %}
+            {% set mqp = trigger.payload | default('', true) | lower if trigger.payload is defined else '' %}
+            {{ s if s in ['single_plus', 'single_minus'] else (ev if ev in ['single_plus', 'single_minus'] else (ac if ac in ['single_plus', 'single_minus'] else (mqj if mqj in ['single_plus', 'single_minus'] else mqp))) }}
+      - choose:
+          - conditions:
+              - condition: template
+                value_template: "{{ nappi == 'single_plus' }}"
+            sequence:
+              - service: script.iv_sauna_lisaa
+          - conditions:
+              - condition: template
+                value_template: "{{ nappi == 'single_minus' }}"
+            sequence:
+              - service: script.iv_sauna_lopeta
+
+  - id: iv_kaynnistys_vakiopaine
+    alias: IV kaynnistys vakiopaine
+    initial_state: true
+    trigger:
+      - platform: homeassistant
+        event: start
+      - platform: time_pattern
+        minutes: "/10"
+    condition:
+      - condition: not
+        conditions:
+          - condition: state
+            entity_id: input_select.iv_ohjaus
+            state: Pois
+    action:
+      - service: script.iv_kirjoita_sana
+        data:
+          osoite: 2
+          arvo: 0
+      - delay:
+          milliseconds: 200
+      - service: script.iv_kirjoita_sana
+        data:
+          osoite: 8
+          arvo: 1
+      - service: number.set_value
+        target:
+          entity_id: number.airfi_vakiopaine
+        data:
+          value: 1
+        continue_on_error: true
+
+  - id: iv_auto_anturit_kytkin
+    alias: IV auto anturit kytkin
+    initial_state: true
+    mode: restart
+    trigger:
+      - platform: homeassistant
+        event: start
+      - platform: state
+        entity_id: input_select.iv_auto_anturit
+    action:
+      - service: script.iv_auto_anturit_kytke
+      - condition: state
+        entity_id: input_select.iv_ohjaus
+        state: Automaatti
+      - service: script.iv_auto_aja
+
+  - id: iv_co2_entiteetti_korjaa
+    alias: IV CO2 entiteetti ja anturioletus
+    initial_state: true
+    mode: single
+    trigger:
+      - platform: homeassistant
+        event: start
+      - platform: state
+        entity_id: sensor.olohuone_ilmanlaatu_anturi_carbon_dioxide
+      - platform: time_pattern
+        minutes: "/10"
+    action:
+      - variables:
+          haluttu: sensor.olohuone_ilmanlaatu_anturi_carbon_dioxide
+          nyt: "{{ states('input_text.iv_co2_entiteetti') | trim }}"
+          vanha_co2: "{{ nyt in ['', 'unknown', 'unavailable', 'none'] or states(nyt) in ['unknown', 'unavailable', 'none', ''] or nyt in ['sensor.olohuone_ilmanlaatu_anturi_hiilidioksidi', 'sensor.olohuone_ilmanlaatu_hiilidioksidi', 'sensor.olohuone_ilmanlaatu_anturi_co2'] }}"
+      - if:
+          - condition: template
+            value_template: "{{ states(haluttu) not in ['unknown', 'unavailable', 'none', ''] and vanha_co2 | bool }}"
+        then:
+          - service: input_text.set_value
+            target:
+              entity_id: input_text.iv_co2_entiteetti
+            data:
+              value: "{{ haluttu }}"
+      - if:
+          - condition: state
+            entity_id: input_select.iv_auto_anturit
+            state: Vain kosteus
+          - condition: template
+            value_template: "{{ vanha_co2 | bool }}"
+        then:
+          - service: input_select.select_option
+            target:
+              entity_id: input_select.iv_auto_anturit
+            data:
+              option: Kaikki kolme
+
+  - id: iv_auto_co2_kosteus_pm
+    alias: IV auto co2 kosteus pm
+    initial_state: true
+    mode: single
+    trigger:
+      - platform: state
+        entity_id: sensor.iv_auto_tavoite
+        for:
+          minutes: 5
+      - platform: time_pattern
+        minutes: "/5"
+    condition:
+      - condition: state
+        entity_id: input_select.iv_ohjaus
+        state: Automaatti
+      - condition: state
+        entity_id: input_select.iv_auto_anturit
+        state: Kaikki kolme
+    action:
+      - service: script.iv_auto_aja
+
+  - id: iv_auto_co2_pm
+    alias: IV auto co2 pm
+    initial_state: false
+    mode: single
+    trigger:
+      - platform: state
+        entity_id: sensor.iv_auto_tavoite
+        for:
+          minutes: 5
+      - platform: time_pattern
+        minutes: "/5"
+    condition:
+      - condition: state
+        entity_id: input_select.iv_ohjaus
+        state: Automaatti
+      - condition: state
+        entity_id: input_select.iv_auto_anturit
+        state: "CO2 ja PM"
+    action:
+      - service: script.iv_auto_aja
+
+  - id: iv_auto_kosteus_pm
+    alias: IV auto kosteus pm
+    initial_state: false
+    mode: single
+    trigger:
+      - platform: state
+        entity_id: sensor.iv_auto_tavoite
+        for:
+          minutes: 5
+      - platform: time_pattern
+        minutes: "/5"
+    condition:
+      - condition: state
+        entity_id: input_select.iv_ohjaus
+        state: Automaatti
+      - condition: state
+        entity_id: input_select.iv_auto_anturit
+        state: "Kosteus ja PM"
+    action:
+      - service: script.iv_auto_aja
+
+  - id: iv_auto_kosteus_co2
+    alias: IV auto kosteus co2
+    initial_state: false
+    mode: single
+    trigger:
+      - platform: state
+        entity_id: sensor.iv_auto_tavoite
+        for:
+          minutes: 5
+      - platform: time_pattern
+        minutes: "/5"
+    condition:
+      - condition: state
+        entity_id: input_select.iv_ohjaus
+        state: Automaatti
+      - condition: state
+        entity_id: input_select.iv_auto_anturit
+        state: "Kosteus ja CO2"
+    action:
+      - service: script.iv_auto_aja
+
+  - id: iv_auto_vain_co2
+    alias: IV auto vain co2
+    initial_state: false
+    mode: single
+    trigger:
+      - platform: state
+        entity_id: sensor.iv_auto_tavoite
+        for:
+          minutes: 5
+      - platform: time_pattern
+        minutes: "/5"
+    condition:
+      - condition: state
+        entity_id: input_select.iv_ohjaus
+        state: Automaatti
+      - condition: state
+        entity_id: input_select.iv_auto_anturit
+        state: "Vain CO2"
+    action:
+      - service: script.iv_auto_aja
+
+  - id: iv_auto_vain_pm
+    alias: IV auto vain pm
+    initial_state: false
+    mode: single
+    trigger:
+      - platform: state
+        entity_id: sensor.iv_auto_tavoite
+        for:
+          minutes: 5
+      - platform: time_pattern
+        minutes: "/5"
+    condition:
+      - condition: state
+        entity_id: input_select.iv_ohjaus
+        state: Automaatti
+      - condition: state
+        entity_id: input_select.iv_auto_anturit
+        state: "Vain PM"
+    action:
+      - service: script.iv_auto_aja
+
+  - id: iv_auto_vain_kosteus
+    alias: IV auto vain kosteus
+    initial_state: false
+    mode: single
+    trigger:
+      - platform: state
+        entity_id: sensor.iv_auto_tavoite
+        for:
+          minutes: 5
+      - platform: time_pattern
+        minutes: "/5"
+    condition:
+      - condition: state
+        entity_id: input_select.iv_ohjaus
+        state: Automaatti
+      - condition: state
+        entity_id: input_select.iv_auto_anturit
+        state: "Vain kosteus"
+    action:
+      - service: script.iv_auto_aja
+
+  - id: iv_liukujat_seuraa
+    alias: IV liukujat seuraa mitattua
+    initial_state: true
+    mode: restart
+    trigger:
+      - platform: state
+        entity_id:
+          - sensor.airfi_poistoilmapuhallin_nopeus
+          - sensor.airfi_tuloilmapuhallin_nopeus
+      - platform: state
+        entity_id: input_select.iv_ohjaus
+      - platform: state
+        entity_id:
+          - input_number.iv_manuaali_poisto
+          - input_number.iv_manuaali_tulo
+    condition:
+      - condition: not
+        conditions:
+          - condition: state
+            entity_id: input_select.iv_ohjaus
+            state: Manuaali
+    action:
+      - variables:
+          p_raw: "{{ states('sensor.airfi_poistoilmapuhallin_nopeus') }}"
+          t_raw: "{{ states('sensor.airfi_tuloilmapuhallin_nopeus') }}"
+          p: "{{ [0, [100, ((p_raw | float(0) / 5) | round(0) * 5)] | min] | max | int }}"
+          t: "{{ [0, [100, ((t_raw | float(0) / 5) | round(0) * 5)] | min] | max | int }}"
+      - if:
+          - condition: template
+            value_template: "{{ p_raw not in ['unknown', 'unavailable', 'none', ''] and (states('input_number.iv_manuaali_poisto') | float(-1)) != (p | float) }}"
+        then:
+          - service: input_number.set_value
+            target:
+              entity_id: input_number.iv_manuaali_poisto
+            data:
+              value: "{{ p }}"
+      - if:
+          - condition: template
+            value_template: "{{ t_raw not in ['unknown', 'unavailable', 'none', ''] and (states('input_number.iv_manuaali_tulo') | float(-1)) != (t | float) }}"
+        then:
+          - service: input_number.set_value
+            target:
+              entity_id: input_number.iv_manuaali_tulo
+            data:
+              value: "{{ t }}"
+
+  - id: iv_lampo_saato
+    alias: IV lampoasetus kirjoita
+    initial_state: true
+    mode: restart
+    trigger:
+      - platform: state
+        entity_id:
+          - input_number.iv_lampo_asetus
+          - input_number.iv_ohitus_asetus
+          - input_number.iv_ohitus_ulko
+          - input_number.iv_ohitus_viive
+          - input_number.iv_poissa_lampo
+        for:
+          seconds: 1
+    condition:
+      - condition: template
+        value_template: "{{ trigger.to_state.context.user_id is not none }}"
+    action:
+      - service: script.iv_odota_tauko
+      - choose:
+          - conditions:
+              - condition: template
+                value_template: "{{ trigger.entity_id == 'input_number.iv_lampo_asetus' }}"
+            sequence:
+              - service: script.iv_kirjoita_sana
+                data:
+                  osoite: 4
+                  arvo: "{{ [50, [260, (states('input_number.iv_lampo_asetus') | float(21) * 10) | round(0)] | min] | max | int }}"
+          - conditions:
+              - condition: template
+                value_template: "{{ trigger.entity_id == 'input_number.iv_ohitus_asetus' }}"
+            sequence:
+              - service: script.iv_kirjoita_sana
+                data:
+                  osoite: 46
+                  arvo: "{{ [100, [300, (states('input_number.iv_ohitus_asetus') | float(22) * 10) | round(0)] | min] | max | int }}"
+          - conditions:
+              - condition: template
+                value_template: "{{ trigger.entity_id == 'input_number.iv_ohitus_ulko' }}"
+            sequence:
+              - service: script.iv_kirjoita_sana
+                data:
+                  osoite: 47
+                  arvo: "{{ 25 if is_state('binary_sensor.iv_ohitus_kielletty', 'on') else [0, [25, states('input_number.iv_ohitus_ulko') | float(12)] | min] | max | int }}"
+          - conditions:
+              - condition: template
+                value_template: "{{ trigger.entity_id == 'input_number.iv_ohitus_viive' }}"
+            sequence:
+              - service: script.iv_kirjoita_sana
+                data:
+                  osoite: 48
+                  arvo: "{{ [0, [120, states('input_number.iv_ohitus_viive') | float(15)] | min] | max | int }}"
+          - conditions:
+              - condition: template
+                value_template: "{{ trigger.entity_id == 'input_number.iv_poissa_lampo' }}"
+            sequence:
+              - service: script.iv_kirjoita_sana
+                data:
+                  osoite: 51
+                  arvo: "{{ [50, [260, (states('input_number.iv_poissa_lampo') | float(18) * 10) | round(0)] | min] | max | int }}"
+      - service: input_datetime.set_datetime
+        target:
+          entity_id: input_datetime.iv_modbus_tauko
+        data:
+          datetime: "{{ now().strftime('%Y-%m-%d %H:%M:%S') }}"
+
+  - id: iv_ohitus_suoja
+    alias: IV LTO-ohitus kielletty kun lammitetaan
+    initial_state: true
+    mode: restart
+    trigger:
+      - platform: homeassistant
+        event: start
+      - platform: state
+        entity_id: binary_sensor.iv_ohitus_kielletty
+      - platform: time_pattern
+        minutes: "/15"
+    condition:
+      - condition: template
+        value_template: >
+          {% set want = 25 if is_state('binary_sensor.iv_ohitus_kielletty', 'on')
+             else [0, [25, states('input_number.iv_ohitus_ulko') | float(12)] | min] | max | int %}
+          {% set have = states('sensor.airfi_ohituksen_ulkoilmaraja') %}
+          {{ have in ['unknown', 'unavailable', 'none', '']
+             or (have | float(-99) | round(0) | int) != want }}
+    action:
+      - service: script.iv_odota_tauko
+      - service: script.iv_kirjoita_sana
+        data:
+          osoite: 47
+          arvo: "{{ 25 if is_state('binary_sensor.iv_ohitus_kielletty', 'on') else [0, [25, states('input_number.iv_ohitus_ulko') | float(12)] | min] | max | int }}"
+      - service: input_datetime.set_datetime
+        target:
+          entity_id: input_datetime.iv_modbus_tauko
+        data:
+          datetime: "{{ now().strftime('%Y-%m-%d %H:%M:%S') }}"
+
+  - id: iv_lampo_seuraa
+    alias: IV lampoasetus seuraa konetta
+    initial_state: true
+    mode: restart
+    trigger:
+      - platform: homeassistant
+        event: start
+      - platform: state
+        entity_id:
+          - sensor.airfi_lampotila_asetus_luku
+          - sensor.airfi_ohituksen_asetuslampotila
+          - sensor.airfi_ohituksen_ulkoilmaraja
+          - sensor.airfi_ohituksen_viive
+          - sensor.airfi_poissa_lampotila
+    condition:
+      - condition: template
+        value_template: "{{ (now().timestamp() - as_timestamp(states('input_datetime.iv_modbus_tauko'), 0) | float(0)) > 90 }}"
+    action:
+      - variables:
+          lampo: "{{ states('sensor.airfi_lampotila_asetus_luku') }}"
+          ohitus: "{{ states('sensor.airfi_ohituksen_asetuslampotila') }}"
+          ulko: "{{ states('sensor.airfi_ohituksen_ulkoilmaraja') }}"
+          viive: "{{ states('sensor.airfi_ohituksen_viive') }}"
+          poissa: "{{ states('sensor.airfi_poissa_lampotila') }}"
+      - if:
+          - condition: template
+            value_template: "{{ lampo not in ['unknown', 'unavailable', 'none', ''] }}"
+        then:
+          - service: input_number.set_value
+            target:
+              entity_id: input_number.iv_lampo_asetus
+            data:
+              value: "{{ [5, [26, (lampo | float(21) * 2) | round(0) / 2] | min] | max }}"
+      - if:
+          - condition: template
+            value_template: "{{ ohitus not in ['unknown', 'unavailable', 'none', ''] }}"
+        then:
+          - service: input_number.set_value
+            target:
+              entity_id: input_number.iv_ohitus_asetus
+            data:
+              value: "{{ [10, [30, (ohitus | float(22) * 2) | round(0) / 2] | min] | max }}"
+      - if:
+          - condition: template
+            value_template: >
+              {{ ulko not in ['unknown', 'unavailable', 'none', '']
+                 and not is_state('binary_sensor.iv_ohitus_kielletty', 'on')
+                 and not ((ulko | float(0)) >= 25
+                          and (states('input_number.iv_ohitus_ulko') | float(12)) < 25) }}
+        then:
+          - service: input_number.set_value
+            target:
+              entity_id: input_number.iv_ohitus_ulko
+            data:
+              value: "{{ [0, [25, ulko | float(12)] | min] | max | int }}"
+      - if:
+          - condition: template
+            value_template: "{{ viive not in ['unknown', 'unavailable', 'none', ''] }}"
+        then:
+          - service: input_number.set_value
+            target:
+              entity_id: input_number.iv_ohitus_viive
+            data:
+              value: "{{ [0, [120, viive | float(15)] | min] | max | int }}"
+      - if:
+          - condition: template
+            value_template: "{{ poissa not in ['unknown', 'unavailable', 'none', ''] }}"
+        then:
+          - service: input_number.set_value
+            target:
+              entity_id: input_number.iv_poissa_lampo
+            data:
+              value: "{{ [5, [26, (poissa | float(18) * 2) | round(0) / 2] | min] | max }}"
