@@ -1,5 +1,5 @@
 -- Remonttireitti: aja KERRAN tuotanto-Supabasessa (SQL Editor → Run)
--- Sisältää migraatiot 20260913100000 – 20260913170000 järjestyksessä.
+-- Sisältää migraatiot 20260913100000 – 20260913200000 järjestyksessä.
 -- Jos jokin kohta on jo ajettu, virhe "already exists" on ok — jatka seuraavaan.
 
 
