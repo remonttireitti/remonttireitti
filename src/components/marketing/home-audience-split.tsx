@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { RoleAwareLink } from "@/components/navigation/role-aware-link";
 import { BetaPlatformFeeBanner } from "@/components/promo/beta-platform-fee-banner";
 import { brand } from "@/lib/brand-theme";
 
@@ -16,7 +17,7 @@ export function HomeAudienceSplit({ hideCustomer = false, hideContractor = false
         className={`grid gap-4 ${showBoth ? "sm:grid-cols-2" : "max-w-md mx-auto sm:max-w-lg"}`}
       >
         {!hideCustomer && (
-        <Link
+        <RoleAwareLink
           href="/asiakkaalle"
           className="group rounded-2xl border border-sky-200 bg-gradient-to-br from-sky-50/80 to-white p-6 text-left shadow-sm transition hover:border-sky-300 hover:shadow-md"
         >
@@ -38,12 +39,12 @@ export function HomeAudienceSplit({ hideCustomer = false, hideContractor = false
           <span className={`mt-4 inline-block text-sm font-semibold ${brand.link}`}>
             Katso kaikki mitä saat →
           </span>
-        </Link>
+        </RoleAwareLink>
         )}
 
         {!hideContractor && (
         <div className="flex flex-col gap-3">
-          <Link
+          <RoleAwareLink
             href="/urakoitsijaksi"
             className="group flex-1 rounded-2xl border border-orange-200 bg-white p-6 text-left shadow-sm transition hover:border-orange-300 hover:shadow-md"
           >
@@ -60,7 +61,7 @@ export function HomeAudienceSplit({ hideCustomer = false, hideContractor = false
             <span className="mt-4 inline-block text-sm font-semibold text-orange-800 group-hover:underline">
               Lue lisää ja rekisteröidy →
             </span>
-          </Link>
+          </RoleAwareLink>
           <BetaPlatformFeeBanner showCta={false} className="text-left" />
         </div>
         )}
@@ -76,25 +77,25 @@ export function HomeAudienceSplit({ hideCustomer = false, hideContractor = false
           ·
         </li>
         <li>
-          <Link href="/vian-selvitys" className="text-sky-700 hover:underline">
+          <RoleAwareLink href="/vian-selvitys" className="text-sky-700 hover:underline">
             Lämpöpumppu oireilee?
-          </Link>
+          </RoleAwareLink>
         </li>
         <li aria-hidden className="text-stone-300">
           ·
         </li>
         <li>
-          <Link href="/huolto/uusi" className="text-sky-700 hover:underline">
+          <RoleAwareLink href="/huolto/uusi" className="text-sky-700 hover:underline">
             Huolto tai korjaus
-          </Link>
+          </RoleAwareLink>
         </li>
         <li aria-hidden className="text-stone-300">
           ·
         </li>
         <li>
-          <Link href="/tarjouspyynnot" className="text-sky-700 hover:underline">
+          <RoleAwareLink href="/tarjouspyynnot" className="text-sky-700 hover:underline">
             Avoimet pyynnöt
-          </Link>
+          </RoleAwareLink>
         </li>
       </ul>
     </div>

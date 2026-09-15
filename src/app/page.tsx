@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { RoleAwareLink } from "@/components/navigation/role-aware-link";
 import { redirect } from "next/navigation";
 import { pageMetadata } from "@/lib/seo";
 import { seoDefByPath } from "@/lib/seo-pages";
@@ -136,18 +137,18 @@ export default async function Home() {
                 </li>
               </ul>
               <div className="mx-auto mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row lg:mx-0 lg:justify-start">
-                <Link
+                <RoleAwareLink
                   href="/remontti/uusi"
                   className={`${brand.btnPrimary} ${brand.btnPrimaryBlock}`}
                 >
                   Jätä tarjouspyyntö – maksutta
-                </Link>
-                <Link
+                </RoleAwareLink>
+                <RoleAwareLink
                   href={isCustomer ? "/oma-tili" : "/asiakkaalle"}
                   className={`${brand.btnSecondary} ${brand.btnSecondaryBlock}`}
                 >
                   {isCustomer ? "Oma tili" : "Miten se toimii?"}
-                </Link>
+                </RoleAwareLink>
               </div>
               <div className="mx-auto mt-8 lg:mx-0">
                 <HomeAudienceSplit hideContractor={isCustomer} />
@@ -229,9 +230,9 @@ export default async function Home() {
             </div>
             {!isCustomer && (
               <p className="mt-8 text-center text-sm text-stone-700">
-                <Link href="/urakoitsijaksi" className={brand.link}>
+                <RoleAwareLink href="/urakoitsijaksi" className={brand.link}>
                   Urakoitsijalle: tuomme sopivat tarjouspyynnöt →
-                </Link>
+                </RoleAwareLink>
               </p>
             )}
           </div>

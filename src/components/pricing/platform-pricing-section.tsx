@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { RoleAwareLink } from "@/components/navigation/role-aware-link";
 import { platformFeeBetaPromoTitle } from "@/lib/platform-fee-beta";
 import {
   PAY_PER_DEAL_FEE_CENTS,
@@ -65,12 +65,12 @@ export function PlatformPricingSection({ className = "" }: { className?: string 
             ))}
           </ul>
 
-          <Link
+          <RoleAwareLink
             href="/urakoitsijaksi/tilaa"
             className={`mt-5 inline-flex ${brand.btnPrimary}`}
           >
             Tilaa kuukausijakso
-          </Link>
+          </RoleAwareLink>
         </section>
 
         <section className="rounded-2xl border border-stone-200 bg-white p-6 shadow-sm">

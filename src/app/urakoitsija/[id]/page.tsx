@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { RoleAwareLink } from "@/components/navigation/role-aware-link";
 import { notFound } from "next/navigation";
 import { ContractorJsonLd } from "@/components/seo/contractor-json-ld";
 import { ContractorQualificationsCell } from "@/components/bid/contractor-qualifications-cell";
@@ -198,12 +199,12 @@ export default async function PublicContractorPage({
             Julkaise ilmainen tarjouspyyntö ja vertaa tarjouksia — voit myös
             neuvotella hinnasta vastatarjouksella.
           </p>
-          <Link
+          <RoleAwareLink
             href="/remontti/uusi"
             className={`${brand.btnPrimary} ${brand.btnPrimaryBlock} mt-5 inline-flex`}
           >
             Aloita tarjouspyyntö
-          </Link>
+          </RoleAwareLink>
         </section>
       </main>
     </div>

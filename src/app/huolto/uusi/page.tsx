@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { RoleAwareLink } from "@/components/navigation/role-aware-link";
 import { redirect } from "next/navigation";
 import { DeviceMaintenanceWizard } from "@/components/project/device-maintenance-wizard";
 import { SiteHeader } from "@/components/site-header";
@@ -73,9 +74,9 @@ export default async function NewMaintenanceRequestPage({
         </p>
         <p className="mt-2 text-sm text-stone-500">
           Uusi asennus?{" "}
-          <Link href="/remontti/uusi" className="text-sky-700 hover:underline">
+          <RoleAwareLink href="/remontti/uusi" className="text-sky-700 hover:underline">
             Kilpailuta lämpöpumppuasennus
-          </Link>
+          </RoleAwareLink>
         </p>
 
         {hasPrefill && (

@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { RoleAwareLink } from "@/components/navigation/role-aware-link";
 import { SeoFigure } from "@/components/marketing/seo-figure";
 import { brand } from "@/lib/brand-theme";
 
@@ -50,9 +50,9 @@ export function HomeSeoContent() {
         </div>
 
         <p className="mt-8 text-center">
-          <Link href="/remontti/uusi" className={`${brand.btnPrimary} ${brand.btnPrimaryBlock} inline-flex`}>
+          <RoleAwareLink href="/remontti/uusi" className={`${brand.btnPrimary} ${brand.btnPrimaryBlock} inline-flex`}>
             Jätä tarjouspyyntö – maksutta
-          </Link>
+          </RoleAwareLink>
         </p>
       </div>
     </section>

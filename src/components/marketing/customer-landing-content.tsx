@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { RoleAwareLink } from "@/components/navigation/role-aware-link";
 import { ValuePromoBanner } from "@/components/promo/value-promo-banner";
 import { brand } from "@/lib/brand-theme";
 import {
@@ -37,12 +38,12 @@ function OfferingCard({ offering }: { offering: CustomerOffering }) {
           </li>
         ))}
       </ul>
-      <Link
+      <RoleAwareLink
         href={offering.href}
         className={`${brand.link} mt-4 text-sm font-semibold`}
       >
         {offering.cta} →
-      </Link>
+      </RoleAwareLink>
     </article>
   );
 }
@@ -74,12 +75,12 @@ export function CustomerLandingContent() {
           ))}
         </ul>
         <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-          <Link
+          <RoleAwareLink
             href="/remontti/uusi"
             className={`${brand.btnPrimary} ${brand.btnPrimaryBlock}`}
           >
             Jätä tarjouspyyntö – maksutta
-          </Link>
+          </RoleAwareLink>
           <Link
             href="/palvelut"
             className={`${brand.btnSecondary} ${brand.btnSecondaryBlock}`}
@@ -154,9 +155,9 @@ export function CustomerLandingContent() {
           luoda tunnuksen myöhemmin, kun olet saanut tarjouksia.
         </p>
         <div className="mt-5 flex flex-col items-center justify-center gap-3 sm:flex-row">
-          <Link href="/remontti/uusi" className={`${brand.btnPrimary} ${brand.btnPrimaryBlock}`}>
+          <RoleAwareLink href="/remontti/uusi" className={`${brand.btnPrimary} ${brand.btnPrimaryBlock}`}>
             Jätä tarjouspyyntö – maksutta
-          </Link>
+          </RoleAwareLink>
           <Link href="/rekisteroidy" className={`${brand.btnSecondary} ${brand.btnSecondaryBlock}`}>
             Luo tunnus (valinnainen)
           </Link>

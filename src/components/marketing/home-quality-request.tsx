@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { RoleAwareLink } from "@/components/navigation/role-aware-link";
 import { brand } from "@/lib/brand-theme";
 
 const pillars = [
@@ -63,16 +64,16 @@ export function HomeQualityRequest({ hideContractorLink = false }: Props) {
         </div>
 
         <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
-          <Link href="/remontti/uusi" className={`${brand.btnPrimary} ${brand.btnPrimaryBlock}`}>
+          <RoleAwareLink href="/remontti/uusi" className={`${brand.btnPrimary} ${brand.btnPrimaryBlock}`}>
             Kokeile ohjattua pyyntöä
-          </Link>
+          </RoleAwareLink>
           {!hideContractorLink && (
-            <Link
+            <RoleAwareLink
               href="/urakoitsijaksi"
               className={`${brand.btnSecondary} ${brand.btnSecondaryBlock}`}
             >
               Urakoitsijalle: Tarjousavustaja →
-            </Link>
+            </RoleAwareLink>
           )}
         </div>
       </div>

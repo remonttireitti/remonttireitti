@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { RoleAwareLink } from "@/components/navigation/role-aware-link";
 import { brand } from "@/lib/brand-theme";
 
 const steps = [
@@ -51,15 +51,15 @@ export function HomeHowItWorks() {
       </ol>
 
       <div className="mt-8 flex flex-wrap gap-3">
-        <Link
+        <RoleAwareLink
           href="/remontti/uusi"
           className={`${brand.btnPrimary} ${brand.btnPrimaryBlock}`}
         >
           Jätä tarjouspyyntö – maksutta
-        </Link>
-        <Link href="/vian-selvitys" className={`${brand.btnSecondary} ${brand.btnSecondaryBlock}`}>
+        </RoleAwareLink>
+        <RoleAwareLink href="/vian-selvitys" className={`${brand.btnSecondary} ${brand.btnSecondaryBlock}`}>
           Lämpöpumppu oireilee?
-        </Link>
+        </RoleAwareLink>
       </div>
     </section>
   );
