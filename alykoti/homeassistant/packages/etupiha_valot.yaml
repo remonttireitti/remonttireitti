@@ -1,0 +1,101 @@
+# etupiha_valot.yaml
+# → config/packages/etupiha_valot.yaml
+# Tiedostonimi ILMAN yhdysviivaa. EI Lovelace-kortti.
+#
+# Liike binary_sensor.etupiha_liiketunnistin_occupancy.
+# Valot switch.etupihavalo_1 ja switch.etupihavalo_2_1.
+# Päälle vain jos valaistus sensor.etupiha_liiketunnistin_illuminance < 10.
+# Päällä 2 min viimeisestä liikkeestä. Uusi liike nollaa ajan.
+
+homeassistant:
+  customize:
+    binary_sensor.etupiha_liiketunnistin_occupancy:
+      friendly_name: "Etupihan liiketunnistin — pimeällä kytkee etupihavalot 2 min"
+    sensor.etupiha_liiketunnistin_illuminance:
+      friendly_name: "Etupihan valaistus — valot päälle vain alle 10 lx"
+    switch.etupihavalo_1:
+      friendly_name: "Etupihavalo 1 — liiketunnistin, Automaatti, alle 10 lx, 2 min"
+    switch.etupihavalo_2_1:
+      friendly_name: "Etupihavalo 2 — liiketunnistin, Automaatti, alle 10 lx, 2 min"
+
+input_select:
+  etupiha_valot:
+    name: "Etupihan valot: Automaatti liiketunnistimella pimeällä, Pois ei kytke"
+    options:
+      - Automaatti
+      - Pois
+    initial: Automaatti
+    icon: mdi:outdoor-lamp
+
+timer:
+  etupiha_valot:
+    name: Etupihan valot 2 min liikkeestä
+    duration: "00:02:00"
+    icon: mdi:timer-outline
+
+automation:
+  - id: etupiha_valot_liike
+    alias: Etupihan valot liike
+    description: Liike ja alle 10 lx → molemmat valot 2 min. Uusi liike nollaa ajan.
+    mode: restart
+    trigger:
+      - platform: state
+        entity_id: binary_sensor.etupiha_liiketunnistin_occupancy
+        to: "on"
+    condition:
+      - condition: state
+        entity_id: input_select.etupiha_valot
+        state: Automaatti
+      - condition: numeric_state
+        entity_id: sensor.etupiha_liiketunnistin_illuminance
+        below: 10
+    action:
+      - action: switch.turn_on
+        target:
+          entity_id:
+            - switch.etupihavalo_1
+            - switch.etupihavalo_2_1
+        continue_on_error: true
+      - action: timer.start
+        target:
+          entity_id: timer.etupiha_valot
+        data:
+          duration: "00:02:00"
+
+  - id: etupiha_valot_pois
+    alias: Etupihan valot pois
+    description: 2 min ohi tai Pois → valot pois. Jos liike jatkuu ja on pimeää, aika alkaa alusta.
+    mode: single
+    trigger:
+      - platform: state
+        entity_id: timer.etupiha_valot
+        from: active
+        to: idle
+      - platform: state
+        entity_id: input_select.etupiha_valot
+        to: "Pois"
+    action:
+      - choose:
+          - conditions:
+              - condition: state
+                entity_id: input_select.etupiha_valot
+                state: Automaatti
+              - condition: state
+                entity_id: binary_sensor.etupiha_liiketunnistin_occupancy
+                state: "on"
+              - condition: numeric_state
+                entity_id: sensor.etupiha_liiketunnistin_illuminance
+                below: 10
+            sequence:
+              - action: timer.start
+                target:
+                  entity_id: timer.etupiha_valot
+                data:
+                  duration: "00:02:00"
+        default:
+          - action: switch.turn_off
+            target:
+              entity_id:
+                - switch.etupihavalo_1
+                - switch.etupihavalo_2_1
+            continue_on_error: true

@@ -156,3 +156,7 @@ Hetkellinen c/t (`sensor.hetkellinen_kustannus`):
 5. Hetkellinen laskee huonetta ja sen myötä vettä. Riittääkö?
 6. Onko aurinkopiiri sama ~300 l varaaja (13)?
 7. Korotus-apurit: jos vanhat 1,5 °C / 60 min jäivät, täysi uudelleenkäynnistys siirtää ne +4 °C / 240 min. Itse muutettua arvoa ei ylikirjoiteta.
+
+## 11. Etupihan valot
+
+Liike `binary_sensor.etupiha_liiketunnistin_occupancy` kytkee `switch.etupihavalo_1` ja `switch.etupihavalo_2_1` päälle 2 minuutiksi, jos `sensor.etupiha_liiketunnistin_illuminance` on alle 10 lx. Uusi liike nollaa ajan. `input_select.etupiha_valot` Pois ei kytke.

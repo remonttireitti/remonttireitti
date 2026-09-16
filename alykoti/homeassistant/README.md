@@ -11,7 +11,9 @@ Yhdysviiva `-` on kielletty. Käytä vain `a-z`, `0-9` ja `_`.
 | `aurinkolampo.yaml` | Aurinkolämpö kWh |
 | `energia_kokonaisteho.yaml` | L1+L2+L3 |
 | `energia_vertailu.yaml` | Vertailu kWh |
+| `keittio_ilp.yaml` | Keittiö ILP |
 | `iv.yaml` | IV käsi + auto. **Ei** `modbus:`-hubia. Korvaa koko tiedosto, älä yhdistä. |
+| `etupiha_valot.yaml` | Etupihan liikevalot |
 | `modbus.yaml` | Ainoa AirFi-hubi (`name: airfi`). Pidä sama IP. Tarvitsee `numbers:`-lohkon (h8/h10/h11) tai nopeus ei muutu. |
 
 **Poista HA:sta vanhat** `energia-kokonaisteho.yaml` ja `energia-vertailu.yaml` (yhdysviiva).
