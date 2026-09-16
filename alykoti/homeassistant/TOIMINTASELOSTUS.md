@@ -159,4 +159,4 @@ Hetkellinen c/t (`sensor.hetkellinen_kustannus`):
 
 ## 11. Etupihan valot
 
-Liike `binary_sensor.etupiha_liiketunnistin_occupancy` kytkee `switch.etupihavalo_1` ja `switch.etupihavalo_2_1` päälle 2 minuutiksi, jos `sensor.etupiha_liiketunnistin_illuminance` on alle 10 lx. Uusi liike nollaa ajan. `input_select.etupiha_valot` Pois ei kytke.
+Liike `binary_sensor.etupiha_liiketunnistin_occupancy` kytkee `switch.etupihavalo_1` ja `switch.etupihavalo_2_1` päälle, jos valaistus on alle 10 lx. Valojen syttyessä lux nousee — sitä ei enää katsota. 2 min lasketaan siitä kun liikettä ei enää tunnisteta. Uusi liike peruu ajan. `input_select.etupiha_valot` Pois ei kytke.

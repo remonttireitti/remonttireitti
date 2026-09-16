@@ -4,19 +4,20 @@
 #
 # Liike binary_sensor.etupiha_liiketunnistin_occupancy.
 # Valot switch.etupihavalo_1 ja switch.etupihavalo_2_1.
-# Päälle vain jos valaistus sensor.etupiha_liiketunnistin_illuminance < 10.
-# Päällä 2 min viimeisestä liikkeestä. Uusi liike nollaa ajan.
+# Päälle vain jos valaistus < 10 lx. Kun valot ovat päällä, luxeja ei
+# katsota (valot itse nostavat lukemaa).
+# 2 min lasketaan siitä kun liikettä ei enää tunnisteta.
 
 homeassistant:
   customize:
     binary_sensor.etupiha_liiketunnistin_occupancy:
-      friendly_name: "Etupihan liiketunnistin — pimeällä kytkee etupihavalot 2 min"
+      friendly_name: "Etupihan liiketunnistin — pimeällä kytkee etupihavalot, 2 min liikkeen loppumisesta"
     sensor.etupiha_liiketunnistin_illuminance:
-      friendly_name: "Etupihan valaistus — valot päälle vain alle 10 lx"
+      friendly_name: "Etupihan valaistus — päälle vain alle 10 lx, valojen omaa valoa ei lasketa"
     switch.etupihavalo_1:
-      friendly_name: "Etupihavalo 1 — liiketunnistin, Automaatti, alle 10 lx, 2 min"
+      friendly_name: "Etupihavalo 1 — liike pimeällä, pois 2 min sen jälkeen kun liike loppuu"
     switch.etupihavalo_2_1:
-      friendly_name: "Etupihavalo 2 — liiketunnistin, Automaatti, alle 10 lx, 2 min"
+      friendly_name: "Etupihavalo 2 — liike pimeällä, pois 2 min sen jälkeen kun liike loppuu"
 
 input_select:
   etupiha_valot:
@@ -29,14 +30,14 @@ input_select:
 
 timer:
   etupiha_valot:
-    name: Etupihan valot 2 min liikkeestä
+    name: Etupihan valot 2 min liikkeen loppumisesta
     duration: "00:02:00"
     icon: mdi:timer-outline
 
 automation:
   - id: etupiha_valot_liike
     alias: Etupihan valot liike
-    description: Liike ja alle 10 lx → molemmat valot 2 min. Uusi liike nollaa ajan.
+    description: Liike. Lux < 10 vain jos valot ovat pois. Valojen omaa valoa ei katsota.
     mode: restart
     trigger:
       - platform: state
@@ -46,16 +47,40 @@ automation:
       - condition: state
         entity_id: input_select.etupiha_valot
         state: Automaatti
-      - condition: numeric_state
-        entity_id: sensor.etupiha_liiketunnistin_illuminance
-        below: 10
+      - condition: template
+        value_template: >
+          {{ is_state('switch.etupihavalo_1', 'on')
+             or is_state('switch.etupihavalo_2_1', 'on')
+             or (states('sensor.etupiha_liiketunnistin_illuminance') | float(99)) < 10 }}
     action:
+      - action: timer.cancel
+        target:
+          entity_id: timer.etupiha_valot
+        continue_on_error: true
       - action: switch.turn_on
         target:
           entity_id:
             - switch.etupihavalo_1
             - switch.etupihavalo_2_1
         continue_on_error: true
+
+  - id: etupiha_valot_liike_loppu
+    alias: Etupihan valot liike loppu
+    description: Liike loppui → 2 min, sitten pois. Uusi liike peruu ajan.
+    mode: restart
+    trigger:
+      - platform: state
+        entity_id: binary_sensor.etupiha_liiketunnistin_occupancy
+        to: "off"
+    condition:
+      - condition: state
+        entity_id: input_select.etupiha_valot
+        state: Automaatti
+      - condition: template
+        value_template: >
+          {{ is_state('switch.etupihavalo_1', 'on')
+             or is_state('switch.etupihavalo_2_1', 'on') }}
+    action:
       - action: timer.start
         target:
           entity_id: timer.etupiha_valot
@@ -64,7 +89,7 @@ automation:
 
   - id: etupiha_valot_pois
     alias: Etupihan valot pois
-    description: 2 min ohi tai Pois → valot pois. Jos liike jatkuu ja on pimeää, aika alkaa alusta.
+    description: 2 min ilman liikettä tai Pois → valot pois.
     mode: single
     trigger:
       - platform: state
@@ -83,15 +108,11 @@ automation:
               - condition: state
                 entity_id: binary_sensor.etupiha_liiketunnistin_occupancy
                 state: "on"
-              - condition: numeric_state
-                entity_id: sensor.etupiha_liiketunnistin_illuminance
-                below: 10
             sequence:
-              - action: timer.start
+              - action: timer.cancel
                 target:
                   entity_id: timer.etupiha_valot
-                data:
-                  duration: "00:02:00"
+                continue_on_error: true
         default:
           - action: switch.turn_off
             target:
