@@ -18,6 +18,7 @@ export const CUSTOMER_FREE_HIGHLIGHTS = [
   "Tarjousten vertailu — 0 €",
   "Vastatarjoukset — 0 €",
   "Vian selvitys (lämpöpumppu) — 0 €",
+  "Pieni naapuriapu — 0 €",
   "Huoltokirja — 0 €",
 ] as const;
 
@@ -96,6 +97,21 @@ export const CUSTOMER_OFFERINGS: CustomerOffering[] = [
     href: "/remontti/uusi",
     cta: "Kokeile kilpailutusta",
     accent: "violet",
+  },
+  {
+    id: "pieni-apu",
+    title: "Pieni apu — naapuriapua",
+    tagline: "Vapaaehtoista, ei laskua",
+    body:
+      "Kun remontti painaa ja tarvitset pientä apua heti — kantamisessa, siirtämisessä tai muussa — lähialueen naapurit ja yritykset voivat auttaa ilmaiseksi. Kaikkeen ei tarvitse maksaa ammattilaiselle.",
+    bullets: [
+      "Ei hintaa eikä tarjouksia — vapaaehtoista apua",
+      "Aloitamme ulkona ja yhteisissä tiloissa",
+      "Remonttiin tarvitset silti ammattilaisen erikseen",
+    ],
+    href: "/apu",
+    cta: "Avaa Pieni apu",
+    accent: "emerald",
   },
   {
     id: "huoltokirja",

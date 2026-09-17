@@ -96,6 +96,14 @@ export function HomeAudienceSplit({ hideCustomer = false, hideContractor = false
             Avoimet pyynnöt
           </Link>
         </li>
+        <li aria-hidden className="text-stone-300">
+          ·
+        </li>
+        <li>
+          <Link href="/apu" className="text-rose-700 hover:underline">
+            Pieni apu (ilmainen)
+          </Link>
+        </li>
       </ul>
     </div>
   );

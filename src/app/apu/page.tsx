@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { HelpCommunityBanner } from "@/components/help/help-community-banner";
 import { HelpPreferencesForm } from "@/components/help/help-preferences-form";
 import { HelpRequestCard } from "@/components/help/help-request-card";
 import { SiteHeader } from "@/components/site-header";
@@ -46,6 +47,8 @@ export default async function HelpHubPage() {
           Pieni apu on vapaaehtoista — ei hintaa, ei tarjouksia. Naapurit ja paikalliset
           yritykset voivat auttaa kantamisessa, siirtämisessä ja muissa pienissä hommissa.
         </p>
+
+        <HelpCommunityBanner />
 
         {prefs && prefs.freeHelpsGiven > 0 && (
           <p className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-900">

@@ -36,6 +36,7 @@ import {
 import { HomeFeedbackStats } from "@/components/marketing/home-feedback-stats";
 import { HomePlatformStats } from "@/components/marketing/home-platform-stats";
 import { HomeHeroVisual } from "@/components/marketing/home-hero-visual";
+import { HomeCommunitySection } from "@/components/marketing/home-community-section";
 import { HomeQualityRequest } from "@/components/marketing/home-quality-request";
 import {
   countPublicOpenProjects,
@@ -170,6 +171,8 @@ export default async function Home() {
         )}
 
         <HomeQualityRequest hideContractorLink={isCustomer} />
+
+        <HomeCommunitySection />
 
         {!isCustomer && (
           <HomeOpenProjects

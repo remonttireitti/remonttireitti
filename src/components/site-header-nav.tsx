@@ -90,7 +90,7 @@ export function SiteHeaderNav({
   return (
     <div className="hidden items-center gap-1 md:flex">
       <nav className="flex items-center gap-0.5">
-        <NavItem href="/apu">Apu</NavItem>
+        <NavItem href="/apu">Pieni apu</NavItem>
         {SHOW_MARKETPLACE_IN_MARKETING && (
           <NavItem href="/markkinapaikka">{marketplaceBrand.nameShort}</NavItem>
         )}
