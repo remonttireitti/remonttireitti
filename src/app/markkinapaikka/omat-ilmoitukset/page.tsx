@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { fetchSellerListings } from "@/app/actions/marketplace-listings";
+import {
+  GuestAccessibleListingsList,
+  GuestListingsManagementIntro,
+} from "@/components/marketplace/guest-listings-management";
 import { RemoveListingButton } from "@/components/marketplace/remove-listing-button";
 import { RenewListingForm } from "@/components/marketplace/renew-listing-form";
 import { SiteHeader } from "@/components/site-header";
@@ -11,6 +14,7 @@ import {
   subscriptionSlotsLeft,
 } from "@/lib/marketplace-subscription";
 import { createClient } from "@/lib/supabase/server";
+import { listGuestAccessibleListingsFromCookies } from "@/lib/listing-guest-access";
 import { marketplaceCreateListingPath } from "@/lib/marketplace-listing-links";
 import { sellerListingStatusLabel } from "@/lib/marketplace-listings";
 import { LISTING_DURATION_WEEKS } from "@/lib/marketplace-pricing";
@@ -21,7 +25,8 @@ import { brand } from "@/lib/brand-theme";
 
 export const metadata: Metadata = pageMetadata({
   title: `Omat ilmoitukset — ${marketplaceBrand.nameShort}`,
-  description: "Hallitse torin myynti-ilmoituksiasi.",
+  description:
+    "Hallitse torin ilmoituksiasi. Ilman tiliä käytät sähköpostilinkkiä — tällä sivulla näet selaimessa avaamasi ilmoitukset.",
   path: "/markkinapaikka/omat-ilmoitukset",
   noIndex: true,
 });
@@ -33,8 +38,48 @@ function formatDate(iso: string | null) {
 
 export default async function MyListingsPage() {
   const user = await getSessionUser();
+
   if (!user) {
-    redirect("/kirjaudu?redirect=/markkinapaikka/omat-ilmoitukset");
+    const guestListings = await listGuestAccessibleListingsFromCookies();
+
+    return (
+      <div className={brand.page}>
+        <SiteHeader />
+        <main className={brand.mainStandard}>
+          <Link
+            href="/markkinapaikka"
+            className="text-sm text-sky-700 hover:underline"
+          >
+            ← {marketplaceBrand.nameShort}
+          </Link>
+
+          <h1 className="mt-4 text-2xl font-bold">Omat ilmoitukset</h1>
+          <p className="mt-2 text-sm text-stone-600">
+            Ilman tiliä hallitset ilmoitusta sähköpostiin tulevalla linkillä.
+            Tällä sivulla näkyvät ilmoitukset, jotka olet avannut tässä selaimessa.
+          </p>
+
+          <GuestListingsManagementIntro />
+
+          <div className="mt-6 flex flex-wrap gap-3">
+            <Link
+              href="/markkinapaikka/ilmoita?tyyppi=kuluttaja"
+              className={`${brand.btnPrimary} text-sm`}
+            >
+              Uusi ilmoitus ilman tiliä
+            </Link>
+            <Link
+              href="/markkinapaikka/ilmoitukset"
+              className={`${brand.btnSecondary} text-sm`}
+            >
+              Selaa toria
+            </Link>
+          </div>
+
+          <GuestAccessibleListingsList listings={guestListings} />
+        </main>
+      </div>
+    );
   }
 
   const listings = await fetchSellerListings(user.id);

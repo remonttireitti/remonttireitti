@@ -5,6 +5,7 @@ import { brand } from "@/lib/brand-theme";
 import { getSessionUser, isContractor } from "@/lib/auth";
 import { LISTING_PRODUCT_CATEGORIES } from "@/lib/marketplace-categories";
 import { marketplaceCreateListingPath } from "@/lib/marketplace-listing-links";
+import { GuestListingsManagementCard } from "@/components/marketplace/guest-listings-management";
 import { marketplaceBrand } from "@/lib/marketplace-brand";
 import { pageMetadata } from "@/lib/seo";
 import { seoDefByPath } from "@/lib/seo-pages";
@@ -54,7 +55,19 @@ export default async function MarketplacePage() {
           >
             Selaa ilmoituksia
           </Link>
+          <Link
+            href="/markkinapaikka/omat-ilmoitukset"
+            className={`${brand.btnSecondary} ${brand.btnSecondaryBlock}`}
+          >
+            {user ? "Omat ilmoitukset" : "Omat ilmoitukset (ilman tiliä)"}
+          </Link>
         </div>
+
+        {!user && (
+          <div className="mt-10 max-w-2xl">
+            <GuestListingsManagementCard />
+          </div>
+        )}
 
         <div className="mt-16">
           <h2 className="text-lg font-semibold text-stone-900">Selaa tuoteryhmittäin</h2>

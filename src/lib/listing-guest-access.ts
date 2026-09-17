@@ -18,6 +18,17 @@ export type GuestListingRow = {
   contact_email: string;
 };
 
+export type GuestAccessibleListing = GuestListingRow & {
+  municipality: string;
+  price_eur: number | null;
+  pending_publish: boolean;
+  expires_at: string | null;
+  published_at: string | null;
+};
+
+const GUEST_LISTING_SELECT =
+  "id, seller_id, guest_seller_email, seller_type, status, title, contact_email, municipality, price_eur, pending_publish, expires_at, published_at";
+
 export type ListingSellerAccess =
   | { kind: "user"; userId: string }
   | { kind: "guest"; listingId: string; guestEmail: string };
@@ -78,9 +89,7 @@ export async function fetchGuestListingByToken(
   const hash = hashProjectAccessToken(rawToken);
   const { data, error } = await admin
     .from("equipment_listings")
-    .select(
-      "id, seller_id, guest_seller_email, seller_type, status, title, contact_email",
-    )
+    .select(GUEST_LISTING_SELECT)
     .eq("id", listingId)
     .eq("access_token_hash", hash)
     .not("guest_seller_email", "is", null)
@@ -124,4 +133,29 @@ export async function resolveListingSellerAccess(
   }
 
   return null;
+}
+
+/** Ilmoitukset joihin tässä selaimessa on voimassa oleva hallintalinkki-cookie. */
+export async function listGuestAccessibleListingsFromCookies(): Promise<
+  GuestAccessibleListing[]
+> {
+  const jar = await cookies();
+  const listings: GuestAccessibleListing[] = [];
+  const seen = new Set<string>();
+
+  for (const cookie of jar.getAll()) {
+    if (!cookie.name.startsWith(COOKIE_PREFIX)) continue;
+    const listingId = cookie.name.slice(COOKIE_PREFIX.length);
+    if (!listingId || seen.has(listingId)) continue;
+    seen.add(listingId);
+
+    const listing = await fetchGuestListingByToken(listingId, cookie.value);
+    if (listing) listings.push(listing as GuestAccessibleListing);
+  }
+
+  return listings.sort((a, b) => {
+    const aTime = a.published_at ?? "";
+    const bTime = b.published_at ?? "";
+    return bTime.localeCompare(aTime);
+  });
 }

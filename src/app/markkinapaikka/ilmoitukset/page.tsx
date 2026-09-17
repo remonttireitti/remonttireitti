@@ -103,6 +103,12 @@ export default async function MarketplaceListingsPage({
             >
               Annetaan ilmaiseksi
             </Link>
+            <Link
+              href="/markkinapaikka/omat-ilmoitukset"
+              className={`${brand.btnSecondary} ${brand.btnSecondaryBlock} text-center text-sm`}
+            >
+              {user ? "Omat ilmoitukset" : "Omat ilmoitukset (ilman tiliä)"}
+            </Link>
           </div>
         </div>
 
