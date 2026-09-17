@@ -20,17 +20,14 @@ export function GuestQuoteRequestCallout({
   if (variant === "strip") {
     return (
       <aside
-        className={`mb-5 rounded-2xl border-2 border-sky-300 bg-gradient-to-r from-sky-100 via-white to-emerald-50/90 px-4 py-4 shadow-md ring-1 ring-sky-200/80 sm:px-6 sm:py-5 ${className}`}
+        className={`mb-5 rounded-2xl border border-sky-200 bg-gradient-to-r from-sky-50/90 via-white to-emerald-50/50 px-4 py-4 sm:px-5 sm:py-4 ${className}`}
       >
-        <p className="text-lg font-bold tracking-tight text-sky-950 sm:text-xl">
-          {isLoggedIn
-            ? "Kilpailuta remontti ilmaiseksi"
-            : "Ei tiliä, ei rekisteröitymistä — aloita heti"}
+        <p className="text-base font-bold tracking-tight text-sky-950 sm:text-lg">
+          Ei tiliä, ei rekisteröitymistä — aloita heti
         </p>
-        <p className="mt-2 text-sm leading-relaxed text-stone-700 sm:text-base">
-          {isLoggedIn
-            ? "Ohjattu tarjouspyyntö urakoitsijoille — vertaa ja tingaa vastatarjouksella."
-            : "Täytät tarjouspyynnön ja vahvistat sähköpostilinkistä. Urakoitsijat näkevät pyynnön vasta vahvistuksen jälkeen — tili on valinnainen myöhemmin."}
+        <p className="mt-1.5 text-sm leading-relaxed text-stone-700">
+          Täytät tarjouspyynnön ja vahvistat sähköpostilinkistä. Urakoitsijat näkevät
+          pyynnön vasta vahvistuksen jälkeen — tili on valinnainen myöhemmin.
         </p>
         <div className="mt-4">
           <Link
