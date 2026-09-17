@@ -12,13 +12,16 @@ import {
   fetchOpenHelpRequests,
 } from "@/lib/help-requests-server";
 import { pageMetadata } from "@/lib/seo";
+import { seoDefByPath } from "@/lib/seo-pages";
 import { createClient } from "@/lib/supabase/server";
 
+const seo = seoDefByPath("/apu")!;
+
 export const metadata: Metadata = pageMetadata({
-  title: "Pieni apu — vapaaehtoista naapuriapua",
-  description:
-    "Pyydä pientä apua lähialueelta tai tarjoa vapaaehtoista apua. Ei hintaa — hyvä teko synnyttää hyvää.",
+  title: seo.title,
+  description: seo.description,
   path: "/apu",
+  keywords: seo.keywords,
 });
 
 export default async function HelpHubPage() {

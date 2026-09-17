@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
 import {
   fetchSitemapContractors,
+  fetchSitemapHelpRequests,
   fetchSitemapListings,
   fetchSitemapProjects,
 } from "@/lib/sitemap-data";
@@ -8,6 +9,7 @@ import { SHOW_MARKETPLACE_IN_MARKETING } from "@/lib/marketing-focus";
 import {
   STATIC_SEO_PAGES,
   contractorProfileSitemapEntries,
+  helpRequestSitemapEntries,
   marketplaceCategorySitemapEntries,
   publicServiceSitemapEntries,
   troubleshootingSitemapEntries,
@@ -80,6 +82,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     console.error("[sitemap contractors]", err);
   }
 
+  let helpPages: MetadataRoute.Sitemap = [];
+  try {
+    const helpRequests = await fetchSitemapHelpRequests();
+    helpPages = helpRequestSitemapEntries(base, helpRequests);
+  } catch (err) {
+    console.error("[sitemap help]", err);
+  }
+
   return [
     ...staticPages,
     ...servicePages,
@@ -88,5 +98,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...listingPages,
     ...projectPages,
     ...contractorPages,
+    ...helpPages,
   ];
 }
