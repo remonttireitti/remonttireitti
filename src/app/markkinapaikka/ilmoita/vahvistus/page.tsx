@@ -41,14 +41,12 @@ export default async function ListingVerificationSentPage({
           )}
         </p>
         <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-          {!isGuest && (
-            <Link
-              href="/markkinapaikka/omat-ilmoitukset"
-              className={`${brand.btnSecondary} ${brand.btnSecondaryBlock}`}
-            >
-              Omat ilmoitukset
-            </Link>
-          )}
+          <Link
+            href="/markkinapaikka/omat-ilmoitukset"
+            className={`${brand.btnSecondary} ${brand.btnSecondaryBlock}`}
+          >
+            {isGuest ? "Omat ilmoitukset (ilman tiliä)" : "Omat ilmoitukset"}
+          </Link>
           <Link
             href="/markkinapaikka/ilmoita?tyyppi=kuluttaja"
             className={`${brand.btnPrimary} ${brand.btnPrimaryBlock}`}
