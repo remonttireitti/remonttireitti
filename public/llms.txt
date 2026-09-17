@@ -1,15 +1,16 @@
 # Remonttireitti
 
-> Suomalainen palvelu omakotitaloille: kilpailuta remontit, asennukset, huolto ja kunnossapito ilmaiseksi. Siivous, piha, muutto — myös jatkuva palvelu. Remonttitori remonttiin liittyville laitteille ja tarvikkeille.
+> Suomalainen palvelu omakotitaloille: kilpailuta remontit, asennukset, huolto ja kunnossapito ilmaiseksi. Tarjouspyyntö ilman tiliä. Pieni apu — vapaaehtoista naapuriapua pieniin hommiin. Remonttitori remonttiin liittyville laitteille ja tarvikkeille (lanseerataan myöhemmin).
 
 Remonttireitti yhdistää asiakkaan ja urakoitsijat. Asiakas luo tarjouspyynnön, urakoitsijat jättävät tarjouksia, asiakas vertailee ja voi tingata vastatarjouksella. Asiakkaalle palvelu on ilmainen; urakoitsija maksaa välityspalkkion vain hyväksytyistä diileistä.
 
 ## Keskeiset sivut
 
-- [Etusivu](https://remonttireitti.fi/): remontit, palvelut, huolto
+- [Etusivu](https://remonttireitti.fi/): remontit, palvelut, huolto, pieni apu
 - [Palvelut](https://remonttireitti.fi/palvelut): remontit, asennukset ja kunnossapito (kertaluonteinen ja jatkuva)
 - [Asiakkaalle](https://remonttireitti.fi/asiakkaalle): ilmainen kilpailutus remontille
 - [Avoimet tarjouspyynnöt](https://remonttireitti.fi/tarjouspyynnot): selaa ilman kirjautumista
+- [Pieni apu](https://remonttireitti.fi/apu): vapaaehtoinen naapuriapu — pyydä tai tarjoa apua
 - [Tarjousvahti](https://remonttireitti.fi/tarjousarvio): ilmainen puolueeton tarjousarvio
 - [Hinta-arkisto](https://remonttireitti.fi/hinta-arkisto): anonymisoituja remontti- ja asennushintoja
 - [RSS — avoimet pyynnöt](https://remonttireitti.fi/tarjouspyynnot/feed.xml)
@@ -23,6 +24,7 @@ Remonttireitti yhdistää asiakkaan ja urakoitsijat. Asiakas luo tarjouspyynnön
 - Lämmitys: lämpöpumput, puulämmitys, aurinkopaneelit, latauspiste
 - Palvelut & kunnossapito: kotisiivous, loppusiivous, ikkunanpesu, nurmikon leikkuu, lumityö, muutto, kuljetus
 - Huolto: lämpöpumpun huolto ja korjaus (vian selvitys + huoltopyyntö)
+- Pieni apu: kantaminen, siirtäminen, pienet askareet — vapaaehtoista, ei hintaa (kirjautuminen vaaditaan)
 
 ## Yhteystiedot
 
@@ -32,7 +34,7 @@ Remonttireitti yhdistää asiakkaan ja urakoitsijat. Asiakas luo tarjouspyynnön
 
 ## Indeksointi
 
-Julkinen sisältö: /, /palvelut/, /asiakkaalle, /tarjouspyynnot, /tarjousarvio, /hinta-arkisto, /vian-selvitys, /urakoitsijaksi, /urakoitsija/[id].
+Julkinen sisältö: /, /palvelut/, /asiakkaalle, /tarjouspyynnot, /apu, /apu/[id], /tarjousarvio, /hinta-arkisto, /vian-selvitys, /urakoitsijaksi, /urakoitsija/[id].
 Ei julkinen: /oma-tili, /admin/, /remontti/ (wizard), /tarjoukset/, /kirjaudu, /api/, /markkinapaikka (kunnes tori lanseerataan).
 
 Sitemap: https://remonttireitti.fi/sitemap.xml

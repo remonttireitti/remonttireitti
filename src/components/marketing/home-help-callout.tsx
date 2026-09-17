@@ -44,8 +44,7 @@ export function HomeHelpCallout({
       </p>
       <p className="mt-1.5 text-sm leading-relaxed text-stone-700">
         Homma on liian pieni ammattilaiselle — tai tilanne on akuutti eikä maksukyky
-        riitä. Pyydä naapurilta vapaaehtoista apua kantamisessa ja muissa pienissä
-        asioissa.
+        riitä. Pyydä vapaaehtoista apua.
       </p>
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <Link

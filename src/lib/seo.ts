@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { siteConfig } from "@/lib/site-config";
-import { mergeKeywords, SITE_KEYWORDS } from "@/lib/seo-keywords";
+import { HELP_KEYWORDS, mergeKeywords, SITE_KEYWORDS } from "@/lib/seo-keywords";
 
 export function getSiteUrl(): string {
   const url = siteConfig.siteUrl;
@@ -28,7 +28,7 @@ const defaultTitle = `${siteConfig.name} — Kilpailuta remontti ja palvelut`;
 const defaultDescription =
   "Kilpailuta remontti ilmaiseksi omakotitaloon. Vertaa tarjouksia samassa muodossa ja tingaa vastatarjouksella. Lämpöpumpun vian selvitys ja huolto.";
 
-const defaultKeywords = mergeKeywords(SITE_KEYWORDS, [
+const defaultKeywords = mergeKeywords(SITE_KEYWORDS, HELP_KEYWORDS.slice(0, 3), [
   "lämpöpumppu",
   "kylpyhuoneremontti",
   "keittiöremontti",

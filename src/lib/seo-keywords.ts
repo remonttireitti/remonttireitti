@@ -83,6 +83,19 @@ export const CONTRACTOR_KEYWORDS = [
   "remonttityö",
 ] as const;
 
+/** Pieni apu — vapaaehtoinen naapuriapu (kapea long-tail). */
+export const HELP_KEYWORDS = [
+  "pieni apu",
+  "naapuriapu",
+  "vapaaehtoinen apu",
+  "apupyyntö",
+  "tarvitseeko apua",
+  "pieni remontti apu",
+  "kantamisapu",
+  "naapuri auttaa",
+  "ilmainen apu naapurilta",
+] as const;
+
 export function mergeKeywords(
   ...groups: (readonly string[] | string[] | undefined)[]
 ): string[] {
