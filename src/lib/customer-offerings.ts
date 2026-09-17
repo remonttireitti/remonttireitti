@@ -14,6 +14,7 @@ export type CustomerOffering = {
 };
 
 export const CUSTOMER_FREE_HIGHLIGHTS = [
+  "Ei tiliä tarvita — vahvistus sähköpostilla",
   "Tarjouspyyntö ja julkaisu — 0 €",
   "Tarjousten vertailu — 0 €",
   "Vastatarjoukset — 0 €",
@@ -28,7 +29,7 @@ export const CUSTOMER_OFFERINGS: CustomerOffering[] = [
     title: "Kilpailuta remontti tai asennus",
     tagline: "Useita tarjouksia yhdestä pyynnöstä",
     body:
-      "Keittiö, kylpyhuone, katto, lämmitys, sähkö, LVI, terassi… Ohjattu lomake auttaa kuvaamaan työn selkeästi — urakoitsijat saavat tarpeeksi tietoa tarkkaan tarjoukseen.",
+      "Keittiö, kylpyhuone, katto, lämmitys, sähkö, LVI, terassi… Ohjattu lomake auttaa kuvaamaan työn selkeästi — urakoitsijat saavat tarpeeksi tietoa tarkkaan tarjoukseen. Voit aloittaa ilman tiliä.",
     bullets: [
       "Ohjattu pyyntö ja laatupiste ennen julkaisua",
       "Oppiva pohja ehdottaa tärkeitä kohtia työlajeittain",
@@ -106,6 +107,7 @@ export const CUSTOMER_OFFERINGS: CustomerOffering[] = [
       "Kun remontti painaa ja tarvitset pientä apua heti — kantamisessa, siirtämisessä tai muussa — lähialueen naapurit ja yritykset voivat auttaa ilmaiseksi. Kaikkeen ei tarvitse maksaa ammattilaiselle.",
     bullets: [
       "Ei hintaa eikä tarjouksia — vapaaehtoista apua",
+      "Kirjautuminen vaaditaan (toisin kuin tarjouspyynnössä)",
       "Aloitamme ulkona ja yhteisissä tiloissa",
       "Remonttiin tarvitset silti ammattilaisen erikseen",
     ],

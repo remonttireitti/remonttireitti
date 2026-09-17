@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { brand } from "@/lib/brand-theme";
 import { marketplaceBrand } from "@/lib/marketplace-brand";
+import { APU_REQUIRES_LOGIN_SHORT } from "@/lib/quote-request-copy";
 
 /**
  * Yhteisöllisyys ja vapaaehtoinen apu — erillinen maksullisista palveluista.
@@ -45,6 +46,7 @@ export function HomeCommunitySection() {
               siirtämisessä ja muissa pienissä hommissa. Vapaaehtoista — ei
               tarjouksia eikä hintaa.
             </p>
+            <p className="mt-2 text-xs text-stone-500">{APU_REQUIRES_LOGIN_SHORT}</p>
             <span className="mt-4 text-sm font-semibold text-rose-800 group-hover:underline">
               Avaa Pieni apu →
             </span>
@@ -71,11 +73,11 @@ export function HomeCommunitySection() {
         </div>
 
         <p className="mx-auto mt-8 max-w-2xl text-center text-sm text-stone-500">
-          Remonttiin tarvitset silti ammattilaisen?{" "}
+          Remonttiin tarvitset ammattilaisen?{" "}
           <Link href="/remontti/uusi" className="font-medium text-sky-700 hover:underline">
-            Kilpailuta työ erikseen
+            Kilpailuta työ ilman tiliä
           </Link>
-          — se on eri palvelu.
+          — eri palvelu kuin Pieni apu.
         </p>
       </div>
     </section>

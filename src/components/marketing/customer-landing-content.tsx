@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { GuestQuoteRequestCallout } from "@/components/marketing/guest-quote-request-callout";
 import { ValuePromoBanner } from "@/components/promo/value-promo-banner";
 import { brand } from "@/lib/brand-theme";
 import {
@@ -60,8 +61,11 @@ export function CustomerLandingContent() {
         </h1>
         <p className="mx-auto mt-4 max-w-2xl text-base leading-relaxed text-stone-600 sm:text-lg">
           Julkaise tarjouspyyntö, vertaa tarjouksia samassa muodossa ja tingaa
-          vastatarjouksella — et maksa palvelulle mitään. Maksat vain
-          valitsemallesi urakoitsijalle sovitun työn hinnan.
+          vastatarjouksella — et maksa palvelulle mitään.{" "}
+          <span className="font-medium text-stone-800">
+            Et tarvitse tiliä alkuun — vahvistat pyynnön sähköpostilinkistä.
+          </span>{" "}
+          Maksat vain valitsemallesi urakoitsijalle sovitun työn hinnan.
         </p>
         <ul className="mx-auto mt-6 flex max-w-2xl flex-wrap justify-center gap-2">
           {CUSTOMER_FREE_HIGHLIGHTS.map((item) => (
@@ -73,12 +77,16 @@ export function CustomerLandingContent() {
             </li>
           ))}
         </ul>
+        <div className="mx-auto mt-8 max-w-2xl">
+          <GuestQuoteRequestCallout />
+        </div>
+
         <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
           <Link
             href="/remontti/uusi"
             className={`${brand.btnPrimary} ${brand.btnPrimaryBlock}`}
           >
-            Jätä tarjouspyyntö – maksutta
+            Jätä tarjouspyyntö ilman tiliä
           </Link>
           <Link
             href="/palvelut"
@@ -94,8 +102,9 @@ export function CustomerLandingContent() {
           Mitä voit tehdä Remonttireitillä
         </h2>
         <p className="mt-2 max-w-2xl text-sm leading-relaxed text-stone-600">
-          Yksi tili koko kodin tarpeisiin — remontista pihaan ja lämpöpumpun
-          vian selvitykseen.
+          Tarjouspyynnön voit aloittaa ilman tiliä. Tilin voit luoda myöhemmin,
+          jos haluat keskustella urakoitsijoiden kanssa alustalla — tai käyttää
+          huoltokirjaa ja muita ominaisuuksia.
         </p>
         <div className="mt-8 grid gap-5 sm:grid-cols-2">
           {CUSTOMER_OFFERINGS.map((offering) => (

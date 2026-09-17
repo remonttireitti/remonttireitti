@@ -28,7 +28,10 @@ export function HomeAudienceSplit({ hideCustomer = false, hideContractor = false
           </h2>
           <p className="mt-2 text-sm leading-relaxed text-stone-600">
             Kilpailuta remontit ja palvelut, vertaa tarjouksia ja tingaa
-            vastatarjouksella — sinulle 0 €.
+            vastatarjouksella — sinulle 0 €.{" "}
+            <span className="font-medium text-stone-800">
+              Ei tiliä tarvita alkuun.
+            </span>
           </p>
           <ul className="mt-3 space-y-1 text-xs text-stone-600">
             <li>✓ Remontit, piha, siivous, muutto</li>

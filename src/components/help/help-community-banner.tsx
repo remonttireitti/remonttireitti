@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { APU_REQUIRES_LOGIN_SHORT } from "@/lib/quote-request-copy";
 
 /** Kannustava intro Apu-sivun yläosaan. */
 export function HelpCommunityBanner() {
@@ -12,6 +13,14 @@ export function HelpCommunityBanner() {
         tai muussa pienessä — lähialueella on usein ihmisiä, jotka auttavat
         mielellään ilmaiseksi. Tämä on sitä varten: vapaaehtoista naapuriapua,
         ei urakkaa eikä laskua.
+      </p>
+      <p className="mt-3 text-sm text-stone-600">
+        <span className="font-medium text-stone-800">{APU_REQUIRES_LOGIN_SHORT}</span>{" "}
+        Tarjouspyynnön voit jättää ilman tiliä{" "}
+        <Link href="/remontti/uusi" className="font-medium text-sky-700 hover:underline">
+          täällä
+        </Link>
+        .
       </p>
       <p className="mt-3 text-sm text-stone-600">
         Ylijäämätavaraa? Katso myös{" "}
