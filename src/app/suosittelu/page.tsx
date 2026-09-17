@@ -85,15 +85,15 @@ export default async function ReferralInfoPage() {
         <div className="mt-10 grid gap-6 lg:grid-cols-2">
           <ReferralCard title="Suosittele asiakasta" audience="Asiakkaalle">
             <p>
-              Kun rekisteröitynyt asiakas suosittelee toista asiakasta ja tämän
-              urakka johtaa hyväksyttyyn tarjoukseen, suosittelija saa{" "}
+              Kun rekisteröitynyt asiakas suosittelee toista asiakasta ja tämä
+              luo tarjouspyynnön, joka saa tarjouksia, suosittelija saa{" "}
               <strong className="text-stone-800">{bonusAmount}</strong> bonuksen
               omaan seuraavaan remonttiin.
             </p>
             <StepList
               items={[
                 "Jaa rekisteröitymislinkki tai pyydä ystävää antamaan sähköpostisi rekisteröityessä.",
-                "Suosittelun bonuksen saat, kun suosittelemasi asiakkaan tarjous hyväksytään.",
+                "Suosittelun bonuksen saat, kun suosittelemasi asiakkaan tarjouspyyntö on julkaistu ja siihen on saapunut tarjouksia.",
                 "Bonuksen käytät omassa remontissa: urakoitsija alentaa hintaa vastaavasti, kun hän maksaisi muuten välityspalkkion.",
               ]}
             />
@@ -159,7 +159,7 @@ export default async function ReferralInfoPage() {
               </li>
               <li>
                 Bonukset myönnetään kerran per suosittelusuhde, kun ehto täyttyy
-                (hyväksytty tarjous / voitettu diili). Molempien osapuolten
+                (tarjouspyyntö saanut tarjouksia / voitettu diili). Molempien osapuolten
                 sähköposti pitää olla vahvistettu.
               </li>
               <li>
