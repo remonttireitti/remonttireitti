@@ -206,7 +206,7 @@ export default async function ContractorWonProjectPage({
             href={`/tarjoukset/urakka/${id}/sopimus`}
             className="text-sm font-medium text-sky-800 hover:underline"
           >
-            Tulosta sopimusyhteenveto (PDF)
+            Urakkasopimus (PDF)
           </Link>
         </p>
 

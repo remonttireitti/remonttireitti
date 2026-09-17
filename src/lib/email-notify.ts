@@ -407,6 +407,39 @@ export async function notifyBidAccepted(params: {
   );
 }
 
+export async function notifyContractSummaryAvailable(params: {
+  customerId: string;
+  contractorId: string;
+  projectId: string;
+  projectTitle: string;
+  contractReference: string;
+  customerSopimusPath: string;
+  contractorSopimusPath: string;
+}) {
+  const pdfPath = `/api/projects/${params.projectId}/contract-pdf`;
+  const body = `<p>Urakkasopimuksen yhteenveto (<strong>${escapeHtml(params.contractReference)}</strong>) on valmis urakalle <em>${escapeHtml(params.projectTitle)}</em>.</p>
+    <p>Voit ladata sen PDF-muodossa tai tulostaa selaimella.</p>`;
+
+  await Promise.all([
+    sendUserEmail(
+      params.customerId,
+      `Urakkasopimus: ${params.projectTitle}`,
+      "Sopimusyhteenveto saatavilla",
+      body,
+      params.customerSopimusPath,
+      "Avaa sopimus",
+    ),
+    sendUserEmail(
+      params.contractorId,
+      `Urakkasopimus: ${params.projectTitle}`,
+      "Sopimusyhteenveto saatavilla",
+      `${body}<p><a href="${siteUrl(pdfPath)}" style="color:#0369a1">Lataa PDF suoraan</a></p>`,
+      params.contractorSopimusPath,
+      "Avaa sopimus",
+    ),
+  ]);
+}
+
 export async function notifyProjectMessage(params: {
   recipientId: string;
   projectTitle: string;

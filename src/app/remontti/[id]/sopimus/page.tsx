@@ -47,7 +47,11 @@ export default async function ProjectContractSummaryPage({
         <SiteHeader />
       </div>
       <main className="mx-auto max-w-4xl px-4 py-8 print:max-w-none print:p-0">
-        <PrintDocumentToolbar backHref={`/remontti/${id}`} backLabel="Takaisin urakkaan" />
+        <PrintDocumentToolbar
+          backHref={`/remontti/${id}`}
+          backLabel="Takaisin urakkaan"
+          projectId={id}
+        />
         <div className="rounded-2xl border border-stone-200 bg-white p-6 shadow-sm print:border-0 print:p-8 print:shadow-none sm:p-10">
           <AcceptedBidDocument data={document} />
         </div>

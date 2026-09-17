@@ -631,7 +631,7 @@ export default async function ProjectPage({
                   href={`/remontti/${id}/sopimus`}
                   className="text-sm font-medium text-sky-800 hover:underline"
                 >
-                  Tulosta sopimusyhteenveto (PDF)
+                  Urakkasopimus (PDF)
                 </Link>
               </p>
             )}
