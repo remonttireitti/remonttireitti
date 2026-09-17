@@ -34,7 +34,7 @@ import {
   fetchListingInquiry,
   fetchSellerInbox,
 } from "@/lib/listing-messages-server";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { tryCreateAdminClient } from "@/lib/supabase/admin";
 import { fetchListingPhotos } from "@/lib/listing-photos";
 import { listingCategoryLabel } from "@/lib/marketplace-categories";
 import { formatDeviceTypeLabel } from "@/lib/marketplace-device-types";
@@ -118,7 +118,7 @@ export default async function MarketplaceListingDetailPage({
   let sellerInbox: Awaited<ReturnType<typeof fetchSellerInbox>> = [];
 
   if (user && isSeller) {
-    const admin = createAdminClient();
+    const admin = tryCreateAdminClient();
     const { data: inquiries } = await supabase
       .from("listing_inquiries")
       .select("buyer_id")
@@ -127,7 +127,7 @@ export default async function MarketplaceListingDetailPage({
     const buyerIds = [...new Set((inquiries ?? []).map((i) => i.buyer_id))];
     const buyerLabels = new Map<string, string>();
 
-    if (buyerIds.length > 0) {
+    if (admin && buyerIds.length > 0) {
       const { data: profiles } = await admin
         .from("profiles")
         .select("id, full_name")
@@ -191,13 +191,15 @@ export default async function MarketplaceListingDetailPage({
     }
 
     if (listing.donation_recipient_id) {
-      const admin = createAdminClient();
-      const { data: recipientProfile } = await admin
-        .from("profiles")
-        .select("full_name")
-        .eq("id", listing.donation_recipient_id)
-        .maybeSingle();
-      recipientLabel = recipientProfile?.full_name ?? "Noutaja";
+      const admin = tryCreateAdminClient();
+      if (admin) {
+        const { data: recipientProfile } = await admin
+          .from("profiles")
+          .select("full_name")
+          .eq("id", listing.donation_recipient_id)
+          .maybeSingle();
+        recipientLabel = recipientProfile?.full_name ?? "Noutaja";
+      }
     }
   }
 
