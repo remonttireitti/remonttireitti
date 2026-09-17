@@ -14,8 +14,9 @@ export function HelpOfferForm({ requestId }: { requestId: string }) {
     <form action={action} className="rounded-2xl border border-rose-200 bg-rose-50/50 p-5">
       <h3 className="text-lg font-semibold text-rose-950">Voin auttaa</h3>
       <p className="mt-1 text-sm text-rose-900/80">
-        Tarjoa vapaaehtoista apua — ei hintaa eikä tarjousta. Pyytäjä valitsee
-        auttajan ja vahvistaa myöhemmin, että apu toteutui.
+        Tarjoa vapaaehtoista apua — ei hintaa eikä tarjousta. Sekä asiakkaat että
+        urakoitsijat voivat auttaa. Pyytäjä valitsee auttajan ja vahvistaa
+        myöhemmin, että apu toteutui.
       </p>
       <input type="hidden" name="request_id" value={requestId} />
       <textarea

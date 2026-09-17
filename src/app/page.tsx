@@ -36,9 +36,14 @@ import {
 import { HomeFeedbackStats } from "@/components/marketing/home-feedback-stats";
 import { HomePlatformStats } from "@/components/marketing/home-platform-stats";
 import { HomeHeroVisual } from "@/components/marketing/home-hero-visual";
-import { GuestQuoteRequestCallout } from "@/components/marketing/guest-quote-request-callout";
 import { HomeCommunitySection } from "@/components/marketing/home-community-section";
+import { HomeHeroCallouts } from "@/components/marketing/home-hero-callouts";
+import { HomeOpenHelpRequests } from "@/components/marketing/home-open-help-requests";
 import { HomeQualityRequest } from "@/components/marketing/home-quality-request";
+import {
+  countOpenHelpRequests,
+  fetchOpenHelpRequests,
+} from "@/lib/help-requests-server";
 import {
   countPublicOpenProjects,
   fetchPublicOpenProjects,
@@ -67,6 +72,8 @@ export default async function Home() {
   const [
     openProjects,
     openProjectCount,
+    openHelpRequests,
+    openHelpRequestCount,
     platformStats,
     feedbackStats,
     existingFeedback,
@@ -75,6 +82,8 @@ export default async function Home() {
   ] = await Promise.all([
     isCustomer ? Promise.resolve([]) : fetchPublicOpenProjects(12),
     isCustomer ? Promise.resolve(0) : countPublicOpenProjects(),
+    fetchOpenHelpRequests(supabase, { limit: 12 }),
+    countOpenHelpRequests(supabase),
     fetchPublicPlatformStats(),
     fetchPublicFeedbackStats(),
     user ? fetchGeneralPlatformFeedbackForUser(supabase, user.id) : Promise.resolve(null),
@@ -110,9 +119,7 @@ export default async function Home() {
               <div className="mb-4 flex justify-center lg:justify-start">
                 <Logo href="/" size="lg" />
               </div>
-              {!user && (
-                <GuestQuoteRequestCallout variant="strip" className="text-left" />
-              )}
+              <HomeHeroCallouts isLoggedIn={!!user} />
               <p className="mb-3 text-sm font-medium uppercase tracking-widest text-sky-800">
                 Ilmainen kilpailutus
               </p>
@@ -189,6 +196,12 @@ export default async function Home() {
             totalCount={openProjectCount}
           />
         )}
+
+        <HomeOpenHelpRequests
+          requests={openHelpRequests}
+          totalCount={openHelpRequestCount}
+          isLoggedIn={!!user}
+        />
 
         {platformStats && <HomePlatformStats stats={platformStats} />}
 
