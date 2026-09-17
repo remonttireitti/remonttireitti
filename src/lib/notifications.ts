@@ -22,7 +22,15 @@ export type NotificationType =
   | "project_completion_updated"
   | "bid_withdrawn"
   | "referral_credit"
-  | "referral_abuse_alert";
+  | "referral_abuse_alert"
+  | "nearby_help_request"
+  | "help_offer_received"
+  | "help_offer_accepted"
+  | "help_completion_pending"
+  | "help_completion_confirmed"
+  | "listing_donation_selected"
+  | "listing_donation_confirm"
+  | "listing_donation_confirmed";
 
 export type AppNotification = {
   id: string;
@@ -60,4 +68,12 @@ export const notificationTypeLabels: Record<NotificationType, string> = {
   bid_withdrawn: "Tarjous peruttu",
   referral_credit: "Suosittelubonus",
   referral_abuse_alert: "Suosittelu",
+  nearby_help_request: "Pieni apu",
+  help_offer_received: "Pieni apu",
+  help_offer_accepted: "Pieni apu",
+  help_completion_pending: "Pieni apu",
+  help_completion_confirmed: "Pieni apu",
+  listing_donation_selected: "Tori – lahjoitus",
+  listing_donation_confirm: "Tori – lahjoitus",
+  listing_donation_confirmed: "Tori – lahjoitus",
 };
