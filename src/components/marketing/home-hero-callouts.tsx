@@ -1,15 +1,25 @@
 import { GuestQuoteRequestCallout } from "@/components/marketing/guest-quote-request-callout";
 import { HomeHelpCallout } from "@/components/marketing/home-help-callout";
 
+/** Vierailijoille kaksipalstainen pänneri; kirjautuneille vain kompakti Apu-rivi. */
 export function HomeHeroCallouts({ isLoggedIn = false }: { isLoggedIn?: boolean }) {
+  if (isLoggedIn) {
+    return (
+      <HomeHelpCallout
+        isLoggedIn
+        variant="compact"
+        className="mb-6"
+      />
+    );
+  }
+
   return (
-    <div className="mb-5 grid gap-4 lg:grid-cols-2">
+    <div className="mb-6 grid gap-3 md:grid-cols-2">
       <GuestQuoteRequestCallout
         variant="strip"
-        isLoggedIn={isLoggedIn}
         className="mb-0 h-full text-left"
       />
-      <HomeHelpCallout isLoggedIn={isLoggedIn} className="h-full" />
+      <HomeHelpCallout className="h-full" />
     </div>
   );
 }

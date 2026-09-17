@@ -114,12 +114,14 @@ export default async function Home() {
 
       <main className="pb-16">
         <section className={`${brand.containerWide} pt-6 sm:pt-10`}>
+          <HomeHeroCallouts isLoggedIn={!!user} />
           <div className={`${brand.hero} lg:grid lg:grid-cols-2 lg:items-center lg:gap-10 lg:text-left`}>
             <div className="text-center lg:text-left">
-              <div className="mb-4 flex justify-center lg:justify-start">
-                <Logo href="/" size="lg" />
-              </div>
-              <HomeHeroCallouts isLoggedIn={!!user} />
+              {!user && (
+                <div className="mb-4 flex justify-center lg:justify-start">
+                  <Logo href="/" size="lg" />
+                </div>
+              )}
               <p className="mb-3 text-sm font-medium uppercase tracking-widest text-sky-800">
                 Ilmainen kilpailutus
               </p>
