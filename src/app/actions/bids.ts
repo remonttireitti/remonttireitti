@@ -998,11 +998,14 @@ export async function acceptBid(formData: FormData): Promise<void> {
 
   const commitDeadline = platformFeeDueAt();
 
+  const acceptedAt = new Date().toISOString();
+
   await supabase
     .from("projects")
     .update({
       status: "bid_accepted",
       accepted_bid_id: bidId,
+      bid_accepted_at: acceptedAt,
     })
     .eq("id", projectId);
 
@@ -1151,6 +1154,20 @@ export async function acceptBid(formData: FormData): Promise<void> {
       acceptedIncludesEquipment: acceptedIncludesEquipment ?? false,
     }),
   );
+
+  scheduleNotification(async () => {
+    const { formatContractReference } = await import("@/lib/accepted-bid-contract");
+    const { notifyContractSummaryAvailable } = await import("@/lib/email-notify");
+    await notifyContractSummaryAvailable({
+      customerId: user.id,
+      contractorId: bid.contractor_id,
+      projectId,
+      projectTitle: project.title,
+      contractReference: formatContractReference(projectId),
+      customerSopimusPath: `/remontti/${projectId}/sopimus`,
+      contractorSopimusPath: `/tarjoukset/urakka/${projectId}/sopimus`,
+    });
+  });
 
   revalidatePath(`/remontti/${projectId}`);
   revalidatePath(`/tarjoukset/urakka/${projectId}`);

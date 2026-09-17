@@ -59,6 +59,7 @@ export default async function ContractorContractSummaryPage({
         <PrintDocumentToolbar
           backHref={`/tarjoukset/urakka/${id}`}
           backLabel="Takaisin urakkaan"
+          projectId={id}
         />
         <div className="rounded-2xl border border-stone-200 bg-white p-6 shadow-sm print:border-0 print:p-8 print:shadow-none sm:p-10">
           <AcceptedBidDocument data={document} />

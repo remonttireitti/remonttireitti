@@ -1,6 +1,10 @@
 import type { ReactNode } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
+  formatContractDateTimeFi,
+  formatContractReference,
+} from "@/lib/accepted-bid-contract";
+import {
   bidHasSplitEquipmentOffer,
   bidResolvedAmountCents,
   formatAcceptedBidSummary,
@@ -12,10 +16,13 @@ import {
   BID_OFFER_SCOPE_LABELS,
   parseBidOfferScope,
 } from "@/lib/bid-offer-scope";
-import { formatEurosFromCents, getBidContractorName } from "@/lib/bids";
+import { CONTRACT_STANDARD_SECTIONS } from "@/lib/contract-standard-terms";
+import { formatEurosFromCents } from "@/lib/bids";
 import { ACCEPTED_BID_PLATFORM_FOOTER } from "@/lib/platform-liability";
 
 export type AcceptedBidDocumentData = {
+  contractReference: string;
+  bidAcceptedAt: string | null;
   project: {
     id: string;
     title: string;
@@ -78,6 +85,8 @@ export async function loadAcceptedBidDocument(
       contact_email,
       desired_start,
       status,
+      bid_accepted_at,
+      updated_at,
       service_categories ( name_fi )
     `,
     )
@@ -131,7 +140,7 @@ export async function loadAcceptedBidDocument(
         .maybeSingle(),
       supabase
         .from("platform_invoices")
-        .select("status")
+        .select("status, created_at")
         .eq("project_id", projectId)
         .maybeSingle(),
     ]);
@@ -144,7 +153,15 @@ export async function loadAcceptedBidDocument(
     ? (sc[0]?.name_fi ?? "Remontti")
     : (sc?.name_fi ?? "Remontti");
 
+  const bidAcceptedAt =
+    (project as { bid_accepted_at?: string | null }).bid_accepted_at ??
+    invoice?.created_at ??
+    project.updated_at ??
+    null;
+
   return {
+    contractReference: formatContractReference(project.id),
+    bidAcceptedAt,
     project: {
       id: project.id,
       title: project.title,
@@ -184,7 +201,8 @@ export async function loadAcceptedBidDocument(
       full_name: customer?.full_name ?? null,
       email: project.contact_email ?? null,
     },
-    invoiceStatus: (invoice?.status as AcceptedBidDocumentData["invoiceStatus"]) ?? null,
+    invoiceStatus:
+      (invoice?.status as AcceptedBidDocumentData["invoiceStatus"]) ?? null,
     generatedAt: new Date().toISOString(),
   };
 }
@@ -221,6 +239,7 @@ export function AcceptedBidDocument({ data }: { data: AcceptedBidDocumentData })
     data.project.address_line?.trim(),
     `${data.project.postal_code} ${data.project.municipality}`,
   ].filter(Boolean);
+  const customerName = data.customer.full_name?.trim() || "Asiakas";
 
   const provisional =
     data.invoiceStatus === "pending" &&
@@ -230,14 +249,33 @@ export function AcceptedBidDocument({ data }: { data: AcceptedBidDocumentData })
     <article className="accepted-bid-document mx-auto max-w-3xl bg-white text-stone-900">
       <header className="border-b-2 border-stone-900 pb-4">
         <p className="text-xs font-semibold uppercase tracking-widest text-stone-500">
-          Tarjous- ja sopimusyhteenveto
+          Urakkasopimus / tarjous- ja sopimusyhteenveto
         </p>
         <h1 className="mt-1 text-2xl font-bold text-stone-900">{data.project.title}</h1>
         <p className="mt-1 text-sm text-stone-600">{data.project.categoryName}</p>
+        <dl className="mt-3 grid gap-1 text-sm text-stone-700 sm:grid-cols-2">
+          <div>
+            <dt className="text-xs font-semibold uppercase tracking-wide text-stone-500">
+              Sopimusnumero
+            </dt>
+            <dd className="font-medium">{data.contractReference}</dd>
+          </div>
+          {data.bidAcceptedAt && (
+            <div>
+              <dt className="text-xs font-semibold uppercase tracking-wide text-stone-500">
+                Hyväksyntä (sopimuksen syntyminen)
+              </dt>
+              <dd className="font-medium">
+                {formatContractDateTimeFi(data.bidAcceptedAt)}
+              </dd>
+            </div>
+          )}
+        </dl>
         {provisional && (
           <p className="mt-3 rounded border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
             Tilaus odottaa viimeistelyä: urakoitsija maksaa välityspalkkion ennen kuin
-            sopimus on lopullinen. Yhteenveto heijastaa hyväksyttyä tarjousta.
+            yhteystiedot avautuvat. Sopimus on kuitenkin syntynyt hyväksynnällä — tämä
+            yhteenveto heijastaa hyväksyttyä tarjousta.
           </p>
         )}
       </header>
@@ -245,16 +283,16 @@ export function AcceptedBidDocument({ data }: { data: AcceptedBidDocumentData })
       <section className="mt-6 grid gap-6 sm:grid-cols-2">
         <div>
           <h2 className="text-sm font-bold uppercase tracking-wide text-stone-700">
-            Asiakas
+            Asiakas (tilaaja)
           </h2>
           <dl className="mt-2">
-            <DocumentRow label="Nimi" value={data.customer.full_name ?? "—"} />
+            <DocumentRow label="Nimi" value={customerName} />
             <DocumentRow label="Sähköposti" value={data.customer.email} />
           </dl>
         </div>
         <div>
           <h2 className="text-sm font-bold uppercase tracking-wide text-stone-700">
-            Urakoitsija
+            Urakoitsija (toimittaja)
           </h2>
           <dl className="mt-2">
             <DocumentRow label="Yritys" value={data.contractor.company_name} />
@@ -323,7 +361,11 @@ export function AcceptedBidDocument({ data }: { data: AcceptedBidDocumentData })
           )}
           <DocumentRow label="Tarjouksen viesti" value={data.bid.message} preWrap />
           <DocumentRow label="Työn laajuus" value={data.bid.scope_terms} preWrap />
-          <DocumentRow label="Sopimusehdot" value={data.bid.contract_terms} preWrap />
+          <DocumentRow
+            label="Urakoitsijan sopimusehdot"
+            value={data.bid.contract_terms}
+            preWrap
+          />
           <DocumentRow label="Takuu työlle" value={data.bid.warranty_work} preWrap />
           <DocumentRow
             label="Takuu laitteelle"
@@ -355,6 +397,57 @@ export function AcceptedBidDocument({ data }: { data: AcceptedBidDocumentData })
         <p className="mt-2 whitespace-pre-wrap text-sm text-stone-800">
           {data.project.description}
         </p>
+      </section>
+
+      <section className="mt-8">
+        <h2 className="text-sm font-bold uppercase tracking-wide text-stone-700">
+          Yhteiset liite-ehdot
+        </h2>
+        <p className="mt-2 text-sm text-stone-600">
+          Seuraavat ehdot täydentävät hyväksyttyä tarjousta. Tarjouksen omat ehdot
+          ovat ensisijaisia, jos ne poikkeavat näistä yleisistä liite-ehdoista.
+        </p>
+        <div className="mt-4 space-y-4">
+          {CONTRACT_STANDARD_SECTIONS.map((section) => (
+            <div key={section.id}>
+              <h3 className="text-sm font-semibold text-stone-900">{section.title}</h3>
+              <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-stone-700">
+                {section.body}
+              </p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="mt-8 grid gap-6 border-t border-stone-200 pt-6 sm:grid-cols-2">
+        <div className="rounded-lg border border-stone-200 p-4">
+          <h2 className="text-xs font-bold uppercase tracking-wide text-stone-600">
+            Asiakkaan hyväksyntä
+          </h2>
+          <p className="mt-3 text-sm font-medium text-stone-900">{customerName}</p>
+          <p className="mt-1 text-xs text-stone-600">
+            Hyväksytty sähköisesti Remonttireitillä
+            {data.bidAcceptedAt
+              ? ` ${formatContractDateTimeFi(data.bidAcceptedAt)}`
+              : ""}
+            .
+          </p>
+        </div>
+        <div className="rounded-lg border border-stone-200 p-4">
+          <h2 className="text-xs font-bold uppercase tracking-wide text-stone-600">
+            Urakoitsijan sitoumus
+          </h2>
+          <p className="mt-3 text-sm font-medium text-stone-900">
+            {data.contractor.company_name}
+          </p>
+          <p className="mt-1 text-xs text-stone-600">
+            Tarjous jätetty
+            {data.bid.submitted_at
+              ? ` ${formatContractDateTimeFi(data.bid.submitted_at)}`
+              : " Remonttireitillä"}
+            . Sitoutuu tarjouksen ehtoihin hyväksynnän myötä.
+          </p>
+        </div>
       </section>
 
       <footer className="mt-8 border-t border-stone-200 pt-4 text-xs text-stone-500">
