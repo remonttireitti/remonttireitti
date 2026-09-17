@@ -2,6 +2,7 @@ import { SessionIdleGuard } from "@/components/auth/session-idle-guard";
 import { CookieConsentBanner } from "@/components/cookie-consent";
 import { GoogleAnalytics } from "@/components/google-analytics";
 import { NavigationProgress } from "@/components/navigation/navigation-progress";
+import { RoleNavProviderShell } from "@/components/navigation/role-nav-provider-shell";
 import { PageViewTracker } from "@/components/page-view-tracker";
 import { SiteFooter } from "@/components/site-footer";
 import { siteConfig } from "@/lib/site-config";
@@ -10,20 +11,22 @@ import { Suspense } from "react";
 
 export function AppShell({ children }: { children: ReactNode }) {
   return (
-    <>
-      <Suspense fallback={null}>
-        <NavigationProgress />
-        <PageViewTracker />
-        <SessionIdleGuard />
-      </Suspense>
-      {children}
-      <Suspense fallback={null}>
-        <SiteFooter />
-      </Suspense>
-      <CookieConsentBanner />
-      {siteConfig.gaId ? (
-        <GoogleAnalytics measurementId={siteConfig.gaId} />
-      ) : null}
-    </>
+    <Suspense fallback={null}>
+      <RoleNavProviderShell>
+        <Suspense fallback={null}>
+          <NavigationProgress />
+          <PageViewTracker />
+          <SessionIdleGuard />
+        </Suspense>
+        {children}
+        <Suspense fallback={null}>
+          <SiteFooter />
+        </Suspense>
+        <CookieConsentBanner />
+        {siteConfig.gaId ? (
+          <GoogleAnalytics measurementId={siteConfig.gaId} />
+        ) : null}
+      </RoleNavProviderShell>
+    </Suspense>
   );
 }

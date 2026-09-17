@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { RoleAwareLink } from "@/components/navigation/role-aware-link";
 import { brand } from "@/lib/brand-theme";
 import type { PublicOpenProject } from "@/lib/public-projects-server";
 
@@ -40,12 +41,12 @@ export function HomeOpenProjects({
               maksuton.
             </p>
           </div>
-          <Link
+          <RoleAwareLink
             href="/tarjouspyynnot"
             className={`${brand.btnSecondary} shrink-0 ${brand.btnSecondaryBlock}`}
           >
             Näytä kaikki
-          </Link>
+          </RoleAwareLink>
         </div>
 
         <ul className="mt-8 grid gap-4 sm:grid-cols-3">

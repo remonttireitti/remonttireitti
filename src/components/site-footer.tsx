@@ -1,3 +1,4 @@
+import { RoleAwareLink } from "@/components/navigation/role-aware-link";
 import Link from "next/link";
 import { getProfile, getSessionUser, isContractor } from "@/lib/auth";
 import { marketplaceBrand } from "@/lib/marketplace-brand";
@@ -35,25 +36,21 @@ export async function SiteFooter() {
                   Kaikki palvelut
                 </Link>
               </li>
-              {!contractor && (
-                <li>
-                  <Link href="/remontti/uusi" className="text-stone-600 hover:text-sky-700">
-                    Kilpailuta remontti
-                  </Link>
-                </li>
-              )}
+              <li>
+                <RoleAwareLink href="/remontti/uusi" className="text-stone-600 hover:text-sky-700">
+                  Kilpailuta remontti
+                </RoleAwareLink>
+              </li>
               <li>
                 <Link href="/markkinapaikka" className="text-stone-600 hover:text-sky-700">
                   {marketplaceBrand.nameShort}
                 </Link>
               </li>
-              {!user && (
-                <li>
-                  <Link href="/urakoitsijaksi" className="text-stone-600 hover:text-sky-700">
-                    Urakoitsijaksi
-                  </Link>
-                </li>
-              )}
+              <li>
+                <RoleAwareLink href="/urakoitsijaksi" className="text-stone-600 hover:text-sky-700">
+                  Urakoitsijaksi
+                </RoleAwareLink>
+              </li>
               {contractor && (
                 <li>
                   <Link
@@ -87,20 +84,18 @@ export async function SiteFooter() {
                 </Link>
               </li>
               <li>
-                <Link
+                <RoleAwareLink
                   href={contractor ? "/tarjoukset" : "/tarjouspyynnot"}
                   className="text-stone-600 hover:text-sky-700"
                 >
                   {contractor ? "Tarjouspyynnöt" : "Avoimet pyynnöt"}
-                </Link>
+                </RoleAwareLink>
               </li>
-              {!contractor && (
-                <li>
-                  <Link href="/tarjousarvio" className="text-stone-600 hover:text-sky-700">
-                    Tarjousvahti
-                  </Link>
-                </li>
-              )}
+              <li>
+                <RoleAwareLink href="/tarjousarvio" className="text-stone-600 hover:text-sky-700">
+                  Tarjousvahti
+                </RoleAwareLink>
+              </li>
               <li>
                 <a
                   href="/tarjouspyynnot/feed.xml"

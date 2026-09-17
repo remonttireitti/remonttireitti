@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { signOut } from "@/app/actions/auth";
 import { NavLinkPendingContent } from "@/components/navigation/nav-link-pending";
+import { RoleAwareLink } from "@/components/navigation/role-aware-link";
 import { SignOutButton } from "@/components/navigation/sign-out-button";
 import { SHOW_MARKETPLACE_IN_MARKETING } from "@/lib/marketing-focus";
 import { marketplaceBrand } from "@/lib/marketplace-brand";
@@ -35,20 +36,24 @@ function NavChip({
   href,
   children,
   onNavigate,
+  roleAware = false,
 }: {
   href: string;
   children: React.ReactNode;
   onNavigate?: () => void;
+  roleAware?: boolean;
 }) {
   const pathname = usePathname();
   const active =
     pathname === href ||
     (href !== "/" && (pathname === href || pathname.startsWith(`${href}/`)));
 
+  const LinkComponent = roleAware ? RoleAwareLink : Link;
+
   return (
-    <Link href={href} className={chipClass(active)} onClick={onNavigate}>
+    <LinkComponent href={href} className={chipClass(active)} onClick={onNavigate}>
       {children}
-    </Link>
+    </LinkComponent>
   );
 }
 
@@ -144,14 +149,24 @@ export function SiteHeaderMobileNav({
             </>
           ) : (
             <>
-              <NavChip href="/remontti/uusi">Kilpailuta</NavChip>
-              {showTarjousvahti && <NavChip href="/tarjousarvio">Tarjousvahti</NavChip>}
-              <NavChip href="/asiakkaalle">Asiakkaalle</NavChip>
-              <NavChip href="/tarjouspyynnot">Pyynnöt</NavChip>
+              <NavChip href="/remontti/uusi" roleAware>
+                Kilpailuta
+              </NavChip>
+              {showTarjousvahti && (
+                <NavChip href="/tarjousarvio" roleAware>
+                  Tarjousvahti
+                </NavChip>
+              )}
+              <NavChip href="/asiakkaalle" roleAware>
+                Asiakkaalle
+              </NavChip>
+              <NavChip href="/tarjouspyynnot" roleAware>
+                Pyynnöt
+              </NavChip>
               <NavChip href="/kirjaudu">Kirjaudu</NavChip>
-              <Link href="/urakoitsijaksi" className={ctaChip}>
+              <RoleAwareLink href="/urakoitsijaksi" className={ctaChip}>
                 <NavLinkPendingContent>Urakoitsijalle</NavLinkPendingContent>
-              </Link>
+              </RoleAwareLink>
             </>
           )}
         </nav>

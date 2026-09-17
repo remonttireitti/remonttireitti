@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { RoleAwareLink } from "@/components/navigation/role-aware-link";
 import { SiteHeader } from "@/components/site-header";
 import { getSessionUser, isContractor } from "@/lib/auth";
 import { brand } from "@/lib/brand-theme";
@@ -133,9 +134,9 @@ export default async function PublicProjectsPage({
         {contractor && (
           <p className="mt-6 text-sm text-stone-600">
             Olet kirjautuneena urakoitsijana.{" "}
-            <Link href="/tarjoukset" className="font-medium text-sky-800 hover:underline">
+            <RoleAwareLink href="/tarjoukset" className="font-medium text-sky-800 hover:underline">
               Avaa täydet tiedot ja jätä tarjous →
-            </Link>
+            </RoleAwareLink>
           </p>
         )}
 
@@ -150,17 +151,17 @@ export default async function PublicProjectsPage({
               {user && !contractor ? (
                 <>
                   Seuraa sivua uudelleen tai{" "}
-                  <Link href="/remontti/uusi" className="text-sky-800 hover:underline">
+                  <RoleAwareLink href="/remontti/uusi" className="text-sky-800 hover:underline">
                     jätä uusi tarjouspyyntö
-                  </Link>
+                  </RoleAwareLink>
                   .
                 </>
               ) : (
                 <>
                   Seuraa sivua uudelleen tai{" "}
-                  <Link href="/urakoitsijaksi" className="text-sky-800 hover:underline">
+                  <RoleAwareLink href="/urakoitsijaksi" className="text-sky-800 hover:underline">
                     rekisteröidy urakoitsijaksi
-                  </Link>{" "}
+                  </RoleAwareLink>{" "}
                   saadaksesi ilmoituksen uusista pyynnöistä.
                 </>
               )}

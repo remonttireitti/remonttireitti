@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { RoleAwareLink } from "@/components/navigation/role-aware-link";
 import { SiteHeader } from "@/components/site-header";
 import { PROJECT_AREAS } from "@/constants/project-areas";
 import { brand } from "@/lib/brand-theme";
@@ -90,9 +91,9 @@ export default async function PalvelutPage() {
             Kirjaudu sisään ja luo tarjouspyyntö — se on ilmainen eikä sido sinua
             mihinkään.
           </p>
-          <Link href="/remontti/uusi" className={`${brand.btnPrimary} mt-4 inline-flex`}>
+          <RoleAwareLink href="/remontti/uusi" className={`${brand.btnPrimary} mt-4 inline-flex`}>
             Luo tarjouspyyntö
-          </Link>
+          </RoleAwareLink>
         </div>
       </main>
     </div>

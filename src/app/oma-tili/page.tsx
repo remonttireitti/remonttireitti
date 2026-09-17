@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { RoleAwareLink } from "@/components/navigation/role-aware-link";
 import { redirect } from "next/navigation";
 import { ContractorActivationBanner } from "@/components/account/contractor-activation-banner";
 import { CustomerReferralCreditsPanel } from "@/components/account/customer-referral-credits-panel";
@@ -239,14 +240,14 @@ export default async function AccountPage({
             </div>
           </div>
           {!contractor && !admin && (
-            <Link href="/remontti/uusi" className={brand.btnPrimary}>
+            <RoleAwareLink href="/remontti/uusi" className={brand.btnPrimary}>
               + Uusi tarjouspyyntö
-            </Link>
+            </RoleAwareLink>
           )}
           {contractor && (
-            <Link href="/tarjoukset" className={brand.btnPrimary}>
+            <RoleAwareLink href="/tarjoukset" className={brand.btnPrimary}>
               Selaa tarjouspyyntöjä
-            </Link>
+            </RoleAwareLink>
           )}
         </header>
 
@@ -401,12 +402,12 @@ export default async function AccountPage({
                   Luo ensimmäinen pyyntö — urakoitsijat voivat lähettää sinulle
                   tarjouksia.
                 </p>
-                <Link
+                <RoleAwareLink
                   href="/remontti/uusi"
                   className={`${brand.btnPrimary} mt-6 inline-flex`}
                 >
                   Luo tarjouspyyntö
-                </Link>
+                </RoleAwareLink>
               </div>
             ) : (
               <ul className="space-y-3">

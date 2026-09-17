@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { RoleAwareLink } from "@/components/navigation/role-aware-link";
 import { brand } from "@/lib/brand-theme";
 import {
   IMPARTIALITY_NOTICE,
@@ -29,12 +29,12 @@ export function HomeTarjousvahti({
             hintaa ja sisältöä. {priceLine} Aloitamme lämpöpumpuista.
           </p>
           <p className="mt-3 text-xs text-stone-500">{IMPARTIALITY_NOTICE}</p>
-          <Link
+          <RoleAwareLink
             href="/tarjousarvio"
             className={`${brand.btnPrimary} ${brand.btnPrimaryBlock} mt-6 inline-flex`}
           >
             Ilmainen tarjousarvio
-          </Link>
+          </RoleAwareLink>
         </div>
       </div>
     </section>
