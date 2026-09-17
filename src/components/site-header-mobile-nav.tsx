@@ -118,6 +118,7 @@ export function SiteHeaderMobileNav({
           className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto scroll-smooth [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [mask-image:linear-gradient(to_right,black_85%,transparent)]"
           aria-label="Pikavalikko"
         >
+          <NavChip href="/apu">Apu</NavChip>
           {SHOW_MARKETPLACE_IN_MARKETING && (
             <NavChip href="/markkinapaikka">{marketplaceBrand.nameShort}</NavChip>
           )}
