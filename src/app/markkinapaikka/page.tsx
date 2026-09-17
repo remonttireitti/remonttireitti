@@ -84,7 +84,12 @@ export default async function MarketplacePage() {
               <h2 className="font-semibold text-emerald-950">Annetaan ilmaiseksi</h2>
               <p className="mt-1 text-sm text-emerald-900/90">
                 Ylijäämätavara remonttiyhteisölle — ilmainen myös yrityksille.
-                Nouto vahvistetaan molempien osapuolten kuittauksella.
+                Nouto vahvistetaan molempien osapuolten kuittauksella. Tarvitset
+                apua työhön, ei tavaraa?{" "}
+                <Link href="/apu" className="font-medium text-rose-800 hover:underline">
+                  Pieni apu
+                </Link>{" "}
+                on erillinen vapaaehtoinen palvelu.
               </p>
             </div>
             <span className="mt-3 inline-block text-sm font-medium text-emerald-800 sm:mt-0">

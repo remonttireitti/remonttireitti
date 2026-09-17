@@ -5,7 +5,7 @@ const steps = [
   {
     step: "1",
     title: "Täytä ohjattu pyyntö",
-    body: "Valitse työ, seuraa ohjetta ja täydennä laatupisteen avulla — pohja oppii työlajeittain.",
+    body: "Valitse työ, seuraa ohjetta ja täydennä laatupisteen avulla — pohja oppii työlajeittain. Ei tiliä: vahvistus sähköpostilinkistä.",
   },
   {
     step: "2",
