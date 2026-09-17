@@ -107,9 +107,12 @@ export default async function Home() {
         <section className={`${brand.containerWide} pt-6 sm:pt-10`}>
           <div className={`${brand.hero} lg:grid lg:grid-cols-2 lg:items-center lg:gap-10 lg:text-left`}>
             <div className="text-center lg:text-left">
-              <div className="mb-6 flex justify-center lg:justify-start">
+              <div className="mb-4 flex justify-center lg:justify-start">
                 <Logo href="/" size="lg" />
               </div>
+              {!user && (
+                <GuestQuoteRequestCallout variant="strip" className="text-left" />
+              )}
               <p className="mb-3 text-sm font-medium uppercase tracking-widest text-sky-800">
                 Ilmainen kilpailutus
               </p>
@@ -142,17 +145,12 @@ export default async function Home() {
                   Ei tiliä tarvita
                 </li>
               </ul>
-              {!user && (
-                <div className="mx-auto mt-6 max-w-2xl lg:mx-0">
-                  <GuestQuoteRequestCallout />
-                </div>
-              )}
               <div className="mx-auto mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row lg:mx-0 lg:justify-start">
                 <Link
                   href="/remontti/uusi"
                   className={`${brand.btnPrimary} ${brand.btnPrimaryBlock}`}
                 >
-                  Jätä tarjouspyyntö – maksutta
+                  {user ? "Jätä tarjouspyyntö – maksutta" : "Jätä tarjouspyyntö ilman tiliä"}
                 </Link>
                 <Link
                   href={isCustomer ? "/oma-tili" : "/asiakkaalle"}
