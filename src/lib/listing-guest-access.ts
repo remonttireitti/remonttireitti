@@ -113,7 +113,7 @@ export async function resolveListingSellerAccess(
       .from("equipment_listings")
       .select("seller_id")
       .eq("id", listingId)
-      .single();
+      .maybeSingle();
 
     if (data?.seller_id === user.id) {
       return { kind: "user", userId: user.id };
