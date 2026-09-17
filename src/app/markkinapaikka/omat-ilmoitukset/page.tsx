@@ -16,7 +16,9 @@ import { sellerListingStatusLabel } from "@/lib/marketplace-listings";
 import { LISTING_DURATION_WEEKS } from "@/lib/marketplace-pricing";
 import { marketplaceBrand } from "@/lib/marketplace-brand";
 import { pageMetadata } from "@/lib/seo";
+import { ShareLinkButton } from "@/components/ui/share-link-button";
 import { brand } from "@/lib/brand-theme";
+import { getSiteUrl } from "@/lib/seo";
 
 export const metadata: Metadata = pageMetadata({
   title: `Omat ilmoitukset — ${marketplaceBrand.nameShort}`,
@@ -146,6 +148,15 @@ export default async function MyListingsPage() {
                         >
                           Näytä
                         </Link>
+                      )}
+                      {l.status === "published" && (
+                        <ShareLinkButton
+                          url={`${getSiteUrl()}/markkinapaikka/ilmoitukset/${l.id}`}
+                          title={l.title}
+                          text={`Torin ilmoitus: ${l.title}`}
+                          label="Jaa linkki"
+                          compact
+                        />
                       )}
                       {l.status === "expired" && (
                         <RenewListingForm
