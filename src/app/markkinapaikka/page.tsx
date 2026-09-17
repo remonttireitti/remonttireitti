@@ -75,6 +75,24 @@ export default async function MarketplacePage() {
           </ul>
         </div>
 
+        <div className="mt-16">
+          <Link
+            href="/markkinapaikka/ilmoitukset?tyyppi=lahjoitus"
+            className="flex flex-col rounded-xl border border-emerald-200 bg-emerald-50/50 p-5 shadow-sm transition hover:border-emerald-300 hover:shadow-md sm:flex-row sm:items-center sm:justify-between"
+          >
+            <div>
+              <h2 className="font-semibold text-emerald-950">Annetaan ilmaiseksi</h2>
+              <p className="mt-1 text-sm text-emerald-900/90">
+                Ylijäämätavara remonttiyhteisölle — ilmainen myös yrityksille.
+                Nouto vahvistetaan molempien osapuolten kuittauksella.
+              </p>
+            </div>
+            <span className="mt-3 inline-block text-sm font-medium text-emerald-800 sm:mt-0">
+              Selaa lahjoituksia →
+            </span>
+          </Link>
+        </div>
+
         <div
           className={`mt-16 grid auto-rows-fr gap-6 ${contractor ? "sm:grid-cols-2" : "sm:grid-cols-3"}`}
         >

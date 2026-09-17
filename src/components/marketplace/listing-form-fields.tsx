@@ -4,9 +4,11 @@ import { formInputClass } from "@/lib/brand-theme";
 export function ListingFormFields({
   defaults,
   wantedMode = false,
+  donationMode = false,
 }: {
   defaults: { contact_email: string; contact_phone: string };
   wantedMode?: boolean;
+  donationMode?: boolean;
 }) {
   return (
     <>
@@ -16,9 +18,11 @@ export function ListingFormFields({
           required
           minLength={3}
           placeholder={
-            wantedMode
-              ? "Esim. Haluan ostaa: Mitsubishi ILP noin 5 kW"
-              : "Esim. Bosch astianpesukone, Miele pesukone, Mitsubishi ILP 5 kW"
+            donationMode
+              ? "Esim. Ylimääräiset laattalaatikot, käyttämätön maali 10 l"
+              : wantedMode
+                ? "Esim. Haluan ostaa: Mitsubishi ILP noin 5 kW"
+                : "Esim. Bosch astianpesukone, Miele pesukone, Mitsubishi ILP 5 kW"
           }
           className={formInputClass}
         />
@@ -31,9 +35,11 @@ export function ListingFormFields({
           minLength={10}
           rows={4}
           placeholder={
-            wantedMode
-              ? "Mitä etsit, kunto, budjetti, sijainti, toimitus/nouto..."
-              : "Kunto, mitä mukana, mitä remonttiin sopii, nouto..."
+            donationMode
+              ? "Mitä lahjoitat, kunto, nouto-osoite tai -aika, mitä remonttiin sopii..."
+              : wantedMode
+                ? "Mitä etsit, kunto, budjetti, sijainti, toimitus/nouto..."
+                : "Kunto, mitä mukana, mitä remonttiin sopii, nouto..."
           }
           className={formInputClass}
         />
@@ -66,19 +72,21 @@ export function ListingFormFields({
         </Field>
       </div>
 
-      <Field label={wantedMode ? "Budjetti max (€)" : "Hinta (€)"}>
-        <input
-          name="price_eur"
-          type="number"
-          min={0}
-          placeholder={
-            wantedMode
-              ? "Valinnainen — enintään tämän verran"
-              : "Jätä tyhjäksi = neuvoteltavissa"
-          }
-          className={formInputClass}
-        />
-      </Field>
+      {!donationMode && (
+        <Field label={wantedMode ? "Budjetti max (€)" : "Hinta (€)"}>
+          <input
+            name="price_eur"
+            type="number"
+            min={0}
+            placeholder={
+              wantedMode
+                ? "Valinnainen — enintään tämän verran"
+                : "Jätä tyhjäksi = neuvoteltavissa"
+            }
+            className={formInputClass}
+          />
+        </Field>
+      )}
 
       <Field label="Nouto- / sijaintiosoite">
         <input

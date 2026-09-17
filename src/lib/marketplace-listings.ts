@@ -22,13 +22,14 @@ export const PUMP_TYPE_OPTIONS = MARKETPLACE_DEVICE_TYPE_OPTIONS.filter(
     o.value === "muu",
 ) satisfies DeviceTypeOption[];
 
-export type EquipmentListingKind = "sell" | "wanted";
+export type EquipmentListingKind = "sell" | "wanted" | "donate";
 
 export function listingKindFromUrlParam(
   value: string | undefined,
 ): EquipmentListingKind | null {
   if (value === "ostopyynto") return "wanted";
   if (value === "myynti") return "sell";
+  if (value === "lahjoitus") return "donate";
   return null;
 }
 
@@ -71,6 +72,11 @@ export function validateListingForm(input: ListingFormInput): string | null {
     return "Anna kelvollinen puhelinnumero.";
   }
   if (!input.product_category) return "Valitse tuoteryhmä.";
+  if (input.listing_kind === "donate") {
+    if (input.price_eur != null && input.price_eur !== 0) {
+      return "Lahjoitusilmoituksessa ei voi olla hintaa.";
+    }
+  }
   return null;
 }
 
@@ -80,9 +86,15 @@ export function parseListingForm(formData: FormData): ListingFormInput {
   const priceRaw = String(formData.get("price_eur") ?? "").trim();
   const yearRaw = String(formData.get("year_manufactured") ?? "").trim();
   const kindRaw = String(formData.get("listing_kind") ?? "sell");
+  const listingKind: EquipmentListingKind =
+    kindRaw === "wanted"
+      ? "wanted"
+      : kindRaw === "donate"
+        ? "donate"
+        : "sell";
 
   return {
-    listing_kind: kindRaw === "wanted" ? "wanted" : "sell",
+    listing_kind: listingKind,
     product_category: parseListingProductCategory(
       formData.get("product_category"),
     ),
@@ -90,7 +102,8 @@ export function parseListingForm(formData: FormData): ListingFormInput {
     description: String(formData.get("description") ?? "").trim(),
     condition:
       String(formData.get("condition") ?? "used") === "new" ? "new" : "used",
-    price_eur: priceRaw ? Number(priceRaw) : null,
+    price_eur:
+      listingKind === "donate" ? 0 : priceRaw ? Number(priceRaw) : null,
     municipality: String(formData.get("municipality") ?? "").trim(),
     postal_code: String(formData.get("postal_code") ?? "").trim(),
     address_line: String(formData.get("address_line") ?? "").trim(),

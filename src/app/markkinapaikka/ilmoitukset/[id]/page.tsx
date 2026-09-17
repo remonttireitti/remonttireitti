@@ -7,6 +7,12 @@ import { RemoveListingButton } from "@/components/marketplace/remove-listing-but
 import { RenewListingForm } from "@/components/marketplace/renew-listing-form";
 import { ListingSellerInbox } from "@/components/marketplace/listing-seller-inbox";
 import {
+  ListingDonationRecipientPanel,
+  ListingDonationSelectedNotice,
+  ListingDonationSellerPanel,
+} from "@/components/marketplace/listing-donation-panel";
+import type { ListingDonationCompletion } from "@/lib/marketplace-donations";
+import {
   listingStatusLabels,
   sellerListingStatusLabel,
   SELLER_REMOVABLE_STATUSES,
@@ -80,10 +86,15 @@ export default async function MarketplaceListingDetailPage({
     lasku?: string;
     summa?: string;
     virhe?: string;
+    saaja?: string;
+    luovutettu?: string;
+    kiitos?: string;
+    hylatty?: string;
   }>;
 }) {
   const { id } = await params;
-  const { julkaistu, uusittu, lasku, summa, virhe } = await searchParams;
+  const { julkaistu, uusittu, lasku, summa, virhe, saaja, luovutettu, kiitos, hylatty } =
+    await searchParams;
 
   await expireListingsIfNeeded();
 
@@ -96,6 +107,7 @@ export default async function MarketplaceListingDetailPage({
       id, title, description, price_eur, municipality, postal_code,
       condition, manufacturer, model, year_manufactured, pump_type_slug, product_category,
       listing_kind,
+      donation_recipient_id,
       seller_type, seller_id, status, pending_publish, published_at, expires_at,
       contact_email, contact_phone, address_line
     `,
@@ -173,6 +185,35 @@ export default async function MarketplaceListingDetailPage({
   const deviceTypeLabel = formatDeviceTypeLabel(listing.pump_type_slug);
 
   const isWanted = listing.listing_kind === "wanted";
+  const isDonate = listing.listing_kind === "donate";
+
+  let donationCompletion: ListingDonationCompletion | null = null;
+  let recipientLabel: string | null = null;
+
+  if (isDonate) {
+    const { data: completionRow } = await supabase
+      .from("listing_donation_completions")
+      .select("*")
+      .eq("listing_id", id)
+      .maybeSingle();
+
+    if (completionRow) {
+      donationCompletion = completionRow as ListingDonationCompletion;
+    }
+
+    if (listing.donation_recipient_id) {
+      const admin = createAdminClient();
+      const { data: recipientProfile } = await admin
+        .from("profiles")
+        .select("full_name")
+        .eq("id", listing.donation_recipient_id)
+        .maybeSingle();
+      recipientLabel = recipientProfile?.full_name ?? "Noutaja";
+    }
+  }
+
+  const isSelectedRecipient =
+    Boolean(user && listing.donation_recipient_id === user.id);
 
   return (
     <div className={brand.page}>
@@ -186,7 +227,7 @@ export default async function MarketplaceListingDetailPage({
         </Link>
 
         <p className="mt-4 text-xs font-medium uppercase text-stone-500">
-          {isWanted ? "Ostopyyntö · " : null}
+          {isDonate ? "Lahjoitus · " : isWanted ? "Ostopyyntö · " : null}
           {listingCategoryLabel(
             listing.product_category ?? "device",
           )}{" "}
@@ -293,16 +334,38 @@ export default async function MarketplaceListingDetailPage({
             Ilmoitus julkaistu onnistuneesti.
           </p>
         )}
+        {saaja === "1" && isSeller && (
+          <p className="mt-4 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-900" role="status">
+            Noutaja valittu. Sovi nouto viestillä ja merkitse tavara luovutetuksi, kun nouto on tehty.
+          </p>
+        )}
+        {luovutettu === "1" && isSeller && (
+          <p className="mt-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-900" role="status">
+            Merkitsit tavaran luovutetuksi. Saaja vahvistaa vielä noudon.
+          </p>
+        )}
+        {kiitos === "1" && (
+          <p className="mt-4 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-900" role="status">
+            Lahjoitus vahvistettu. Kiitos yhteisöllisyydestä!
+          </p>
+        )}
+        {hylatty === "1" && (
+          <p className="mt-4 rounded-lg bg-stone-100 p-3 text-sm text-stone-700" role="status">
+            Noutoa ei vahvistettu. Voit valita toisen noutajan viesteistä.
+          </p>
+        )}
 
         <h1 className="mt-1 text-2xl font-bold">{listing.title}</h1>
         <p className="mt-2 text-2xl font-bold text-sky-800">
-          {isWanted
-            ? listing.price_eur != null
-              ? `Budjetti max ${listing.price_eur.toLocaleString("fi-FI")} €`
-              : "Budjetti neuvoteltavissa"
-            : listing.price_eur != null
-              ? `${listing.price_eur.toLocaleString("fi-FI")} €`
-              : "Hinta neuvoteltavissa"}
+          {isDonate
+            ? "Ilmaiseksi"
+            : isWanted
+              ? listing.price_eur != null
+                ? `Budjetti max ${listing.price_eur.toLocaleString("fi-FI")} €`
+                : "Budjetti neuvoteltavissa"
+              : listing.price_eur != null
+                ? `${listing.price_eur.toLocaleString("fi-FI")} €`
+                : "Hinta neuvoteltavissa"}
         </p>
         <p className="text-stone-500">
           {listing.municipality}, {listing.postal_code}
@@ -347,6 +410,16 @@ export default async function MarketplaceListingDetailPage({
           </dl>
         )}
 
+        {isPublic && !isSeller && isDonate && (
+          <section className="mt-8 rounded-xl border border-emerald-200 bg-emerald-50/60 p-6">
+            <h2 className="font-semibold text-emerald-950">Haluatko tavaran?</h2>
+            <p className="mt-2 text-sm text-emerald-900">
+              Ota yhteyttä myyjään viestillä alla. Myyjä valitsee yhden noutajan,
+              kun lahjoitus on valmis luovutettavaksi.
+            </p>
+          </section>
+        )}
+
         {isPublic && !isSeller && isWanted && (
           <section className="mt-8 rounded-xl border border-emerald-200 bg-emerald-50/60 p-6">
             <h2 className="font-semibold text-emerald-950">Myy vastaava laite?</h2>
@@ -357,14 +430,18 @@ export default async function MarketplaceListingDetailPage({
           </section>
         )}
 
-        {isPublic && !isSeller && !isWanted && (
+        {isPublic && !isSeller && !isWanted && !isDonate && (
           <ListingInstallCta listing={listing} />
         )}
 
         {isPublic && !isSeller && (
           <section className="mt-8 rounded-xl border border-sky-200 bg-sky-50/60 p-6">
             <h2 className="font-semibold text-sky-950">
-              {isWanted ? "Ota yhteyttä ostajaan" : "Ota yhteyttä myyjään"}
+              {isWanted
+                ? "Ota yhteyttä ostajaan"
+                : isDonate
+                  ? "Ota yhteyttä lahjoittajaan"
+                  : "Ota yhteyttä myyjään"}
             </h2>
             <dl className="mt-4 space-y-2 text-sm">
               <div>
@@ -399,13 +476,33 @@ export default async function MarketplaceListingDetailPage({
           </section>
         )}
 
+        {isSeller && user && isDonate && (
+          <ListingDonationSellerPanel
+            listingId={id}
+            completion={donationCompletion}
+            recipientLabel={recipientLabel}
+          />
+        )}
+
         {isSeller && user && (
           <ListingSellerInbox
             listingId={id}
             inquiries={sellerInbox}
             currentUserId={user.id}
             sellerLabel={sellerLabel}
+            isDonation={isDonate}
+            donationRecipientId={listing.donation_recipient_id}
           />
+        )}
+
+        {isSelectedRecipient &&
+          donationCompletion?.status === "selected" &&
+          !isSeller && (
+            <ListingDonationSelectedNotice recipientLabel={null} />
+          )}
+
+        {isSelectedRecipient && donationCompletion && !isSeller && (
+          <ListingDonationRecipientPanel completion={donationCompletion} />
         )}
 
         {isPublic && !isSeller && user && buyerChat !== null && (

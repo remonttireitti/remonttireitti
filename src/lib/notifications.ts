@@ -27,7 +27,10 @@ export type NotificationType =
   | "help_offer_received"
   | "help_offer_accepted"
   | "help_completion_pending"
-  | "help_completion_confirmed";
+  | "help_completion_confirmed"
+  | "listing_donation_selected"
+  | "listing_donation_confirm"
+  | "listing_donation_confirmed";
 
 export type AppNotification = {
   id: string;
@@ -70,4 +73,7 @@ export const notificationTypeLabels: Record<NotificationType, string> = {
   help_offer_accepted: "Pieni apu",
   help_completion_pending: "Pieni apu",
   help_completion_confirmed: "Pieni apu",
+  listing_donation_selected: "Tori – lahjoitus",
+  listing_donation_confirm: "Tori – lahjoitus",
+  listing_donation_confirmed: "Tori – lahjoitus",
 };

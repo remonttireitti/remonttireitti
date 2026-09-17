@@ -17,7 +17,13 @@ export function ListingKindFilter({
   function href(kind: EquipmentListingKind | null): string {
     if (!kind) return `${base}${suffix}`;
     const sep = suffix ? "&" : "?";
-    return `${base}${suffix}${sep}tyyppi=${kind === "wanted" ? "ostopyynto" : "myynti"}`;
+    const param =
+      kind === "wanted"
+        ? "ostopyynto"
+        : kind === "donate"
+          ? "lahjoitus"
+          : "myynti";
+    return `${base}${suffix}${sep}tyyppi=${param}`;
   }
 
   return (
@@ -33,6 +39,9 @@ export function ListingKindFilter({
       </KindChip>
       <KindChip href={href("wanted")} active={active === "wanted"}>
         Haluan ostaa
+      </KindChip>
+      <KindChip href={href("donate")} active={active === "donate"}>
+        Annetaan ilmaiseksi
       </KindChip>
     </nav>
   );

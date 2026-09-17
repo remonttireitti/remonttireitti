@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 export async function fetchPublishedListings(
   limit = 6,
   category?: ListingProductCategory | null,
-  listingKind?: "sell" | "wanted" | null,
+  listingKind?: "sell" | "wanted" | "donate" | null,
 ): Promise<ListingCardItem[]> {
   await expireListingsIfNeeded();
   const supabase = await createClient();
