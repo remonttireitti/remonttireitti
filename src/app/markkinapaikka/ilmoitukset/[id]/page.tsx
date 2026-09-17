@@ -38,7 +38,9 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { fetchListingPhotos } from "@/lib/listing-photos";
 import { listingCategoryLabel } from "@/lib/marketplace-categories";
 import { formatDeviceTypeLabel } from "@/lib/marketplace-device-types";
+import { fetchListingForDetailPage } from "@/lib/marketplace-listing-detail-server";
 import { resolveListingSellerAccess } from "@/lib/listing-guest-access";
+import { ShareLinkPanel } from "@/components/ui/share-link-panel";
 import { createClient } from "@/lib/supabase/server";
 
 export async function generateMetadata({
@@ -100,20 +102,7 @@ export default async function MarketplaceListingDetailPage({
 
   const user = await getSessionUser();
   const supabase = await createClient();
-  const { data: listing } = await supabase
-    .from("equipment_listings")
-    .select(
-      `
-      id, title, description, price_eur, municipality, postal_code,
-      condition, manufacturer, model, year_manufactured, pump_type_slug, product_category,
-      listing_kind,
-      donation_recipient_id,
-      seller_type, seller_id, status, pending_publish, published_at, expires_at,
-      contact_email, contact_phone, address_line
-    `,
-    )
-    .eq("id", id)
-    .single();
+  const listing = await fetchListingForDetailPage(id);
 
   if (!listing) notFound();
 
@@ -355,7 +344,19 @@ export default async function MarketplaceListingDetailPage({
           </p>
         )}
 
-        <h1 className="mt-1 text-2xl font-bold">{listing.title}</h1>
+        <div className="mt-1 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <h1 className="text-2xl font-bold">{listing.title}</h1>
+          {isPublic && (
+            <ShareLinkPanel
+              path={`/markkinapaikka/ilmoitukset/${id}`}
+              title="Jaa ilmoitus"
+              description="Kopioi linkki tai jaa se viestissä tai sähköpostissa."
+              label="Jaa ilmoitus"
+              compact
+              className="w-full sm:max-w-md sm:p-3"
+            />
+          )}
+        </div>
         <p className="mt-2 text-2xl font-bold text-sky-800">
           {isDonate
             ? "Ilmaiseksi"
