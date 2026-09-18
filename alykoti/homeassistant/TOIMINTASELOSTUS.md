@@ -34,8 +34,8 @@ Virtaus oletuksena:
 ### Makuuhuoneet (HM, makuhuone, Glen, Nele) ja eteinen
 
 - Vain lattia. ILP ei lämmitä näitä.
-- Vakio: makuuhuoneet 20 °C, eteinen 23 °C.
-- Ennakoiva / halpa + maltillinen: eteinen ja makuuhuoneet saavat saman lattianoston kuin olo+keittiö.
+- Vakio: makuuhuoneet 20 °C. Eteinen 20–25 °C: 25 vain kovalla pakkasella, kalliimmalla hinnalla 20.
+- Ennakoiva / halpa + maltillinen: makuuhuoneet saavat saman lattianoston kuin olo+keittiö. Eteinen nousee tavoitteen päälle mutta ei yli 25 °C, eikä 25 tule lämpimällä säällä.
 
 ### Lämmitysvesi
 
@@ -85,10 +85,10 @@ Kirjoitettava asetus:
 | Pois, ikkuna/ovi auki | 17 °C | 17 °C |
 | Hetkellinen ≥ 40 c/t | tausta − 2 °C, min 17 | käyttö − 2 °C, min 17 |
 | Huone alarajalla, ikkuna/ovi kiinni | käyttö, min 19 °C | käyttö, min 19 °C (eteinen 20) |
-| Ennakoiva / halpa + maltillinen | max(tavoite, 21) + nosto, vähintään 23 | max(tavoite, 20/23) + nosto, vähintään 22 / 25 |
+| Ennakoiva / halpa + maltillinen | max(tavoite, 21) + nosto, vähintään 23 | makuu: max(tavoite, 20) + nosto; eteinen: tavoite + nosto, 20–25, 25 vain pakkasella |
 | Korotus-ajastin (+4 °C / 240 min) | tavoite + korotus | tavoite + korotus |
-| Kallis + korkea kulutus | tausta 18 °C, ILP-painotteinen | käyttö (20 / 23) tai −2 °C |
-| Normaali (kallis, kulutus ok) | tausta 18 °C, ILP | käyttö (20 / 23) |
+| Kallis + korkea kulutus | tausta 18 °C, ILP-painotteinen | käyttö (makuu ~20, eteinen min 20) tai −2 °C (eteinen ei alle 20) |
+| Normaali (kallis, kulutus ok) | tausta 18 °C, ILP | käyttö (makuu ~20, eteinen 20) |
 
 Sitten portti: `max(varaaja, menovesi) ≥ huoneasetus + 5 °C` päälle, pois vasta kun vesi < huone + 4 °C. Asetusta ei kirjoiteta uudestaan jos muutos on alle 0,3 °C, eikä vesianturin joka tikistä. Huoneiden `tavoite_*` pyöristyy 0,5 °C ja käyttää 30 min kustannuskeskiarvoa, ei raakaa hetkellistä.
 
