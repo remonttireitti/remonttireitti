@@ -63,10 +63,12 @@
 # Lattiat kiinni → vastus ja kiertopumppu heti pois (ei kiertoa ummessa putkessa).
 #
 # Olo+keittiö vs ILP:
-#   Halpa spot + maltillinen hetkellinen (tai hinta nousemassa) → ennakoiva
-#   varaa lattiaan: asetus = max(tavoite, vakio 21/20) + nosto (2 °C);
-#   eteinen tavoite 20–25, 25 vain kovalla pakkasella. Ennakoiva ei nosta
-#   eteistä 25:een lämpimällä säällä.
+#   Ennakoiva EI ole päällä koko halpaa jaksoa. Halpa voi kestää päiviä —
+#   silloin huoneet noudattavat tavoitetta, ei ylilämpöä.
+#   Ennakoiva = kallis jakso alkaa 2–3 h sisään (hinta_ennakko_h), nyt vielä
+#   halvempaa: asetus = max(tavoite, vakio 21/20) + nosto (2 °C), jotta
+#   pärjätään seuraavaan halpaan pienemmällä kulutuksella. Eteinen 20–25,
+#   25 vain kovalla pakkasella. Ennakoiva ei nosta eteistä 25:een lämpimällä.
 #   Ei saa näyttää samalta kuin normaali 21/20 / eteinen 20–25. Vesi+5 ei sammuta lattioita
 #   ennakoivassa — muuten varaaminen ei ala. ILP jää taustalle.
 #   ILP-painotteinen vain kun spot on kallis JA hetkellinen korkea:
@@ -118,7 +120,7 @@ homeassistant:
     binary_sensor.lammitys_korotus_paalla:
       friendly_name: "Huonekorotus päällä — asetusta nostettu ajastimella"
     binary_sensor.lammitys_ennakoiva:
-      friendly_name: "Ennakoiva — halpa sähkö ja maltillinen kulutus, tai hinta nousemassa. Lattia yli vakion (olo/makuu). Eteinen 20–25, ei 25 lämpimällä."
+      friendly_name: "Ennakoiva — vain 2–3 h ennen kallista jaksoa. Ei koko halpaa. Lattia yli vakion, jotta pärjätään seuraavaan halpaan."
     binary_sensor.lammitys_hinta_heilunta:
       friendly_name: "Suuri hintaheilunta — tuleva keskihinta ≥ 8 c kalliimpi kuin nyt. Painopiste varaavassa lattiassa"
     binary_sensor.lammitys_menovesi_nosto:
@@ -379,7 +381,7 @@ input_number:
     icon: mdi:currency-eur-off
     initial: 50
   lammitys_hinta_nosto_max:
-    name: "Halvalla / ennakoivasti: enintään näin monta °C lattiaan, menoveteen ja vähän varaajaan. Painopiste lattiassa"
+    name: "Ennakoivasti (ennen kallista): enintään näin monta °C lattiaan. Ei koko halpaa jaksoa"
     min: 0
     max: 6
     step: 0.5
@@ -397,14 +399,14 @@ input_number:
     icon: mdi:thermometer-chevron-down
     initial: 8
   lammitys_hinta_ennakko_h:
-    name: "Hintaennakko: montako tulevaa tuntia vaikuttaa lattian ylilämpöön ja menoveteen"
+    name: "Ennakoiva: montako tuntia ennen kallista jaksoa lattiaa nostetaan yli"
     min: 1
     max: 24
     step: 1
     mode: slider
     unit_of_measurement: h
     icon: mdi:clock-outline
-    initial: 6
+    initial: 3
   lammitys_kv_pumppu_paalle:
     name: "Sekoitus saa pulssittaa vasta kun käyttövesi on vähintään tämä — suojaa KV:tä (65–70 °C)"
     min: 62
@@ -1090,7 +1092,7 @@ template:
           {% set huone = is_state('binary_sensor.lammitys_hetki_rajoita_huone', 'on') %}
           {% set vesi = is_state('binary_sensor.lammitys_hetki_rajoita_vesi', 'on') %}
           {% if is_state('binary_sensor.lammitys_huone_alaraja', 'on') %}{{ state_attr('binary_sensor.lammitys_huone_alaraja', 'syy') }} — rajoitukset ohitettu
-          {% elif is_state('binary_sensor.lammitys_ennakoiva', 'on') %}Ennakoiva — lattia yli vakion, vesi saa nousta perässä
+          {% elif is_state('binary_sensor.lammitys_ennakoiva', 'on') %}Ennakoiva — kallis alkaa pian, lattia yli vakion
           {% elif is_state('binary_sensor.lammitys_vastus_nostaa', 'on') and is_state('binary_sensor.lammitys_vesi_riittaa', 'off') %}Varaaja/meno alle huone + 5 °C — vastus nostaa, kierto päällä
           {% elif is_state('binary_sensor.lammitys_vesi_riittaa', 'off') %}Lämmitysvesi alle huone + 5 °C — lattiat pois (turha)
           {% elif vesi %}Hetkellinen {{ c | round(1) if c is not none else '?' }} c/t ≥ {{ raja_v | int }} — huoneet (−{{ drop }} °C) ja läpivirtausvastus pois
@@ -1185,14 +1187,55 @@ template:
         unique_id: lammitys_ennakoiva
         icon: mdi:chart-timeline-variant
         state: >
+          {% set look = states('input_number.lammitys_hinta_ennakko_h') | int(3) %}
           {% set now_p = states('sensor.energi_data_service') | float(0) %}
-          {% set ahead = states('sensor.lammitys_hinta_ennakko') | float(0) %}
-          {% set adj = states('sensor.lammitys_sekoitus_hinta_korjaus') | float(0) %}
-          {% set p_lo = states('input_number.lammitys_hinta_halpa') | float(5) %}
+          {% set p_hi = states('input_number.lammitys_hinta_kallis') | float(50) %}
+          {% set nousu = 8 %}
           {% set maltillinen = not is_state('binary_sensor.lammitys_hetki_rajoita_huone', 'on') %}
-          {% set nousee = ahead > (now_p + 1.5)
-             and (is_state('binary_sensor.lammitys_halpa_sahko', 'on') or now_p <= p_lo or adj > 0.2) %}
-          {{ maltillinen and (nousee or is_state('binary_sensor.lammitys_halpa_sahko', 'on')) }}
+          {% set ns = namespace(max_ahead=none, kallis=false) %}
+          {% for attr in ['raw_today', 'raw_tomorrow'] %}
+            {% set rows = state_attr('sensor.energi_data_service', attr) %}
+            {% if rows %}
+              {% for item in rows %}
+                {% set ts = item.hour if item.hour is defined else none %}
+                {% set pr = item.price if item.price is defined else none %}
+                {% if ts is not none and pr is not none %}
+                  {% set start = as_datetime(ts) %}
+                  {% if start is not none and start > now() and start <= now() + timedelta(hours=look) %}
+                    {% set p = pr | float(0) %}
+                    {% set ns.max_ahead = p if ns.max_ahead is none else [ns.max_ahead, p] | max %}
+                    {% if p >= p_hi or p >= (now_p + nousu) %}
+                      {% set ns.kallis = true %}
+                    {% endif %}
+                  {% endif %}
+                {% endif %}
+              {% endfor %}
+            {% endif %}
+          {% endfor %}
+          {{ maltillinen and ns.kallis and now_p < (ns.max_ahead | float(now_p)) }}
+        attributes:
+          look_h: "{{ states('input_number.lammitys_hinta_ennakko_h') }}"
+          spot_c: "{{ states('sensor.energi_data_service') }}"
+          max_c: >
+            {% set look = states('input_number.lammitys_hinta_ennakko_h') | int(3) %}
+            {% set ns = namespace(max_ahead=none) %}
+            {% for attr in ['raw_today', 'raw_tomorrow'] %}
+              {% set rows = state_attr('sensor.energi_data_service', attr) %}
+              {% if rows %}
+                {% for item in rows %}
+                  {% set ts = item.hour if item.hour is defined else none %}
+                  {% set pr = item.price if item.price is defined else none %}
+                  {% if ts is not none and pr is not none %}
+                    {% set start = as_datetime(ts) %}
+                    {% if start is not none and start > now() and start <= now() + timedelta(hours=look) %}
+                      {% set p = pr | float(0) %}
+                      {% set ns.max_ahead = p if ns.max_ahead is none else [ns.max_ahead, p] | max %}
+                    {% endif %}
+                  {% endif %}
+                {% endfor %}
+              {% endif %}
+            {% endfor %}
+            {{ ns.max_ahead | round(1) if ns.max_ahead is not none else '' }}
       - name: Lammitys hinta heilunta
         unique_id: lammitys_hinta_heilunta
         icon: mdi:chart-bell-curve
@@ -1268,7 +1311,7 @@ template:
             {% set raja_h = states('input_number.lammitys_hetki_raja_huone') | float(40) %}
             {% set raja_v = [states('input_number.lammitys_hetki_raja_vesi') | float(50), raja_h] | max %}
             {% set drop = states('input_number.lammitys_hetki_huone_lasku') | float(2) %}
-            {% set look = states('input_number.lammitys_hinta_ennakko_h') | int(6) %}
+            {% set look = states('input_number.lammitys_hinta_ennakko_h') | int(3) %}
             {% set ns = namespace(z=[]) %}
             {% for item in [
               ('Olo+keittiö', 'timer.lammitys_korotus_olohuone_keittio'),
@@ -1284,13 +1327,13 @@ template:
             {% set vesi = [tank if tank is not none else -99, meno if meno is not none else -99] | max %}
             {% set raja = states('sensor.lammitys_vesi_huone_raja') | float(26) %}
             {% if is_state('binary_sensor.lammitys_huone_alaraja', 'on') %}{{ state_attr('binary_sensor.lammitys_huone_alaraja', 'syy') }} — rajoitukset ohitettu
-            {% elif is_state('binary_sensor.lammitys_ennakoiva', 'on') %}{% set extra = states('input_number.lammitys_hinta_nosto_max') | float(2) %}Spot {{ spot | round(1) if spot is not none else '?' }} c, ennakko {{ ahead | round(1) if ahead is not none else '?' }} c / {{ look }} h — lattia yli vakion: olo ≥ {{ (21 + extra) | round(1) }}, makuu ≥ {{ (20 + extra) | round(1) }}, eteinen {{ states('sensor.lammitys_kaytto_eteinen') }} °C (max 25 vain pakkasella) (+{{ extra | round(1) }} °C), varaajaa vähän yli{% if is_state('binary_sensor.lammitys_hinta_heilunta', 'on') %} · suuri heilunta{% endif %}. ILP taustalla
+            {% elif is_state('binary_sensor.lammitys_ennakoiva', 'on') %}{% set extra = states('input_number.lammitys_hinta_nosto_max') | float(2) %}{% set look = states('input_number.lammitys_hinta_ennakko_h') | int(3) %}{% set mx = state_attr('binary_sensor.lammitys_ennakoiva', 'max_c') %}Kallis jakso {{ look }} h sisään (nyt {{ spot | round(1) if spot is not none else '?' }} c, tuleva max {{ mx if mx not in [none, ''] else '?' }} c) — lattia yli vakion: olo ≥ {{ (21 + extra) | round(1) }}, makuu ≥ {{ (20 + extra) | round(1) }}, eteinen {{ states('sensor.lammitys_kaytto_eteinen') }} °C. Seuraavalla kalliilla pärjätään varauksella. ILP taustalla
             {% elif is_state('binary_sensor.lammitys_vastus_nostaa', 'on') and is_state('binary_sensor.lammitys_vesi_riittaa', 'off') %}Varaaja {{ tank | round(1) if tank is not none else '?' }} °C / meno {{ meno | round(1) if meno is not none else '?' }} °C < huone + 5 °C ({{ raja | round(1) }} °C) — vastus nostaa, lattia ja kierto päällä
             {% elif is_state('binary_sensor.lammitys_vesi_riittaa', 'off') %}Varaaja {{ tank | round(1) if tank is not none else '?' }} °C / meno {{ meno | round(1) if meno is not none else '?' }} °C < huone + 5 °C ({{ raja | round(1) }} °C) — lattiat pois, turha lämmittää
             {% elif is_state('binary_sensor.lammitys_hetki_rajoita_vesi', 'on') %}Hetkellinen {{ c | round(1) if c is not none else '?' }} c/t ≥ {{ raja_v | int }} — huoneet −{{ drop }} °C ja läpivirtausvastus pois
             {% elif is_state('binary_sensor.lammitys_hetki_rajoita_huone', 'on') %}Hetkellinen {{ c | round(1) if c is not none else '?' }} c/t ≥ {{ raja_h | int }} — huonetermostaatit −{{ drop }} °C
             {% elif ns.z %}Korotus päällä: {{ ns.z | join(', ') }}
-            {% elif is_state('binary_sensor.lammitys_halpa_sahko', 'on') %}Spot {{ spot | round(1) if spot is not none else '?' }} c — lattia varaa olo+keittiön, eteisen ja makuuhuoneet, ILP taustalla{% if adj > 0.3 %}, menovesi +{{ adj | round(1) }} °C{% endif %}
+            {% elif is_state('binary_sensor.lammitys_halpa_sahko', 'on') %}Spot {{ spot | round(1) if spot is not none else '?' }} c — halpa jakso, tavoite normaalisti (ei ylilämpöä). Ennakoiva vain kun kallis alkaa {{ look }} h sisään
             {% elif is_state('binary_sensor.lammitys_menovesi_rajoitus', 'on') %}Spot {{ spot | round(1) if spot is not none else '?' }} c — menovettä rajoitettu {{ adj | round(1) }} °C, olo+keittiö ILP-painotteinen
             {% else %}Spot {{ spot | round(1) if spot is not none else '?' }} c — kallis jakso, olo+keittiö ILP-painotteinen, muut huoneet lattialla{% endif %}
           spot_c: "{{ states('sensor.energi_data_service') }}"
@@ -1880,7 +1923,7 @@ template:
         unit_of_measurement: c/kWh
         icon: mdi:chart-timeline-variant
         state: >
-          {% set look = states('input_number.lammitys_hinta_ennakko_h') | int(6) %}
+          {% set look = states('input_number.lammitys_hinta_ennakko_h') | int(3) %}
           {% set ns = namespace(sum=0.0, n=0) %}
           {% for attr in ['raw_today', 'raw_tomorrow'] %}
             {% set rows = state_attr('sensor.energi_data_service', attr) %}
@@ -1890,7 +1933,7 @@ template:
                 {% set pr = item.price if item.price is defined else none %}
                 {% if ts is not none and pr is not none %}
                   {% set start = as_datetime(ts) %}
-                  {% if start is not none and start >= now() - timedelta(minutes=15) and start < now() + timedelta(hours=look) %}
+                  {% if start is not none and start > now() and start < now() + timedelta(hours=look) %}
                     {% set ns.sum = ns.sum + (pr | float(0)) %}
                     {% set ns.n = ns.n + 1 %}
                   {% endif %}
@@ -1903,7 +1946,7 @@ template:
         attributes:
           tunteja: "{{ states('input_number.lammitys_hinta_ennakko_h') }}"
           naytteet: >
-            {% set look = states('input_number.lammitys_hinta_ennakko_h') | int(6) %}
+            {% set look = states('input_number.lammitys_hinta_ennakko_h') | int(3) %}
             {% set ns = namespace(n=0) %}
             {% for attr in ['raw_today', 'raw_tomorrow'] %}
               {% set rows = state_attr('sensor.energi_data_service', attr) %}
@@ -1913,7 +1956,7 @@ template:
                   {% set pr = item.price if item.price is defined else none %}
                   {% if ts is not none and pr is not none %}
                     {% set start = as_datetime(ts) %}
-                    {% if start is not none and start >= now() - timedelta(minutes=15) and start < now() + timedelta(hours=look) %}
+                    {% if start is not none and start > now() and start < now() + timedelta(hours=look) %}
                       {% set ns.n = ns.n + 1 %}
                     {% endif %}
                   {% endif %}
@@ -1945,7 +1988,7 @@ template:
         icon: mdi:flash
         state: >
           {% set price_now = states('sensor.energi_data_service') | float(0) %}
-          {% set look = states('input_number.lammitys_hinta_ennakko_h') | int(6) %}
+          {% set look = states('input_number.lammitys_hinta_ennakko_h') | int(3) %}
           {% set ns = namespace(sum=0.0, n=0) %}
           {% for attr in ['raw_today', 'raw_tomorrow'] %}
             {% set rows = state_attr('sensor.energi_data_service', attr) %}
@@ -1955,7 +1998,7 @@ template:
                 {% set pr = item.price if item.price is defined else none %}
                 {% if ts is not none and pr is not none %}
                   {% set start = as_datetime(ts) %}
-                  {% if start is not none and start >= now() - timedelta(minutes=15) and start < now() + timedelta(hours=look) %}
+                  {% if start is not none and start > now() and start < now() + timedelta(hours=look) %}
                     {% set ns.sum = ns.sum + (pr | float(0)) %}
                     {% set ns.n = ns.n + 1 %}
                   {% endif %}
@@ -2465,6 +2508,15 @@ automation:
               entity_id: input_number.lammitys_vastus_pois_s
             data:
               value: 90
+      - if:
+          - condition: template
+            value_template: "{{ states('input_number.lammitys_hinta_ennakko_h') | float(0) == 6 }}"
+        then:
+          - action: input_number.set_value
+            target:
+              entity_id: input_number.lammitys_hinta_ennakko_h
+            data:
+              value: 3
   - id: lammitys_olohuone_keittio
     alias: Lämmitys olohuone ja keittiö
     mode: single

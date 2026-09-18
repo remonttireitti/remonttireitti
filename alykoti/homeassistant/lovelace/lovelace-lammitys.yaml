@@ -84,15 +84,15 @@ cards:
                 entity: binary_sensor.lammitys_korotus_paalla
             - type: template
               icon: mdi:cash
-              icon_color: "{{ 'green' if is_state('binary_sensor.lammitys_halpa_sahko', 'on') or is_state('binary_sensor.lammitys_ennakoiva', 'on') else 'amber' }}"
-              content: "{{ 'Halpa sähkö' if is_state('binary_sensor.lammitys_halpa_sahko', 'on') or is_state('binary_sensor.lammitys_ennakoiva', 'on') else 'Kallis sähkö' }}"
+              icon_color: "{{ 'green' if is_state('binary_sensor.lammitys_halpa_sahko', 'on') else 'amber' }}"
+              content: "{{ 'Halpa sähkö' if is_state('binary_sensor.lammitys_halpa_sahko', 'on') else 'Kallis sähkö' }}"
               tap_action:
                 action: more-info
                 entity: binary_sensor.lammitys_halpa_sahko
             - type: template
               icon: mdi:chart-timeline-variant
               icon_color: "{{ 'orange' if is_state('binary_sensor.lammitys_ennakoiva', 'on') else 'grey' }}"
-              content: "{{ 'Lattia vara' if is_state('binary_sensor.lammitys_ennakoiva', 'on') else 'Ei ennakkoa' }}"
+              content: "{{ 'Ennakoiva' if is_state('binary_sensor.lammitys_ennakoiva', 'on') else 'Ei ennakkoa' }}"
               tap_action:
                 action: more-info
                 entity: binary_sensor.lammitys_ennakoiva
@@ -516,7 +516,7 @@ cards:
               icon_color: "{{ 'orange' if is_state('binary_sensor.lammitys_ennakoiva', 'on') else 'green' }}"
               content: >
                 {% set p = states('sensor.energi_data_service') | float(0) | round(1) %}
-                {{ 'ILP + lattia vara' if is_state('binary_sensor.lammitys_ennakoiva', 'on') else 'ILP olo+keittiö' }} {{ p }} snt
+                {{ 'ILP + ennakoiva' if is_state('binary_sensor.lammitys_ennakoiva', 'on') else 'ILP olo+keittiö' }} {{ p }} snt
               tap_action:
                 action: more-info
                 entity: binary_sensor.lammitys_halpa_sahko
@@ -901,9 +901,9 @@ cards:
                       %}⏸ Odottaa{% endif %} · {% if ohj == 'Pois' %}Ohjaus pois{%
                       elif kor %}Korotus ⏱{% else %}Ohjaus auto{% endif %}{% if
                       terassi_auki %} · 🚪 Terassi auki{% endif %}                      {% if ohj != 'Pois'
-                      and (is_state('binary_sensor.lammitys_ennakoiva', 'on')
-                      or is_state('binary_sensor.lammitys_halpa_sahko', 'on')) %}
-                      · Lattia vara{% elif ohj != 'Pois' %} · ILP
+                      and is_state('binary_sensor.lammitys_ennakoiva', 'on') %}
+                      · Ennakoiva{% elif ohj != 'Pois'
+                      and not is_state('binary_sensor.lammitys_halpa_sahko', 'on') %} · ILP
                       painotteinen{% endif %}
                     icon: mdi:sofa-outline
                     icon_color: >
@@ -1076,7 +1076,7 @@ cards:
                       %} · {% if ohj == 'Pois' %}Ohjaus pois{% elif kor %}Korotus ⏱{%
                       else %}Ohjaus auto{% endif %}{% if ohj != 'Pois'
                       and is_state('binary_sensor.lammitys_ennakoiva', 'on') %} ·
-                      Lattia vara{% endif %}
+                      Ennakoiva{% endif %}
                     icon: mdi:bed-king-outline
                     icon_color: >
                       {% if is_state('input_select.lammitys_tila_hm', 'Pois') %}grey
@@ -1220,7 +1220,7 @@ cards:
                       %} · {% if ohj == 'Pois' %}Ohjaus pois{% elif kor %}Korotus ⏱{%
                       else %}Ohjaus auto{% endif %}{% if ohj != 'Pois'
                       and is_state('binary_sensor.lammitys_ennakoiva', 'on') %} ·
-                      Lattia vara{% endif %}
+                      Ennakoiva{% endif %}
                     icon: mdi:silverware-fork-knife
                     icon_color: >
                       {% if is_state('input_select.lammitys_tila_makuhuone', 'Pois')
@@ -1366,7 +1366,7 @@ cards:
                       %} · {% if ohj == 'Pois' %}Ohjaus pois{% elif kor %}Korotus ⏱{%
                       else %}Ohjaus auto{% endif %}{% if ohj != 'Pois'
                       and is_state('binary_sensor.lammitys_ennakoiva', 'on') %} ·
-                      Lattia vara{% endif %}
+                      Ennakoiva{% endif %}
                     icon: mdi:account-child
                     icon_color: >
                       {% if is_state('input_select.lammitys_tila_glen', 'Pois') %}grey
@@ -1511,7 +1511,7 @@ cards:
                       Odottaa{% endif %} · {% if ohj == 'Pois' %}Ohjaus pois{% elif
                       kor %}Korotus ⏱{% else %}Ohjaus auto{% endif %}{% if ohj !=
                       'Pois' and is_state('binary_sensor.lammitys_ennakoiva', 'on') %}
-                      · Lattia vara{% endif %}
+                      · Ennakoiva{% endif %}
                     icon: mdi:human-female-girl
                     icon_color: >
                       {% if is_state('input_select.lammitys_tila_nele', 'Pois') %}grey
@@ -1658,7 +1658,7 @@ cards:
                       %} · {% if ohj == 'Pois' %}Ohjaus pois{% elif kor %}Korotus ⏱{%
                       else %}Ohjaus auto{% endif %}{% if ohj != 'Pois'
                       and is_state('binary_sensor.lammitys_ennakoiva', 'on') %} ·
-                      Lattia vara{% endif %}{% if ovi_auki %} · 🚪 Ovi auki{%
+                      Ennakoiva{% endif %}{% if ovi_auki %} · 🚪 Ovi auki{%
                       endif %}
                     icon: mdi:door-closed
                     icon_color: >

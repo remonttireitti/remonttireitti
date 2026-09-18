@@ -15,7 +15,8 @@
 #   - Automaatti EI sammuta kompressoria hinnalla: heat jää päälle, asetusarvoa
 #     liikutetaan. Pois / ovi = ainoat off-tilat.
 #   - ILP-painotteinen vain kalliilla sähköllä ja korkealla kulutuksella.
-#     Halpa + maltillinen / ennakoiva: lattia varaa olo+keittiön, ILP taustalla.
+#     Halpa jakso: lattia tavoite, ILP taustalla. Ennakoiva vain 2–3 h
+#     ennen kallista — silloin lattia yli vakion. Ei koko halpaa jaksoa.
 #     Ei lämmitä makuuhuoneita. Lämpökäyrä + lampo-liukuri (kallis jakso).
 #   - Jäähdytys vain kun 24 h ulkokeski ≥ keittio_ilp_jaahdytys_keski
 #     (oletus 18 °C) JA ulko ≥ 20 °C. Viileänä vuodenaikana ei coolia.
@@ -388,9 +389,10 @@ script:
             {% if (kausi | trim) == 'Jäähdytys' %}
               Cool {{ send_temp }}° · {{ fan }}{{ lukko }}{{ ovi }}
             {% else %}
-              {% if is_state('binary_sensor.lammitys_ennakoiva', 'on')
-                 or is_state('binary_sensor.lammitys_halpa_sahko', 'on') %}
-                ILP tausta {{ send_temp }}° · lattia varaa olo+keittiön · {{ price }} snt · {{ fan }}{{ lukko }}{{ ovi }}
+              {% if is_state('binary_sensor.lammitys_ennakoiva', 'on') %}
+                ILP tausta {{ send_temp }}° · ennakoiva, lattia yli · {{ price }} snt · {{ fan }}{{ lukko }}{{ ovi }}
+              {% elif is_state('binary_sensor.lammitys_halpa_sahko', 'on') %}
+                ILP tausta {{ send_temp }}° · halpa jakso, lattia tavoite · {{ price }} snt · {{ fan }}{{ lukko }}{{ ovi }}
               {% elif is_state('binary_sensor.lammitys_hetki_rajoita_huone', 'on') %}
                 ILP {{ send_temp }}° · painotteinen (kallis / korkea kulutus) · {{ price }} snt · {{ fan }}{{ lukko }}{{ ovi }}
               {% else %}

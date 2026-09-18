@@ -27,7 +27,8 @@ Virtaus oletuksena:
 
 ### Olo + keittiö
 
-- Halpa sähkö + maltillinen hetkellinen, tai hinta nousemassa: lattia varaa olo+keittiön (käyttöasetus + nosto). ILP jää taustalle.
+- Halpa jakso: lattia noudattaa tavoitetta, ei ylilämpöä. ILP taustalla.
+- Ennakoiva vain 2–3 h ennen kallista jaksoa: lattia yli vakion (+ nosto), jotta kallis jakso pärjätään varauksella seuraavaan halpaan. Ei koko halpaa jaksoa (voi kestää päiviä).
 - ILP-painotteinen vain kun spot on kallis ja hetkellinen korkea: lattia taustalla (18 °C), ILP lämmittää ilman.
 - Korotus nostaa lattian aina.
 
@@ -35,7 +36,7 @@ Virtaus oletuksena:
 
 - Vain lattia. ILP ei lämmitä näitä.
 - Vakio: makuuhuoneet 20 °C. Eteinen 20–25 °C: 25 vain kovalla pakkasella, kalliimmalla hinnalla 20.
-- Ennakoiva / halpa + maltillinen: makuuhuoneet saavat saman lattianoston kuin olo+keittiö. Eteinen nousee tavoitteen päälle mutta ei yli 25 °C, eikä 25 tule lämpimällä säällä.
+- Ennakoiva (ennen kallista): makuuhuoneet max(tavoite, 20) + nosto. Eteinen tavoite + nosto, 20–25, 25 vain pakkasella. Halpa jakso ilman ennakkoa = pelkkä tavoite.
 
 ### Lämmitysvesi
 
@@ -62,7 +63,7 @@ Vastus ei käy pelkällä kiertopumpulla: vähintään yksi lämmityspiiri (`bin
 
 Kaikkien huoneiden asetus muuttuu ulkolämmöstä, spotista ja hetkellisestä kulutuksesta (`sensor.lammitys_tavoite_*`). Sen päälle ennakoiva, korotus ja hetki-raja (`sensor.lammitys_kaytto_*`).
 
-Olo+keittiön lattia on taustalla vain ILP-painotteisessa jaksossa (kallis + korkea kulutus). Halvalla / ennakoivassa se nousee käyttöasetukseen.
+Olo+keittiön lattia on taustalla vain ILP-painotteisessa jaksossa (kallis + korkea kulutus). Halvalla se nousee käyttöasetukseen (tavoite). Ennakoiva nostaa yli vakion vain ennen kallista.
 
 `sensor.lammitys_huone_max` = korkein aktiivinen huoneasetus (ikkuna/ovi auki tai Pois ei nosta).
 `sensor.lammitys_vesi_huone_raja` = huone_max + 5 °C. Olo 21 °C → 26 °C.
@@ -85,7 +86,8 @@ Kirjoitettava asetus:
 | Pois, ikkuna/ovi auki | 17 °C | 17 °C |
 | Hetkellinen ≥ 40 c/t | tausta − 2 °C, min 17 | käyttö − 2 °C, min 17 |
 | Huone alarajalla, ikkuna/ovi kiinni | käyttö, min 19 °C | käyttö, min 19 °C (eteinen 20) |
-| Ennakoiva / halpa + maltillinen | max(tavoite, 21) + nosto, vähintään 23 | makuu: max(tavoite, 20) + nosto; eteinen: tavoite + nosto, 20–25, 25 vain pakkasella |
+| Ennakoiva (kallis 2–3 h sisään) | max(tavoite, 21) + nosto | makuu: max(tavoite, 20) + nosto; eteinen: tavoite + nosto, 20–25 |
+| Halpa jakso, ei kallista tulossa | käyttö (tavoite), ei nostoa | käyttö (tavoite), ei nostoa |
 | Korotus-ajastin (+4 °C / 240 min) | tavoite + korotus | tavoite + korotus |
 | Kallis + korkea kulutus | tausta 18 °C, ILP-painotteinen | käyttö (makuu ~20, eteinen min 20) tai −2 °C (eteinen ei alle 20) |
 | Normaali (kallis, kulutus ok) | tausta 18 °C, ILP | käyttö (makuu ~20, eteinen 20) |
@@ -107,8 +109,8 @@ Kiertopumppu (`tasmota2`) päällä vain jos `binary_sensor.lammitys_piiri_auki`
 Spot (`sensor.energi_data_service`):
 
 - liikuttaa huoneiden `tavoite_*`-asetusta
-- kytkee ennakoivan (halpa + maltillinen, tai hinta nousemassa) → lattia varaa olo+keittiön, eteisen ja makuuhuoneet
-- suuri heilunta: tuleva keski ≥ nyt + 8 c → painopiste lattiassa
+- kytkee ennakoivan vain kun kallis jakso alkaa `lammitys_hinta_ennakko_h` tunnin sisään (oletus 3 h) ja nyt on vielä halvempaa. Ei koko halpaa jaksoa.
+- suuri heilunta: tuleva keski ≥ nyt + 8 c → merkitsee isoa nousua
 - ILP-painotteinen vain kalliilla ja korkealla kulutuksella (`keittio_ilp_lampo`). Kompressoria ei sammuteta hinnalla
 
 Hetkellinen c/t (`sensor.hetkellinen_kustannus`):
@@ -124,7 +126,7 @@ Hetkellinen c/t (`sensor.hetkellinen_kustannus`):
 
 - Automaatti / Pois / Käsi.
 - Automaatti lämmityskaudella: `heat` päällä, asetus liikkuu. Ainoat off-tilat: Pois tai terassin ovi.
-- Ennakoiva / halpa: ILP taustalla (ei `keittio_ilp_lampo`-lisää). Kallis + korkea kulutus: ILP-painotteinen.
+- Ennakoiva: ILP taustalla. Halpa jakso ilman ennakkoa: ILP taustalla, lattia tavoitteessa (ei ylilämpöä). Kallis + korkea kulutus: ILP-painotteinen.
 - Ovi auki > 2 min → off. Oven takia pois vähintään 5 min.
 - Jäähdytys vain jos 24 h ulkokeski ≥ `keittio_ilp_jaahdytys_keski` (18 °C) ja ulko ≥ 20 °C. Kausivaihto 4 h viive. 16–20 °C: kausi ei vaihdu.
 - Puhallin: lähellä asetusta quiet, kaukana high.
