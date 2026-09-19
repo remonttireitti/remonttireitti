@@ -4,6 +4,16 @@ import { NextResponse, type NextRequest } from "next/server";
 const PROTECTED_PREFIXES = ["/oma-tili", "/huolto"];
 const AUTH_PATHS = ["/kirjaudu", "/rekisteroidy"];
 
+function hasSupabaseAuthCookie(request: NextRequest): boolean {
+  return request.cookies
+    .getAll()
+    .some(
+      (c) =>
+        c.name.includes("auth-token") ||
+        /^sb-.*-auth-token(\.\d+)?$/.test(c.name),
+    );
+}
+
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
 
@@ -30,6 +40,7 @@ export async function updateSession(request: NextRequest) {
 
   const {
     data: { user },
+    error: userError,
   } = await supabase.auth.getUser();
 
   const pathname = request.nextUrl.pathname;
@@ -39,6 +50,12 @@ export async function updateSession(request: NextRequest) {
   const isAuthPage = AUTH_PATHS.some((p) => pathname === p);
 
   if (!user && isProtected) {
+    // Auth API blip with cookies still present → do not bounce to /kirjaudu
+    // (that flash is what company users reported while navigating).
+    if (hasSupabaseAuthCookie(request) && userError) {
+      return supabaseResponse;
+    }
+
     const url = request.nextUrl.clone();
     url.pathname = "/kirjaudu";
     url.searchParams.set("redirect", pathname);

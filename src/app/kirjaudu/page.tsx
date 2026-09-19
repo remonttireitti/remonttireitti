@@ -1,5 +1,6 @@
 import { AuthShell } from "@/components/auth/auth-shell";
 import { LoginForm } from "@/components/auth/login-form";
+import { LoginSessionResume } from "@/components/auth/login-session-resume";
 
 export default async function LoginPage({
   searchParams,
@@ -19,31 +20,36 @@ export default async function LoginPage({
       title="Kirjaudu"
       subtitle="Kirjaudu Remonttireitti-lämpöpumppupalveluun"
     >
-      {params.vahvistus === "1" && (
-        <p className="mb-4 rounded-lg bg-sky-50 p-3 text-sm text-sky-800">
-          Tili luotu! Tarkista sähköpostisi ja vahvista osoite ennen kirjautumista.
-        </p>
-      )}
-      {params.virhe === "vahvistys" && (
-        <p className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">
-          Sähköpostin vahvistus epäonnistui. Yritä kirjautua uudelleen.
-        </p>
-      )}
-      {params.salasana === "1" && (
-        <p
-          className="mb-4 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-900"
-          role="status"
-        >
-          Salasana vaihdettu. Voit nyt kirjautua uudella salasanallasi.
-        </p>
-      )}
-      {params.reason === "idle" && (
-        <p className="mb-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-950" role="status">
-          Istuntosi päättyi 30 minuutin passiivisuuden jälkeen. Kirjaudu uudelleen
-          jatkaaksesi.
-        </p>
-      )}
-      <LoginForm redirectTo={params.redirect} />
+      <LoginSessionResume redirectTo={params.redirect}>
+        {params.vahvistus === "1" && (
+          <p className="mb-4 rounded-lg bg-sky-50 p-3 text-sm text-sky-800">
+            Tili luotu! Tarkista sähköpostisi ja vahvista osoite ennen kirjautumista.
+          </p>
+        )}
+        {params.virhe === "vahvistys" && (
+          <p className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">
+            Sähköpostin vahvistus epäonnistui. Yritä kirjautua uudelleen.
+          </p>
+        )}
+        {params.salasana === "1" && (
+          <p
+            className="mb-4 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-900"
+            role="status"
+          >
+            Salasana vaihdettu. Voit nyt kirjautua uudella salasanallasi.
+          </p>
+        )}
+        {params.reason === "idle" && (
+          <p
+            className="mb-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-950"
+            role="status"
+          >
+            Istuntosi päättyi 30 minuutin passiivisuuden jälkeen. Kirjaudu uudelleen
+            jatkaaksesi.
+          </p>
+        )}
+        <LoginForm redirectTo={params.redirect} />
+      </LoginSessionResume>
     </AuthShell>
   );
 }
