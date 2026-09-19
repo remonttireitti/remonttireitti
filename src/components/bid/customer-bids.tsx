@@ -44,6 +44,12 @@ import {
   analyzeBidComparison,
   bidInsightInputFromRow,
 } from "@/lib/bid-comparison-insights";
+import { FairPriceTierBadge } from "@/components/bid/fair-price-tier-badge";
+import {
+  FAIR_PRICE_DISCLAIMER,
+  PRICE_TIER_PROFILE_MIN_SAMPLES,
+  type FairPriceAssessment,
+} from "@/lib/fair-price-tier";
 import type { BidStatus, ProjectStatus } from "@/types/database";
 
 export type BidWithContractor = {
@@ -235,6 +241,7 @@ function MobileBidCard({
   contentRevision,
   customerReferralDiscountCents,
   customerReferralApplies,
+  fairPriceTier,
 }: {
   bid: BidWithContractor;
   pendingWinner: boolean;
@@ -252,6 +259,7 @@ function MobileBidCard({
   contentRevision: number;
   customerReferralDiscountCents: number;
   customerReferralApplies: boolean;
+  fairPriceTier?: FairPriceAssessment | null;
 }) {
   const company = getBidContractorName(bid.contractor_profiles);
   const cardClass = `rounded-xl border p-4 ${columnClass(bid.status, pendingWinner)}`;
@@ -321,9 +329,21 @@ function MobileBidCard({
             </Row>
           </>
         ) : (
-          <Row label="Hinta">
-            <PriceCell bid={bid} showEquipmentBreakdown={false} />
-          </Row>
+          <>
+            {fairPriceTier && (
+              <Row label="Hintataso">
+                <FairPriceTierBadge
+                  tier={fairPriceTier.tier}
+                  symbols={fairPriceTier.symbols}
+                  tierLabel={fairPriceTier.tierLabel}
+                  showLabel
+                />
+              </Row>
+            )}
+            <Row label="Hinta">
+              <PriceCell bid={bid} showEquipmentBreakdown={false} />
+            </Row>
+          </>
         )}
 
         <Row label="Aloituspäivä">
@@ -460,6 +480,7 @@ export function CustomerBids({
   projectTradeNamesById = {},
   customerReferralDiscountCents = 0,
   customerReferralEligibleContractorIds = [],
+  fairPriceTiers = {},
 }: {
   projectId: string;
   projectStatus: ProjectStatus;
@@ -471,6 +492,7 @@ export function CustomerBids({
   projectTradeNamesById?: Record<string, string>;
   customerReferralDiscountCents?: number;
   customerReferralEligibleContractorIds?: string[];
+  fairPriceTiers?: Record<string, FairPriceAssessment>;
 }) {
   const customerReferralEligibleSet = new Set(customerReferralEligibleContractorIds);
   const tradeNameMap = new Map(Object.entries(projectTradeNamesById));
@@ -518,6 +540,9 @@ export function CustomerBids({
     const facts = contractorCompanyFactsFromBid(b);
     return facts?.founded_year != null || facts?.company_size_band != null;
   });
+  const showFairPriceRow = sorted.some(
+    (b) => fairPriceTiers[b.contractor_id] != null,
+  );
 
   if (visibleBids.length === 0) {
     return (
@@ -585,9 +610,16 @@ export function CustomerBids({
             customerReferralApplies={customerReferralEligibleSet.has(
               bid.contractor_id,
             )}
+            fairPriceTier={fairPriceTiers[bid.contractor_id] ?? null}
           />
         ))}
       </div>
+
+      {showFairPriceRow && (
+        <p className="mt-3 text-xs leading-relaxed text-stone-500 md:hidden">
+          {FAIR_PRICE_DISCLAIMER}
+        </p>
+      )}
 
       <div className="-mx-1 hidden overflow-x-auto px-1 md:block">
         <table className="w-full min-w-[720px] border-collapse text-sm">
@@ -695,6 +727,39 @@ export function CustomerBids({
                 </tr>
               </>
             ) : (
+              <>
+              {showFairPriceRow && (
+                <tr className="border-b border-stone-100 bg-amber-50/30">
+                  <th className={labelCell} scope="row">
+                    Hintataso
+                  </th>
+                  {sorted.map((bid) => {
+                    const tier = fairPriceTiers[bid.contractor_id];
+                    return (
+                      <td
+                        key={bid.id}
+                        className={`${dataCell} border-l ${columnClass(bid.status, isPendingWinner(bid))}`}
+                      >
+                        {tier ? (
+                          <FairPriceTierBadge
+                            tier={tier.tier}
+                            symbols={tier.symbols}
+                            tierLabel={tier.tierLabel}
+                            showLabel
+                            unreliable={
+                              !tier.isProfileReliable &&
+                              tier.profileSampleCount <
+                                PRICE_TIER_PROFILE_MIN_SAMPLES
+                            }
+                          />
+                        ) : (
+                          <span className="text-stone-400">—</span>
+                        )}
+                      </td>
+                    );
+                  })}
+                </tr>
+              )}
               <tr className="border-b border-stone-100">
                 <th className={labelCell} scope="row">
                   Hinta
@@ -707,6 +772,18 @@ export function CustomerBids({
                     <PriceCell bid={bid} showEquipmentBreakdown={false} />
                   </td>
                 ))}
+              </tr>
+              </>
+            )}
+
+            {showFairPriceRow && (
+              <tr>
+                <td
+                  colSpan={sorted.length + 1}
+                  className="border-b border-stone-100 px-3 py-2 text-xs leading-relaxed text-stone-500"
+                >
+                  {FAIR_PRICE_DISCLAIMER}
+                </td>
               </tr>
             )}
 
