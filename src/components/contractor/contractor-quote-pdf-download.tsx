@@ -156,7 +156,7 @@ export function ContractorQuotePdfAutoDownload({
     try {
       await downloadContractorQuotePdf({ quoteId });
       setStatus("done");
-      setMessage("PDF ladattu. Jos lataus ei käynnistynyt, paina Lataa uudelleen.");
+      setMessage("PDF ladattu. Voit ladata saman tarjouksen uudelleen milloin tahansa — se ei kuluta kuukausirajaa.");
     } catch (err) {
       setStatus("error");
       setMessage(
@@ -174,15 +174,13 @@ export function ContractorQuotePdfAutoDownload({
       <p className="text-sm text-stone-600">{message}</p>
       {status !== "loading" && (
         <div className="mt-4 flex flex-wrap justify-center gap-3">
-          {status === "error" && (
-            <button
-              type="button"
-              onClick={() => void runDownload()}
-              className={defaultButtonClass}
-            >
-              Yritä uudelleen
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={() => void runDownload()}
+            className={defaultButtonClass}
+          >
+            {status === "error" ? "Yritä uudelleen" : "Lataa uudelleen"}
+          </button>
           <a
             href={backHref}
             className="rounded-2xl border border-stone-300 bg-white px-5 py-2.5 text-sm font-semibold text-stone-800 hover:bg-stone-50"

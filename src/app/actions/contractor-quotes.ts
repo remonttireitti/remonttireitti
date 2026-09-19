@@ -100,6 +100,7 @@ export async function saveContractorQuote(
 
     revalidatePath("/tarjouslaskuri");
     revalidatePath(`/tarjouslaskuri/${calculatorSlug || result.calculatorSlug}`);
+    revalidatePath("/oma-tili");
     return {
       success: "Tarjous tallennettu.",
       quoteId,
@@ -116,6 +117,7 @@ export async function saveContractorQuote(
 
   revalidatePath("/tarjouslaskuri");
   revalidatePath(`/tarjouslaskuri/${calculatorSlug || result.calculatorSlug}`);
+  revalidatePath("/oma-tili");
   return {
     success: "Tarjous tallennettu.",
     quoteId: data.id,
