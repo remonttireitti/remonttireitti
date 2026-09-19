@@ -1,8 +1,6 @@
 "use client";
 
-import { pdf } from "@react-pdf/renderer";
 import { useCallback, useEffect, useState } from "react";
-import { ContractorQuotePdfDocument } from "@/lib/contractor-quote-pdf-document";
 import type { ContractorQuotePdfData } from "@/lib/contractor-quote-pdf";
 import {
   ensurePdfSafeLogoDataUri,
@@ -19,6 +17,11 @@ function downloadBlob(blob: Blob, filename: string) {
 }
 
 async function renderQuotePdfBlob(data: ContractorQuotePdfData): Promise<Blob> {
+  // Dynamic import keeps @react-pdf out of the Worker SSR/cold-start path.
+  const [{ pdf }, { ContractorQuotePdfDocument }] = await Promise.all([
+    import("@react-pdf/renderer"),
+    import("@/lib/contractor-quote-pdf-document"),
+  ]);
   const rawLogo = pickPdfLogoDataUri(data.logoDataUri, data.logoUrl);
   const safeLogo = await ensurePdfSafeLogoDataUri(rawLogo);
   const pdfData: ContractorQuotePdfData = {

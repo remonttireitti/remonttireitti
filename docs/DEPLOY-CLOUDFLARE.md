@@ -98,3 +98,22 @@ Koodimuutokset jotka vaativat uusia tauluja/sarakkeita:
 | **Resend** | sähköpostit |
 | **GitHub Actions** | cron-ajot + Cloudflare-deploy |
 | **Vercel** | ❌ ei käytössä — poista dashboardista ([ohje](./REMOVE-VERCEL.md)) |
+
+---
+
+## Cloudflare Error 1102 (Worker exceeded resource limits)
+
+Tämä tulee kun Worker ylittää **CPU**- tai **muisti**rajan (muisti max 128 MB / isolate).
+
+### Mitä teimme
+
+1. **Ei `@react-pdf/renderer` renderToBuffer Workerissa** — tarjous-PDF (#114) ja urakkasopimus-PDF generoidaan selaimessa (`/sopimus-pdf/[id]`, `/tarjouslaskuri/lataus/[id]`).
+2. **`limits.cpu_ms: 60000`** + **Smart Placement** `wrangler.jsonc`:ssä (vaatii Workers Paid / Standard usage model).
+
+### Jos 1102 palaa
+
+1. Cloudflare Dashboard → Workers → `remonttireitti` → Logs: tarkista Ray ID ja reitti.
+2. Varmista Paid-plan ja CPU-limit (Settings).
+3. Harkitse R2 incremental cachea OpenNextille (`open-next.config.ts`) — vähentää SSR-toistoa.
+4. Älä lisää raskasta synkronista työtä (PDF, suuri JSON-parsinta, kuvankäsittely) Worker-reitille.
+

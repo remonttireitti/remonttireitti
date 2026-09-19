@@ -8,6 +8,14 @@
 		"nodejs_compat",
 		"global_fetch_strictly_public"
 	],
+	// Paid Workers: raise CPU budget (memory is still 128 MB hard limit).
+	// react-pdf must stay client-side; cpu_ms alone will not fix Error 1102 from PDF.
+	"limits": {
+		"cpu_ms": 60000
+	},
+	"placement": {
+		"mode": "smart"
+	},
 	"assets": {
 		"directory": ".open-next/assets",
 		"binding": "ASSETS"
