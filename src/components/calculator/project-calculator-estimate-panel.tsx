@@ -10,14 +10,16 @@ import { CONSUMER_VAT } from "@/lib/vat-label";
 
 export function ProjectCalculatorEstimatePanel({
   snapshot,
+  calculatorSlug,
   suggestedBudgetMax,
   onApplySuggestedBudget,
 }: {
   snapshot: CalculatorProjectSnapshot;
+  calculatorSlug?: string;
   suggestedBudgetMax?: number | null;
   onApplySuggestedBudget?: () => void;
 }) {
-  const calcHref = calculatorPath(snapshot.calculatorSlug);
+  const calcHref = calculatorPath(calculatorSlug ?? snapshot.calculatorSlug);
   const budgetHint =
     suggestedBudgetMax != null && suggestedBudgetMax > 0
       ? suggestedBudgetMax
