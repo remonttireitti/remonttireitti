@@ -27,19 +27,21 @@ function StatCard({
 
 function offerHint(dashboard: ContractorDashboardData): string {
   const { stats, recentOffers } = dashboard;
-  const calculatorInList = recentOffers.some((o) => o.source === "calculator");
-  const parts: string[] = [];
+  const hasCalculator = recentOffers.some((o) => o.source === "calculator");
+  const hasMarketplace = recentOffers.some((o) => o.source === "marketplace");
 
-  if (stats.activeBidCount > 0) {
-    parts.push(
-      `${stats.activeBidCount} Remonttireitti-tarjousta odottaa asiakkaan päätöstä`,
-    );
+  if (stats.waitingCount > 0) {
+    // Count is global (bids + calculator Odottaa); keep wording neutral.
+    return `${stats.waitingCount} tarjousta odottaa asiakkaan päätöstä`;
   }
-  if (calculatorInList) {
-    parts.push("sisältää tarjouslaskurin tarjoukset");
+
+  if (hasCalculator && hasMarketplace) {
+    return "Viimeisimmät Remonttireitti- ja laskuritarjouksesi";
   }
-  if (parts.length > 0) return parts.join(" · ");
-  return "Viimeisimmät Remonttireitti- ja laskuritarjouksesi";
+  if (hasCalculator) {
+    return "Viimeisimmät tarjouslaskurin tarjouksesi";
+  }
+  return "Viimeisimmät Remonttireitti-tarjouksesi";
 }
 
 export function ContractorHomeDashboard({
@@ -175,7 +177,7 @@ export function ContractorHomeDashboard({
           <div>
             <h3 className="text-lg font-semibold text-stone-900">Tilastot</h3>
             <p className="mt-1 text-sm text-stone-500">
-              Yhteenveto Remonttireitti-tarjouksistasi
+              Yhteenveto Remonttireitti- ja laskuritarjouksistasi
             </p>
           </div>
           <Link
@@ -188,8 +190,9 @@ export function ContractorHomeDashboard({
 
         <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <StatCard
-            label="Lähetetyt tarjoukset"
+            label="Kaikki tarjoukset"
             value={String(stats.submittedCount)}
+            hint="Pyynnöt + laskuri"
           />
           <StatCard
             label="Hyväksytyt"
@@ -203,8 +206,8 @@ export function ContractorHomeDashboard({
                 : "—"
             }
             hint={
-              stats.submittedCount < 10
-                ? "Luotettava luku muodostuu 10 tarjouksen jälkeen"
+              stats.sentCount < 10
+                ? "Luotettava luku muodostuu 10 lähetetyn tarjouksen jälkeen"
                 : undefined
             }
           />

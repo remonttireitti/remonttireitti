@@ -28,9 +28,13 @@ const SUBMITTED_BID_STATUSES: BidStatus[] = [
 const OFFER_LIST_LIMIT = 8;
 
 export type ContractorDashboardStats = {
+  /** Marketplace bids + finalized calculator quotes (same universe as Omat tarjoukset). */
   submittedCount: number;
   acceptedCount: number;
-  activeBidCount: number;
+  /** Marketplace "submitted" + calculator PDF quotes still "Odottaa". */
+  waitingCount: number;
+  /** Marketplace bids + calculator quotes with a generated PDF (conversion base). */
+  sentCount: number;
   conversionPercent: number | null;
   openMatchCount: number;
   openTotalCount: number;
@@ -239,8 +243,7 @@ export async function fetchContractorDashboard(
       )
       .eq("contractor_id", contractorId)
       .eq("status", "finalized")
-      .order("updated_at", { ascending: false })
-      .limit(OFFER_LIST_LIMIT),
+      .order("updated_at", { ascending: false }),
   ]);
 
   if (bidsResult.error) {
@@ -284,16 +287,33 @@ export async function fetchContractorDashboard(
 
   const bidProjectIds = new Set(submittedBids.map((b) => b.project_id));
 
-  const submittedCount = submittedBids.length;
-  const acceptedCount = submittedBids.filter(
+  const marketplaceAccepted = submittedBids.filter(
     (b) => b.status === "accepted",
   ).length;
-  const activeBidCount = submittedBids.filter(
+  const marketplaceWaiting = submittedBids.filter(
     (b) => b.status === "submitted",
   ).length;
+
+  const quoteWon = calculatorQuotes.filter(
+    (q) => parseQuoteOutcome(q.outcome) === "won",
+  ).length;
+  const quoteWaiting = calculatorQuotes.filter(
+    (q) =>
+      Boolean(q.pdf_generated_at) && parseQuoteOutcome(q.outcome) === "pending",
+  ).length;
+  const quoteSent = calculatorQuotes.filter((q) =>
+    Boolean(q.pdf_generated_at),
+  ).length;
+
+  // Match Omat tarjoukset: every marketplace bid + every finalized calculator quote.
+  const submittedCount = submittedBids.length + calculatorQuotes.length;
+  const acceptedCount = marketplaceAccepted + quoteWon;
+  const waitingCount = marketplaceWaiting + quoteWaiting;
+  // Conversion uses actually sent offers (bids + PDF-exported calculator quotes).
+  const sentCount = submittedBids.length + quoteSent;
   const conversionPercent =
-    submittedCount > 0
-      ? Math.round((acceptedCount / submittedCount) * 1000) / 10
+    sentCount > 0
+      ? Math.round((acceptedCount / sentCount) * 1000) / 10
       : null;
 
   return {
@@ -304,7 +324,8 @@ export async function fetchContractorDashboard(
     stats: {
       submittedCount,
       acceptedCount,
-      activeBidCount,
+      waitingCount,
+      sentCount,
       conversionPercent,
       openMatchCount: counts["oma-alue"],
       openTotalCount: counts.kaikki,
