@@ -15,7 +15,8 @@ import {
   type BidFormFields,
   validateBidFormClient,
 } from "@/lib/bid-form";
-import { BidCalculatorDeviationNotice } from "@/components/bid/bid-calculator-deviation-notice";
+import { FairPriceTierNotice } from "@/components/bid/fair-price-tier-notice";
+import type { ContractorTierProfile, JobPriceBenchmark } from "@/lib/fair-price-tier";
 import { BidCommitmentNotice } from "@/components/bid/bid-commitment-notice";
 import { BidScopeLinesEditor } from "@/components/bid/bid-scope-lines-editor";
 import {
@@ -91,8 +92,8 @@ export function BidForm({
   calculatorPrefillVersion = 0,
   calculatorEstimateEuros,
   calculatorSlug,
-  contractorAvgDeviationPercent,
-  contractorDeviationSampleCount,
+  jobPriceBenchmark,
+  contractorTierProfile,
 }: {
   projectId: string;
   /** Urakoitsija toimittaa laitteet (pakollinen laitetakuu). */
@@ -117,8 +118,8 @@ export function BidForm({
   /** Laskurin arvio vertailua varten (€). */
   calculatorEstimateEuros?: number | null;
   calculatorSlug?: string | null;
-  contractorAvgDeviationPercent?: number | null;
-  contractorDeviationSampleCount?: number;
+  jobPriceBenchmark?: JobPriceBenchmark | null;
+  contractorTierProfile?: ContractorTierProfile | null;
 }) {
   const isServiceProject = Boolean(serviceEngagement);
   const initialFormFields = (() => {
@@ -637,14 +638,16 @@ export function BidForm({
             kysytään vahvistus.
           </p>
         )}
-        <div className="mt-3">
-          <BidCalculatorDeviationNotice
-            estimateEuros={activeCalculatorEstimate}
-            bidEuros={amountEuros}
-            contractorAvgDeviationPercent={contractorAvgDeviationPercent}
-            contractorSampleCount={contractorDeviationSampleCount}
-          />
-        </div>
+        {activeCalculatorEstimate != null && activeCalculatorEstimate > 0 && (
+          <div className="mt-3">
+            <FairPriceTierNotice
+              estimateEuros={activeCalculatorEstimate}
+              bidEuros={amountEuros}
+              jobBenchmark={jobPriceBenchmark ?? null}
+              contractorProfile={contractorTierProfile ?? null}
+            />
+          </div>
+        )}
       </div>
 
       <div>
