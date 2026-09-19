@@ -103,7 +103,6 @@ export const LAMMITYS_CALCULATORS: CalculatorConfig[] = [
       "Hinta nousee, jos putkireitti on pitkä, seinärakenne vaatii timanttiporausta, tarvitaan uusi sähkösyöttö taululta tai ulkoyksikkö asennetaan korkealle.",
       "Kotitalousvähennys (35 % työn osuudesta, 2026) alentaa lopullista kustannusta — laskurin summa on ennen vähennystä.",
     ],
-    priceRangeNote: "Laite + asennus yhteensä tyypillisesti 1 700–3 500 € (2025–2026).",
     ctaLabel: "Kilpailuta ilmalämpöpumppu ilmaiseksi",
   }),
 
@@ -175,7 +174,6 @@ export const LAMMITYS_CALCULATORS: CalculatorConfig[] = [
       "Laite on kalliimpi kuin ilmalämpöpumpulla, mutta hyötysuhde patterilämmityksessä on parempi.",
       "Patteriverkon kunnon arviointi vaikuttaa merkittävästi — vanha verkko saattaa vaatia osittaisen uusimisen.",
     ],
-    priceRangeNote: "Tyypillisesti 8 000–15 000 € kokonaisuutena.",
     ctaLabel: "Kilpailuta vesi-ilmälämpöpumppu",
   }),
 
@@ -234,7 +232,6 @@ export const LAMMITYS_CALCULATORS: CalculatorConfig[] = [
       "Suurin kustannuserä on maalämpökaivo. Kalliimpaa kalliossa, edullisempaa hiekassa.",
       "Maalämpö sopii parhaiten öljyn tai suoran sähkön korvaamiseen pitkäaikaisessa asumisessa.",
     ],
-    priceRangeNote: "Tyypillisesti 20 000–35 000 €.",
     ctaLabel: "Kilpailuta maalämpö",
   }),
 
@@ -301,7 +298,6 @@ export const LAMMITYS_CALCULATORS: CalculatorConfig[] = [
       "Vanhan öljylämmityksen poisto ja säiliön käsittely lisäävät kustannuksia merkittävästi.",
       "Patteriverkon kunto vaikuttaa — vanha verkko saattaa vaatia uusimista lämpöpumpun kanssa.",
     ],
-    priceRangeNote: "Tyypillisesti 12 000–25 000 €.",
     ctaLabel: "Kilpailuta lämmityksen vaihto",
   }),
 ];

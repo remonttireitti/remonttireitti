@@ -33,7 +33,6 @@ export const PALVELUT_CALCULATORS: CalculatorConfig[] = [
     scopeParagraphs: [
       "Ensimmäinen käynti voi olla kalliimpi perussiivouksen vuoksi.",
     ],
-    priceRangeNote: "100–150 € / käynti (80 m²).",
     ctaLabel: "Pyydä siivous tarjous",
   }),
 
@@ -74,7 +73,6 @@ export const PALVELUT_CALCULATORS: CalculatorConfig[] = [
     scopeParagraphs: [
       "Hienojakoista rakennuspölyä vaatii ammattilaitteet.",
     ],
-    priceRangeNote: "300–800 €.",
     ctaLabel: "Pyydä remonttisiivous tarjous",
   }),
 
@@ -123,7 +121,6 @@ export const PALVELUT_CALCULATORS: CalculatorConfig[] = [
     scopeParagraphs: [
       "Pitkät etäisyydet nostavat hintaa merkittävästi.",
     ],
-    priceRangeNote: "400–800 € / kuorma.",
     ctaLabel: "Pyydä muuttotarjous",
   }),
 
@@ -164,7 +161,6 @@ export const PALVELUT_CALCULATORS: CalculatorConfig[] = [
     scopeParagraphs: [
       "Etäisyys ja kerrokset vaikuttavat hintaan.",
     ],
-    priceRangeNote: "80–400 €.",
     ctaLabel: "Pyydä kuljetustarjous",
   }),
 
@@ -197,7 +193,6 @@ export const PALVELUT_CALCULATORS: CalculatorConfig[] = [
     scopeParagraphs: [
       "Korkeat ikkunat vaativat telineet — hinta nousee.",
     ],
-    priceRangeNote: "5–12 € / ikkuna.",
     ctaLabel: "Pyydä ikkunanpesu tarjous",
   }),
 
@@ -238,7 +233,6 @@ export const PALVELUT_CALCULATORS: CalculatorConfig[] = [
     scopeParagraphs: [
       "Kattopesu kannattaa tehdä ennen sammalen aiheuttamia vaurioita.",
     ],
-    priceRangeNote: "3–6 €/m².",
     ctaLabel: "Pyydä kattopesu tarjous",
   }),
 
@@ -272,7 +266,6 @@ export const PALVELUT_CALCULATORS: CalculatorConfig[] = [
     scopeParagraphs: [
       "Reunusleikkuu ja trimmeröinti lisäävät hintaa.",
     ],
-    priceRangeNote: "40–60 € / käynti (500 m²).",
     ctaLabel: "Pyydä nurmikonleikkuu tarjous",
   }),
 
@@ -313,7 +306,6 @@ export const PALVELUT_CALCULATORS: CalculatorConfig[] = [
     scopeParagraphs: [
       "Kausisopimus on usein edullisempi kuin yksittäiset käynnit.",
     ],
-    priceRangeNote: "50–150 € / käynti.",
     ctaLabel: "Pyydä lumityö tarjous",
   }),
 ];

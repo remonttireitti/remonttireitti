@@ -46,7 +46,6 @@ export const ULKOKUORI_CALCULATORS: CalculatorConfig[] = [
     scopeParagraphs: [
       "Kolminkertaiset lasit parantavat energiatehokkuutta merkittävästi.",
     ],
-    priceRangeNote: "500–900 € / ikkuna asennettuna.",
     ctaLabel: "Kilpailuta ikkunat",
   }),
 
@@ -94,7 +93,6 @@ export const ULKOKUORI_CALCULATORS: CalculatorConfig[] = [
     scopeParagraphs: [
       "Turvaovet ja älylukot nostavat hintaa.",
     ],
-    priceRangeNote: "1 500–2 500 € / ovi.",
     ctaLabel: "Kilpailuta ulko-ovi",
   }),
 
@@ -322,7 +320,6 @@ export const ULKOKUORI_CALCULATORS: CalculatorConfig[] = [
     scopeParagraphs: [
       "Korkeat räystäät ja vaikea pääsy nostavat työkustannuksia.",
     ],
-    priceRangeNote: "1 500–4 000 €.",
     ctaLabel: "Kilpailuta rännit",
   }),
 
@@ -379,7 +376,6 @@ export const ULKOKUORI_CALCULATORS: CalculatorConfig[] = [
     scopeParagraphs: [
       "Korkeat rakennukset vaativat telineet — ne lisäävät kustannuksia.",
     ],
-    priceRangeNote: "25–45 €/m².",
     ctaLabel: "Kilpailuta ulkomaalaus",
   }),
 
@@ -427,7 +423,6 @@ export const ULKOKUORI_CALCULATORS: CalculatorConfig[] = [
     scopeParagraphs: [
       "Vanhan verhouksen kunto vaikuttaa — homeinen alusta vaatii purun.",
     ],
-    priceRangeNote: "80–120 €/m².",
     ctaLabel: "Kilpailuta julkisivuverhous",
   }),
 
@@ -476,7 +471,6 @@ export const ULKOKUORI_CALCULATORS: CalculatorConfig[] = [
     scopeParagraphs: [
       "Kosteusvauriot on korjattava ennen uutta rapausta.",
     ],
-    priceRangeNote: "40–120 €/m².",
     ctaLabel: "Kilpailuta julkisivurappaus",
   }),
 ];

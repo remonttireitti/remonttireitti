@@ -63,7 +63,6 @@ export const SAHKO_CALCULATORS: CalculatorConfig[] = [
     scopeParagraphs: [
       "11 kW lataus vaatii usein 3-vaiheisen syötön. Etäisyys keskukselle nostaa hintaa.",
     ],
-    priceRangeNote: "Tyypillisesti 1 200–2 500 €.",
     ctaLabel: "Kilpailuta latauspiste",
   }),
 
@@ -120,7 +119,6 @@ export const SAHKO_CALCULATORS: CalculatorConfig[] = [
       "Kattotyppi vaikuttaa asennuksen hintaan — harjakatto on yleensä edullisin.",
       "Kotitalousvähennys koskee työn osuutta.",
     ],
-    priceRangeNote: "5 kW järjestelmä tyypillisesti 6 000–10 000 €.",
     ctaLabel: "Kilpailuta aurinkopaneelit",
   }),
 
@@ -168,7 +166,6 @@ export const SAHKO_CALCULATORS: CalculatorConfig[] = [
     scopeParagraphs: [
       "Vanhoissa taloissa keskuksen uusinta on usein pakollinen ennen suuria lisäkuormia.",
     ],
-    priceRangeNote: "Tyypillisesti 2 000–4 000 €.",
     ctaLabel: "Kilpailuta sähkökeskus",
   }),
 
@@ -209,7 +206,6 @@ export const SAHKO_CALCULATORS: CalculatorConfig[] = [
     scopeParagraphs: [
       "Pintavetoinen kaapelointi on edullisempaa kuin upotettu betoniseinään.",
     ],
-    priceRangeNote: "Noin 100–200 € / piste.",
     ctaLabel: "Kilpailuta sähkötyöt",
   }),
 
@@ -257,7 +253,6 @@ export const SAHKO_CALCULATORS: CalculatorConfig[] = [
     scopeParagraphs: [
       "Maanalainen kaapelointi on työläämpää mutta siistimpi ratkaisu.",
     ],
-    priceRangeNote: "Noin 200–350 € / valaisin asennettuna.",
     ctaLabel: "Kilpailuta ulkovalaistus",
   }),
 ];

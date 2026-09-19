@@ -257,7 +257,6 @@ export const SISATILAT_CALCULATORS: CalculatorConfig[] = [
     scopeParagraphs: [
       "Kalusteet ja kodinkoneet ovat suurin kustannuserä. Työ on noin 800–1 500 €/m².",
     ],
-    priceRangeNote: "Tyypillisesti 800–1 500 €/m², kokonaisuus 10 000–40 000 €.",
     ctaLabel: "Kilpailuta keittiöremontti",
   }),
 
@@ -314,7 +313,6 @@ export const SISATILAT_CALCULATORS: CalculatorConfig[] = [
     scopeParagraphs: [
       "Pienessä tilassa kiinteät minimikustannukset nostavat neliöhintaa.",
     ],
-    priceRangeNote: "Tyypillisesti 3 000–8 000 €.",
     ctaLabel: "Kilpailuta wc-remontti",
   }),
 
@@ -370,7 +368,6 @@ export const SISATILAT_CALCULATORS: CalculatorConfig[] = [
     scopeParagraphs: [
       "Sähkökiukaan asennus vaatii riittävän tehon — tarkista sulake.",
     ],
-    priceRangeNote: "3 000–15 000 € riippuen laajuudesta.",
     ctaLabel: "Kilpailuta saunaremontti",
   }),
 
@@ -433,7 +430,6 @@ export const SISATILAT_CALCULATORS: CalculatorConfig[] = [
     scopeParagraphs: [
       "Epätasainen alusta vaatii tasoituksen — se nostaa hintaa.",
     ],
-    priceRangeNote: "40–120 €/m² asennettuna.",
     ctaLabel: "Kilpailuta lattiatyö",
   }),
 
@@ -482,7 +478,6 @@ export const SISATILAT_CALCULATORS: CalculatorConfig[] = [
     scopeParagraphs: [
       "Korkeat huoneet ja huonokuntoiset pinnat nostavat hintaa.",
     ],
-    priceRangeNote: "20–35 €/m².",
     ctaLabel: "Kilpailuta maalaustyö",
   }),
 
@@ -531,7 +526,6 @@ export const SISATILAT_CALCULATORS: CalculatorConfig[] = [
     scopeParagraphs: [
       "Pieni ala on kalliimpaa neliöltä kiinteiden käyntikustannusten vuoksi.",
     ],
-    priceRangeNote: "80–120 €/m².",
     ctaLabel: "Kilpailuta laatoitus",
   }),
 ];

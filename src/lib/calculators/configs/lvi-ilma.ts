@@ -56,7 +56,6 @@ export const LVI_CALCULATORS: CalculatorConfig[] = [
       "Vanhaan taloon kanaviston veto on työlästä — hinta nousee merkittävästi.",
       "LTO-kone säästää lämmitysenergiaa talvella.",
     ],
-    priceRangeNote: "Tyypillisesti 5 000–12 000 €.",
     ctaLabel: "Kilpailuta ilmanvaihto",
   }),
 
@@ -97,7 +96,6 @@ export const LVI_CALCULATORS: CalculatorConfig[] = [
     scopeParagraphs: [
       "Puhdistuksen yhteydessä kannattaa vaihtaa suodattimet.",
     ],
-    priceRangeNote: "Tyypillisesti 400–800 €.",
     ctaLabel: "Kilpailuta ilmanvaihdon puhdistus",
   }),
 
@@ -146,7 +144,6 @@ export const LVI_CALCULATORS: CalculatorConfig[] = [
     scopeParagraphs: [
       "Linjasaneeraus taloyhtiössä on laajempi projekti kuin yksittäisen huoneen putket.",
     ],
-    priceRangeNote: "Tyypillisesti 5 000–15 000 €.",
     ctaLabel: "Kilpailuta putkiremontti",
   }),
 
@@ -195,7 +192,6 @@ export const LVI_CALCULATORS: CalculatorConfig[] = [
     scopeParagraphs: [
       "Sukitus on usein edullisempi kuin täysi kaivuu.",
     ],
-    priceRangeNote: "800–8 000 € riippuen laajuudesta.",
     ctaLabel: "Kilpailuta viemäriremontti",
   }),
 
@@ -252,7 +248,6 @@ export const LVI_CALCULATORS: CalculatorConfig[] = [
     scopeParagraphs: [
       "Vakuutus korvaa usein äkilliset putkenrikot — ilmoita vahingosta heti.",
     ],
-    priceRangeNote: "2 000–30 000 € riippuen laajuudesta.",
     ctaLabel: "Kilpailuta vesivahinkokorjaus",
   }),
 ];

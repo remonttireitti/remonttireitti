@@ -65,7 +65,6 @@ export const PUULAMMITYS_CALCULATORS: CalculatorConfig[] = [
       "Hormityö on usein merkittävä kustannuserä — olemassa olevan hormin kunto vaikuttaa.",
       "Paloturvallisuusmääräykset edellyttävät riittäviä suojaetäisyyksiä palavaan materiaaliin.",
     ],
-    priceRangeNote: "Tyypillisesti 5 000–12 000 €.",
     ctaLabel: "Kilpailuta takka tai kamiina",
   }),
 
@@ -122,7 +121,6 @@ export const PUULAMMITYS_CALCULATORS: CalculatorConfig[] = [
     scopeParagraphs: [
       "Puukattila vaatii riittävän polttotilan ja savuhormin. Patteriverkon kunto vaikuttaa lämmönjakoon.",
     ],
-    priceRangeNote: "Tyypillisesti 10 000–18 000 €.",
     ctaLabel: "Kilpailuta puukattila",
   }),
 
@@ -172,7 +170,6 @@ export const PUULAMMITYS_CALCULATORS: CalculatorConfig[] = [
       "Nuohous kannattaa teettää säännöllisesti — se pidentää hormin käyttöikää.",
       "Vanha tiilihormi saattaa vaatia pinnoituksen ennen uuden tulisijan asennusta.",
     ],
-    priceRangeNote: "Pinnoitus 1 500–4 000 €, täysi uusinta 5 000–10 000 €.",
     ctaLabel: "Kilpailuta hormityö",
   }),
 
@@ -220,7 +217,6 @@ export const PUULAMMITYS_CALCULATORS: CalculatorConfig[] = [
     scopeParagraphs: [
       "Varaaja tasaa lämpöä ja pidentää lämmityskertojen välejä.",
     ],
-    priceRangeNote: "Tyypillisesti 3 000–5 000 €.",
     ctaLabel: "Kilpailuta lämmönvaraaja",
   }),
 ];
