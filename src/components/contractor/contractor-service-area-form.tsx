@@ -168,9 +168,8 @@ export function ContractorProjectFilterBar({
         {minBudgetEur != null && minBudgetEur > 0 && (
           <>Minimibudjetti {minBudgetEur.toLocaleString("fi-FI")} €. </>
         )}
-        Merkitse pyyntöjä <span className="font-medium">Kiinnostaa</span> /{" "}
-        <span className="font-medium">Ei kiinnosta</span> — piilotetut löytyvät omasta
-        välilehdestään.
+        Merkitse pyyntöjä peukaloilla (kiinnostaa / ei kiinnosta) — piilotetut
+        löytyvät omasta välilehdestään.
       </p>
     </div>
   );
