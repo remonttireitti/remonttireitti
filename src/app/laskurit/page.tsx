@@ -4,12 +4,17 @@ import {
   FeaturedCalculatorCards,
   FeaturedCalculatorsCta,
 } from "@/components/calculator/featured-calculator-cards";
+import {
+  CalculatorsIndexSearch,
+  type CalculatorsIndexGroup,
+} from "@/components/calculator/calculators-index-search";
 import { CalculatorsIndexJsonLd } from "@/components/seo/calculators-index-json-ld";
 import { SiteHeader } from "@/components/site-header";
 import { brand } from "@/lib/brand-theme";
 import {
   publicCalculatorPath,
   getCalculatorsGroupedByArea,
+  getSlugAliasesForCalculator,
 } from "@/lib/calculators/registry";
 import { pageMetadata } from "@/lib/seo";
 import { seoDefByPath } from "@/lib/seo-pages";
@@ -23,8 +28,43 @@ export const metadata: Metadata = pageMetadata({
   keywords: seo.keywords,
 });
 
+function buildSearchGroups(): CalculatorsIndexGroup[] {
+  return getCalculatorsGroupedByArea().map((group) => ({
+    areaSlug: group.areaSlug,
+    areaTitle: group.areaTitle,
+    calculators: group.calculators.map((calc) => {
+      const aliases = getSlugAliasesForCalculator(calc.slug);
+      const searchText = [
+        calc.title,
+        calc.pageTitle,
+        calc.metaDescription,
+        calc.intro,
+        calc.slug,
+        calc.jobSlug,
+        group.areaTitle,
+        ...aliases,
+        ...calc.lineItems.flatMap((li) => [
+          li.label,
+          li.description,
+          li.searchHint ?? "",
+        ]),
+      ]
+        .join(" ")
+        .toLowerCase();
+
+      return {
+        slug: calc.slug,
+        href: publicCalculatorPath(calc.slug),
+        title: calc.title,
+        description: calc.metaDescription,
+        searchText,
+      };
+    }),
+  }));
+}
+
 export default function CalculatorsIndexPage() {
-  const groups = getCalculatorsGroupedByArea();
+  const groups = buildSearchGroups();
 
   return (
     <div className={brand.page}>
@@ -50,32 +90,7 @@ export default function CalculatorsIndexPage() {
           <FeaturedCalculatorsCta />
         </section>
 
-        <section className="mt-12 space-y-10">
-          <h2 className="text-lg font-bold text-stone-900">Kaikki laskurit alueittain</h2>
-          {groups.map((group) => (
-            <section key={group.areaSlug}>
-              <h3 className="text-base font-semibold text-stone-800">{group.areaTitle}</h3>
-              <ul className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {group.calculators.map((calc) => (
-                  <li key={calc.slug}>
-                    <Link
-                      href={publicCalculatorPath(calc.slug)}
-                      className="block h-full rounded-2xl border border-stone-200 bg-white p-4 transition hover:border-sky-300 hover:shadow-md"
-                    >
-                      <p className="font-semibold text-stone-900">{calc.title}</p>
-                      <p className="mt-1 line-clamp-2 text-sm text-stone-600">
-                        {calc.metaDescription}
-                      </p>
-                      <p className="mt-2 text-sm font-medium text-sky-700">
-                        Avaa laskuri →
-                      </p>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          ))}
-        </section>
+        <CalculatorsIndexSearch groups={groups} />
 
         <nav className="mt-10 flex flex-wrap gap-3 text-sm" aria-label="Liittyvät sivut">
           <Link
