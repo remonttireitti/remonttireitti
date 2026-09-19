@@ -19,6 +19,7 @@ import {
   fetchContractorQuotesForStats,
 } from "@/lib/contractor-quote-stats";
 import { fetchContractorQuotes } from "@/lib/contractor-quote-server";
+import { CONTRACTOR_QUOTE_STATUS_LABELS } from "@/lib/contractor-quote-types";
 import { fetchContractorPricingRates } from "@/lib/contractor-pricing-server";
 import { getCalculatorsGroupedByArea } from "@/lib/calculators/registry";
 import { formatEuro } from "@/lib/calculators/math";
@@ -199,6 +200,8 @@ export default async function ContractorQuoteHubPage({
                     <p className="text-stone-500">
                       {formatEuro(quote.total_cents / 100)}
                       {quote.client_name ? ` · ${quote.client_name}` : ""}
+                      {" · "}
+                      {CONTRACTOR_QUOTE_STATUS_LABELS[quote.status]}
                     </p>
                   </div>
                   <div className="flex gap-3">

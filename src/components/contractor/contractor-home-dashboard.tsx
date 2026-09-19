@@ -31,8 +31,11 @@ function offerHint(dashboard: ContractorDashboardData): string {
   const hasMarketplace = recentOffers.some((o) => o.source === "marketplace");
 
   if (stats.waitingCount > 0) {
-    // Count is global (bids + calculator Odottaa); keep wording neutral.
-    return `${stats.waitingCount} tarjousta odottaa asiakkaan päätöstä`;
+    // Vain status Lähetetty (laskuri) + submitted (RR) — ei luonnoksia.
+    const n = stats.waitingCount;
+    return n === 1
+      ? "1 tarjous odottaa asiakkaan päätöstä (Lähetetty)"
+      : `${n} tarjousta odottaa asiakkaan päätöstä (Lähetetty)`;
   }
 
   if (hasCalculator && hasMarketplace) {
@@ -177,7 +180,7 @@ export function ContractorHomeDashboard({
           <div>
             <h3 className="text-lg font-semibold text-stone-900">Tilastot</h3>
             <p className="mt-1 text-sm text-stone-500">
-              Yhteenveto Remonttireitti- ja laskuritarjouksistasi
+              Remonttireitti ja tarjouslaskuri erikseen, plus yhdistetty kokonaisluku
             </p>
           </div>
           <Link
@@ -188,14 +191,26 @@ export function ContractorHomeDashboard({
           </Link>
         </div>
 
-        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <StatCard
-            label="Kaikki tarjoukset"
-            value={String(stats.submittedCount)}
-            hint="Pyynnöt + laskuri"
+            label="Remonttireitti"
+            value={String(stats.marketplaceCount)}
+            hint="Tarjouspyynnöt alustalla"
           />
           <StatCard
-            label="Hyväksytyt"
+            label="Tarjouslaskuri"
+            value={String(stats.calculatorCount)}
+            hint="Omat asiakkaat / PDF"
+          />
+          <StatCard
+            label="Yhteensä"
+            value={String(stats.submittedCount)}
+            hint="Remonttireitti + laskuri"
+          />
+        </div>
+        <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <StatCard
+            label="Tilatut / hyväksytyt"
             value={String(stats.acceptedCount)}
           />
           <StatCard

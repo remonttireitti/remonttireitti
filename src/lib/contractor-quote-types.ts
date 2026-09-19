@@ -2,7 +2,15 @@ import type { CalculatedLine } from "@/lib/calculators/math";
 import type { BidCostBreakdown, BidProfitabilitySummary } from "@/lib/bid-profitability";
 import type { BidScopeLine } from "@/lib/bid-scope-lines";
 
-export type ContractorQuoteStatus = "draft" | "finalized";
+/** Tarjouksen elinkaaritila (suomenkieliset UI-tunnisteet alla). */
+export type ContractorQuoteStatus =
+  | "draft"
+  | "ready"
+  | "sent"
+  | "ordered"
+  | "rejected";
+
+/** @deprecated Käytä ContractorQuoteStatus; pidetään synkassa tilastoja varten. */
 export type ContractorQuoteOutcome = "pending" | "won" | "lost";
 
 export type ContractorQuoteRow = {
@@ -36,14 +44,97 @@ export type ContractorQuoteRow = {
   updated_at: string;
 };
 
+export const CONTRACTOR_QUOTE_STATUS_LABELS: Record<
+  ContractorQuoteStatus,
+  string
+> = {
+  draft: "Luonnos",
+  ready: "Valmis lähetettäväksi",
+  sent: "Lähetetty",
+  ordered: "Tilattu",
+  rejected: "Hylätty",
+};
+
+/** Tilauskuittauksen valinnat (lähetetylle tarjoukselle). */
 export const CONTRACTOR_QUOTE_OUTCOME_LABELS: Record<
   ContractorQuoteOutcome,
   string
 > = {
-  pending: "Odottaa",
+  pending: "Lähetetty",
   won: "Tilattu",
-  lost: "Ei tullut",
+  lost: "Hylätty",
 };
+
+const LIFECYCLE_STATUSES = new Set<string>([
+  "draft",
+  "ready",
+  "sent",
+  "ordered",
+  "rejected",
+]);
+
+/**
+ * Ratkaisee näyttö-/laskentatilan myös legacy-riveille
+ * (status=finalized + pdf/outcome).
+ */
+export function resolveContractorQuoteStatus(row: {
+  status: string | null | undefined;
+  pdf_generated_at?: string | null;
+  outcome?: string | null;
+}): ContractorQuoteStatus {
+  const raw = row.status ?? "draft";
+  if (LIFECYCLE_STATUSES.has(raw)) {
+    return raw as ContractorQuoteStatus;
+  }
+
+  // Legacy: draft | finalized
+  if (row.outcome === "won") return "ordered";
+  if (row.outcome === "lost") return "rejected";
+  if (row.pdf_generated_at) return "sent";
+  if (raw === "finalized") return "ready";
+  return "draft";
+}
+
+export function contractorQuoteStatusTone(
+  status: ContractorQuoteStatus,
+): "sky" | "emerald" | "stone" | "amber" {
+  if (status === "ordered") return "emerald";
+  if (status === "rejected") return "stone";
+  if (status === "sent") return "amber";
+  if (status === "ready") return "sky";
+  return "stone";
+}
+
+/** Outcome ↔ status -synkka kirjoituksia varten. */
+export function outcomeFromQuoteStatus(
+  status: ContractorQuoteStatus,
+): ContractorQuoteOutcome {
+  if (status === "ordered") return "won";
+  if (status === "rejected") return "lost";
+  return "pending";
+}
+
+export function quoteStatusFromOutcome(
+  outcome: ContractorQuoteOutcome,
+): ContractorQuoteStatus {
+  if (outcome === "won") return "ordered";
+  if (outcome === "lost") return "rejected";
+  return "sent";
+}
+
+/** Tallentaessa: älä pudota lähetettyä/päätettyä tarjousta takaisin "ready". */
+export function statusAfterQuoteSave(
+  current: ContractorQuoteStatus | null,
+): ContractorQuoteStatus {
+  if (
+    current === "sent" ||
+    current === "ordered" ||
+    current === "rejected"
+  ) {
+    return current;
+  }
+  return "ready";
+}
 
 export type ContractorQuoteFormFields = {
   title: string;
