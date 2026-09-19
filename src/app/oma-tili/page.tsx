@@ -13,6 +13,8 @@ import { isAdmin } from "@/lib/admin";
 import { getProfile, getSessionUser, isContractor } from "@/lib/auth";
 import { ContractorBillingForm } from "@/components/contractor/contractor-billing-form";
 import { ContractorBidDefaultsForm } from "@/components/contractor/contractor-bid-defaults-form";
+import { ContractorPricingRatesForm } from "@/components/contractor/contractor-pricing-rates-form";
+import { fetchContractorPricingRates } from "@/lib/contractor-pricing-server";
 import { ContractorProfileForm } from "@/components/contractor/contractor-profile-form";
 import { ContractorServiceAreaForm } from "@/components/contractor/contractor-service-area-form";
 import { ContractorWorkPreferencesForm } from "@/components/contractor/contractor-work-preferences-form";
@@ -469,6 +471,13 @@ export default async function AccountPage({
               className="mt-0"
               {...(await fetchContractorBidDefaultsBundle(user.id))}
             />
+
+            <div id="laskentaparametrit" className="scroll-mt-24">
+              <ContractorPricingRatesForm
+                className="mt-0"
+                rates={await fetchContractorPricingRates(user.id)}
+              />
+            </div>
 
             <ContractorServiceAreaForm
               className="mt-0"

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { ContractorCalculatorBanner } from "@/components/calculator/contractor-calculator-banner";
 import { RenovationCalculator } from "@/components/calculator/renovation-calculator";
 import { CostBreakdownChart } from "@/components/calculator/cost-breakdown-chart";
 import { CalculatorJsonLd } from "@/components/seo/calculator-json-ld";
@@ -82,8 +83,12 @@ export default async function CalculatorPage({ params }: Props) {
           </section>
         )}
 
-        <div className="mt-10">
+        <div className="mt-10 grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(280px,340px)] lg:items-start">
           <RenovationCalculator config={config} />
+          <ContractorCalculatorBanner
+            calculatorTitle={config.title}
+            className="lg:sticky lg:top-24"
+          />
         </div>
 
         <section className={`${brand.section} mt-12 p-6`}>
