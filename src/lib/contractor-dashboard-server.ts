@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { bidStatusLabels } from "@/lib/bids";
 import {
   fetchContractorOpenProjects,
   loadContractorMatchProfile,
@@ -8,6 +9,14 @@ import {
   countByFilter,
   filterContractorProjects,
 } from "@/lib/contractor-work-filter";
+import {
+  contractorQuoteCalculatorPath,
+  contractorQuotePdfDownloadPath,
+} from "@/lib/contractor-quote-paths";
+import {
+  CONTRACTOR_QUOTE_OUTCOME_LABELS,
+  type ContractorQuoteOutcome,
+} from "@/lib/contractor-quote-types";
 import type { BidStatus } from "@/types/database";
 
 const SUBMITTED_BID_STATUSES: BidStatus[] = [
@@ -15,6 +24,8 @@ const SUBMITTED_BID_STATUSES: BidStatus[] = [
   "accepted",
   "rejected",
 ];
+
+const OFFER_LIST_LIMIT = 8;
 
 export type ContractorDashboardStats = {
   submittedCount: number;
@@ -36,9 +47,27 @@ export type ContractorDashboardBid = {
   project_status: string;
 };
 
+export type ContractorDashboardOfferSource = "marketplace" | "calculator";
+
+export type ContractorDashboardOffer = {
+  id: string;
+  source: ContractorDashboardOfferSource;
+  title: string;
+  locationLabel: string;
+  amount_cents: number;
+  date: string | null;
+  statusLabel: string;
+  statusTone: "sky" | "emerald" | "stone" | "amber";
+  href: string;
+  pdfHref: string | null;
+  pdfLabel: string | null;
+  sourceLabel: string;
+};
+
 export type ContractorDashboardData = {
   recommendedProjects: ContractorOpenProject[];
   recentBids: ContractorDashboardBid[];
+  recentOffers: ContractorDashboardOffer[];
   bidProjectIds: Set<string>;
   stats: ContractorDashboardStats;
 };
@@ -58,6 +87,19 @@ type ProjectRow = {
   status: string;
 };
 
+type QuoteRow = {
+  id: string;
+  title: string;
+  total_cents: number;
+  client_name: string | null;
+  site_municipality: string | null;
+  pdf_generated_at: string | null;
+  outcome: string | null;
+  calculator_slug: string;
+  updated_at: string;
+  created_at: string;
+};
+
 function buildDashboardBid(
   bid: BidRow,
   project: ProjectRow | undefined,
@@ -72,6 +114,98 @@ function buildDashboardBid(
     project_municipality: project?.municipality ?? "—",
     project_status: project?.status ?? "unknown",
   };
+}
+
+function bidHref(bid: ContractorDashboardBid): string {
+  if (bid.status === "accepted") {
+    return `/tarjoukset/urakka/${bid.project_id}`;
+  }
+  return `/tarjoukset/${bid.project_id}`;
+}
+
+function bidStatusTone(status: BidStatus): ContractorDashboardOffer["statusTone"] {
+  if (status === "accepted") return "emerald";
+  if (status === "submitted") return "sky";
+  return "stone";
+}
+
+function quoteOutcomeTone(
+  outcome: ContractorQuoteOutcome,
+): ContractorDashboardOffer["statusTone"] {
+  if (outcome === "won") return "emerald";
+  if (outcome === "lost") return "stone";
+  return "amber";
+}
+
+function parseQuoteOutcome(raw: string | null): ContractorQuoteOutcome {
+  if (raw === "won" || raw === "lost") return raw;
+  return "pending";
+}
+
+function offerFromBid(bid: ContractorDashboardBid): ContractorDashboardOffer {
+  return {
+    id: `bid-${bid.id}`,
+    source: "marketplace",
+    title: bid.project_title,
+    locationLabel: bid.project_municipality,
+    amount_cents: bid.amount_cents,
+    date: bid.submitted_at,
+    statusLabel: bidStatusLabels[bid.status],
+    statusTone: bidStatusTone(bid.status),
+    href: bidHref(bid),
+    pdfHref: null,
+    pdfLabel: null,
+    sourceLabel: "Tarjouspyyntö",
+  };
+}
+
+function offerFromQuote(quote: QuoteRow): ContractorDashboardOffer {
+  const outcome = parseQuoteOutcome(quote.outcome);
+  const location =
+    quote.site_municipality?.trim() ||
+    quote.client_name?.trim() ||
+    "Oma tarjous";
+
+  return {
+    id: `quote-${quote.id}`,
+    source: "calculator",
+    title: quote.title,
+    locationLabel: location,
+    amount_cents: quote.total_cents,
+    date: quote.updated_at || quote.created_at,
+    statusLabel: quote.pdf_generated_at
+      ? CONTRACTOR_QUOTE_OUTCOME_LABELS[outcome]
+      : "Tallennettu",
+    statusTone: quote.pdf_generated_at ? quoteOutcomeTone(outcome) : "sky",
+    href: contractorQuoteCalculatorPath(quote.calculator_slug),
+    pdfHref: contractorQuotePdfDownloadPath(quote.id),
+    pdfLabel: quote.pdf_generated_at
+      ? "Lataa PDF uudelleen"
+      : "Lataa PDF",
+    sourceLabel: "Tarjouslaskuri",
+  };
+}
+
+function mergeRecentOffers(
+  bids: ContractorDashboardBid[],
+  quotes: QuoteRow[],
+  limit = OFFER_LIST_LIMIT,
+): ContractorDashboardOffer[] {
+  const offers: Array<ContractorDashboardOffer & { sortAt: number }> = [
+    ...bids.map((bid) => ({
+      ...offerFromBid(bid),
+      sortAt: bid.submitted_at ? Date.parse(bid.submitted_at) : 0,
+    })),
+    ...quotes.map((quote) => ({
+      ...offerFromQuote(quote),
+      sortAt: Date.parse(quote.updated_at || quote.created_at) || 0,
+    })),
+  ];
+
+  return offers
+    .sort((a, b) => b.sortAt - a.sortAt)
+    .slice(0, limit)
+    .map(({ sortAt: _sortAt, ...offer }) => offer);
 }
 
 export async function fetchContractorDashboard(
@@ -90,19 +224,37 @@ export async function fetchContractorDashboard(
     "oma-alue",
   ).slice(0, 5);
 
-  const { data: bidRows, error: bidError } = await supabase
-    .from("bids")
-    .select("id, status, amount_cents, submitted_at, project_id")
-    .eq("contractor_id", contractorId)
-    .not("submitted_at", "is", null)
-    .in("status", SUBMITTED_BID_STATUSES)
-    .order("submitted_at", { ascending: false });
+  const [bidsResult, quotesResult] = await Promise.all([
+    supabase
+      .from("bids")
+      .select("id, status, amount_cents, submitted_at, project_id")
+      .eq("contractor_id", contractorId)
+      .not("submitted_at", "is", null)
+      .in("status", SUBMITTED_BID_STATUSES)
+      .order("submitted_at", { ascending: false }),
+    supabase
+      .from("contractor_quotes")
+      .select(
+        "id, title, total_cents, client_name, site_municipality, pdf_generated_at, outcome, calculator_slug, updated_at, created_at",
+      )
+      .eq("contractor_id", contractorId)
+      .eq("status", "finalized")
+      .order("updated_at", { ascending: false })
+      .limit(OFFER_LIST_LIMIT),
+  ]);
 
-  if (bidError) {
-    console.error("[fetchContractorDashboard/bids]", bidError.message);
+  if (bidsResult.error) {
+    console.error("[fetchContractorDashboard/bids]", bidsResult.error.message);
+  }
+  if (quotesResult.error) {
+    console.error(
+      "[fetchContractorDashboard/quotes]",
+      quotesResult.error.message,
+    );
   }
 
-  const submittedBids = (bidRows ?? []) as BidRow[];
+  const submittedBids = (bidsResult.data ?? []) as BidRow[];
+  const calculatorQuotes = (quotesResult.data ?? []) as QuoteRow[];
   const projectIds = [...new Set(submittedBids.map((b) => b.project_id))];
 
   let projectMap = new Map<string, ProjectRow>();
@@ -124,9 +276,11 @@ export async function fetchContractorDashboard(
     );
   }
 
-  const recentBids = submittedBids
-    .slice(0, 8)
-    .map((bid) => buildDashboardBid(bid, projectMap.get(bid.project_id)));
+  const allDashboardBids = submittedBids.map((bid) =>
+    buildDashboardBid(bid, projectMap.get(bid.project_id)),
+  );
+  const recentBids = allDashboardBids.slice(0, OFFER_LIST_LIMIT);
+  const recentOffers = mergeRecentOffers(allDashboardBids, calculatorQuotes);
 
   const bidProjectIds = new Set(submittedBids.map((b) => b.project_id));
 
@@ -145,6 +299,7 @@ export async function fetchContractorDashboard(
   return {
     recommendedProjects,
     recentBids,
+    recentOffers,
     bidProjectIds,
     stats: {
       submittedCount,

@@ -7,6 +7,7 @@ import { getSessionUser } from "@/lib/auth";
 import {
   contractorQuoteCalculatorPath,
   contractorQuoteHubPath,
+  contractorQuotePdfDownloadPath,
 } from "@/lib/contractor-quote-paths";
 import { ContractorQuoteOutcomeControl } from "@/components/contractor/contractor-quote-outcome-control";
 import { ContractorQuoteStatsPanel } from "@/components/contractor/contractor-quote-stats-panel";
@@ -133,6 +134,12 @@ export default async function ContractorQuoteHubPage({
                         </>
                       )}
                     </p>
+                    <Link
+                      href={contractorQuotePdfDownloadPath(quote.id)}
+                      className="mt-1 inline-block text-sm font-medium text-emerald-800 hover:underline"
+                    >
+                      Lataa PDF uudelleen
+                    </Link>
                   </div>
                   <ContractorQuoteOutcomeControl quote={quote} />
                 </li>
@@ -189,14 +196,12 @@ export default async function ContractorQuoteHubPage({
                     >
                       Avaa laskuri
                     </Link>
-                    {quote.pdf_generated_at && (
-                      <Link
-                        href={`/tarjouslaskuri/lataus/${quote.id}`}
-                        className="text-emerald-800 hover:underline"
-                      >
-                        PDF
-                      </Link>
-                    )}
+                    <Link
+                      href={contractorQuotePdfDownloadPath(quote.id)}
+                      className="text-emerald-800 hover:underline"
+                    >
+                      {quote.pdf_generated_at ? "PDF uudelleen" : "Lataa PDF"}
+                    </Link>
                   </div>
                 </li>
               ))}
