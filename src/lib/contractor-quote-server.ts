@@ -100,6 +100,7 @@ export async function loadContractorQuotePdfData(
     businessId: profile?.business_id?.trim() || null,
     billingAddress: billingParts.length > 0 ? billingParts.join(", ") : null,
     companyDescription: profile?.description?.trim() || null,
+    logoUrl: null,
     logoDataUri: logo?.dataUri ?? null,
   };
 }

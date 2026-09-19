@@ -9,19 +9,34 @@ import {
 } from "@react-pdf/renderer";
 import { formatEuro } from "@/lib/calculators/math";
 import {
-  quoteVatBreakdown,
-  type ContractorQuoteRow,
-} from "@/lib/contractor-quote-types";
+  CONTRACTOR_QUOTE_APP_ATTRIBUTION,
+  CONTRACTOR_QUOTE_VALIDITY_NOTE,
+  type ContractorQuoteDocumentView,
+} from "@/lib/contractor-quote-print";
+import { quoteVatBreakdown } from "@/lib/contractor-quote-types";
 import { vatLabel } from "@/lib/vat-label";
+import type { ContractorQuoteRow } from "@/lib/contractor-quote-types";
 
-export type ContractorQuotePdfData = {
-  quote: ContractorQuoteRow;
-  companyName: string;
-  businessId: string | null;
-  billingAddress: string | null;
-  companyDescription: string | null;
-  logoDataUri: string | null;
+export type ContractorQuotePdfData = ContractorQuoteDocumentView & {
+  logoDataUri?: string | null;
 };
+
+export function contractorQuotePdfDataFromRow(
+  row: ContractorQuoteRow,
+  company: Omit<ContractorQuoteDocumentView, "quote"> & {
+    logoDataUri?: string | null;
+  },
+): ContractorQuotePdfData {
+  return {
+    quote: row,
+    companyName: company.companyName,
+    businessId: company.businessId,
+    billingAddress: company.billingAddress,
+    companyDescription: company.companyDescription,
+    logoUrl: company.logoUrl,
+    logoDataUri: company.logoDataUri,
+  };
+}
 
 const styles = StyleSheet.create({
   page: {
@@ -175,11 +190,9 @@ function ContractorQuotePdfDocument({ data }: { data: ContractorQuotePdfData }) 
         </View>
 
         <View style={styles.footer}>
-          <Text>
-            Tarjous on laadittu Remonttireitin tarjouslaskurilla. Tarjous on
-            voimassa 30 päivää ellei toisin mainita. Lopullinen hinta voi
-            muuttua, jos työn laajuus tai olosuhteet poikkeavat tarjouksen
-            perusteista.
+          <Text>{CONTRACTOR_QUOTE_VALIDITY_NOTE}</Text>
+          <Text style={{ marginTop: 8, fontWeight: 700, color: "#44403c" }}>
+            {CONTRACTOR_QUOTE_APP_ATTRIBUTION}
           </Text>
         </View>
       </Page>
