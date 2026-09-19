@@ -9,7 +9,11 @@ import {
   fetchContractorQuotePdfUsage,
 } from "@/lib/contractor-quote-limits";
 import { clampQuoteValidityDays } from "@/lib/contractor-quote-defaults";
-import type { ContractorQuoteFormFields } from "@/lib/contractor-quote-types";
+import {
+  resolveContractorQuoteStatus,
+  statusAfterQuoteSave,
+  type ContractorQuoteFormFields,
+} from "@/lib/contractor-quote-types";
 import { revalidatePath } from "next/cache";
 
 export type ContractorQuoteActionState = {
@@ -69,6 +73,24 @@ export async function saveContractorQuote(
     buildSeededScopeLines(jobSlug, ""),
   );
 
+  let nextStatus: "ready" | "sent" | "ordered" | "rejected" | "draft" = "ready";
+  if (quoteId) {
+    const { data: existing } = await supabase
+      .from("contractor_quotes")
+      .select("status, pdf_generated_at, outcome")
+      .eq("id", quoteId)
+      .eq("contractor_id", user.id)
+      .maybeSingle();
+    if (!existing) return { error: "Tarjousta ei löydy." };
+    nextStatus = statusAfterQuoteSave(
+      resolveContractorQuoteStatus({
+        status: existing.status as string,
+        pdf_generated_at: existing.pdf_generated_at as string | null,
+        outcome: existing.outcome as string | null,
+      }),
+    );
+  }
+
   const row = {
     contractor_id: user.id,
     calculator_slug: calculatorSlug || result.calculatorSlug,
@@ -90,7 +112,7 @@ export async function saveContractorQuote(
     notes: fields.notes || null,
     terms: fields.terms || null,
     validity_days: fields.validityDays,
-    status: "finalized" as const,
+    status: nextStatus,
     updated_at: new Date().toISOString(),
   };
 

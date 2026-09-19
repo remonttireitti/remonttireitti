@@ -3,7 +3,10 @@ import {
   contractorLogoBytesForPdf,
   contractorLogoSignedUrl,
 } from "@/lib/contractor-branding";
-import type { ContractorQuoteRow } from "@/lib/contractor-quote-types";
+import {
+  resolveContractorQuoteStatus,
+  type ContractorQuoteRow,
+} from "@/lib/contractor-quote-types";
 import type { CalculatedLine } from "@/lib/calculators/math";
 import type { BidCostBreakdown, BidProfitabilitySummary } from "@/lib/bid-profitability";
 import type { BidScopeLine } from "@/lib/bid-scope-lines";
@@ -37,7 +40,12 @@ function parseQuoteRow(raw: Record<string, unknown>): ContractorQuoteRow {
       raw.validity_days != null && Number.isFinite(Number(raw.validity_days))
         ? Math.max(1, Math.round(Number(raw.validity_days)))
         : 30,
-    status: raw.status === "finalized" ? "finalized" : "draft",
+    status: resolveContractorQuoteStatus({
+      status: raw.status != null ? String(raw.status) : "draft",
+      pdf_generated_at:
+        raw.pdf_generated_at != null ? String(raw.pdf_generated_at) : null,
+      outcome: raw.outcome != null ? String(raw.outcome) : null,
+    }),
     pdf_generated_at:
       raw.pdf_generated_at != null ? String(raw.pdf_generated_at) : null,
     outcome:

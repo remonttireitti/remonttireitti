@@ -14,8 +14,10 @@ import {
   contractorQuotePdfDownloadPath,
 } from "@/lib/contractor-quote-paths";
 import {
-  CONTRACTOR_QUOTE_OUTCOME_LABELS,
-  type ContractorQuoteOutcome,
+  CONTRACTOR_QUOTE_STATUS_LABELS,
+  contractorQuoteStatusTone,
+  resolveContractorQuoteStatus,
+  type ContractorQuoteStatus,
 } from "@/lib/contractor-quote-types";
 import type { BidStatus } from "@/types/database";
 
@@ -27,13 +29,24 @@ const SUBMITTED_BID_STATUSES: BidStatus[] = [
 
 const OFFER_LIST_LIMIT = 8;
 
+/** Laskuritarjoukset listassa / tilastoissa (ei luonnoksia). */
+const QUOTE_LIST_STATUSES = ["ready", "sent", "ordered", "rejected", "finalized"] as const;
+
 export type ContractorDashboardStats = {
-  /** Marketplace bids + finalized calculator quotes (same universe as Omat tarjoukset). */
+  /** Remonttireitti-markkinapaikan lähetetyt tarjoukset. */
+  marketplaceCount: number;
+  /** Tarjouslaskurin valmiit/lähetetyt/päätetyt tarjoukset. */
+  calculatorCount: number;
+  /** marketplaceCount + calculatorCount */
   submittedCount: number;
+  /** Hyväksytyt (RR) + tilatut (laskuri). */
   acceptedCount: number;
-  /** Marketplace "submitted" + calculator PDF quotes still "Odottaa". */
+  /**
+   * Asiakkaan päätöstä odottavat: RR status=submitted + laskuri status=sent (Lähetetty).
+   * Ei sisällä luonnoksia eikä "Valmis lähetettäväksi".
+   */
   waitingCount: number;
-  /** Marketplace bids + calculator quotes with a generated PDF (conversion base). */
+  /** Lähetetyt tarjoukset konversiolaskentaan (RR + laskuri PDF/sent+). */
   sentCount: number;
   conversionPercent: number | null;
   openMatchCount: number;
@@ -66,6 +79,8 @@ export type ContractorDashboardOffer = {
   pdfHref: string | null;
   pdfLabel: string | null;
   sourceLabel: string;
+  /** true = odottaa asiakkaan päätöstä (Lähetetty). */
+  isWaiting: boolean;
 };
 
 export type ContractorDashboardData = {
@@ -99,6 +114,7 @@ type QuoteRow = {
   site_municipality: string | null;
   pdf_generated_at: string | null;
   outcome: string | null;
+  status: string | null;
   calculator_slug: string;
   updated_at: string;
   created_at: string;
@@ -129,21 +145,17 @@ function bidHref(bid: ContractorDashboardBid): string {
 
 function bidStatusTone(status: BidStatus): ContractorDashboardOffer["statusTone"] {
   if (status === "accepted") return "emerald";
-  if (status === "submitted") return "sky";
-  return "stone";
+  if (status === "submitted") return "amber";
+  if (status === "rejected") return "stone";
+  return "sky";
 }
 
-function quoteOutcomeTone(
-  outcome: ContractorQuoteOutcome,
-): ContractorDashboardOffer["statusTone"] {
-  if (outcome === "won") return "emerald";
-  if (outcome === "lost") return "stone";
-  return "amber";
-}
-
-function parseQuoteOutcome(raw: string | null): ContractorQuoteOutcome {
-  if (raw === "won" || raw === "lost") return raw;
-  return "pending";
+function quoteLifecycle(quote: QuoteRow): ContractorQuoteStatus {
+  return resolveContractorQuoteStatus({
+    status: quote.status,
+    pdf_generated_at: quote.pdf_generated_at,
+    outcome: quote.outcome,
+  });
 }
 
 function offerFromBid(bid: ContractorDashboardBid): ContractorDashboardOffer {
@@ -160,11 +172,12 @@ function offerFromBid(bid: ContractorDashboardBid): ContractorDashboardOffer {
     pdfHref: null,
     pdfLabel: null,
     sourceLabel: "Tarjouspyyntö",
+    isWaiting: bid.status === "submitted",
   };
 }
 
 function offerFromQuote(quote: QuoteRow): ContractorDashboardOffer {
-  const outcome = parseQuoteOutcome(quote.outcome);
+  const status = quoteLifecycle(quote);
   const location =
     quote.site_municipality?.trim() ||
     quote.client_name?.trim() ||
@@ -177,16 +190,19 @@ function offerFromQuote(quote: QuoteRow): ContractorDashboardOffer {
     locationLabel: location,
     amount_cents: quote.total_cents,
     date: quote.updated_at || quote.created_at,
-    statusLabel: quote.pdf_generated_at
-      ? CONTRACTOR_QUOTE_OUTCOME_LABELS[outcome]
-      : "Tallennettu",
-    statusTone: quote.pdf_generated_at ? quoteOutcomeTone(outcome) : "sky",
+    statusLabel: CONTRACTOR_QUOTE_STATUS_LABELS[status],
+    statusTone: contractorQuoteStatusTone(status),
     href: contractorQuoteCalculatorPath(quote.calculator_slug),
     pdfHref: contractorQuotePdfDownloadPath(quote.id),
-    pdfLabel: quote.pdf_generated_at
-      ? "Lataa PDF uudelleen"
-      : "Lataa PDF",
+    pdfLabel:
+      status === "sent" ||
+      status === "ordered" ||
+      status === "rejected" ||
+      Boolean(quote.pdf_generated_at)
+        ? "Lataa PDF uudelleen"
+        : "Lataa PDF",
     sourceLabel: "Tarjouslaskuri",
+    isWaiting: status === "sent",
   };
 }
 
@@ -206,8 +222,13 @@ function mergeRecentOffers(
     })),
   ];
 
+  // Odottavat (Lähetetty) ensin, sitten tuoreimmat — header-luku ja listan
+  // badge't vastaavat toisiaan paremmin.
   return offers
-    .sort((a, b) => b.sortAt - a.sortAt)
+    .sort((a, b) => {
+      if (a.isWaiting !== b.isWaiting) return a.isWaiting ? -1 : 1;
+      return b.sortAt - a.sortAt;
+    })
     .slice(0, limit)
     .map(({ sortAt: _sortAt, ...offer }) => offer);
 }
@@ -239,10 +260,10 @@ export async function fetchContractorDashboard(
     supabase
       .from("contractor_quotes")
       .select(
-        "id, title, total_cents, client_name, site_municipality, pdf_generated_at, outcome, calculator_slug, updated_at, created_at",
+        "id, title, total_cents, client_name, site_municipality, pdf_generated_at, outcome, status, calculator_slug, updated_at, created_at",
       )
       .eq("contractor_id", contractorId)
-      .eq("status", "finalized")
+      .in("status", [...QUOTE_LIST_STATUSES])
       .order("updated_at", { ascending: false }),
   ]);
 
@@ -294,23 +315,20 @@ export async function fetchContractorDashboard(
     (b) => b.status === "submitted",
   ).length;
 
-  const quoteWon = calculatorQuotes.filter(
-    (q) => parseQuoteOutcome(q.outcome) === "won",
-  ).length;
-  const quoteWaiting = calculatorQuotes.filter(
-    (q) =>
-      Boolean(q.pdf_generated_at) && parseQuoteOutcome(q.outcome) === "pending",
-  ).length;
-  const quoteSent = calculatorQuotes.filter((q) =>
-    Boolean(q.pdf_generated_at),
+  const quoteStatuses = calculatorQuotes.map(quoteLifecycle);
+  const quoteWon = quoteStatuses.filter((s) => s === "ordered").length;
+  const quoteWaiting = quoteStatuses.filter((s) => s === "sent").length;
+  const quoteSent = quoteStatuses.filter(
+    (s) => s === "sent" || s === "ordered" || s === "rejected",
   ).length;
 
-  // Match Omat tarjoukset: every marketplace bid + every finalized calculator quote.
-  const submittedCount = submittedBids.length + calculatorQuotes.length;
+  const marketplaceCount = submittedBids.length;
+  const calculatorCount = calculatorQuotes.length;
+  const submittedCount = marketplaceCount + calculatorCount;
   const acceptedCount = marketplaceAccepted + quoteWon;
+  // Vain Lähetetty / submitted — ei luonnoksia eikä "Valmis lähetettäväksi".
   const waitingCount = marketplaceWaiting + quoteWaiting;
-  // Conversion uses actually sent offers (bids + PDF-exported calculator quotes).
-  const sentCount = submittedBids.length + quoteSent;
+  const sentCount = marketplaceCount + quoteSent;
   const conversionPercent =
     sentCount > 0
       ? Math.round((acceptedCount / sentCount) * 1000) / 10
@@ -322,6 +340,8 @@ export async function fetchContractorDashboard(
     recentOffers,
     bidProjectIds,
     stats: {
+      marketplaceCount,
+      calculatorCount,
       submittedCount,
       acceptedCount,
       waitingCount,

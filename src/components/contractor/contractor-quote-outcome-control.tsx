@@ -49,9 +49,9 @@ export function ContractorQuoteOutcomeControl({
         className="rounded-lg border border-stone-200 px-2 py-1 text-xs"
         aria-label="Tilauskuittaus"
       >
-        <option value="pending">Odottaa</option>
+        <option value="pending">Lähetetty</option>
         <option value="won">Tilattu</option>
-        <option value="lost">Ei tullut</option>
+        <option value="lost">Hylätty</option>
       </select>
       <button
         type="submit"
