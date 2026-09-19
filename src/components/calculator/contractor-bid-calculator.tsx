@@ -63,6 +63,11 @@ export function ContractorBidCalculator({
     config.secondaryInput?.defaultValue ?? 0,
   );
   const [tierId, setTierId] = useState(defaultTier);
+  const [suggestedAddons, setSuggestedAddons] = useState<string[]>([]);
+  const [suggestedInfoNeeds, setSuggestedInfoNeeds] = useState<string[]>([]);
+  const [addonDraft, setAddonDraft] = useState("");
+  const [infoNeedDraft, setInfoNeedDraft] = useState("");
+  const [suggestForFuture, setSuggestForFuture] = useState(true);
   const [items, setItems] = useState<CalculatorLineItem[]>(() => {
     const tier = config.tiers?.find((t) => t.id === defaultTier);
     const base = tier
@@ -142,6 +147,20 @@ export function ContractorBidCalculator({
     (q) => q.mode === "quick" || estimateMode === "detail",
   );
 
+  function addAddon() {
+    const label = addonDraft.trim();
+    if (!label || suggestedAddons.includes(label)) return;
+    setSuggestedAddons((prev) => [...prev, label]);
+    setAddonDraft("");
+  }
+
+  function addInfoNeed() {
+    const label = infoNeedDraft.trim();
+    if (!label || suggestedInfoNeeds.includes(label)) return;
+    setSuggestedInfoNeeds((prev) => [...prev, label]);
+    setInfoNeedDraft("");
+  }
+
   function handleApply() {
     onApply({
       subtotal: estimate.subtotal,
@@ -150,6 +169,9 @@ export function ContractorBidCalculator({
       lines: estimate.lines.filter((l) => l.enabled),
       primaryQty: clampedPrimary,
       calculatorSlug: config.slug,
+      suggestedAddons,
+      suggestedInfoNeeds,
+      suggestForFutureRequests: suggestForFuture,
     });
   }
 
@@ -297,6 +319,86 @@ export function ContractorBidCalculator({
           </li>
         )}
       </ul>
+
+      <div className="rounded-xl border border-stone-200 bg-white p-4">
+        <p className="text-sm font-semibold text-stone-800">
+          Puuttuuko laskurista jokin?
+        </p>
+        <p className="mt-1 text-xs text-stone-600">
+          Yksittäinen ehdotus ei muuta laskuria kaikille. Kun useat urakoitsijat
+          pyytävät samaa, se ehdotetaan tuleville tarjouspyynnöille.
+        </p>
+        <div className="mt-3 grid gap-4 sm:grid-cols-2">
+          <div>
+            <label className="block text-xs font-medium text-stone-700">
+              Lisätyö tai rivi (esim. pellitettävä savupiippu)
+            </label>
+            <div className="mt-1 flex gap-2">
+              <input
+                type="text"
+                value={addonDraft}
+                onChange={(e) => setAddonDraft(e.target.value)}
+                className={`flex-1 rounded-lg border border-stone-200 px-3 py-2 text-sm ${brand.input}`}
+                placeholder="Sadevesijärjestelmä"
+              />
+              <button
+                type="button"
+                onClick={addAddon}
+                className="rounded-lg border border-stone-300 px-3 py-2 text-sm font-medium"
+              >
+                +
+              </button>
+            </div>
+            {suggestedAddons.length > 0 && (
+              <ul className="mt-2 space-y-1 text-xs text-stone-600">
+                {suggestedAddons.map((a) => (
+                  <li key={a}>• {a}</li>
+                ))}
+              </ul>
+            )}
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-stone-700">
+              Puuttuva tieto (esim. katon kaltevuus)
+            </label>
+            <div className="mt-1 flex gap-2">
+              <input
+                type="text"
+                value={infoNeedDraft}
+                onChange={(e) => setInfoNeedDraft(e.target.value)}
+                className={`flex-1 rounded-lg border border-stone-200 px-3 py-2 text-sm ${brand.input}`}
+                placeholder="Katon kaltevuus"
+              />
+              <button
+                type="button"
+                onClick={addInfoNeed}
+                className="rounded-lg border border-stone-300 px-3 py-2 text-sm font-medium"
+              >
+                +
+              </button>
+            </div>
+            {suggestedInfoNeeds.length > 0 && (
+              <ul className="mt-2 space-y-1 text-xs text-stone-600">
+                {suggestedInfoNeeds.map((a) => (
+                  <li key={a}>• {a}</li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+        <label className="mt-3 flex items-start gap-2 text-xs text-stone-600">
+          <input
+            type="checkbox"
+            checked={suggestForFuture}
+            onChange={(e) => setSuggestForFuture(e.target.checked)}
+            className="mt-0.5"
+          />
+          <span>
+            Ehdota näitä tuleville tarjouspyynnöille, kun useat urakoitsijat
+            pyytävät samaa
+          </span>
+        </label>
+      </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
         <CostBreakdownChart

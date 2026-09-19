@@ -9,6 +9,7 @@ import { getProfile, getSessionUser, isContractor } from "@/lib/auth";
 import { fetchProjectCatalog } from "@/lib/job-catalog-server";
 import { parseRemonttiPrefillFromSearchParams } from "@/lib/remontti-prefill";
 import { brand } from "@/lib/brand-theme";
+import { fetchAllLearnedProposals } from "@/lib/learned-proposals";
 import {
   fetchAllEmphasizedCriteria,
   fetchAllLearnedCriteria,
@@ -33,11 +34,13 @@ export default async function NewProjectPage({
   }
 
   const supabase = await createClient();
-  const [catalog, emphasizedCriteria, learnedCriteria] = await Promise.all([
-    fetchProjectCatalog(),
-    fetchAllEmphasizedCriteria(supabase),
-    fetchAllLearnedCriteria(supabase),
-  ]);
+  const [catalog, emphasizedCriteria, learnedCriteria, learnedProposals] =
+    await Promise.all([
+      fetchProjectCatalog(),
+      fetchAllEmphasizedCriteria(supabase),
+      fetchAllLearnedCriteria(supabase),
+      fetchAllLearnedProposals(supabase),
+    ]);
 
   if (catalog.jobTypes.length === 0) {
     return (
@@ -111,6 +114,7 @@ export default async function NewProjectPage({
             prefill={prefill}
             emphasizedCriteria={emphasizedCriteria}
             learnedCriteria={learnedCriteria}
+            learnedProposals={learnedProposals}
             isGuest={isGuest}
           />
         </div>

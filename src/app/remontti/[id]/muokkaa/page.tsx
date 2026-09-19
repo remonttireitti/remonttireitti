@@ -7,6 +7,7 @@ import { buildProjectEditSnapshot } from "@/lib/project-edit";
 import { fetchHeatPumpCatalog } from "@/lib/job-catalog-server";
 import { createClient } from "@/lib/supabase/server";
 import { brand } from "@/lib/brand-theme";
+import { fetchAllLearnedProposals } from "@/lib/learned-proposals";
 import {
   fetchAllEmphasizedCriteria,
   fetchAllLearnedCriteria,
@@ -78,11 +79,13 @@ export default async function EditProjectPage({
     .eq("project_id", id)
     .eq("status", "submitted");
 
-  const [catalog, emphasizedCriteria, learnedCriteria] = await Promise.all([
-    fetchHeatPumpCatalog(),
-    fetchAllEmphasizedCriteria(supabase),
-    fetchAllLearnedCriteria(supabase),
-  ]);
+  const [catalog, emphasizedCriteria, learnedCriteria, learnedProposals] =
+    await Promise.all([
+      fetchHeatPumpCatalog(),
+      fetchAllEmphasizedCriteria(supabase),
+      fetchAllLearnedCriteria(supabase),
+      fetchAllLearnedProposals(supabase),
+    ]);
   const editSnapshot = buildProjectEditSnapshot(project, tradeIds);
 
   return (
@@ -109,6 +112,7 @@ export default async function EditProjectPage({
             submittedBidCount={submittedBidCount ?? 0}
             emphasizedCriteria={emphasizedCriteria}
             learnedCriteria={learnedCriteria}
+            learnedProposals={learnedProposals}
           />
         </div>
       </main>
