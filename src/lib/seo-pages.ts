@@ -2,6 +2,7 @@ import type { MetadataRoute } from "next";
 import { HEAT_PUMP_JOB_SLUGS } from "@/constants/heat-pumps";
 import { LISTING_PRODUCT_CATEGORIES } from "@/lib/marketplace-categories";
 import {
+  CALCULATOR_KEYWORDS,
   CONTRACTOR_KEYWORDS,
   HELP_KEYWORDS,
   HEAT_PUMP_KEYWORDS,
@@ -96,6 +97,28 @@ export const STATIC_SEO_PAGES: SeoPageDef[] = [
     description:
       "Saitko tarjoukset muualta? Lähetä ne Remonttireittiin — asiantuntija auttaa ymmärtämään hintaa ja sisältöä. 0 €, ei suositusta urakoitsijasta.",
     keywords: mergeKeywords(SITE_KEYWORDS, TARJOUSARVIO_KEYWORDS, HEAT_PUMP_KEYWORDS.slice(0, 3)),
+    changeFrequency: "monthly",
+    priority: 0.88,
+  },
+  {
+    path: "/laskurit",
+    title: "Remonttilaskurit — arvioi remontin hinta",
+    description:
+      "Ilmaiset remonttilaskurit budjetointiin. Kylpyhuoneremontin hinta-arvio purusta laatoitukseen — kilpailuta lopullinen hinta ilmaiseksi.",
+    keywords: mergeKeywords(SITE_KEYWORDS, CALCULATOR_KEYWORDS),
+    changeFrequency: "monthly",
+    priority: 0.82,
+  },
+  {
+    path: "/laskurit/kylpyhuoneremontti",
+    title: "Kylpyhuoneremontti laskuri — arvioi remontin hinta",
+    description:
+      "Laske kylpyhuoneremontin hinta-arvio: purku, vesieristys, laatoitus, LVI ja kalusteet. Muokattavat hinnat, oma kulut, Google-hintahaut. Kilpailuta ilmaiseksi.",
+    keywords: mergeKeywords(
+      SITE_KEYWORDS,
+      CALCULATOR_KEYWORDS,
+      ["kylpyhuoneremontti", "vesieristys", "laatoitus"],
+    ),
     changeFrequency: "monthly",
     priority: 0.88,
   },

@@ -46,10 +46,11 @@ Sinulla on:
 | Prioriteetti | Sisältö | Esimerkkihaku |
 |---|---|---|
 | 1 | `/vian-selvitys/*` | lämpöpumppu ei lämmitä, virhekoodi |
-| 2 | Lämpöpumpun palvelusivut | ilmalämpöpumpun asennus, huolto |
-| 3 | Avoimet tarjouspyynnöt | kattoremontti Espoo (kun niitä on) |
-| 4 | `/apu` | naapuriapu, pieni apu (kapea, matala volyymi) |
-| 5 | FB + paikalliset ryhmät | ei SEO, mutta tuo ensimmäiset pyynnöt |
+| 2 | `/laskurit/kylpyhuoneremontti` | kylpyhuoneremontti hinta, vesieristys hinta |
+| 3 | Lämpöpumpun palvelusivut | ilmalämpöpumpun asennus, huolto |
+| 4 | Avoimet tarjouspyynnöt | kattoremontti Espoo (kun niitä on) |
+| 5 | `/apu` | naapuriapu, pieni apu (kapea, matala volyymi) |
+| 6 | FB + paikalliset ryhmät | ei SEO, mutta tuo ensimmäiset pyynnöt |
 
 **Myöhemmin (kun liikennettä):** kaupunki-sivut (`/palvelut/kattoremontti/helsinki`).
 
