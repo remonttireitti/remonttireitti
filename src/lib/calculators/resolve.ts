@@ -120,8 +120,56 @@ function buildPricingTokens(estimate: ResolvedEstimate): PricingTokens {
   };
 }
 
-function fillTemplate(text: string, tokens: PricingTokens): string {
-  return text.replace(/\{(\w+)\}/g, (_, key: string) => {
+type LinePricingTokens = {
+  low: string;
+  mid: string;
+  high: string;
+  range: string;
+  label: string;
+  unit: string;
+};
+
+function buildLinePricingTokens(config: CalculatorConfig): Record<string, LinePricingTokens> {
+  const range = getEstimateRange(config);
+  const { items } = defaultLineItems(config);
+  const secondaryUnit = config.secondaryInput?.unit ?? "m";
+  const primaryUnit = config.primaryInput.unit;
+  const out: Record<string, LinePricingTokens> = {};
+
+  for (const item of items) {
+    const mid = Math.round(item.amount);
+    const low = Math.round(item.amount * range.lowMultiplier);
+    const high = Math.round(item.amount * range.highMultiplier);
+    const unit =
+      item.unit === "per_secondary"
+        ? secondaryUnit
+        : item.unit === "per_primary"
+          ? primaryUnit
+          : "";
+    out[item.id] = {
+      low: formatEuro(low),
+      mid: formatEuro(mid),
+      high: formatEuro(high),
+      range: `${formatEuro(low)}–${formatEuro(high)}`,
+      label: item.label,
+      unit,
+    };
+  }
+  return out;
+}
+
+function fillTemplate(
+  text: string,
+  tokens: PricingTokens,
+  lineTokens: Record<string, LinePricingTokens> = {},
+): string {
+  const withLines = text.replace(
+    /\{line:([\w-]+):(range|mid|low|high|label|unit)\}/g,
+    (_, id: string, field: keyof LinePricingTokens) => {
+      return lineTokens[id]?.[field] ?? `{line:${id}:${field}}`;
+    },
+  );
+  return withLines.replace(/\{(\w+)\}/g, (_, key: string) => {
     return tokens[key as keyof PricingTokens] ?? `{${key}}`;
   });
 }
@@ -148,9 +196,10 @@ export function resolvePriceRangeNote(config: CalculatorConfig): string {
 
 export function resolveFaq(config: CalculatorConfig): { q: string; a: string }[] {
   const tokens = buildPricingTokens(resolveDefaultEstimate(config));
+  const lineTokens = buildLinePricingTokens(config);
   return config.faq.map((item) => ({
-    q: fillTemplate(item.q, tokens),
-    a: fillTemplate(item.a, tokens),
+    q: fillTemplate(item.q, tokens, lineTokens),
+    a: fillTemplate(item.a, tokens, lineTokens),
   }));
 }
 

@@ -152,7 +152,11 @@ export function buildCalculator(params: BuildCalcParams): CalculatorConfig {
 
   const faq = params.faq.map((item) => ({
     q: item.q,
-    a: enrichFaqAnswer(item.q, item.a, params.primaryInput.unit),
+    a: enrichFaqAnswer(item.q, item.a, {
+      primaryUnit: params.primaryInput.unit,
+      lines: params.lines.map((l) => ({ id: l.id, label: l.label, unit: l.unit })),
+      secondaryUnit: params.secondaryInput?.unit,
+    }),
   }));
 
   return {

@@ -87,7 +87,7 @@ export const SISATILAT_CALCULATORS: CalculatorConfig[] = [
       },
       {
         q: "Mitä maksaa kylpyhuoneen vesieristys?",
-        a: "Pelkkä vesieristys 500–2 500 €. Yhdessä laatoituksen kanssa 2 000–5 000 €. Laskurin vesieristysrivi {defaultSize} kohteella on osa kokonaisarviossa {totalMid}.",
+        a: "Pelkkä vesieristys 500–2 500 €. Yhdessä laatoituksen kanssa 2 000–5 000 €. Laskurin rivihinta ({line:vesieristys:label}): {line:vesieristys:range}/{primaryUnit} (noin {line:vesieristys:mid}/{primaryUnit}).",
       },
     ],
     scopeTitle: "Miten kylpyhuoneremontin hinta muodostuu?",

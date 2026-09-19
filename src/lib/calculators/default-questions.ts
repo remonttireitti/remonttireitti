@@ -267,15 +267,153 @@ export function buildDefaultPriceFactors(
 
 const PRICE_QUESTION_RE = /paljonko|mitä maksaa|maksaa\?|hinta/i;
 
+/** Rivikohtaiset FAQ-hinnat — ei korvata laskurin kokonaissummalla. */
+const FAQ_LINE_PRICE_IDS = new Set([
+  ...OPTIONAL_LINE_IDS,
+  "lisaputki",
+  "vesieristys",
+  "patteri-liitos",
+  "kaivo",
+]);
+
+const FAQ_STOPWORDS = new Set([
+  "paljonko",
+  "mita",
+  "maksaa",
+  "maksavat",
+  "hinta",
+  "onko",
+  "miten",
+  "kuuluu",
+  "tyypillisesti",
+  "suomessa",
+  "asennettuna",
+  "asennus",
+  "noin",
+  "yli",
+  "per",
+]);
+
+export type FaqLineDef = {
+  id: string;
+  label: string;
+  unit: "fixed" | "per_primary" | "per_secondary";
+};
+
+export type EnrichFaqOptions = {
+  primaryUnit: string;
+  lines?: readonly FaqLineDef[];
+  secondaryUnit?: string;
+};
+
+function normalizeFaqText(value: string): string {
+  return value
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "")
+    .replace(/[^a-z0-9\s-]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function faqKeywords(value: string): string[] {
+  return normalizeFaqText(value)
+    .split(" ")
+    .map((w) => w.replace(/^-+|-+$/g, ""))
+    .filter((w) => w.length >= 4 && !FAQ_STOPWORDS.has(w));
+}
+
+/** Palauta rivikohtainen kohde, jos kysymys viittaa lisäriviin / osahintaan. */
+export function matchFaqQuestionToLine(
+  question: string,
+  lines: readonly FaqLineDef[],
+): FaqLineDef | undefined {
+  const qNorm = normalizeFaqText(question);
+  const qWords = faqKeywords(question);
+  if (!qWords.length) return undefined;
+
+  let best: { line: FaqLineDef; score: number } | undefined;
+
+  for (const line of lines) {
+    const idNorm = normalizeFaqText(line.id.replace(/-/g, " "));
+    const labelNorm = normalizeFaqText(line.label);
+    const haystack = `${idNorm} ${labelNorm}`;
+    let score = 0;
+
+    for (const word of qWords) {
+      if (haystack.includes(word) || word.includes(idNorm.replace(/\s+/g, ""))) {
+        score += word.length >= 6 ? 2 : 1;
+      }
+    }
+
+    // Vahva osuma: rivin id-slug esiintyy kysymyksessä (lisaputki, vesieristys…)
+    const idCompact = line.id.replace(/-/g, "");
+    if (qNorm.replace(/\s+/g, "").includes(normalizeFaqText(idCompact).replace(/\s+/g, ""))) {
+      score += 3;
+    }
+
+    const isLineSpecific =
+      line.unit === "per_secondary" || FAQ_LINE_PRICE_IDS.has(line.id);
+    if (!isLineSpecific) continue;
+    if (score <= 0) continue;
+    if (!best || score > best.score) best = { line, score };
+  }
+
+  return best && best.score >= 2 ? best.line : undefined;
+}
+
+function lineFaqUnitSuffix(line: FaqLineDef): string {
+  if (line.unit === "per_secondary") {
+    return `/{line:${line.id}:unit}`;
+  }
+  if (line.unit === "per_primary") {
+    return `/{primaryUnit}`;
+  }
+  return "";
+}
+
+function buildLineFaqAnswer(line: FaqLineDef): string {
+  const unit = lineFaqUnitSuffix(line);
+  if (line.unit === "per_secondary") {
+    return (
+      `Laskurin rivihinta ({line:${line.id}:label}): {line:${line.id}:range}${unit}. ` +
+      `Todennäköinen taso noin {line:${line.id}:mid}${unit}.`
+    );
+  }
+  if (line.unit === "per_primary") {
+    return (
+      `Laskurin rivihinta ({line:${line.id}:label}): {line:${line.id}:range}/{primaryUnit} ` +
+      `eli {defaultSize} kohteella noin {line:${line.id}:mid} × määrä. Todennäköinen taso noin {line:${line.id}:mid}/{primaryUnit}.`
+    );
+  }
+  return (
+    `Laskurin rivihinta ({line:${line.id}:label}): {line:${line.id}:range}. ` +
+    `Todennäköinen taso noin {line:${line.id}:mid}.`
+  );
+}
+
 export function enrichFaqAnswer(
   question: string,
   answer: string,
-  primaryUnit: string,
+  primaryUnitOrOpts: string | EnrichFaqOptions,
 ): string {
-  if (!PRICE_QUESTION_RE.test(question)) return answer;
-  if (/\{total(Range|Mid|Low|High)\}/.test(answer)) return answer;
+  const opts: EnrichFaqOptions =
+    typeof primaryUnitOrOpts === "string"
+      ? { primaryUnit: primaryUnitOrOpts }
+      : primaryUnitOrOpts;
 
-  if (primaryUnit === "m²") {
+  if (!PRICE_QUESTION_RE.test(question)) return answer;
+  // Säilytä vastaukset, joissa hinta tulee jo tokeneista (kokonais- tai rivikohtainen).
+  if (/\{total(Range|Mid|Low|High)\}|\{line:[\w-]+:(range|mid|low|high)\}/.test(answer)) {
+    return answer;
+  }
+
+  const matchedLine = matchFaqQuestionToLine(question, opts.lines ?? []);
+  if (matchedLine) {
+    return buildLineFaqAnswer(matchedLine);
+  }
+
+  if (opts.primaryUnit === "m²") {
     return "Laskurin oletus ({defaultSize}) antaa {totalRange} (noin {totalMid}, noin {perUnitMid}/{primaryUnit}).";
   }
 
