@@ -3,7 +3,22 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useServerActionSubmit } from "@/hooks/use-server-action-submit";
 import { ProjectCalculatorBanner } from "@/components/calculator/project-calculator-banner";
+import {
+  estimateFromCalculatorInputs,
+  ProjectCalculatorInputsSection,
+} from "@/components/calculator/project-calculator-inputs-section";
 import { ProjectCalculatorEstimatePanel } from "@/components/calculator/project-calculator-estimate-panel";
+import {
+  inputStateFromSnapshot,
+  type CalculatorInputState,
+} from "@/lib/calculator-input-state";
+import {
+  applyCalculatorToIlpDetails,
+  applyCalculatorToIvlpDetails,
+  applyCalculatorToMaalampDetails,
+  buildGenericDescriptionFromInputs,
+  suggestedTitleFromInputs,
+} from "@/lib/calculator-project-bridge";
 import {
   loadSnapshotForJobType,
   suggestedBudgetMaxEuros,
@@ -199,7 +214,10 @@ export function ProjectWizard({
   const [photoFiles, setPhotoFiles] = useState<File[]>([]);
   const [calculatorSnapshot, setCalculatorSnapshot] =
     useState<CalculatorProjectSnapshot | null>(null);
+  const [calcInputs, setCalcInputs] = useState<CalculatorInputState | null>(null);
   const budgetSuggestedForJobRef = useRef<string | null>(null);
+  const calcJobInitRef = useRef<string | null>(null);
+  const lastCalcDescriptionRef = useRef<string | null>(null);
   const [submitIntent, setSubmitIntent] = useState<"draft" | "publish" | null>(
     null,
   );
@@ -221,44 +239,151 @@ export function ProjectWizard({
     const slug = selectedJobType?.slug;
     if (!slug || isEdit || !jobCalculator) {
       setCalculatorSnapshot(null);
+      setCalcInputs(null);
       budgetSuggestedForJobRef.current = null;
+      calcJobInitRef.current = null;
       return;
     }
-    const snapshot = loadSnapshotForJobType(slug);
-    setCalculatorSnapshot(snapshot);
-    if (!snapshot || budgetSuggestedForJobRef.current === slug) return;
 
-    const suggested = suggestedBudgetMaxEuros(snapshot);
-    if (suggested <= 0) return;
+    if (calcJobInitRef.current !== slug) {
+      calcJobInitRef.current = slug;
+      const snapshot = loadSnapshotForJobType(slug);
+      const inputs = inputStateFromSnapshot(jobCalculator, snapshot);
+      setCalcInputs(inputs);
 
-    budgetSuggestedForJobRef.current = slug;
+      if (slug === "ilmalampopumppu") {
+        setIlpDetails((prev) => applyCalculatorToIlpDetails(prev, inputs, jobCalculator));
+      } else if (slug === "ilmavesilampopumppu") {
+        setIvlpDetails((prev) =>
+          applyCalculatorToIvlpDetails(prev, inputs, jobCalculator),
+        );
+      } else if (slug === "maalampopumppu") {
+        setMaalampDetails((prev) =>
+          applyCalculatorToMaalampDetails(prev, inputs, jobCalculator),
+        );
+      } else {
+        const calcDescription = buildGenericDescriptionFromInputs(
+          jobCalculator,
+          inputs,
+          "",
+        );
+        lastCalcDescriptionRef.current = calcDescription;
+        const suggestedTitle = suggestedTitleFromInputs(
+          jobCalculator,
+          inputs,
+          selectedJobType.name_fi,
+        );
+        setForm((prev) => ({
+          ...prev,
+          description: prev.description.trim() ? prev.description : calcDescription,
+          title:
+            prev.title.trim() && prev.title !== selectedJobType.name_fi
+              ? prev.title
+              : (suggestedTitle ?? prev.title) || selectedJobType.name_fi,
+        }));
+      }
+
+      if (snapshot) {
+        setCalculatorSnapshot(snapshot);
+      }
+      if (!snapshot || budgetSuggestedForJobRef.current === slug) return;
+
+      const suggested = suggestedBudgetMaxEuros(snapshot);
+      if (suggested <= 0) return;
+
+      budgetSuggestedForJobRef.current = slug;
+
+      if (slug === "ilmalampopumppu") {
+        setIlpDetails((prev) =>
+          prev.budget_max_eur == null
+            ? { ...prev, budget_max_eur: suggested }
+            : prev,
+        );
+      } else if (slug === "ilmavesilampopumppu") {
+        setIvlpDetails((prev) =>
+          prev.budget_max_eur == null
+            ? { ...prev, budget_max_eur: suggested }
+            : prev,
+        );
+      } else if (slug === "maalampopumppu") {
+        setMaalampDetails((prev) =>
+          prev.budget_max_eur == null
+            ? { ...prev, budget_max_eur: suggested }
+            : prev,
+        );
+      } else {
+        setForm((prev) =>
+          !prev.budget_max.trim()
+            ? { ...prev, budget_max: String(suggested) }
+            : prev,
+        );
+      }
+    }
+  }, [selectedJobType?.slug, selectedJobType?.name_fi, isEdit, jobCalculator]);
+
+  useEffect(() => {
+    if (!jobCalculator || !calcInputs || isEdit) return;
+    const estimate = estimateFromCalculatorInputs(jobCalculator, calcInputs);
+    setCalculatorSnapshot({
+      calculatorSlug: jobCalculator.slug,
+      jobSlug: jobCalculator.jobSlug,
+      calculatorTitle: jobCalculator.title,
+      primaryQty: estimate.primaryQty,
+      primaryUnit: jobCalculator.primaryInput.unit,
+      secondaryQty: estimate.secondaryQty,
+      tierId: calcInputs.tierId,
+      answers: calcInputs.answers,
+      estimateMode: calcInputs.estimateMode,
+      totalEuros: estimate.total,
+      lowEuros: estimate.low,
+      highEuros: estimate.high,
+      savedAt: new Date().toISOString(),
+    });
+
+    const slug = selectedJobType?.slug;
+    const isStructuredJob =
+      slug === "ilmalampopumppu" ||
+      slug === "ilmavesilampopumppu" ||
+      slug === "maalampopumppu";
 
     if (slug === "ilmalampopumppu") {
       setIlpDetails((prev) =>
-        prev.budget_max_eur == null
-          ? { ...prev, budget_max_eur: suggested }
-          : prev,
+        applyCalculatorToIlpDetails(prev, calcInputs, jobCalculator, "sync"),
       );
     } else if (slug === "ilmavesilampopumppu") {
       setIvlpDetails((prev) =>
-        prev.budget_max_eur == null
-          ? { ...prev, budget_max_eur: suggested }
-          : prev,
+        applyCalculatorToIvlpDetails(prev, calcInputs, jobCalculator),
       );
     } else if (slug === "maalampopumppu") {
       setMaalampDetails((prev) =>
-        prev.budget_max_eur == null
-          ? { ...prev, budget_max_eur: suggested }
-          : prev,
+        applyCalculatorToMaalampDetails(prev, calcInputs, jobCalculator),
       );
-    } else {
-      setForm((prev) =>
-        !prev.budget_max.trim()
-          ? { ...prev, budget_max: String(suggested) }
-          : prev,
-      );
+    } else if (slug && !isStructuredJob) {
+      setForm((prev) => {
+        const keepUserDescription =
+          prev.description.trim().length > 0 &&
+          lastCalcDescriptionRef.current != null &&
+          !prev.description.startsWith(lastCalcDescriptionRef.current.split("\n")[0]!);
+        const nextDescription = keepUserDescription
+          ? prev.description
+          : buildGenericDescriptionFromInputs(jobCalculator, calcInputs, "");
+        lastCalcDescriptionRef.current = nextDescription;
+        const suggestedTitle = suggestedTitleFromInputs(
+          jobCalculator,
+          calcInputs,
+          selectedJobType?.name_fi ?? "",
+        );
+        return {
+          ...prev,
+          description: nextDescription,
+          title:
+            prev.title.trim() && prev.title !== selectedJobType?.name_fi
+              ? prev.title
+              : suggestedTitle ?? prev.title,
+        };
+      });
     }
-  }, [selectedJobType?.slug, isEdit, jobCalculator]);
+  }, [calcInputs, jobCalculator, isEdit, selectedJobType?.slug, selectedJobType?.name_fi]);
 
   const calculatorSuggestedBudget = calculatorSnapshot
     ? suggestedBudgetMaxEuros(calculatorSnapshot)
@@ -309,6 +434,8 @@ export function ProjectWizard({
   function onJobTypeChange(jt: JobTypeWithTrades | null) {
     setStepValidationError(null);
     budgetSuggestedForJobRef.current = null;
+    calcJobInitRef.current = null;
+    lastCalcDescriptionRef.current = null;
     if (!jt) {
       update("job_type_id", "");
       update("category_id", "");
@@ -598,6 +725,16 @@ export function ProjectWizard({
           />
         )}
 
+        {step === 1 && jobCalculator && calcInputs && (
+          <div className="mb-6">
+            <ProjectCalculatorInputsSection
+              config={jobCalculator}
+              inputs={calcInputs}
+              onChange={setCalcInputs}
+            />
+          </div>
+        )}
+
         {step === 1 && isIlp && (
           <>
             <ProjectRequestGuide
@@ -608,6 +745,7 @@ export function ProjectWizard({
             <IlmalampopumppuDetailsStep
               details={ilpDetails}
               onChange={setIlpDetails}
+              hideCalculatorMappedFields={Boolean(jobCalculator && calcInputs)}
             />
             <div className="mt-4">
               <BudgetGuidancePanel

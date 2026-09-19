@@ -2,6 +2,7 @@
 
 import { ClimateZoneField } from "@/components/project/climate-zone-field";
 import { EquipmentSupplyField } from "@/components/project/equipment-supply-field";
+import { FormOptionButtons } from "@/components/calculator/calculator-form-controls";
 import {
   FieldGrid,
   FieldGroup,
@@ -29,9 +30,15 @@ import { createDefaultUnitInstallations } from "@/types/ilmalampopumppu-details"
 type Props = {
   details: IlmalampopumppuDetails;
   onChange: (d: IlmalampopumppuDetails) => void;
+  /** Piilota kentät, jotka täyttyvät yllä olevasta laskuriosiosta. */
+  hideCalculatorMappedFields?: boolean;
 };
 
-export function IlmalampopumppuDetailsStep({ details: d, onChange }: Props) {
+export function IlmalampopumppuDetailsStep({
+  details: d,
+  onChange,
+  hideCalculatorMappedFields = false,
+}: Props) {
   const set = <K extends keyof IlmalampopumppuDetails>(
     key: K,
     value: IlmalampopumppuDetails[K],
@@ -105,24 +112,20 @@ export function IlmalampopumppuDetailsStep({ details: d, onChange }: Props) {
           title="2. Asennus ja laatu"
           description="Uusi vaihto, käyttötarkoitus ja laatutaso"
         >
-          <FieldGrid cols={3}>
-            <FieldGroup label="Asennus">
-              <RadioCards
-                name="ilp_installation_type"
-                value={d.installation_type}
-                onChange={(v) =>
-                  set(
-                    "installation_type",
-                    v as IlmalampopumppuDetails["installation_type"],
-                  )
-                }
-                columns={1}
-                options={[
-                  { value: "new", label: "Uusi asennus" },
-                  { value: "replacement", label: "Pumpun vaihto" },
-                ]}
-              />
-            </FieldGroup>
+          <FieldGrid cols={hideCalculatorMappedFields ? 1 : 3}>
+            {!hideCalculatorMappedFields && (
+              <FieldGroup label="Asennus">
+                <FormOptionButtons
+                  name="ilp_installation_type"
+                  value={d.installation_type}
+                  onChange={(v) => set("installation_type", v)}
+                  options={[
+                    { value: "new", label: "Uusi asennus" },
+                    { value: "replacement", label: "Pumpun vaihto" },
+                  ]}
+                />
+              </FieldGroup>
+            )}
             <FieldGroup label="Käyttötarkoitus">
               <RadioCards
                 name="ilp_usage"
@@ -140,25 +143,26 @@ export function IlmalampopumppuDetailsStep({ details: d, onChange }: Props) {
                 ]}
               />
             </FieldGroup>
-            <FieldGroup label="Laatutaso">
-              <RadioCards
-                name="ilp_quality_tier"
-                value={d.quality_tier}
-                onChange={(v) =>
-                  set(
-                    "quality_tier",
-                    v as IlmalampopumppuDetails["quality_tier"],
-                  )
-                }
-                columns={1}
-                options={[
-                  { value: "budget", label: "Budjetti" },
-                  { value: "standard", label: "Perus" },
-                  { value: "premium", label: "Paras" },
-                ]}
-              />
-            </FieldGroup>
+            {!hideCalculatorMappedFields && (
+              <FieldGroup label="Laatutaso">
+                <FormOptionButtons
+                  name="ilp_quality_tier"
+                  value={d.quality_tier}
+                  onChange={(v) => set("quality_tier", v)}
+                  options={[
+                    { value: "budget", label: "Budjetti" },
+                    { value: "standard", label: "Perus" },
+                    { value: "premium", label: "Paras" },
+                  ]}
+                />
+              </FieldGroup>
+            )}
           </FieldGrid>
+          {hideCalculatorMappedFields && (
+            <p className="text-sm text-stone-600">
+              Asennustyyppi, laatutaso ja putkimatka tulevat yllä olevasta laskuriosiosta.
+            </p>
+          )}
         </FormSection>
 
         {!isDual && (
@@ -290,28 +294,30 @@ export function IlmalampopumppuDetailsStep({ details: d, onChange }: Props) {
                       />
                     </FieldGroup>
 
-                    <FieldGroup
-                      label="Putkimatka ulko–sisä (m)"
-                      hint={
-                        d.system_type === "multi_split"
-                          ? "Arvio per sisäyksikkö, jos putket eroavat."
-                          : "Reittietäisyys yksiköiden välillä."
-                      }
-                    >
-                      <input
-                        type="number"
-                        min={0}
-                        placeholder="esim. 5"
-                        value={d.pipe_distance_m_per_unit ?? ""}
-                        onChange={(e) =>
-                          set(
-                            "pipe_distance_m_per_unit",
-                            e.target.value ? Number(e.target.value) : null,
-                          )
+                    {!hideCalculatorMappedFields && (
+                      <FieldGroup
+                        label="Putkimatka ulko–sisä (m)"
+                        hint={
+                          d.system_type === "multi_split"
+                            ? "Arvio per sisäyksikkö, jos putket eroavat."
+                            : "Reittietäisyys yksiköiden välillä."
                         }
-                        className={formInputClass}
-                      />
-                    </FieldGroup>
+                      >
+                        <input
+                          type="number"
+                          min={0}
+                          placeholder="esim. 5"
+                          value={d.pipe_distance_m_per_unit ?? ""}
+                          onChange={(e) =>
+                            set(
+                              "pipe_distance_m_per_unit",
+                              e.target.value ? Number(e.target.value) : null,
+                            )
+                          }
+                          className={formInputClass}
+                        />
+                      </FieldGroup>
+                    )}
                   </>
                 )}
 
@@ -475,7 +481,11 @@ export function IlmalampopumppuDetailsStep({ details: d, onChange }: Props) {
               description="Kahdelle laitteelle yleensä sama seinä ja kiinnitystapa"
               span="full"
             >
-              <SharedInstallationFields d={d} set={set} />
+              <SharedInstallationFields
+                d={d}
+                set={set}
+                hideCalculatorMappedFields={hideCalculatorMappedFields}
+              />
             </FormSection>
           </>
         ) : (
@@ -484,7 +494,11 @@ export function IlmalampopumppuDetailsStep({ details: d, onChange }: Props) {
             description="Seinä, ulkoyksikkö ja korkeudet"
             span="full"
           >
-            <SharedInstallationFields d={d} set={set} />
+            <SharedInstallationFields
+              d={d}
+              set={set}
+              hideCalculatorMappedFields={hideCalculatorMappedFields}
+            />
             <div className="grid gap-4 sm:grid-cols-2">
               <HeightField
                 label="Sisäyksikön korkeus"
@@ -649,12 +663,14 @@ function LargeAreaGuidance({
 function SharedInstallationFields({
   d,
   set,
+  hideCalculatorMappedFields = false,
 }: {
   d: IlmalampopumppuDetails;
   set: <K extends keyof IlmalampopumppuDetails>(
     key: K,
     value: IlmalampopumppuDetails[K],
   ) => void;
+  hideCalculatorMappedFields?: boolean;
 }) {
   return (
     <>
@@ -674,23 +690,21 @@ function SharedInstallationFields({
             <option value="muu">Muu</option>
           </select>
         </FieldGroup>
-        <FieldGroup label="Ulkoyksikön kiinnitys">
-          <select
-            value={d.outdoor_mounting}
-            onChange={(e) =>
-              set(
-                "outdoor_mounting",
-                e.target.value as IlmalampopumppuDetails["outdoor_mounting"],
-              )
-            }
-            className={formInputClass}
-          >
-            <option value="ground">Maateline</option>
-            <option value="wall">Seinäteline</option>
-            <option value="plinth">Sokkeliteline</option>
-            <option value="balcony">Parveketeline</option>
-          </select>
-        </FieldGroup>
+        {!hideCalculatorMappedFields && (
+          <FieldGroup label="Ulkoyksikön kiinnitys">
+            <FormOptionButtons
+              name="ilp_outdoor_mounting"
+              value={d.outdoor_mounting}
+              onChange={(v) => set("outdoor_mounting", v)}
+              options={[
+                { value: "ground", label: "Maateline" },
+                { value: "wall", label: "Seinäteline" },
+                { value: "plinth", label: "Sokkeliteline" },
+                { value: "balcony", label: "Parveketeline" },
+              ]}
+            />
+          </FieldGroup>
+        )}
       </FieldGrid>
     </>
   );

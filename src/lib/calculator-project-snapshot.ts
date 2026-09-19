@@ -7,6 +7,11 @@ export type CalculatorProjectSnapshot = {
   calculatorTitle: string;
   primaryQty: number;
   primaryUnit: string;
+  /** Lisämäärä (esim. ylimääräiset putkimetrit). */
+  secondaryQty?: number;
+  tierId?: string;
+  answers?: Record<string, string>;
+  estimateMode?: "quick" | "detail";
   totalEuros: number;
   lowEuros: number;
   highEuros: number;
@@ -87,6 +92,10 @@ export function calculatorSnapshotToProjectDetails(
       title: snapshot.calculatorTitle,
       primary_qty: snapshot.primaryQty,
       primary_unit: snapshot.primaryUnit,
+      secondary_qty: snapshot.secondaryQty,
+      tier_id: snapshot.tierId,
+      answers: snapshot.answers,
+      estimate_mode: snapshot.estimateMode,
       total_euros: snapshot.totalEuros,
       low_euros: snapshot.lowEuros,
       high_euros: snapshot.highEuros,
