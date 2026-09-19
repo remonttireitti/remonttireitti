@@ -5,6 +5,8 @@ import { usePathname } from "next/navigation";
 import { signOut } from "@/app/actions/auth";
 import { NavLinkPendingContent } from "@/components/navigation/nav-link-pending";
 import { SignOutButton } from "@/components/navigation/sign-out-button";
+import { useStableLoggedIn } from "@/hooks/use-stable-logged-in";
+import { forgetLoggedIn } from "@/lib/auth-client-state";
 import { SHOW_MARKETPLACE_IN_MARKETING } from "@/lib/marketing-focus";
 import { marketplaceBrand } from "@/lib/marketplace-brand";
 
@@ -63,6 +65,7 @@ export function SiteHeaderNav({
   unreadNotifications = 0,
   showTarjousvahti = false,
 }: NavProps) {
+  const isLoggedIn = useStableLoggedIn(loggedIn);
   const ctaLabel = isCustomer
     ? "Kilpailuta remontti"
     : isContractor
@@ -99,7 +102,7 @@ export function SiteHeaderNav({
         {SHOW_MARKETPLACE_IN_MARKETING && (
           <NavItem href="/markkinapaikka">{marketplaceBrand.nameShort}</NavItem>
         )}
-        {loggedIn ? (
+        {isLoggedIn ? (
           <>
             <NavItem href={isContractor ? "/tarjoukset#ilmoitukset" : "/#ilmoitukset"}>
               <span className="inline-flex items-center gap-1.5">
@@ -134,10 +137,10 @@ export function SiteHeaderNav({
       </nav>
       <span className="mx-1 h-5 w-px bg-stone-200" aria-hidden />
       <div className="flex items-center gap-2">
-        {loggedIn ? (
+        {isLoggedIn ? (
           <>
             {ctaDesktop}
-            <form action={signOut} className="inline-flex">
+            <form action={signOut} className="inline-flex" onSubmit={() => forgetLoggedIn()}>
               <SignOutButton className={navLinkClass(false)} />
             </form>
           </>

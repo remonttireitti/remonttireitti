@@ -6,6 +6,8 @@ import { useEffect, useRef, useState } from "react";
 import { signOut } from "@/app/actions/auth";
 import { NavLinkPendingContent } from "@/components/navigation/nav-link-pending";
 import { SignOutButton } from "@/components/navigation/sign-out-button";
+import { useStableLoggedIn } from "@/hooks/use-stable-logged-in";
+import { forgetLoggedIn } from "@/lib/auth-client-state";
 import { SHOW_MARKETPLACE_IN_MARKETING } from "@/lib/marketing-focus";
 import { marketplaceBrand } from "@/lib/marketplace-brand";
 
@@ -65,6 +67,7 @@ export function SiteHeaderMobileNav({
   unreadNotifications = 0,
   showTarjousvahti = false,
 }: Props) {
+  const isLoggedIn = useStableLoggedIn(loggedIn);
   const [moreOpen, setMoreOpen] = useState(false);
   const moreRef = useRef<HTMLDivElement>(null);
 
@@ -128,7 +131,7 @@ export function SiteHeaderMobileNav({
             <NavChip href="/markkinapaikka">{marketplaceBrand.nameShort}</NavChip>
           )}
 
-          {loggedIn ? (
+          {isLoggedIn ? (
             <>
               <NavChip href={isContractor ? "/tarjoukset#ilmoitukset" : "/#ilmoitukset"}>
                 <span className="inline-flex items-center gap-1.5">
@@ -167,7 +170,7 @@ export function SiteHeaderMobileNav({
           )}
         </nav>
 
-        {loggedIn && (
+        {isLoggedIn && (
           <div ref={moreRef} className="relative shrink-0 border-l border-stone-100 pl-1">
             <button
               type="button"
@@ -204,7 +207,7 @@ export function SiteHeaderMobileNav({
                     <NavLinkPendingContent>Admin</NavLinkPendingContent>
                   </Link>
                 )}
-                <form action={signOut}>
+                <form action={signOut} onSubmit={() => forgetLoggedIn()}>
                   <SignOutButton className="block w-full px-4 py-2.5 text-left text-sm text-stone-600 hover:bg-stone-50 disabled:opacity-60" />
                 </form>
               </div>
