@@ -38,7 +38,8 @@ export default async function AdminQuotePrintPreviewPage() {
           <ContractorQuotePrintToolbar
             backHref="/admin"
             backLabel="Hallinta"
-            pdfHref="/api/admin/contractor-quote-sample/pdf"
+            pdfData={sample}
+            filename="tarjous-esimerkki-remonttireitti.pdf"
           />
         </div>
 

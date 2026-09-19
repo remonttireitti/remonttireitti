@@ -190,12 +190,12 @@ export default async function ContractorQuoteHubPage({
                       Avaa laskuri
                     </Link>
                     {quote.pdf_generated_at && (
-                      <a
-                        href={`/api/contractor-quotes/${quote.id}/pdf`}
+                      <Link
+                        href={`/tarjouslaskuri/lataus/${quote.id}`}
                         className="text-emerald-800 hover:underline"
                       >
                         PDF
-                      </a>
+                      </Link>
                     )}
                   </div>
                 </li>

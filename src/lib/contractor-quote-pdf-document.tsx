@@ -5,38 +5,15 @@ import {
   StyleSheet,
   Text,
   View,
-  renderToBuffer,
 } from "@react-pdf/renderer";
 import { formatEuro } from "@/lib/calculators/math";
-import { RemonttireittiLogoPdf } from "@/lib/remonttireitti-logo-pdf";
 import {
   CONTRACTOR_QUOTE_VALIDITY_NOTE,
-  type ContractorQuoteDocumentView,
 } from "@/lib/contractor-quote-print";
+import type { ContractorQuotePdfData } from "@/lib/contractor-quote-pdf";
 import { quoteVatBreakdown } from "@/lib/contractor-quote-types";
+import { RemonttireittiLogoPdf } from "@/lib/remonttireitti-logo-pdf";
 import { vatLabel } from "@/lib/vat-label";
-import type { ContractorQuoteRow } from "@/lib/contractor-quote-types";
-
-export type ContractorQuotePdfData = ContractorQuoteDocumentView & {
-  logoDataUri?: string | null;
-};
-
-export function contractorQuotePdfDataFromRow(
-  row: ContractorQuoteRow,
-  company: Omit<ContractorQuoteDocumentView, "quote"> & {
-    logoDataUri?: string | null;
-  },
-): ContractorQuotePdfData {
-  return {
-    quote: row,
-    companyName: company.companyName,
-    businessId: company.businessId,
-    billingAddress: company.billingAddress,
-    companyDescription: company.companyDescription,
-    logoUrl: company.logoUrl,
-    logoDataUri: company.logoDataUri,
-  };
-}
 
 const styles = StyleSheet.create({
   page: {
@@ -122,11 +99,10 @@ function PdfRow({ label, value }: { label: string; value?: string | null }) {
 
 function pdfSafeImageDataUri(dataUri: string | null | undefined): string | null {
   if (!dataUri?.trim()) return null;
-  // react-pdf Image supports PNG/JPEG only — skip WebP and other formats.
   return /^data:image\/(png|jpe?g);/i.test(dataUri) ? dataUri : null;
 }
 
-function ContractorQuotePdfDocument({ data }: { data: ContractorQuotePdfData }) {
+export function ContractorQuotePdfDocument({ data }: { data: ContractorQuotePdfData }) {
   const {
     quote,
     companyName,
@@ -213,10 +189,4 @@ function ContractorQuotePdfDocument({ data }: { data: ContractorQuotePdfData }) 
       </Page>
     </Document>
   );
-}
-
-export async function renderContractorQuotePdf(
-  data: ContractorQuotePdfData,
-): Promise<Buffer> {
-  return renderToBuffer(<ContractorQuotePdfDocument data={data} />);
 }
