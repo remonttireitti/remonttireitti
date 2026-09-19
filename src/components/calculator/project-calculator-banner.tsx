@@ -1,7 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { calculatorPath, getCalculatorBySlug } from "@/lib/calculators/registry";
+import {
+  calculatorPath,
+  getCalculatorForJobType,
+} from "@/lib/calculators/registry";
 import { brand } from "@/lib/brand-theme";
 
 /** Tarjouspyynnön yhteydessä: avaa työlajiin sopiva laskuri uuteen välilehteen. */
@@ -14,7 +17,7 @@ export function ProjectCalculatorBanner({
 }) {
   if (!jobSlug) return null;
 
-  const calc = getCalculatorBySlug(jobSlug);
+  const calc = getCalculatorForJobType(jobSlug);
   if (!calc) return null;
 
   return (
@@ -22,11 +25,12 @@ export function ProjectCalculatorBanner({
       className={`rounded-2xl border border-violet-200 bg-gradient-to-r from-violet-50/90 via-white to-sky-50/50 px-4 py-4 sm:px-5 ${className}`}
     >
       <p className="text-sm font-semibold text-violet-950">
-        Arvioi kustannukset ennen lähettämistä
+        Laske hinta-arvio laskurilla
       </p>
       <p className="mt-1 text-sm leading-relaxed text-stone-700">
-        {calc.title} antaa hinta-arvion, joka näkyy tarjouspyynnössä urakoitsijoille.
-        Et määritä lopullista hintaa — palaa tähän lomakkeeseen laskurin jälkeen.
+        {calc.title} antaa suuntaa-antavan arvion. Luo tarjouspyyntö laskelman
+        pohjalta — rivihinnat eivät siirry pyyntöön, mutta budjetin voit täyttää
+        laskurin viitearvoilla.
       </p>
       <div className="mt-3 flex flex-wrap items-center gap-3">
         <Link

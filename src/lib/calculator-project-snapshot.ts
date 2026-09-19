@@ -1,4 +1,6 @@
-/** Laskurin tulos, joka kulkee tarjouspyyntölomakkeelle (asiakas ei määritä hintaa). */
+import { calculatorSnapshotKeysForJobType } from "@/lib/calculators/registry";
+
+/** Laskurin tulos, joka kulkee tarjouspyyntölomakkeelle (ei rivihintoja). */
 export type CalculatorProjectSnapshot = {
   calculatorSlug: string;
   jobSlug: string;
@@ -13,8 +15,8 @@ export type CalculatorProjectSnapshot = {
 
 const STORAGE_PREFIX = "remonttireitti-calc-snapshot:";
 
-function storageKey(jobSlug: string): string {
-  return `${STORAGE_PREFIX}${jobSlug}`;
+function storageKey(key: string): string {
+  return `${STORAGE_PREFIX}${key}`;
 }
 
 export function saveCalculatorProjectSnapshot(
@@ -25,14 +27,23 @@ export function saveCalculatorProjectSnapshot(
     ...snapshot,
     savedAt: new Date().toISOString(),
   };
-  sessionStorage.setItem(storageKey(snapshot.jobSlug), JSON.stringify(payload));
+  const json = JSON.stringify(payload);
+  const keys = new Set([
+    snapshot.jobSlug,
+    snapshot.calculatorSlug,
+    ...calculatorSnapshotKeysForJobType(snapshot.jobSlug),
+    ...calculatorSnapshotKeysForJobType(snapshot.calculatorSlug),
+  ]);
+  for (const key of keys) {
+    if (key) sessionStorage.setItem(storageKey(key), json);
+  }
 }
 
 export function loadCalculatorProjectSnapshot(
-  jobSlug: string,
+  key: string,
 ): CalculatorProjectSnapshot | null {
   if (typeof sessionStorage === "undefined") return null;
-  const raw = sessionStorage.getItem(storageKey(jobSlug));
+  const raw = sessionStorage.getItem(storageKey(key));
   if (!raw) return null;
   try {
     return JSON.parse(raw) as CalculatorProjectSnapshot;
@@ -41,12 +52,32 @@ export function loadCalculatorProjectSnapshot(
   }
 }
 
-export function clearCalculatorProjectSnapshot(jobSlug: string): void {
-  if (typeof sessionStorage === "undefined") return;
-  sessionStorage.removeItem(storageKey(jobSlug));
+/** Lue laskuriarvo työlajin slugilla (kattoremontti, kylpyhuone, …). */
+export function loadSnapshotForJobType(
+  jobTypeSlug: string,
+): CalculatorProjectSnapshot | null {
+  for (const key of calculatorSnapshotKeysForJobType(jobTypeSlug)) {
+    const snapshot = loadCalculatorProjectSnapshot(key);
+    if (snapshot) return snapshot;
+  }
+  return null;
 }
 
-/** Tallenna `projects.details.calculator_estimate` -kenttään. */
+export function clearCalculatorProjectSnapshot(jobTypeSlug: string): void {
+  if (typeof sessionStorage === "undefined") return;
+  for (const key of calculatorSnapshotKeysForJobType(jobTypeSlug)) {
+    sessionStorage.removeItem(storageKey(key));
+  }
+}
+
+/** Budjetin viitearvo laskurin ylärajasta (pyöristetty 100 €:n tarkkuuteen). */
+export function suggestedBudgetMaxEuros(
+  snapshot: CalculatorProjectSnapshot,
+): number {
+  return Math.round(snapshot.highEuros / 100) * 100;
+}
+
+/** Tallenna `projects.details.calculator_estimate` — vain kokonaissummat, ei rivihintoja. */
 export function calculatorSnapshotToProjectDetails(
   snapshot: CalculatorProjectSnapshot,
 ): Record<string, unknown> {

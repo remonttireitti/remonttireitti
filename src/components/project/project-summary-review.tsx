@@ -168,6 +168,9 @@ export function ProjectSummaryReview({
             Todennäköinen taso noin {formatEuro(calculatorSnapshot.totalEuros)} ·{" "}
             {calculatorSnapshot.primaryQty} {calculatorSnapshot.primaryUnit}
           </p>
+          <p className="mt-1 text-xs text-stone-600">
+            Rivihinnat eivät siirry urakoitsijoille — vain kokonaisarvio ja budjetti.
+          </p>
           <p className="mt-1">
             <VatLabel treatment={CONSUMER_VAT} className="text-xs text-stone-600" />
           </p>

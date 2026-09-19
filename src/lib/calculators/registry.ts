@@ -47,6 +47,38 @@ export function getCalculatorBySlug(slug: string): CalculatorConfig | null {
   return bySlug.get(slug) ?? null;
 }
 
+/** Työlajin slug → laskurikonfigi (alias-kartta mukaan). */
+export function getCalculatorForJobType(
+  jobTypeSlug: string | null | undefined,
+): CalculatorConfig | null {
+  if (!jobTypeSlug?.trim()) return null;
+  return getCalculatorBySlug(jobTypeSlug.trim());
+}
+
+/** Kaikki avaimet, joilla laskurin snapshot voidaan tallentaa / lukea työlajille. */
+export function calculatorSnapshotKeysForJobType(
+  jobTypeSlug: string | null | undefined,
+): string[] {
+  if (!jobTypeSlug?.trim()) return [];
+  const slug = jobTypeSlug.trim();
+  const keys = new Set<string>([slug]);
+  const calc = getCalculatorForJobType(slug);
+  if (calc) {
+    keys.add(calc.slug);
+    keys.add(calc.jobSlug);
+  }
+  for (const [alias, target] of Object.entries(SLUG_ALIASES)) {
+    if (alias === slug || target === slug) {
+      keys.add(alias);
+      keys.add(target);
+    }
+    if (calc && (target === calc.slug || target === calc.jobSlug)) {
+      keys.add(alias);
+    }
+  }
+  return [...keys];
+}
+
 export function getCalculatorSlugs(): string[] {
   return [...bySlug.keys()];
 }
