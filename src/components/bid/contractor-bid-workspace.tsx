@@ -5,7 +5,10 @@ import { recordCalculatorLearningSignals } from "@/app/actions/calculator-learni
 import { saveBidProfitabilityPlan } from "@/app/actions/bid-profitability";
 import { BidForm } from "@/components/bid/bid-form";
 import { ContractorBidCalculator } from "@/components/calculator/contractor-bid-calculator";
-import type { BidCalculatorResult } from "@/lib/bid-calculator-bridge";
+import type {
+  BidCalculatorResult,
+  ProjectCalculatorInputHints,
+} from "@/lib/bid-calculator-bridge";
 import {
   calculatorMetaNote,
   scopeLinesFromCalculatorResult,
@@ -40,6 +43,7 @@ export function ContractorBidWorkspace({
   calculatorConfig,
   pricingRates,
   initialPrimaryQty,
+  projectCalculatorHints,
   jobTypeSlug,
   jobPriceBenchmark,
   contractorTierProfile,
@@ -48,6 +52,7 @@ export function ContractorBidWorkspace({
   calculatorConfig: CalculatorConfig;
   pricingRates: ContractorPricingRates;
   initialPrimaryQty?: number;
+  projectCalculatorHints?: ProjectCalculatorInputHints;
   jobTypeSlug?: string | null;
   jobPriceBenchmark?: JobPriceBenchmark | null;
   contractorTierProfile?: ContractorTierProfile | null;
@@ -130,6 +135,8 @@ export function ContractorBidWorkspace({
         config={calculatorConfig}
         rates={pricingRates}
         initialPrimaryQty={initialPrimaryQty}
+        projectCalculatorHints={projectCalculatorHints}
+        customerEstimate={projectCalculatorHints?.customerEstimate}
         jobPriceBenchmark={jobPriceBenchmark}
         onApply={handleCalculatorApply}
       />

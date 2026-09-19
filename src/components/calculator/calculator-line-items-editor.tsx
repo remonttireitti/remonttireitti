@@ -2,9 +2,16 @@
 
 import { brand } from "@/lib/brand-theme";
 import {
+  compareLineTotal,
+  compareUnitPrice,
+  LINE_PRICE_COMPARISON_LABELS,
+  linePriceComparisonBadgeClass,
+} from "@/lib/calculator-line-price-compare";
+import {
   calculateEstimate,
   formatEuro,
   googlePriceSearch,
+  lineItemTotal,
   newCustomLineItem,
 } from "@/lib/calculators/math";
 import type { CalculatorConfig, CalculatorLineItem } from "@/lib/calculators/types";
@@ -37,6 +44,8 @@ type Props = {
   showGoogleSearch?: boolean;
   allowCustomLines?: boolean;
   compact?: boolean;
+  /** Näytä viitehinta ja vertailu (edullisempi / lähes sama / kalliimpi). */
+  showReferenceComparison?: boolean;
 };
 
 export function CalculatorLineItemsEditor({
@@ -55,6 +64,7 @@ export function CalculatorLineItemsEditor({
   showGoogleSearch = true,
   allowCustomLines = true,
   compact = false,
+  showReferenceComparison = false,
 }: Props) {
   function handleAddCustom() {
     if (onAddCustomItem) {
@@ -95,6 +105,24 @@ export function CalculatorLineItemsEditor({
           const lineTotal = calculateEstimate(primaryQty, secondaryQty, [
             adjusted,
           ]).total;
+          const referenceUnit = item.referenceAmount;
+          const referenceLineTotal =
+            referenceUnit != null && referenceUnit > 0
+              ? lineItemTotal(
+                  { ...adjusted, amount: referenceUnit },
+                  primaryQty,
+                  secondaryQty,
+                )
+              : null;
+          const unitComparison =
+            showReferenceComparison && referenceUnit != null && referenceUnit > 0
+              ? compareUnitPrice(item.amount, referenceUnit)
+              : null;
+          const totalComparison =
+            showReferenceComparison && referenceLineTotal != null && referenceLineTotal > 0
+              ? compareLineTotal(lineTotal, referenceLineTotal)
+              : null;
+          const comparison = unitComparison ?? totalComparison;
 
           return (
             <li
@@ -153,6 +181,26 @@ export function CalculatorLineItemsEditor({
                   )}
 
                   <div className="mt-2 flex flex-wrap items-end gap-3 sm:mt-3">
+                    {showReferenceComparison &&
+                      referenceUnit != null &&
+                      referenceUnit > 0 &&
+                      !item.custom && (
+                        <div className="text-xs text-stone-600">
+                          <span className="block font-medium text-stone-500">
+                            Viite
+                          </span>
+                          <span className="mt-0.5 block tabular-nums text-stone-700">
+                            {formatEuro(referenceUnit)}
+                            {referenceLineTotal != null &&
+                              referenceLineTotal !== referenceUnit && (
+                                <span className="text-stone-500">
+                                  {" "}
+                                  → {formatEuro(referenceLineTotal)}
+                                </span>
+                              )}
+                          </span>
+                        </div>
+                      )}
                     <label className="text-xs text-stone-600">
                       {unitLabel(
                         item.unit,
@@ -173,6 +221,13 @@ export function CalculatorLineItemsEditor({
                         className={`mt-0.5 block w-28 rounded-lg border border-stone-200 px-2 py-1.5 text-sm tabular-nums ${brand.input}`}
                       />
                     </label>
+                    {comparison && (
+                      <span
+                        className={`rounded-lg border px-2.5 py-1 text-xs font-semibold ${linePriceComparisonBadgeClass(comparison)}`}
+                      >
+                        {LINE_PRICE_COMPARISON_LABELS[comparison]}
+                      </span>
+                    )}
                     {item.minAmount != null && (
                       <label className="text-xs text-stone-600">
                         Minimi €
