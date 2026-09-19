@@ -81,7 +81,7 @@ export function RegisterForm({
           <p className="mt-1 text-xs text-stone-600">
             Jos joku asiakas suositteli sinua, anna hänen sähköpostinsa. Suosittelu
             tallentuu vasta kun olet vahvistannut oman tilisi. Bonuksen saa vain
-            vahvistettu suosittelija, kun urakkasi johtaa hyväksyttyyn tarjoukseen.
+            vahvistettu suosittelija, kun luot tarjouspyynnön ja se saa tarjouksia.
           </p>
           <input
             id="customer_referrer_email"

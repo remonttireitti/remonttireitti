@@ -1,5 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { contractorLogoSignedUrl } from "@/lib/contractor-branding";
+import type { ContractorMarketSignals } from "@/lib/contractor-market-profile";
+import { fetchContractorMarketSignalsForOne } from "@/lib/contractor-market-profile-server";
 import { getContractorQualifications } from "@/lib/save-contractor-qualifications";
 import type { ContractorRatingSummary } from "@/lib/reviews";
 
@@ -27,6 +29,7 @@ export type PublicContractorProfile = {
   max_travel_km: number | null;
   rating: ContractorRatingSummary | null;
   completed_jobs: number;
+  market_signals: ContractorMarketSignals;
   reviews: PublicContractorReview[];
   qualifications: Awaited<ReturnType<typeof getContractorQualifications>>;
 };
@@ -57,7 +60,7 @@ export async function fetchPublicContractorProfile(
     return null;
   }
 
-  const [qualifications, reviewsRes, completedRes, ratingsRes] =
+  const [qualifications, reviewsRes, completedRes, ratingsRes, marketSignals] =
     await Promise.all([
       getContractorQualifications(contractorId),
       admin
@@ -77,6 +80,7 @@ export async function fetchPublicContractorProfile(
         .from("reviews")
         .select("rating")
         .eq("contractor_id", contractorId),
+      fetchContractorMarketSignalsForOne(admin, contractorId),
     ]);
 
   const ratings = (ratingsRes.data ?? []).map((r) => r.rating as number);
@@ -129,6 +133,7 @@ export async function fetchPublicContractorProfile(
     max_travel_km: cp.max_travel_km,
     rating,
     completed_jobs: completedRes.count ?? 0,
+    market_signals: marketSignals,
     reviews,
     qualifications,
   };

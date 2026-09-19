@@ -9,10 +9,12 @@ import {
 import { BootstrapProfileForm } from "@/components/account/bootstrap-profile-form";
 import { NotificationPreferencesForm } from "@/components/account/notification-preferences-form";
 import { ContractorHomeDashboard } from "@/components/contractor/contractor-home-dashboard";
+import { ContractorMarketProfilePanel } from "@/components/contractor/contractor-market-profile-panel";
 import { SiteHeader } from "@/components/site-header";
 import { isAdmin } from "@/lib/admin";
 import { getProfile, getSessionUser, isContractor } from "@/lib/auth";
 import { fetchContractorDashboard } from "@/lib/contractor-dashboard-server";
+import { fetchContractorMarketSignalsForOne } from "@/lib/contractor-market-profile-server";
 import { getContractorCompanyBypass } from "@/lib/profile-read";
 import { getContractorQualifications } from "@/lib/save-contractor-qualifications";
 import { getNotificationPrefs } from "@/lib/notification-prefs";
@@ -51,17 +53,22 @@ export default async function AccountPage({
   let contractorDashboard: Awaited<
     ReturnType<typeof fetchContractorDashboard>
   > | null = null;
+  let contractorMarketSignals: Awaited<
+    ReturnType<typeof fetchContractorMarketSignalsForOne>
+  > | null = null;
 
   if (contractor) {
-    const [quals, dashboard] = await Promise.all([
+    const [quals, dashboard, marketSignals] = await Promise.all([
       getContractorQualifications(user.id),
       fetchContractorDashboard(supabase, user.id),
+      fetchContractorMarketSignalsForOne(supabase, user.id),
     ]);
     contractorCompany = quals.companyName || null;
     if (!contractorCompany) {
       contractorCompany = await getContractorCompanyBypass(user.id);
     }
     contractorDashboard = dashboard;
+    contractorMarketSignals = marketSignals;
   }
 
   type ProjectRow = {
@@ -230,12 +237,18 @@ export default async function AccountPage({
         )}
 
         {contractor && contractorDashboard && (
-          <div className="mt-2">
+          <div className="mt-2 space-y-8">
             <ContractorHomeDashboard
               companyName={contractorCompany}
               contractorId={user.id}
               dashboard={contractorDashboard}
             />
+            {contractorMarketSignals && (
+              <ContractorMarketProfilePanel
+                signals={contractorMarketSignals}
+                publicProfileHref={`/urakoitsija/${user.id}`}
+              />
+            )}
           </div>
         )}
 

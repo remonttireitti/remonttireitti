@@ -1,4 +1,4 @@
--- Asiakkaan suosittelu: bonus kun suositeltu asiakas saa hyväksytyn diilin.
+-- Asiakkaan suosittelu: bonus kun suositellun tarjouspyyntö saa tarjouksia.
 
 ALTER TYPE public.platform_fee_waiver_reason ADD VALUE IF NOT EXISTS 'customer_referral';
 
@@ -16,7 +16,7 @@ CREATE INDEX IF NOT EXISTS customer_referrals_referrer_idx
   ON public.customer_referrals (referrer_customer_id, created_at DESC);
 
 COMMENT ON TABLE public.customer_referrals IS
-  'Asiakas toi uuden asiakkaan — suosittelija saa bonuksen kun suositellun diili hyväksytään.';
+  'Asiakas toi uuden asiakkaan — suosittelija saa bonuksen kun suositellun tarjouspyyntö saa tarjouksia.';
 
 CREATE TABLE IF NOT EXISTS public.customer_referral_credits (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
