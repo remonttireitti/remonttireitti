@@ -13,8 +13,13 @@ Remonttireitti yhdistää asiakkaan ja urakoitsijat. Asiakas luo tarjouspyynnön
 - [Pieni apu](https://remonttireitti.fi/apu): vapaaehtoinen naapuriapu — pyydä tai tarjoa apua
 - [Tarjousvahti](https://remonttireitti.fi/tarjousarvio): ilmainen puolueeton tarjousarvio
 - [Hinta-arkisto](https://remonttireitti.fi/hinta-arkisto): anonymisoituja remontti- ja asennushintoja
-- [Remonttilaskurit](https://remonttireitti.fi/laskurit): interaktiiviset hinta-arviot
-- [Kylpyhuoneremontti laskuri](https://remonttireitti.fi/laskurit/kylpyhuoneremontti): purku, vesieristys, laatoitus, LVI
+- [Remonttilaskurit](https://remonttireitti.fi/laskurit): interaktiiviset hinta-arviot ennen tarjouspyyntöä
+- [Kattoremontin laskuri](https://remonttireitti.fi/laskurit/kattoremontti)
+- [Ilmalämpöpumpun laskuri](https://remonttireitti.fi/laskurit/ilmalampopumppu)
+- [Kylpyhuoneremontin laskuri](https://remonttireitti.fi/laskurit/kylpyhuoneremontti)
+- [Keittiöremontin laskuri](https://remonttireitti.fi/laskurit/keittioremontti)
+- [Maalauslaskuri](https://remonttireitti.fi/laskurit/maalaus)
+- [Terassilaskuri](https://remonttireitti.fi/laskurit/terassi)
 - [RSS — avoimet pyynnöt](https://remonttireitti.fi/tarjouspyynnot/feed.xml)
 - [Lämpöpumpun vian selvitys](https://remonttireitti.fi/vian-selvitys): itse-apu ennen huoltopyyntöä
 - [Urakoitsijaksi](https://remonttireitti.fi/urakoitsijaksi): rekisteröityminen ja provisiot

@@ -37,6 +37,7 @@ import { HomeFeedbackStats } from "@/components/marketing/home-feedback-stats";
 import { HomePlatformStats } from "@/components/marketing/home-platform-stats";
 import { HomeHeroVisual } from "@/components/marketing/home-hero-visual";
 import { HomeCommunitySection } from "@/components/marketing/home-community-section";
+import { HomeCalculatorsSection } from "@/components/marketing/home-calculators-section";
 import { HomeHeroCallouts } from "@/components/marketing/home-hero-callouts";
 import { HomeOpenHelpRequests } from "@/components/marketing/home-open-help-requests";
 import { HomeQualityRequest } from "@/components/marketing/home-quality-request";
@@ -206,6 +207,8 @@ export default async function Home() {
         />
 
         {platformStats && <HomePlatformStats stats={platformStats} />}
+
+        <HomeCalculatorsSection />
 
         <section className="border-t border-stone-200 bg-white py-14">
           <div className={brand.containerWide}>

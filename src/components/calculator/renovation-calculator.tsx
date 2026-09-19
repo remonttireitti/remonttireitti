@@ -372,20 +372,26 @@ export function RenovationCalculator({ config }: { config: CalculatorConfig }) {
       </div>
 
       <aside className="rounded-2xl border-2 border-orange-200 bg-gradient-to-r from-orange-50 via-white to-sky-50 p-6">
-        <h2 className="text-xl font-bold text-stone-900">
-          Haluatko tarkan tarjouksen ammattilaisilta?
-        </h2>
-        <p className="mt-2 text-sm leading-relaxed text-stone-700">
-          Laskuri antaa suuntaa-antavan arvion. Kilpailuta ilmaiseksi — saat oikeat
-          tarjoukset alueeltasi ja vertailet samassa muodossa. Tarjouspyyntö onnistuu
-          ilman tiliä.
+        <p className="text-sm font-medium uppercase tracking-wide text-orange-800">
+          Arvioitu hinta
         </p>
-        <div className={`${brand.actionsStack} mt-5`}>
+        <p className="mt-1 text-2xl font-bold text-stone-900">
+          {formatEuro(Math.round(estimate.total * 0.9))} –{" "}
+          {formatEuro(Math.round(estimate.total * 1.15))}
+        </p>
+        <p className="mt-2 text-sm leading-relaxed text-stone-700">
+          Tämä on suuntaa-antava arvio. Lopullinen hinta riippuu kohteesta, alueesta ja
+          työn laajuudesta.
+        </p>
+        <h2 className="mt-5 text-lg font-bold text-stone-900">
+          Haluatko oikeat tarjoukset juuri sinun kohteestasi?
+        </h2>
+        <div className={`${brand.actionsStack} mt-4`}>
           <Link
             href={ctaHref(config.jobSlug)}
             className={`${brand.btnPrimary} ${brand.btnPrimaryBlock}`}
           >
-            {config.ctaLabel ?? "Kilpailuta ilmaiseksi"}
+            Pyydä tarjoukset ilmaiseksi
           </Link>
           <Link
             href={`/hinta-arkisto?tyo=${config.priceArchiveParam ?? config.jobSlug}`}
