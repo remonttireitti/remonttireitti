@@ -97,98 +97,6 @@ export const SISATILAT_CALCULATORS: CalculatorConfig[] = [
       "Kotitalousvähennys (35 % työn osuudesta) alentaa lopullista kustannusta.",
     ],
     ctaLabel: "Kilpailuta kylpyhuoneremontti ilmaiseksi",
-    questions: [
-      {
-        id: "scope",
-        label: "Remontin laajuus",
-        mode: "quick",
-        defaultOptionId: "taysi",
-        options: [
-          { id: "taysi", label: "Täysremontti", effect: {} },
-          { id: "pinta", label: "Pintaremontti (laatoitus + kalusteet)", effect: { lineEnabled: { purku: false, vesieristys: false } } },
-        ],
-      },
-      {
-        id: "lvi-changes",
-        label: "LVI-muutokset (lattiakaivo, putkien siirto)",
-        mode: "quick",
-        defaultOptionId: "ei",
-        options: [
-          { id: "ei", label: "Ei muutoksia", effect: {} },
-          { id: "pieni", label: "Pienet muutokset", effect: { lineMultipliers: { "lvi-sahko": 1.15 } } },
-          { id: "laaja", label: "Laajat muutokset", effect: { lineMultipliers: { "lvi-sahko": 1.45 }, fixedAdd: 1200 } },
-        ],
-      },
-      {
-        id: "demolition",
-        label: "Purkutyön laajuus",
-        mode: "quick",
-        defaultOptionId: "normaali",
-        options: [
-          { id: "normaali", label: "Normaali", effect: {} },
-          { id: "raskas", label: "Raskas (betonivalut, tiili)", effect: { lineMultipliers: { purku: 1.35 } } },
-        ],
-      },
-      {
-        id: "fixtures",
-        label: "Kalustetaso",
-        mode: "quick",
-        defaultOptionId: "perus",
-        options: [
-          { id: "perus", label: "Perus", effect: { lineAmounts: { kalusteet: 1500 } } },
-          { id: "laadukas", label: "Laadukas", effect: { lineAmounts: { kalusteet: 2800 } } },
-          { id: "premium", label: "Premium", effect: { lineAmounts: { kalusteet: 4500 } } },
-        ],
-      },
-      {
-        id: "waterproof-detail",
-        label: "Vesieristyksen laajuus",
-        mode: "detail",
-        defaultOptionId: "normaali",
-        options: [
-          { id: "normaali", label: "Normaali", effect: {} },
-          { id: "korkea", label: "Korkea suihkuseinä / märkätila laajempi", effect: { lineMultipliers: { vesieristys: 1.2 } } },
-        ],
-      },
-      {
-        id: "floor-drain",
-        label: "Lattiakaivon siirto",
-        mode: "detail",
-        defaultOptionId: "ei",
-        options: [
-          { id: "ei", label: "Ei siirtoa", effect: {} },
-          { id: "kylla", label: "Siirretään", effect: { fixedAdd: 900 } },
-        ],
-      },
-      {
-        id: "electrical",
-        label: "Sähkötyöt",
-        mode: "detail",
-        defaultOptionId: "perus",
-        options: [
-          { id: "perus", label: "Perusvalaistus", effect: {} },
-          { id: "laaja", label: "Lattialämmitys + useampi piste", effect: { fixedAdd: 750 } },
-        ],
-      },
-      {
-        id: "access",
-        label: "Asunnon kerros / nostotyö",
-        mode: "detail",
-        defaultOptionId: "helppo",
-        options: [
-          { id: "helppo", label: "Helpot kuljetukset", effect: {} },
-          { id: "vaikea", label: "Vaikea (ylin kerros, ei hissiä)", effect: { lineMultipliers: { purku: 1.1, "laatoitus-tyo": 1.08 } } },
-        ],
-      },
-    ],
-    priceFactors: [
-      { label: "Lattian pinta-ala", status: "included" },
-      { label: "Laatoitus ja materiaalitaso", status: "included" },
-      { label: "Purkutyö ja vesieristys", status: "included" },
-      { label: "LVI-muutokset", status: "variable", questionIds: ["lvi-changes", "floor-drain"] },
-      { label: "Kalusteet", status: "variable", questionIds: ["fixtures"] },
-      { label: "Rakenteelliset muutokset", status: "variable", questionIds: ["waterproof-detail", "electrical", "access"] },
-    ],
   }),
 
   buildCalculator({
@@ -257,7 +165,6 @@ export const SISATILAT_CALCULATORS: CalculatorConfig[] = [
     scopeParagraphs: [
       "Kalusteet ja kodinkoneet ovat suurin kustannuserä. Työ on noin 800–1 500 €/m².",
     ],
-    priceRangeNote: "Tyypillisesti 800–1 500 €/m², kokonaisuus 10 000–40 000 €.",
     ctaLabel: "Kilpailuta keittiöremontti",
   }),
 
@@ -314,7 +221,6 @@ export const SISATILAT_CALCULATORS: CalculatorConfig[] = [
     scopeParagraphs: [
       "Pienessä tilassa kiinteät minimikustannukset nostavat neliöhintaa.",
     ],
-    priceRangeNote: "Tyypillisesti 3 000–8 000 €.",
     ctaLabel: "Kilpailuta wc-remontti",
   }),
 
@@ -370,7 +276,6 @@ export const SISATILAT_CALCULATORS: CalculatorConfig[] = [
     scopeParagraphs: [
       "Sähkökiukaan asennus vaatii riittävän tehon — tarkista sulake.",
     ],
-    priceRangeNote: "3 000–15 000 € riippuen laajuudesta.",
     ctaLabel: "Kilpailuta saunaremontti",
   }),
 
@@ -433,7 +338,6 @@ export const SISATILAT_CALCULATORS: CalculatorConfig[] = [
     scopeParagraphs: [
       "Epätasainen alusta vaatii tasoituksen — se nostaa hintaa.",
     ],
-    priceRangeNote: "40–120 €/m² asennettuna.",
     ctaLabel: "Kilpailuta lattiatyö",
   }),
 
@@ -482,7 +386,6 @@ export const SISATILAT_CALCULATORS: CalculatorConfig[] = [
     scopeParagraphs: [
       "Korkeat huoneet ja huonokuntoiset pinnat nostavat hintaa.",
     ],
-    priceRangeNote: "20–35 €/m².",
     ctaLabel: "Kilpailuta maalaustyö",
   }),
 
@@ -531,7 +434,6 @@ export const SISATILAT_CALCULATORS: CalculatorConfig[] = [
     scopeParagraphs: [
       "Pieni ala on kalliimpaa neliöltä kiinteiden käyntikustannusten vuoksi.",
     ],
-    priceRangeNote: "80–120 €/m².",
     ctaLabel: "Kilpailuta laatoitus",
   }),
 ];

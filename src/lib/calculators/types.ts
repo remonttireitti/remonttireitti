@@ -92,8 +92,6 @@ export type CalculatorConfig = {
   faq: readonly { q: string; a: string }[];
   scopeTitle: string;
   scopeParagraphs: readonly string[];
-  /** Korvataan automaattisesti laskennalla, jos jätetty pois */
-  priceRangeNote?: string;
   ctaLabel?: string;
   priceArchiveParam?: string;
   estimateRange?: EstimateRange;

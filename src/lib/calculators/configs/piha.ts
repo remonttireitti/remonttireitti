@@ -56,7 +56,6 @@ export const PIHA_CALCULATORS: CalculatorConfig[] = [
       "Komposiitti on huoltovapaa mutta kalliimpi kuin painekyllästetty puu.",
       "Epätasainen maasto vaatii korkeampia paaluja — hinta nousee.",
     ],
-    priceRangeNote: "130–180 €/m² asennettuna.",
     ctaLabel: "Kilpailuta terassi",
   }),
 
@@ -113,7 +112,6 @@ export const PIHA_CALCULATORS: CalculatorConfig[] = [
     scopeParagraphs: [
       "Hyvä pohjatyö on kriittinen — huono pohja johtaa painumiin.",
     ],
-    priceRangeNote: "50–80 €/m².",
     ctaLabel: "Kilpailuta pihatie",
   }),
 
@@ -170,7 +168,6 @@ export const PIHA_CALCULATORS: CalculatorConfig[] = [
     scopeParagraphs: [
       "Kallioinen maasto vaikeuttaa tolppien upotusta.",
     ],
-    priceRangeNote: "80–150 €/m.",
     ctaLabel: "Kilpailuta aita",
   }),
 
@@ -254,7 +251,6 @@ export const PIHA_CALCULATORS: CalculatorConfig[] = [
       "Valmisrakennus on nopeampi mutta kalliimpi kuin tee-se-itse.",
       "Jätehuolto ja kuljetukset unohtuvat usein budjetista.",
     ],
-    priceRangeNote: "Tee-se-itse 5 000–10 000 €, valmis 8 000–20 000 €.",
     ctaLabel: "Kilpailuta piharakennus",
   }),
 ];

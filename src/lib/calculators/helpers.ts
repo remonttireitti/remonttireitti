@@ -1,4 +1,10 @@
 import type { ProjectAreaSlug } from "@/constants/project-areas";
+import {
+  buildDefaultPriceFactors,
+  buildDefaultQuestions,
+  enrichFaqAnswer,
+} from "./default-questions";
+import { getCustomQuestions } from "./custom-questions";
 import type {
   BreakdownSegment,
   CalculatorConfig,
@@ -112,7 +118,6 @@ type BuildCalcParams = {
   faq: readonly { q: string; a: string }[];
   scopeTitle: string;
   scopeParagraphs: readonly string[];
-  priceRangeNote?: string;
   ctaLabel?: string;
   tiers?: CalculatorTier[];
   defaultTierId?: string;
@@ -124,6 +129,31 @@ type BuildCalcParams = {
 export function buildCalculator(params: BuildCalcParams): CalculatorConfig {
   const lineItems = calcLines(...params.lines);
   const typicalQty = params.typicalPrimaryQty ?? params.primaryInput.defaultValue;
+
+  const defaultParams = {
+    lines: params.lines,
+    tiers: params.tiers,
+    primaryInputLabel: params.primaryInput.label,
+  };
+
+  const custom = getCustomQuestions(params.slug);
+
+  const questions =
+    custom?.questions ??
+    (params.questions && params.questions.length > 0
+      ? params.questions
+      : buildDefaultQuestions(defaultParams));
+
+  const priceFactors =
+    custom?.priceFactors ??
+    (params.priceFactors && params.priceFactors.length > 0
+      ? params.priceFactors
+      : buildDefaultPriceFactors(defaultParams, questions));
+
+  const faq = params.faq.map((item) => ({
+    q: item.q,
+    a: enrichFaqAnswer(item.q, item.a, params.primaryInput.unit),
+  }));
 
   return {
     slug: params.slug,
@@ -139,14 +169,13 @@ export function buildCalculator(params: BuildCalcParams): CalculatorConfig {
     defaultTierId: params.defaultTierId,
     lineItems,
     typicalBreakdown: breakdownFromLines(params.lines, typicalQty),
-    faq: params.faq,
+    faq,
     scopeTitle: params.scopeTitle,
     scopeParagraphs: params.scopeParagraphs,
-    priceRangeNote: params.priceRangeNote,
     ctaLabel: params.ctaLabel,
     priceArchiveParam: params.jobSlug ?? params.slug,
     estimateRange: params.estimateRange,
-    questions: params.questions,
-    priceFactors: params.priceFactors,
+    questions,
+    priceFactors,
   };
 }

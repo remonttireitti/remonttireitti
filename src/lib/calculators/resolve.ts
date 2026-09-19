@@ -12,18 +12,40 @@ export function getEstimateRange(config: CalculatorConfig) {
   return config.estimateRange ?? DEFAULT_RANGE;
 }
 
+function defaultAnswers(config: CalculatorConfig): Record<string, string> {
+  const answers: Record<string, string> = {};
+  for (const q of config.questions ?? []) {
+    answers[q.id] = q.defaultOptionId;
+  }
+  return answers;
+}
+
 function defaultLineItems(config: CalculatorConfig) {
   const tier = config.tiers?.find((t) => t.id === config.defaultTierId) ?? config.tiers?.[0];
-  return tier
+  let items = tier
     ? applyTierOverrides(structuredClone(config.lineItems), tier.overrides)
     : structuredClone(config.lineItems);
+
+  if (config.questions?.length) {
+    const { items: adjusted, fixedAdd } = applyConfiguredQuestions(
+      items,
+      config,
+      defaultAnswers(config),
+      "quick",
+    );
+    items = adjusted;
+    return { items, fixedAdd };
+  }
+
+  return { items, fixedAdd: 0 };
 }
 
 export function resolveDefaultEstimate(config: CalculatorConfig): ResolvedEstimate {
   const primaryQty = config.primaryInput.defaultValue;
   const secondaryQty = config.secondaryInput?.defaultValue ?? 0;
-  const items = defaultLineItems(config);
-  const { total } = calculateEstimate(primaryQty, secondaryQty, items);
+  const { items, fixedAdd } = defaultLineItems(config);
+  const { total: lineTotal } = calculateEstimate(primaryQty, secondaryQty, items);
+  const total = lineTotal + fixedAdd;
   const range = getEstimateRange(config);
 
   const low = Math.round(total * range.lowMultiplier);
@@ -103,13 +125,14 @@ function fillTemplate(text: string, tokens: PricingTokens): string {
   });
 }
 
+function showPerUnitNote(config: CalculatorConfig, perUnitMid?: number): boolean {
+  return config.primaryInput.unit === "m²" && (perUnitMid ?? 0) >= 10;
+}
+
 export function derivePriceRangeNote(config: CalculatorConfig): string {
-  if (config.priceRangeNote) return config.priceRangeNote;
+  const { perUnitMid } = resolveDefaultEstimate(config);
 
-  const estimate = resolveDefaultEstimate(config);
-  const tokens = buildPricingTokens(estimate);
-
-  if (config.primaryInput.unit === "m²") {
+  if (showPerUnitNote(config, perUnitMid)) {
     return `Laskurin oletus ({defaultSize}): {perUnitRange}/{primaryUnit}, kokonaisuus {totalRange} (todennäköisesti noin {totalMid}).`;
   }
 
@@ -146,7 +169,9 @@ export function formatLivePriceNote(
   low: number,
   high: number,
 ): string {
-  if (config.primaryInput.unit === "m²" && primaryQty > 0) {
+  const perMid = primaryQty > 0 ? Math.round(total / primaryQty) : 0;
+
+  if (showPerUnitNote(config, perMid) && primaryQty > 0) {
     const perLow = Math.round(low / primaryQty);
     const perHigh = Math.round(high / primaryQty);
     return `${primaryQty} ${config.primaryInput.unit}: ${formatEuro(perLow)}–${formatEuro(perHigh)}/${config.primaryInput.unit}, kokonaisuus ${formatEuro(low)}–${formatEuro(high)} (noin ${formatEuro(total)}).`;

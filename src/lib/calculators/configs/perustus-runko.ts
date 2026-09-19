@@ -54,7 +54,6 @@ export const PERUSTUS_CALCULATORS: CalculatorConfig[] = [
     scopeParagraphs: [
       "Salaojitus kannattaa tarkistaa samalla — se estää kosteusongelmia.",
     ],
-    priceRangeNote: "5 000–15 000 €.",
     ctaLabel: "Kilpailuta sokkeliremontti",
   }),
 
@@ -112,7 +111,6 @@ export const PERUSTUS_CALCULATORS: CalculatorConfig[] = [
       "Perustustapa valitaan pohjatutkimuksen perusteella — ei hinnan mukaan.",
       "Pehmeä maa vaatii paalutuksen, mikä nostaa kustannuksia merkittävästi.",
     ],
-    priceRangeNote: "25 000–50 000 € omakotitalossa.",
     ctaLabel: "Kilpailuta perustustyö",
   }),
 
@@ -160,7 +158,6 @@ export const PERUSTUS_CALCULATORS: CalculatorConfig[] = [
     scopeParagraphs: [
       "Puhallusvilla sopii vaikeasti saavutettaviin yläpohjiin.",
     ],
-    priceRangeNote: "15–30 €/m².",
     ctaLabel: "Kilpailuta eristys",
   }),
 ];
