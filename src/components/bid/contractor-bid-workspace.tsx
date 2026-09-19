@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
+import { recordCalculatorLearningSignals } from "@/app/actions/calculator-learning";
 import { BidForm } from "@/components/bid/bid-form";
 import { ContractorBidCalculator } from "@/components/calculator/contractor-bid-calculator";
 import type { BidCalculatorResult } from "@/lib/bid-calculator-bridge";
@@ -29,12 +30,16 @@ export function ContractorBidWorkspace({
   pricingRates,
   initialPrimaryQty,
   jobTypeSlug,
+  contractorAvgDeviationPercent,
+  contractorDeviationSampleCount,
   ...bidFormProps
 }: {
   calculatorConfig: CalculatorConfig;
   pricingRates: ContractorPricingRates;
   initialPrimaryQty?: number;
   jobTypeSlug?: string | null;
+  contractorAvgDeviationPercent?: number | null;
+  contractorDeviationSampleCount?: number;
   projectId: string;
   requiresDeviceAndInstallation: boolean;
   allowOptionalEquipmentOffer: boolean;
@@ -49,6 +54,7 @@ export function ContractorBidWorkspace({
   const [prefill, setPrefill] = useState<CalculatorPrefill | null>(null);
   const [prefillVersion, setPrefillVersion] = useState(0);
   const [applied, setApplied] = useState(false);
+  const [, startLearning] = useTransition();
 
   function handleCalculatorApply(result: BidCalculatorResult) {
     const seeded = buildSeededScopeLines(
@@ -65,6 +71,22 @@ export function ContractorBidWorkspace({
     });
     setPrefillVersion((v) => v + 1);
     setApplied(true);
+
+    if (
+      result.suggestForFutureRequests &&
+      (result.suggestedAddons.length > 0 || result.suggestedInfoNeeds.length > 0)
+    ) {
+      const fd = new FormData();
+      fd.set("project_id", bidFormProps.projectId);
+      fd.set("calculator_slug", result.calculatorSlug);
+      fd.set("job_slug", jobTypeSlug ?? "");
+      fd.set("addons_json", JSON.stringify(result.suggestedAddons));
+      fd.set("info_needs_json", JSON.stringify(result.suggestedInfoNeeds));
+      fd.set("as_suggestion", "1");
+      startLearning(() => {
+        void recordCalculatorLearningSignals({}, fd);
+      });
+    }
 
     requestAnimationFrame(() => {
       document
@@ -105,6 +127,12 @@ export function ContractorBidWorkspace({
             jobTypeSlug={jobTypeSlug}
             calculatorPrefill={prefill}
             calculatorPrefillVersion={prefillVersion}
+            calculatorEstimateEuros={
+              prefill ? Number(prefill.amountEuros) || null : null
+            }
+            calculatorSlug={calculatorConfig.slug}
+            contractorAvgDeviationPercent={contractorAvgDeviationPercent}
+            contractorDeviationSampleCount={contractorDeviationSampleCount}
           />
         </div>
       </div>

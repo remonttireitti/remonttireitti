@@ -13,6 +13,11 @@ export type BidCalculatorResult = {
   lines: CalculatedLine[];
   primaryQty: number;
   calculatorSlug: string;
+  /** Urakoitsijan ehdotukset lisätöiksi — kerätään oppimiseen. */
+  suggestedAddons: string[];
+  /** Puuttuvat tiedot — kerätään oppimiseen. */
+  suggestedInfoNeeds: string[];
+  suggestForFutureRequests: boolean;
 };
 
 /** Muodosta vertailukelpoiset laajuusrivit tarjouslomakkeeseen. */

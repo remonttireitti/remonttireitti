@@ -6,6 +6,7 @@ import {
   isStructuredJobSlug,
   type RequestGuideQuestion,
 } from "@/constants/project-request-templates";
+import type { LearnedProposal } from "@/lib/learned-proposals";
 import type { EmphasizedCriterion } from "@/lib/template-criterion-stats";
 
 const DESCRIPTION_FIELD_ID = "description";
@@ -81,19 +82,25 @@ export function ProjectRequestGuide({
   description,
   onDescriptionChange,
   emphasizedCriteria = [],
+  learnedInfoNeeds = [],
 }: {
   jobSlug: string | null;
   description: string;
   onDescriptionChange: (value: string) => void;
   emphasizedCriteria?: EmphasizedCriterion[];
+  learnedInfoNeeds?: LearnedProposal[];
 }) {
   const template = getProjectRequestTemplate(jobSlug);
   const [expanded, setExpanded] = useState(true);
   const [flash, setFlash] = useState<{ questionId: string; message: string } | null>(
     null,
   );
+  const jobKey = jobSlug ?? "generic";
   const emphasizedForJob = emphasizedCriteria.filter(
-    (c) => c.jobSlug === (jobSlug ?? "generic") && c.requestCount >= 2,
+    (c) => c.jobSlug === jobKey && c.requestCount >= 2,
+  );
+  const infoNeedsForJob = learnedInfoNeeds.filter(
+    (p) => p.jobSlug === jobKey && p.kind === "info_need",
   );
 
   const progress = useMemo(() => {
@@ -212,12 +219,21 @@ export function ProjectRequestGuide({
         </p>
       )}
 
-      {emphasizedForJob.length > 0 && (
+      {(emphasizedForJob.length > 0 || infoNeedsForJob.length > 0) && (
         <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50/80 px-3 py-2 text-xs text-amber-950">
           <p className="font-medium">Urakoitsijat usein pyytävät tarkentamaan:</p>
           <ul className="mt-1 space-y-0.5">
             {emphasizedForJob.map((c) => (
               <li key={c.id}>• {c.label}</li>
+            ))}
+            {infoNeedsForJob.map((p) => (
+              <li key={p.slug}>
+                • {p.label}
+                <span className="text-amber-800/80">
+                  {" "}
+                  (pyydetty {p.requestCount} kertaa)
+                </span>
+              </li>
             ))}
           </ul>
         </div>

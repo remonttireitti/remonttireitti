@@ -67,6 +67,7 @@ import {
   companyFactsMissingMessage,
   isCompanyFactsComplete,
 } from "@/lib/contractor-company-facts";
+import { recordCalculatorBidDeviationFromForm } from "@/lib/calculator-deviation-server";
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -118,6 +119,29 @@ type ParsedBidPayload = {
     content_revision: number;
   };
 };
+
+async function recordBidCalculatorDeviation(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  formData: FormData,
+  contractorId: string,
+  projectId: string,
+  amountCents: number,
+): Promise<void> {
+  const estimateRaw = String(formData.get("calculator_estimate_euros") ?? "").trim();
+  const estimateEuros = estimateRaw ? Number(estimateRaw) : null;
+  if (!estimateEuros || !Number.isFinite(estimateEuros) || estimateEuros <= 0) {
+    return;
+  }
+
+  await recordCalculatorBidDeviationFromForm(supabase, {
+    contractorId,
+    projectId,
+    jobSlug: String(formData.get("job_slug_for_calc") ?? "").trim() || null,
+    calculatorSlug: String(formData.get("calculator_slug") ?? "").trim() || null,
+    estimateEuros,
+    bidCents: amountCents,
+  });
+}
 
 async function parseBidSubmission(
   supabase: Awaited<ReturnType<typeof createClient>>,
@@ -429,6 +453,14 @@ export async function submitBid(
     }
   }
 
+  await recordBidCalculatorDeviation(
+    supabase,
+    formData,
+    user.id,
+    payload.projectId,
+    payload.amountCents,
+  );
+
   const { data: contractor } = await supabase
     .from("contractor_profiles")
     .select("company_name")
@@ -516,6 +548,14 @@ export async function updateBid(
     console.error("[updateBid]", error.code, error.message);
     return bidError(formData, formatBidSaveError(error));
   }
+
+  await recordBidCalculatorDeviation(
+    supabase,
+    formData,
+    user.id,
+    payload.projectId,
+    payload.amountCents,
+  );
 
   await recordProjectActivityEvent({
     projectId: payload.projectId,
