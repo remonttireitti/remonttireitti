@@ -1,4 +1,4 @@
-import type { CalculatorLineItem } from "./types";
+import type { CalculatorLineItem, CalculatorQuestion } from "./types";
 
 export type CalculatedLine = {
   id: string;
@@ -68,4 +68,51 @@ export function applyTierOverrides(
   return items.map((item) =>
     item.id in overrides ? { ...item, amount: overrides[item.id]! } : item,
   );
+}
+
+export function applyQuestionAnswers(
+  items: CalculatorLineItem[],
+  questions: CalculatorQuestion[],
+  answers: Record<string, string>,
+): { items: CalculatorLineItem[]; fixedAdd: number } {
+  let result = structuredClone(items);
+  let fixedAdd = 0;
+
+  for (const question of questions) {
+    const answerId = answers[question.id] ?? question.defaultOptionId;
+    const option = question.options.find((o) => o.id === answerId);
+    if (!option?.effect) continue;
+
+    const { lineMultipliers, lineAmounts, lineEnabled, fixedAdd: add } = option.effect;
+
+    if (lineMultipliers) {
+      for (const [lineId, multiplier] of Object.entries(lineMultipliers)) {
+        result = result.map((item) =>
+          item.id === lineId
+            ? { ...item, amount: Math.round(item.amount * multiplier) }
+            : item,
+        );
+      }
+    }
+
+    if (lineAmounts) {
+      for (const [lineId, amount] of Object.entries(lineAmounts)) {
+        result = result.map((item) =>
+          item.id === lineId ? { ...item, amount } : item,
+        );
+      }
+    }
+
+    if (lineEnabled) {
+      for (const [lineId, enabled] of Object.entries(lineEnabled)) {
+        result = result.map((item) =>
+          item.id === lineId ? { ...item, enabled } : item,
+        );
+      }
+    }
+
+    if (add) fixedAdd += add;
+  }
+
+  return { items: result, fixedAdd };
 }

@@ -4,7 +4,10 @@ import type {
   CalculatorConfig,
   CalculatorInput,
   CalculatorLineItem,
+  CalculatorQuestion,
   CalculatorTier,
+  EstimateRange,
+  PriceFactor,
 } from "./types";
 
 type LineDef = Omit<CalculatorLineItem, "enabled">;
@@ -113,6 +116,9 @@ type BuildCalcParams = {
   ctaLabel?: string;
   tiers?: CalculatorTier[];
   defaultTierId?: string;
+  estimateRange?: EstimateRange;
+  questions?: CalculatorQuestion[];
+  priceFactors?: PriceFactor[];
 };
 
 export function buildCalculator(params: BuildCalcParams): CalculatorConfig {
@@ -139,5 +145,8 @@ export function buildCalculator(params: BuildCalcParams): CalculatorConfig {
     priceRangeNote: params.priceRangeNote,
     ctaLabel: params.ctaLabel,
     priceArchiveParam: params.jobSlug ?? params.slug,
+    estimateRange: params.estimateRange,
+    questions: params.questions,
+    priceFactors: params.priceFactors,
   };
 }

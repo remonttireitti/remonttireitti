@@ -11,6 +11,7 @@ import {
   getCalculatorBySlug,
   getCalculatorSlugs,
 } from "@/lib/calculators/registry";
+import { resolveCalculatorContent, resolvePriceRangeNote } from "@/lib/calculators/resolve";
 import { pageMetadata } from "@/lib/seo";
 import { mergeKeywords, SITE_KEYWORDS, CALCULATOR_KEYWORDS } from "@/lib/seo-keywords";
 
@@ -44,11 +45,13 @@ export default async function CalculatorPage({ params }: Props) {
   const config = getCalculatorBySlug(slug);
   if (!config) notFound();
 
+  const { faq } = resolveCalculatorContent(config);
+  const priceRangeNote = resolvePriceRangeNote(config);
   const servicePath = `/palvelut/${config.jobSlug}`;
 
   return (
     <div className={brand.page}>
-      <CalculatorJsonLd config={config} urlSlug={slug} />
+      <CalculatorJsonLd config={config} faq={faq} urlSlug={slug} />
       <SiteHeader />
       <main className={brand.mainWide}>
         <nav className="text-sm text-stone-500">
@@ -67,6 +70,7 @@ export default async function CalculatorPage({ params }: Props) {
         <p className="mt-3 max-w-3xl text-base leading-relaxed text-stone-600">
           {config.intro}
         </p>
+        <p className="mt-2 max-w-3xl text-sm text-stone-500">{priceRangeNote}</p>
 
         {config.typicalBreakdown && config.typicalBreakdown.length > 0 && (
           <section className="mt-10">
@@ -102,11 +106,11 @@ export default async function CalculatorPage({ params }: Props) {
           </div>
         </section>
 
-        {config.faq.length > 0 && (
+        {faq.length > 0 && (
           <section className="mt-12">
             <h2 className="text-xl font-bold text-stone-900">Usein kysyttyä</h2>
             <ul className="mt-4 space-y-3">
-              {config.faq.map((item) => (
+              {faq.map((item) => (
                 <li key={item.q}>
                   <details className="rounded-xl border border-stone-200 bg-white">
                     <summary className="cursor-pointer px-4 py-3 font-medium text-stone-900">
