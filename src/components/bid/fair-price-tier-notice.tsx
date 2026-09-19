@@ -11,17 +11,24 @@ import {
   type ContractorTierProfile,
   type JobPriceBenchmark,
 } from "@/lib/fair-price-tier";
+import {
+  buildProfitabilityAdvisory,
+  typicalBidRangeFromBenchmark,
+  type BidProfitabilitySummary,
+} from "@/lib/bid-profitability";
 
 export function FairPriceTierNotice({
   bidEuros,
   estimateEuros,
   jobBenchmark,
   contractorProfile,
+  profitability,
 }: {
   bidEuros: number;
   estimateEuros: number | null | undefined;
   jobBenchmark: JobPriceBenchmark | null;
   contractorProfile: ContractorTierProfile | null;
+  profitability?: BidProfitabilitySummary | null;
 }) {
   const notice = useMemo(() => {
     if (!estimateEuros || estimateEuros <= 0) return null;
@@ -43,6 +50,17 @@ export function FairPriceTierNotice({
 
   const vsTypical = notice.vsTypicalPercent;
   const absDev = Math.abs(notice.deviationPercent);
+  const typicalRange = typicalBidRangeFromBenchmark(
+    estimateEuros ?? 0,
+    jobBenchmark,
+  );
+  const profitAdvisory =
+    profitability &&
+    buildProfitabilityAdvisory({
+      tier: notice.tier,
+      profitMarginPercent: profitability.profitMarginPercent,
+      profitEuros: profitability.profit,
+    });
 
   return (
     <div
@@ -80,6 +98,47 @@ export function FairPriceTierNotice({
           </>
         ) : null}
       </p>
+
+      {typicalRange && (
+        <p className="mt-2 text-violet-900/90">
+          Vastaavien töiden tyypillinen tarjoushinta:{" "}
+          <strong>{typicalRange.label}</strong>
+        </p>
+      )}
+
+      {profitability && (
+        <dl className="mt-3 grid gap-2 rounded-lg border border-emerald-200 bg-emerald-50/60 px-3 py-2 text-xs sm:grid-cols-3">
+          <div>
+            <dt className="text-emerald-800">Arvioitu kate</dt>
+            <dd className="font-semibold text-emerald-950">
+              {profitability.profit.toLocaleString("fi-FI")} € (
+              {profitability.profitMarginPercent.toLocaleString("fi-FI")} %)
+            </dd>
+          </div>
+          {profitability.estimatedHours != null && (
+            <div>
+              <dt className="text-emerald-800">Työaika</dt>
+              <dd className="font-semibold text-emerald-950">
+                {profitability.estimatedHours.toLocaleString("fi-FI")} h
+              </dd>
+            </div>
+          )}
+          {profitability.profitPerHour != null && (
+            <div>
+              <dt className="text-emerald-800">Kate / h</dt>
+              <dd className="font-semibold text-emerald-950">
+                {profitability.profitPerHour.toLocaleString("fi-FI")} €/h
+              </dd>
+            </div>
+          )}
+        </dl>
+      )}
+
+      {profitAdvisory && (
+        <p className="mt-2 rounded-lg border border-emerald-200 bg-emerald-50/80 px-3 py-2 text-emerald-950">
+          {profitAdvisory}
+        </p>
+      )}
 
       {notice.showScopeCheck && (
         <p className="mt-2 rounded-lg border border-amber-200 bg-amber-50/80 px-3 py-2 text-amber-950">

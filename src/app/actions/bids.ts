@@ -68,6 +68,8 @@ import {
   isCompanyFactsComplete,
 } from "@/lib/contractor-company-facts";
 import { recordCalculatorBidDeviationFromForm } from "@/lib/calculator-deviation-server";
+import { saveBidProfitabilityPlan } from "@/app/actions/bid-profitability";
+import { parseStoredProfitability } from "@/lib/bid-profitability";
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -119,6 +121,38 @@ type ParsedBidPayload = {
     content_revision: number;
   };
 };
+
+async function recordBidProfitabilityFromForm(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  formData: FormData,
+  contractorId: string,
+  projectId: string,
+): Promise<void> {
+  const raw = String(formData.get("bid_profitability_json") ?? "").trim();
+  if (!raw) return;
+
+  let stored;
+  try {
+    stored = parseStoredProfitability(JSON.parse(raw));
+  } catch {
+    return;
+  }
+  if (!stored) return;
+
+  const { data: bid } = await supabase
+    .from("bids")
+    .select("id")
+    .eq("project_id", projectId)
+    .eq("contractor_id", contractorId)
+    .maybeSingle();
+
+  await saveBidProfitabilityPlan({
+    projectId,
+    bidId: bid?.id,
+    costs: stored.costs,
+    summary: stored.summary,
+  });
+}
 
 async function recordBidCalculatorDeviation(
   supabase: Awaited<ReturnType<typeof createClient>>,
@@ -460,6 +494,12 @@ export async function submitBid(
     payload.projectId,
     payload.amountCents,
   );
+  await recordBidProfitabilityFromForm(
+    supabase,
+    formData,
+    user.id,
+    payload.projectId,
+  );
 
   const { data: contractor } = await supabase
     .from("contractor_profiles")
@@ -555,6 +595,12 @@ export async function updateBid(
     user.id,
     payload.projectId,
     payload.amountCents,
+  );
+  await recordBidProfitabilityFromForm(
+    supabase,
+    formData,
+    user.id,
+    payload.projectId,
   );
 
   await recordProjectActivityEvent({

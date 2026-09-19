@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { recordCalculatorLearningSignals } from "@/app/actions/calculator-learning";
+import { saveBidProfitabilityPlan } from "@/app/actions/bid-profitability";
 import { BidForm } from "@/components/bid/bid-form";
 import { ContractorBidCalculator } from "@/components/calculator/contractor-bid-calculator";
 import type { BidCalculatorResult } from "@/lib/bid-calculator-bridge";
@@ -20,6 +21,7 @@ import type {
   ContractorTierProfile,
   JobPriceBenchmark,
 } from "@/lib/fair-price-tier";
+import type { BidCostBreakdown } from "@/lib/bid-profitability";
 
 type BidFormProps = React.ComponentProps<typeof BidForm>;
 
@@ -27,6 +29,11 @@ type CalculatorPrefill = {
   amountEuros: string;
   scopeLines: ReturnType<typeof scopeLinesFromCalculatorResult>;
   messageNote: string;
+  calculatorSubtotalEuros: number;
+  profitability?: {
+    costs: BidCostBreakdown;
+    hourlyRate: number;
+  };
 };
 
 export function ContractorBidWorkspace({
@@ -72,9 +79,27 @@ export function ContractorBidWorkspace({
       amountEuros: String(Math.round(result.totalWithMargin)),
       scopeLines,
       messageNote: note,
+      calculatorSubtotalEuros: result.subtotal,
+      profitability: result.profitability
+        ? {
+            costs: result.profitability.costs,
+            hourlyRate: pricingRates.hourlyRate,
+          }
+        : undefined,
     });
     setPrefillVersion((v) => v + 1);
     setApplied(true);
+
+    if (result.profitability) {
+      startLearning(() => {
+        void saveBidProfitabilityPlan({
+          projectId: bidFormProps.projectId,
+          bidId: bidFormProps.bidId,
+          costs: result.profitability!.costs,
+          summary: result.profitability!.summary,
+        });
+      });
+    }
 
     if (
       result.suggestForFutureRequests &&
@@ -105,6 +130,7 @@ export function ContractorBidWorkspace({
         config={calculatorConfig}
         rates={pricingRates}
         initialPrimaryQty={initialPrimaryQty}
+        jobPriceBenchmark={jobPriceBenchmark}
         onApply={handleCalculatorApply}
       />
 
@@ -132,8 +158,11 @@ export function ContractorBidWorkspace({
             calculatorPrefill={prefill}
             calculatorPrefillVersion={prefillVersion}
             calculatorEstimateEuros={
-              prefill ? Number(prefill.amountEuros) || null : null
+              prefill?.calculatorSubtotalEuros
+                ? prefill.calculatorSubtotalEuros
+                : null
             }
+            calculatorPrefillProfitability={prefill?.profitability ?? null}
             calculatorSlug={calculatorConfig.slug}
             jobPriceBenchmark={jobPriceBenchmark}
             contractorTierProfile={contractorTierProfile}

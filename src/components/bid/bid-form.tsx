@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useServerActionSubmit } from "@/hooks/use-server-action-submit";
 import {
   submitBid,
@@ -53,6 +53,11 @@ import {
 } from "@/lib/service-engagement";
 import type { ProjectTradeContext } from "@/lib/project-trades-server";
 import { TURNKEY_COORDINATION_LABELS } from "@/lib/bid-trade-offer";
+import {
+  computeProfitability,
+  profitabilityToFormHidden,
+  type BidCostBreakdown,
+} from "@/lib/bid-profitability";
 
 const inputClass =
   "mt-1 w-full rounded-lg border border-stone-300 px-3 py-2 focus:border-sky-600 focus:outline-none focus:ring-1 focus:ring-sky-600";
@@ -76,7 +81,14 @@ type CalculatorPrefill = {
   amountEuros: string;
   scopeLines: BidScopeLine[];
   messageNote: string;
+  calculatorSubtotalEuros?: number;
+  profitability?: {
+    costs: BidCostBreakdown;
+    hourlyRate: number;
+  };
 };
+
+type CalculatorPrefillProfitability = CalculatorPrefill["profitability"];
 
 export function BidForm({
   projectId,
@@ -93,6 +105,7 @@ export function BidForm({
   calculatorPrefill,
   calculatorPrefillVersion = 0,
   calculatorEstimateEuros,
+  calculatorPrefillProfitability = null,
   calculatorSlug,
   jobPriceBenchmark,
   contractorTierProfile,
@@ -119,6 +132,8 @@ export function BidForm({
   calculatorPrefillVersion?: number;
   /** Laskurin arvio vertailua varten (€). */
   calculatorEstimateEuros?: number | null;
+  /** Laskurista siirretty kustannusjako kannattavuusnäkymää varten. */
+  calculatorPrefillProfitability?: CalculatorPrefillProfitability | null;
   calculatorSlug?: string | null;
   jobPriceBenchmark?: JobPriceBenchmark | null;
   contractorTierProfile?: ContractorTierProfile | null;
@@ -144,6 +159,10 @@ export function BidForm({
   const [activeCalculatorEstimate, setActiveCalculatorEstimate] = useState<
     number | null
   >(calculatorEstimateEuros ?? null);
+  const [profitabilityInput, setProfitabilityInput] =
+    useState<CalculatorPrefillProfitability | null>(
+      calculatorPrefillProfitability ?? null,
+    );
   const saveAction = mode === "edit" ? updateBid : submitBid;
 
   const { state, submit, pending } = useServerActionSubmit<BidActionState>(
@@ -195,6 +214,12 @@ export function BidForm({
       delete next.scope_terms;
       return next;
     });
+    if (calculatorPrefill.profitability) {
+      setProfitabilityInput(calculatorPrefill.profitability);
+    }
+    if (calculatorPrefill.calculatorSubtotalEuros != null) {
+      setActiveCalculatorEstimate(calculatorPrefill.calculatorSubtotalEuros);
+    }
     setClientError(null);
   }, [calculatorPrefill, calculatorPrefillVersion]);
 
@@ -205,11 +230,10 @@ export function BidForm({
   }, [calculatorEstimateEuros]);
 
   useEffect(() => {
-    if (calculatorPrefill?.amountEuros) {
-      const est = Number(calculatorPrefill.amountEuros);
-      if (est > 0) setActiveCalculatorEstimate(est);
+    if (calculatorPrefillProfitability) {
+      setProfitabilityInput(calculatorPrefillProfitability);
     }
-  }, [calculatorPrefill]);
+  }, [calculatorPrefillProfitability]);
 
   function syncScopeLines(lines: BidScopeLine[]) {
     setScopeLines(lines);
@@ -313,6 +337,23 @@ export function BidForm({
       ? Number(fields.equipment_amount_euros) || 0
       : 0;
   const amountEuros = bidFormTotalEuros(fields);
+  const profitabilitySummary = useMemo(() => {
+    if (!profitabilityInput) return null;
+    const sellingPrice = workEuros > 0 ? workEuros : amountEuros;
+    if (sellingPrice <= 0) return null;
+    return computeProfitability(
+      sellingPrice,
+      profitabilityInput.costs,
+      profitabilityInput.hourlyRate,
+    );
+  }, [profitabilityInput, workEuros, amountEuros]);
+  const profitabilityHiddenFields = useMemo(() => {
+    if (!profitabilitySummary || !profitabilityInput) return null;
+    return profitabilityToFormHidden(
+      profitabilitySummary,
+      profitabilityInput.costs,
+    );
+  }, [profitabilitySummary, profitabilityInput]);
   const overBudget =
     budgetInfo.budgetMaxEur != null &&
     bidAmountExceedsBudget(amountEuros, budgetInfo);
@@ -420,6 +461,13 @@ export function BidForm({
       )}
       {jobTypeSlug && (
         <input type="hidden" name="job_slug_for_calc" value={jobTypeSlug} />
+      )}
+      {profitabilityHiddenFields && (
+        <input
+          type="hidden"
+          name="bid_profitability_json"
+          value={profitabilityHiddenFields.bid_profitability_json}
+        />
       )}
 
       {isMultiTrade && tradeContext && (
@@ -651,6 +699,7 @@ export function BidForm({
               bidEuros={amountEuros}
               jobBenchmark={jobPriceBenchmark ?? null}
               contractorProfile={contractorTierProfile ?? null}
+              profitability={profitabilitySummary}
             />
           </div>
         )}

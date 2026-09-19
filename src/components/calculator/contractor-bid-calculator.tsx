@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { CostBreakdownChart } from "@/components/calculator/cost-breakdown-chart";
 import { brand } from "@/lib/brand-theme";
 import type { BidCalculatorResult } from "@/lib/bid-calculator-bridge";
@@ -17,8 +17,17 @@ import {
   clampQuantity,
   formatEuro,
 } from "@/lib/calculators/math";
+import { BidProfitabilityPanel } from "@/components/calculator/bid-profitability-panel";
 import { VatLabel } from "@/components/price/price-with-vat";
+import {
+  computeProfitability,
+  costBreakdownToFields,
+  fieldsToCostBreakdown,
+  suggestCostBreakdownFromLines,
+  type BidCostBreakdown,
+} from "@/lib/bid-profitability";
 import { CONTRACTOR_COST_VAT } from "@/lib/vat-label";
+import type { JobPriceBenchmark } from "@/lib/fair-price-tier";
 import type { CalculatorConfig, CalculatorLineItem } from "@/lib/calculators/types";
 
 const CHART_COLORS = [
@@ -44,6 +53,7 @@ type Props = {
   config: CalculatorConfig;
   rates: ContractorPricingRates;
   initialPrimaryQty?: number;
+  jobPriceBenchmark?: JobPriceBenchmark | null;
   onApply: (result: BidCalculatorResult) => void;
 };
 
@@ -51,6 +61,7 @@ export function ContractorBidCalculator({
   config,
   rates,
   initialPrimaryQty,
+  jobPriceBenchmark = null,
   onApply,
 }: Props) {
   const defaultTier = config.defaultTierId ?? config.tiers?.[0]?.id;
@@ -70,6 +81,18 @@ export function ContractorBidCalculator({
   const [addonDraft, setAddonDraft] = useState("");
   const [infoNeedDraft, setInfoNeedDraft] = useState("");
   const [suggestForFuture, setSuggestForFuture] = useState(true);
+  const [sellingPrice, setSellingPrice] = useState(0);
+  const [costFields, setCostFields] = useState<
+    Record<keyof BidCostBreakdown, string>
+  >({
+    materials: "",
+    labor: "",
+    subcontracting: "",
+    travelEquipment: "",
+    otherDirect: "",
+  });
+  const [costsManuallyEdited, setCostsManuallyEdited] = useState(false);
+
   const [items, setItems] = useState<CalculatorLineItem[]>(() => {
     const tier = config.tiers?.find((t) => t.id === defaultTier);
     const base = tier
@@ -114,6 +137,29 @@ export function ContractorBidCalculator({
     const totalWithMargin = applyMargin(subtotal, rates.marginPercent);
     return { ...result, subtotal, totalWithMargin };
   }, [clampedPrimary, clampedSecondary, adjustedItems, fixedAdd, rates.marginPercent]);
+
+  const enabledLines = useMemo(
+    () => estimate.lines.filter((l) => l.enabled && l.amount > 0),
+    [estimate.lines],
+  );
+
+  useEffect(() => {
+    setSellingPrice(estimate.totalWithMargin);
+    if (!costsManuallyEdited) {
+      const suggested = suggestCostBreakdownFromLines(enabledLines, fixedAdd);
+      setCostFields(costBreakdownToFields(suggested));
+    }
+  }, [
+    estimate.totalWithMargin,
+    enabledLines,
+    fixedAdd,
+    costsManuallyEdited,
+  ]);
+
+  const costs = useMemo(
+    () => fieldsToCostBreakdown(costFields),
+    [costFields],
+  );
 
   const chartSegments = useMemo(
     () =>
@@ -163,10 +209,22 @@ export function ContractorBidCalculator({
     setInfoNeedDraft("");
   }
 
+  function handleCostFieldChange(key: keyof BidCostBreakdown, raw: string) {
+    setCostsManuallyEdited(true);
+    setCostFields((prev) => ({ ...prev, [key]: raw }));
+  }
+
   function handleApply() {
+    const price = sellingPrice > 0 ? sellingPrice : estimate.totalWithMargin;
+    const profitabilitySummary = computeProfitability(
+      price,
+      costs,
+      rates.hourlyRate,
+    );
+
     onApply({
       subtotal: estimate.subtotal,
-      totalWithMargin: estimate.totalWithMargin,
+      totalWithMargin: price,
       marginPercent: rates.marginPercent,
       lines: estimate.lines.filter((l) => l.enabled),
       primaryQty: clampedPrimary,
@@ -174,6 +232,10 @@ export function ContractorBidCalculator({
       suggestedAddons,
       suggestedInfoNeeds,
       suggestForFutureRequests: suggestForFuture,
+      profitability: {
+        costs,
+        summary: profitabilitySummary,
+      },
     });
   }
 
@@ -406,6 +468,17 @@ export function ContractorBidCalculator({
         </label>
       </div>
 
+      <BidProfitabilityPanel
+        sellingPrice={sellingPrice || estimate.totalWithMargin}
+        onSellingPriceChange={setSellingPrice}
+        costs={costs}
+        costFields={costFields}
+        onCostFieldChange={handleCostFieldChange}
+        hourlyRate={rates.hourlyRate}
+        calculatorEstimateEuros={estimate.subtotal}
+        jobBenchmark={jobPriceBenchmark}
+      />
+
       <div className="grid gap-4 lg:grid-cols-2">
         <CostBreakdownChart
           segments={chartSegments}
@@ -414,9 +487,9 @@ export function ContractorBidCalculator({
           vatTreatment={CONTRACTOR_COST_VAT}
         />
         <div className={`${brand.estimateBox} p-5`}>
-          <p className="text-sm font-medium text-sky-800">Tarjouksen loppusumma</p>
+          <p className="text-sm font-medium text-sky-800">Siirrettävä tarjous</p>
           <p className="mt-1 text-3xl font-bold text-sky-950">
-            {formatEuro(estimate.totalWithMargin)}
+            {formatEuro(sellingPrice || estimate.totalWithMargin)}
           </p>
           <p className="mt-1">
             <VatLabel
@@ -425,9 +498,14 @@ export function ContractorBidCalculator({
             />
           </p>
           <p className="mt-2 text-sm text-sky-900/90">
-            Ennen katetta {formatEuro(estimate.subtotal)} · Kate{" "}
-            {rates.marginPercent} % (
-            {formatEuro(estimate.totalWithMargin - estimate.subtotal)})
+            Laskurin ehdotus {formatEuro(estimate.totalWithMargin)} · kustannukset{" "}
+            {formatEuro(
+              costs.materials +
+                costs.labor +
+                costs.subcontracting +
+                costs.travelEquipment +
+                costs.otherDirect,
+            )}
           </p>
           <p className="mt-2 text-xs text-sky-900/70">
             Siirrät summan tarjouslomakkeeseen — valitse siellä ALV-merkintä
