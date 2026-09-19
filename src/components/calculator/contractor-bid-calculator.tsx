@@ -17,6 +17,8 @@ import {
   clampQuantity,
   formatEuro,
 } from "@/lib/calculators/math";
+import { VatLabel } from "@/components/price/price-with-vat";
+import { CONTRACTOR_COST_VAT } from "@/lib/vat-label";
 import type { CalculatorConfig, CalculatorLineItem } from "@/lib/calculators/types";
 
 const CHART_COLORS = [
@@ -306,8 +308,9 @@ export function ContractorBidCalculator({
               className="flex items-center justify-between rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm"
             >
               <span className="font-medium text-stone-800">{item.label}</span>
-              <span className="font-semibold tabular-nums">
+              <span className="font-semibold tabular-nums text-right">
                 {formatEuro(lineTotal)}
+                <VatLabel treatment={CONTRACTOR_COST_VAT} />
               </span>
             </li>
           );
@@ -315,7 +318,10 @@ export function ContractorBidCalculator({
         {fixedAdd > 0 && (
           <li className="flex justify-between rounded-xl border border-dashed border-stone-200 px-3 py-2 text-sm">
             <span>Lisäkulut (kysymykset)</span>
-            <span className="font-semibold">{formatEuro(fixedAdd)}</span>
+            <span className="font-semibold">
+              {formatEuro(fixedAdd)}{" "}
+              <VatLabel treatment={CONTRACTOR_COST_VAT} inline />
+            </span>
           </li>
         )}
       </ul>
@@ -405,16 +411,27 @@ export function ContractorBidCalculator({
           segments={chartSegments}
           title="Kustannusjako (ennen katetta)"
           subtitle={`Kate ${rates.marginPercent} % · työtunti ${rates.hourlyRate} €/h`}
+          vatTreatment={CONTRACTOR_COST_VAT}
         />
         <div className={`${brand.estimateBox} p-5`}>
           <p className="text-sm font-medium text-sky-800">Tarjouksen loppusumma</p>
           <p className="mt-1 text-3xl font-bold text-sky-950">
             {formatEuro(estimate.totalWithMargin)}
           </p>
+          <p className="mt-1">
+            <VatLabel
+              treatment={CONTRACTOR_COST_VAT}
+              className="text-sm text-sky-900/80"
+            />
+          </p>
           <p className="mt-2 text-sm text-sky-900/90">
             Ennen katetta {formatEuro(estimate.subtotal)} · Kate{" "}
             {rates.marginPercent} % (
             {formatEuro(estimate.totalWithMargin - estimate.subtotal)})
+          </p>
+          <p className="mt-2 text-xs text-sky-900/70">
+            Siirrät summan tarjouslomakkeeseen — valitse siellä ALV-merkintä
+            (sis. ALV tai ALV 0 %).
           </p>
           <button
             type="button"
@@ -427,9 +444,8 @@ export function ContractorBidCalculator({
       </div>
 
       <p className="text-xs text-stone-500">
-        Hinnat: työtunti {rates.hourlyRate} €/h · kate {rates.marginPercent} % ·
-        muokkaa Oma tili → Laskentaparametrit. Laskettu data auttaa oppivaa
-        järjestelmää parantamaan arvioita.
+        Hinnat ALV 0 %: työtunti {rates.hourlyRate} €/h · kate{" "}
+        {rates.marginPercent} % · muokkaa Oma tili → Laskentaparametrit.
       </p>
     </div>
   );

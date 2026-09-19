@@ -16,6 +16,8 @@ import {
   validateBidFormClient,
 } from "@/lib/bid-form";
 import { FairPriceTierNotice } from "@/components/bid/fair-price-tier-notice";
+import { VatLabel } from "@/components/price/price-with-vat";
+import { bidAmountFieldLabel, vatLabelInParens } from "@/lib/vat-label";
 import type { ContractorTierProfile, JobPriceBenchmark } from "@/lib/fair-price-tier";
 import { BidCommitmentNotice } from "@/components/bid/bid-commitment-notice";
 import { BidScopeLinesEditor } from "@/components/bid/bid-scope-lines-editor";
@@ -362,12 +364,16 @@ export function BidForm({
   }
 
   const amountLabel = isServiceProject && fields.service_pricing_model
-    ? `${SERVICE_PRICING_MODEL_LABELS[fields.service_pricing_model]} (€) *`
+    ? bidAmountFieldLabel(
+        SERVICE_PRICING_MODEL_LABELS[fields.service_pricing_model],
+        fields.vat_included,
+      )
     : bidOfferScopeAmountLabel(
         fields.offer_scope || null,
         isMultiTrade,
         allowOptionalEquipmentOffer,
         requiresDeviceAndInstallation,
+        fields.vat_included,
       );
 
   const servicePricingOptions = serviceEngagement
@@ -626,16 +632,16 @@ export function BidForm({
         {blockedOverBudget && (
           <p className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">
             Hinta ylittää asiakkaan budjetin (
-            {budgetInfo.budgetMaxEur!.toLocaleString("fi-FI")} €). Asiakas ei
-            hyväksy tarjouksia tämän yli — tarjousta ei voi lähettää tällä
-            hinnalla.
+            {budgetInfo.budgetMaxEur!.toLocaleString("fi-FI")} €{" "}
+            {vatLabelInParens(true)}). Asiakas ei hyväksy tarjouksia tämän yli
+            — tarjousta ei voi lähettää tällä hinnalla.
           </p>
         )}
         {overBudget && !blockedOverBudget && (
           <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-950">
             Hinta ylittää asiakkaan budjetin (
-            {budgetInfo.budgetMaxEur!.toLocaleString("fi-FI")} €). Lähetyksessä
-            kysytään vahvistus.
+            {budgetInfo.budgetMaxEur!.toLocaleString("fi-FI")} €{" "}
+            {vatLabelInParens(true)}). Lähetyksessä kysytään vahvistus.
           </p>
         )}
         {activeCalculatorEstimate != null && activeCalculatorEstimate > 0 && (
@@ -799,7 +805,8 @@ export function BidForm({
             <>
               <p className="rounded-lg bg-white px-3 py-2 text-sm text-stone-700">
                 <span className="font-medium">Yhteensä tarjouksessa:</span>{" "}
-                {(workEuros + equipEuros).toLocaleString("fi-FI")} € (asennus{" "}
+                {(workEuros + equipEuros).toLocaleString("fi-FI")} €{" "}
+                {vatLabelInParens(fields.vat_included)} (asennus{" "}
                 {workEuros.toLocaleString("fi-FI")} € + laite{" "}
                 {equipEuros.toLocaleString("fi-FI")} €)
               </p>
@@ -808,7 +815,7 @@ export function BidForm({
                   htmlFor="equipment_amount_euros"
                   className="block text-sm font-medium"
                 >
-                  Laitteen hinta (€, sis. ALV) *
+                  {bidAmountFieldLabel("Laitteen hinta", fields.vat_included)}
                 </label>
                 <input
                   id="equipment_amount_euros"
@@ -975,15 +982,24 @@ export function BidForm({
         )}
       </fieldset>
 
-      <label className="flex items-center gap-2 text-sm">
-        <input
-          type="checkbox"
-          name="vat_included"
-          checked={fields.vat_included}
-          onChange={(e) => update("vat_included", e.target.checked)}
-        />
-        Hinta sisältää ALV:n
-      </label>
+      <fieldset className="rounded-xl border border-stone-200 bg-stone-50/80 px-4 py-3">
+        <legend className="px-1 text-sm font-semibold text-stone-800">
+          ALV-merkintä
+        </legend>
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            name="vat_included"
+            checked={fields.vat_included}
+            onChange={(e) => update("vat_included", e.target.checked)}
+          />
+          Hinta sisältää ALV:n
+        </label>
+        <p className="mt-2 text-xs text-stone-600">
+          Nykyinen merkintä: <VatLabel included={fields.vat_included} inline /> —
+          asiakas näkee saman merkinnän tarjousvertailussa.
+        </p>
+      </fieldset>
 
       <BidCommitmentNotice mode={mode} />
 

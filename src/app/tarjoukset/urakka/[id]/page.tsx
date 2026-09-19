@@ -13,7 +13,7 @@ import {
   formatBidAcceptScopeShort,
 } from "@/lib/bid-accept-scope";
 import { bidTotalAmountCents, bidWorkAmountCents } from "@/lib/bid-amounts";
-import { formatEurosFromCents } from "@/lib/bids";
+import { PriceWithVat } from "@/components/price/price-with-vat";
 import { getSessionUser, isContractor } from "@/lib/auth";
 import { fetchContractorProjectConversation } from "@/lib/messages-server";
 import { fetchPlatformFeedbackForProject } from "@/lib/platform-feedback-server";
@@ -58,7 +58,7 @@ export default async function ContractorWonProjectPage({
   const { data: bid } = await supabase
     .from("bids")
     .select(
-      "id, amount_cents, offers_equipment, equipment_amount_cents, equipment_description, accepted_includes_equipment, message, status, estimated_days, submitted_at",
+      "id, amount_cents, offers_equipment, equipment_amount_cents, equipment_description, accepted_includes_equipment, message, status, estimated_days, submitted_at, vat_included",
     )
     .eq("project_id", id)
     .eq("contractor_id", user.id)
@@ -165,15 +165,28 @@ export default async function ContractorWonProjectPage({
                 {formatBidAcceptScopeShort(bid.accepted_includes_equipment)}
               </p>
               <p className="mt-1 text-2xl font-bold text-sky-800">
-                {formatEurosFromCents(bidResolvedAmountCents(bid))}
+                <PriceWithVat
+                  cents={bidResolvedAmountCents(bid)}
+                  vatIncluded={bid.vat_included}
+                />
               </p>
               <p className="mt-1 text-sm text-stone-600">
-                Asennus {formatEurosFromCents(bidWorkAmountCents(bid))}
+                Asennus{" "}
+                <PriceWithVat
+                  cents={bidWorkAmountCents(bid)}
+                  vatIncluded={bid.vat_included}
+                  inline
+                />
                 {bid.accepted_includes_equipment &&
                   bid.equipment_amount_cents != null && (
                     <>
                       {" "}
-                      + laite {formatEurosFromCents(bid.equipment_amount_cents)}
+                      + laite{" "}
+                      <PriceWithVat
+                        cents={bid.equipment_amount_cents}
+                        vatIncluded={bid.vat_included}
+                        inline
+                      />
                     </>
                   )}
               </p>
@@ -185,14 +198,27 @@ export default async function ContractorWonProjectPage({
             </>
           ) : (
             <p className="text-2xl font-bold text-sky-800">
-              {formatEurosFromCents(bidResolvedAmountCents(bid))}
+              <PriceWithVat
+                cents={bidResolvedAmountCents(bid)}
+                vatIncluded={bid.vat_included}
+              />
             </p>
           )}
           {bidHasSplitEquipmentOffer(bid) &&
             bid.accepted_includes_equipment == null && (
               <p className="mt-1 text-sm text-stone-500">
-                Tarjous: asennus {formatEurosFromCents(bidWorkAmountCents(bid))}{" "}
-                tai yhteensä {formatEurosFromCents(bidTotalAmountCents(bid))}{" "}
+                Tarjous: asennus{" "}
+                <PriceWithVat
+                  cents={bidWorkAmountCents(bid)}
+                  vatIncluded={bid.vat_included}
+                  inline
+                />{" "}
+                tai yhteensä{" "}
+                <PriceWithVat
+                  cents={bidTotalAmountCents(bid)}
+                  vatIncluded={bid.vat_included}
+                  inline
+                />{" "}
                 laitteen kanssa
               </p>
             )}

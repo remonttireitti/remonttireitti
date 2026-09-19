@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { brand } from "@/lib/brand-theme";
 import { formatEuro } from "@/lib/calculators/math";
+import { VatLabel } from "@/components/price/price-with-vat";
+import { CONSUMER_VAT } from "@/lib/vat-label";
 import type { CalculatorConfig, PriceFactorStatus } from "@/lib/calculators/types";
 import { MAINTENANCE_JOB_SLUGS } from "@/constants/maintenance";
 
@@ -70,6 +72,9 @@ export function CalculatorEstimateSummary({
       </p>
       <p className="mt-1 text-3xl font-bold text-stone-900">
         {formatEuro(low)} – {formatEuro(high)}
+      </p>
+      <p className="mt-1">
+        <VatLabel treatment={CONSUMER_VAT} className="text-sm text-stone-600" />
       </p>
       <p className="mt-2 text-base text-stone-700">
         Todennäköinen taso: <strong>noin {formatEuro(total)}</strong>

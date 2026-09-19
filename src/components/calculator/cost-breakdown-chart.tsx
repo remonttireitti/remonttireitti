@@ -1,6 +1,7 @@
 "use client";
 
 import { formatEuro } from "@/lib/calculators/math";
+import { vatLabel, type VatTreatment } from "@/lib/vat-label";
 
 type Segment = {
   label: string;
@@ -12,10 +13,12 @@ export function CostBreakdownChart({
   segments,
   title = "Kustannusjako",
   subtitle,
+  vatTreatment = "included",
 }: {
   segments: Segment[];
   title?: string;
   subtitle?: string;
+  vatTreatment?: VatTreatment;
 }) {
   const active = segments.filter((s) => s.amount > 0);
   const total = active.reduce((sum, s) => sum + s.amount, 0);
@@ -50,6 +53,9 @@ export function CostBreakdownChart({
               </span>
               <span className="shrink-0 font-medium text-stone-900">
                 {formatEuro(s.amount)}{" "}
+                <span className="text-xs font-normal text-stone-500">
+                  {vatLabel(vatTreatment)}
+                </span>{" "}
                 <span className="text-stone-500">({pct} %)</span>
               </span>
             </li>
@@ -58,7 +64,10 @@ export function CostBreakdownChart({
       </ul>
 
       <p className="mt-4 border-t border-stone-100 pt-3 text-right text-base font-bold text-stone-900">
-        Yhteensä {formatEuro(total)}
+        Yhteensä {formatEuro(total)}{" "}
+        <span className="text-sm font-normal text-stone-500">
+          ({vatLabel(vatTreatment)})
+        </span>
       </p>
     </div>
   );

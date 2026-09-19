@@ -4,6 +4,7 @@ import {
   calculateEstimate,
   formatEuro,
 } from "./math";
+import { vatLabelInParens, CONSUMER_VAT } from "@/lib/vat-label";
 import type { CalculatorConfig, CalculatorLineItem, ResolvedEstimate } from "./types";
 
 const DEFAULT_RANGE = { lowMultiplier: 0.9, highMultiplier: 1.15 };
@@ -174,9 +175,9 @@ export function formatLivePriceNote(
   if (showPerUnitNote(config, perMid) && primaryQty > 0) {
     const perLow = Math.round(low / primaryQty);
     const perHigh = Math.round(high / primaryQty);
-    return `${primaryQty} ${config.primaryInput.unit}: ${formatEuro(perLow)}–${formatEuro(perHigh)}/${config.primaryInput.unit}, kokonaisuus ${formatEuro(low)}–${formatEuro(high)} (noin ${formatEuro(total)}).`;
+    return `${primaryQty} ${config.primaryInput.unit}: ${formatEuro(perLow)}–${formatEuro(perHigh)}/${config.primaryInput.unit}, kokonaisuus ${formatEuro(low)}–${formatEuro(high)} (noin ${formatEuro(total)}) ${vatLabelInParens(CONSUMER_VAT)}.`;
   }
-  return `${primaryQty} ${config.primaryInput.unit}: ${formatEuro(low)}–${formatEuro(high)} (noin ${formatEuro(total)}).`;
+  return `${primaryQty} ${config.primaryInput.unit}: ${formatEuro(low)}–${formatEuro(high)} (noin ${formatEuro(total)}) ${vatLabelInParens(CONSUMER_VAT)}.`;
 }
 
 export function applyConfiguredQuestions(

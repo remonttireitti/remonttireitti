@@ -146,7 +146,7 @@ function AcceptedBidPdfDocument({ data }: { data: AcceptedBidDocumentData }) {
           <Text style={styles.h2}>Hyväksytty tarjous</Text>
           <Text style={{ fontSize: 16, fontWeight: 700 }}>{amountSummary}</Text>
           <Text style={styles.muted}>
-            {data.bid.vat_included ? "Sis. ALV" : "ALV erikseen"}
+            {data.bid.vat_included ? "sis. ALV" : "ALV 0 %"}
             {splitEquipment && data.bid.accepted_includes_equipment != null
               ? ` · ${formatBidAcceptScopeShort(data.bid.accepted_includes_equipment)}`
               : ""}
@@ -238,7 +238,8 @@ function AcceptedBidPdfDocument({ data }: { data: AcceptedBidDocumentData }) {
           <Text style={{ marginTop: 6 }}>{ACCEPTED_BID_PLATFORM_FOOTER}</Text>
           <Text style={{ marginTop: 6 }}>
             Kokonaishinta hyväksynnän mukaan:{" "}
-            {formatEurosFromCents(bidResolvedAmountCents(data.bid as BidAmountParts))}
+            {formatEurosFromCents(bidResolvedAmountCents(data.bid as BidAmountParts))}{" "}
+            ({data.bid.vat_included ? "sis. ALV" : "ALV 0 %"})
           </Text>
         </View>
       </Page>
