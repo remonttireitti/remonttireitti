@@ -21,6 +21,7 @@ import { brand } from "@/lib/brand-theme";
 import { fetchContractorProjectActivity } from "@/lib/project-activity-server";
 import { ProjectActivityTimeline } from "@/components/project/project-activity-timeline";
 import { createClient } from "@/lib/supabase/server";
+import { BidProfitabilityOutcomeForm } from "@/components/bid/bid-profitability-outcome-form";
 
 export default async function ContractorWonProjectPage({
   params,
@@ -127,6 +128,31 @@ export default async function ContractorWonProjectPage({
       : null;
 
   const activityEvents = await fetchContractorProjectActivity(id, user.id, supabase);
+
+  const { data: profitPlan } = await supabase
+    .from("bid_profitability_plans")
+    .select(
+      "material_cents, labor_cents, subcontract_cents, travel_cents, other_cents, estimated_profit_cents",
+    )
+    .eq("project_id", id)
+    .eq("contractor_id", user.id)
+    .maybeSingle();
+
+  const { data: profitOutcome } = await supabase
+    .from("bid_profitability_outcomes")
+    .select("id, actual_cost_cents, actual_profit_cents, reported_at")
+    .eq("project_id", id)
+    .maybeSingle();
+
+  const bidEuros = bidResolvedAmountCents(bid) / 100;
+  const estimatedCostEuros = profitPlan
+    ? (profitPlan.material_cents +
+        profitPlan.labor_cents +
+        profitPlan.subcontract_cents +
+        profitPlan.travel_cents +
+        profitPlan.other_cents) /
+      100
+    : 0;
 
   return (
     <div className={brand.page}>
@@ -298,6 +324,32 @@ export default async function ContractorWonProjectPage({
             revalidatePaths={[`/tarjoukset/urakka/${id}`]}
             readOnly={project.status === "completed"}
             perspective="contractor"
+          />
+        )}
+
+        {project.status === "completed" && profitOutcome && (
+          <section className="mt-8 rounded-xl border border-emerald-200 bg-emerald-50/50 p-5">
+            <h2 className="text-lg font-semibold text-emerald-950">
+              Toteutuneet kulut tallennettu
+            </h2>
+            <p className="mt-1 text-sm text-stone-600">
+              Kiitos! Toteutunut kate{" "}
+              <strong>
+                {(profitOutcome.actual_profit_cents / 100).toLocaleString(
+                  "fi-FI",
+                )}{" "}
+                €
+              </strong>{" "}
+              auttaa parantamaan laskureita ajan myötä.
+            </p>
+          </section>
+        )}
+
+        {project.status === "completed" && !profitOutcome && (
+          <BidProfitabilityOutcomeForm
+            projectId={id}
+            bidEuros={bidEuros}
+            estimatedCostEuros={estimatedCostEuros}
           />
         )}
 

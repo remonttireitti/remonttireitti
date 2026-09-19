@@ -1,5 +1,9 @@
 import type { CalculatedLine } from "@/lib/calculators/math";
 import type { CalculatorConfig } from "@/lib/calculators/types";
+import type {
+  BidCostBreakdown,
+  BidProfitabilitySummary,
+} from "@/lib/bid-profitability";
 import {
   mergeScopeLines,
   newScopeLineId,
@@ -18,6 +22,10 @@ export type BidCalculatorResult = {
   /** Puuttuvat tiedot — kerätään oppimiseen. */
   suggestedInfoNeeds: string[];
   suggestForFutureRequests: boolean;
+  profitability?: {
+    costs: BidCostBreakdown;
+    summary: BidProfitabilitySummary;
+  };
 };
 
 /** Muodosta vertailukelpoiset laajuusrivit tarjouslomakkeeseen. */
