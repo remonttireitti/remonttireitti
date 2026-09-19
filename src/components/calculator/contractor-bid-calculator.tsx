@@ -1,7 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { CalculatorLineItemsEditor } from "@/components/calculator/calculator-line-items-editor";
+import {
+  CalculatorLineItemsEditor,
+  newCustomLineItem,
+} from "@/components/calculator/calculator-line-items-editor";
 import { CostBreakdownChart } from "@/components/calculator/cost-breakdown-chart";
 import { brand } from "@/lib/brand-theme";
 import type { BidCalculatorResult } from "@/lib/bid-calculator-bridge";
@@ -183,11 +186,13 @@ export function ContractorBidCalculator({
     const tier = config.tiers?.find((t) => t.id === nextTierId);
     if (!tier) return;
     setItems((prev) => {
+      const custom = prev.filter((i) => i.custom);
       const baseOnly = prev.filter(
-        (i) => !["telineet", "jate", "matka"].includes(i.id),
+        (i) =>
+          !i.custom && !["telineet", "jate", "matka"].includes(i.id),
       );
       const tiered = applyTierOverrides(baseOnly, tier.overrides);
-      const withOverhead = [...tiered, ...contractorOverheadLines(rates)];
+      const withOverhead = [...tiered, ...custom, ...contractorOverheadLines(rates)];
       return applyContractorRatesToLines(withOverhead, rates);
     });
   }
@@ -200,6 +205,14 @@ export function ContractorBidCalculator({
     setItems((prev) =>
       prev.map((item) => (item.id === id ? { ...item, ...patch } : item)),
     );
+  }
+
+  function removeItem(id: string) {
+    setItems((prev) => prev.filter((item) => item.id !== id));
+  }
+
+  function addCustomItem() {
+    setItems((prev) => [...prev, newCustomLineItem()]);
   }
 
   const visibleQuestions = (config.questions ?? []).filter(
@@ -378,22 +391,25 @@ export function ContractorBidCalculator({
         primaryQty={clampedPrimary}
         secondaryQty={clampedSecondary}
         onUpdateItem={updateItem}
+        onRemoveItem={removeItem}
+        onAddCustomItem={addCustomItem}
         vatTreatment={CONTRACTOR_COST_VAT}
         fixedAdd={fixedAdd}
         compact
-        allowCustomLines={false}
         showGoogleSearch={false}
-        description="Valitse mukaan tulevat rivit ja muokkaa hintoja viitearvosta poikkeavaksi. Telineet ja nostotyö ovat oletuksena pois — lisää vain tarvittaessa."
+        description="Valitse mukaan tulevat rivit ja muokkaa hintoja viitearvosta poikkeavaksi. Voit lisätä omia kuluja. Telineet ja nostotyö ovat oletuksena pois — lisää vain tarvittaessa."
       />
 
-      {!isStandalone && (
       <div className="rounded-xl border border-stone-200 bg-white p-4">
         <p className="text-sm font-semibold text-stone-800">
           Puuttuuko laskurista jokin?
         </p>
         <p className="mt-1 text-xs text-stone-600">
           Yksittäinen ehdotus ei muuta laskuria kaikille. Kun useat urakoitsijat
-          pyytävät samaa, se ehdotetaan tuleville tarjouspyynnöille.
+          pyytävät samaa, se ehdotetaan{" "}
+          {isStandalone
+            ? "Remonttireitin laskureihin ja tuleville tarjouspyynnöille."
+            : "tuleville tarjouspyynnöille."}
         </p>
         <div className="mt-3 grid gap-4 sm:grid-cols-2">
           <div>
@@ -461,12 +477,10 @@ export function ContractorBidCalculator({
             className="mt-0.5"
           />
           <span>
-            Ehdota näitä tuleville tarjouspyynnöille, kun useat urakoitsijat
-            pyytävät samaa
+            Ehdota näitä laskuriin, kun useat urakoitsijat pyytävät samaa
           </span>
         </label>
       </div>
-      )}
 
       <BidProfitabilityPanel
         sellingPrice={sellingPrice || estimate.totalWithMargin}
