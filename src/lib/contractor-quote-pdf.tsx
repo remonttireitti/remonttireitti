@@ -8,7 +8,7 @@ import {
   renderToBuffer,
 } from "@react-pdf/renderer";
 import { formatEuro } from "@/lib/calculators/math";
-import { remonttireittiLogoSvgDataUri } from "@/lib/brand-logo";
+import { RemonttireittiLogoPdf } from "@/lib/remonttireitti-logo-pdf";
 import {
   CONTRACTOR_QUOTE_VALIDITY_NOTE,
   type ContractorQuoteDocumentView,
@@ -107,7 +107,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 8,
   },
-  brandLogo: { width: 28, height: 28 },
   brandName: { fontSize: 10, fontWeight: 700, color: "#44403c" },
 });
 
@@ -121,6 +120,12 @@ function PdfRow({ label, value }: { label: string; value?: string | null }) {
   );
 }
 
+function pdfSafeImageDataUri(dataUri: string | null | undefined): string | null {
+  if (!dataUri?.trim()) return null;
+  // react-pdf Image supports PNG/JPEG only — skip WebP and other formats.
+  return /^data:image\/(png|jpe?g);/i.test(dataUri) ? dataUri : null;
+}
+
 function ContractorQuotePdfDocument({ data }: { data: ContractorQuotePdfData }) {
   const {
     quote,
@@ -130,6 +135,7 @@ function ContractorQuotePdfDocument({ data }: { data: ContractorQuotePdfData }) 
     companyDescription,
     logoDataUri,
   } = data;
+  const headerLogoSrc = pdfSafeImageDataUri(logoDataUri);
   const totalEuros = quote.total_cents / 100;
   const vat = quoteVatBreakdown(totalEuros, quote.vat_included);
   const lines = quote.line_items.filter((l) => l.enabled && l.amount > 0);
@@ -153,7 +159,7 @@ function ContractorQuotePdfDocument({ data }: { data: ContractorQuotePdfData }) 
               <Text style={styles.intro}>{companyDescription}</Text>
             )}
           </View>
-          {logoDataUri && <Image src={logoDataUri} style={styles.logo} />}
+          {headerLogoSrc && <Image src={headerLogoSrc} style={styles.logo} />}
         </View>
 
         <View style={{ marginTop: 16 }}>
@@ -200,7 +206,7 @@ function ContractorQuotePdfDocument({ data }: { data: ContractorQuotePdfData }) 
         <View style={styles.footer}>
           <Text>{CONTRACTOR_QUOTE_VALIDITY_NOTE}</Text>
           <View style={styles.brandRow}>
-            <Image src={remonttireittiLogoSvgDataUri()} style={styles.brandLogo} />
+            <RemonttireittiLogoPdf size={28} />
             <Text style={styles.brandName}>Remonttireitti</Text>
           </View>
         </View>
