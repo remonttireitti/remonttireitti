@@ -22,9 +22,12 @@ const ALL_CALCULATORS: CalculatorConfig[] = [
   ...PALVELUT_CALCULATORS,
 ];
 
-/** Vanha URL → uusi slug */
+/** SEO-ystävälliset alias-URL:t → kanoninen laskurikonfigi */
 const SLUG_ALIASES: Record<string, string> = {
   kylpyhuoneremontti: "kylpyhuone",
+  kattoremontti: "katto-pelti",
+  keittioremontti: "keittio",
+  maalaus: "seinamaalaus",
 };
 
 const bySlug = new Map<string, CalculatorConfig>();

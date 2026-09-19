@@ -102,9 +102,9 @@ export const STATIC_SEO_PAGES: SeoPageDef[] = [
   },
   {
     path: "/laskurit",
-    title: "Remonttilaskurit — arvioi remontin hinta",
+    title: "Remontin hintalaskurit — arvioi kustannukset ennen tarjouspyyntöä",
     description:
-      "Ilmaiset remonttilaskurit kaikille alueille: lämpöpumppu, keittiö, kylpyhuone, katto, piha, piharakennus ja muut. Viitehinnat, muokattavat rivit — kilpailuta ilmaiseksi.",
+      "Ilmaiset remonttilaskurit: kattoremontti, ilmalämpöpumppu, kylpyhuone, keittiö, maalaus, terassi ja 40+ muuta. Viitehinnat ja kustannusjako — pyydä sitten tarjoukset ilmaiseksi.",
     keywords: mergeKeywords(SITE_KEYWORDS, CALCULATOR_KEYWORDS),
     changeFrequency: "monthly",
     priority: 0.82,

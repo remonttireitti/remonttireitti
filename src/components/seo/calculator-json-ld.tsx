@@ -3,9 +3,16 @@ import { calculatorPath } from "@/lib/calculators/registry";
 import type { CalculatorConfig } from "@/lib/calculators/types";
 import { getSiteUrl } from "@/lib/seo";
 
-export function CalculatorJsonLd({ config }: { config: CalculatorConfig }) {
+export function CalculatorJsonLd({
+  config,
+  urlSlug,
+}: {
+  config: CalculatorConfig;
+  /** Julkinen URL-slug (voi olla SEO-alias) */
+  urlSlug?: string;
+}) {
   const base = getSiteUrl();
-  const pageUrl = `${base}${calculatorPath(config.slug)}`;
+  const pageUrl = `${base}${calculatorPath(urlSlug ?? config.slug)}`;
 
   const schema = {
     "@context": "https://schema.org",

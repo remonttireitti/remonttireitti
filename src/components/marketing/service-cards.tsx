@@ -26,11 +26,19 @@ const services = [
     cta: "Tarkista oire (vian selvitys)",
     accent: "border-orange-200 bg-orange-50/60",
   },
+  {
+    title: "Remonttilaskurit",
+    description:
+      "Arvioi kattoremontin, lämpöpumpun, kylpyhuoneen tai keittiön hinta ennen tarjouspyyntöä. Ilmaiset viitehinnat.",
+    href: "/laskurit",
+    cta: "Avaa hintalaskurit",
+    accent: "border-violet-200 bg-violet-50/60",
+  },
 ] as const;
 
 export function ServiceCards() {
   return (
-    <div className="grid gap-4 sm:grid-cols-3 sm:gap-5">
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 sm:gap-5">
       {services.map((s) => (
         <article
           key={s.href}

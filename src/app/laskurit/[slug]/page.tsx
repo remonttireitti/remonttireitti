@@ -34,7 +34,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return pageMetadata({
     title: config.pageTitle,
     description: config.metaDescription,
-    path: calculatorPath(config.slug),
+    path: calculatorPath(slug),
     keywords: mergeKeywords(SITE_KEYWORDS, CALCULATOR_KEYWORDS, [config.title]),
   });
 }
@@ -48,7 +48,7 @@ export default async function CalculatorPage({ params }: Props) {
 
   return (
     <div className={brand.page}>
-      <CalculatorJsonLd config={config} />
+      <CalculatorJsonLd config={config} urlSlug={slug} />
       <SiteHeader />
       <main className={brand.mainWide}>
         <nav className="text-sm text-stone-500">
