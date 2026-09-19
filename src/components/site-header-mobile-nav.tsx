@@ -142,10 +142,12 @@ export function SiteHeaderMobileNav({
               {isContractor && (
                 <>
                   <NavChip href="/tarjouslaskuri">Tarjouslaskuri</NavChip>
-                  <NavChip href="/oma-tili#yritystiedot">Yritystiedot</NavChip>
+                  <NavChip href="/oma-tili/yritys">Yrityksen asetukset</NavChip>
                 </>
               )}
-              <NavChip href="/oma-tili">Oma tili</NavChip>
+              <NavChip href="/oma-tili">
+                {isContractor ? "Työpöytä" : "Oma tili"}
+              </NavChip>
             </>
           ) : (
             <>

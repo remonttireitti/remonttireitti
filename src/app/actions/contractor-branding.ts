@@ -78,6 +78,7 @@ export async function updateContractorBranding(
   }
 
   revalidatePath("/oma-tili");
+  revalidatePath("/oma-tili/yritys");
   revalidatePath("/tarjouslaskuri");
   revalidatePath(`/urakoitsija/${user.id}`);
   return { ok: "Logo ja esittelyteksti tallennettu." };
