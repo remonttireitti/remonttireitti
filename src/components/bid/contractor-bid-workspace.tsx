@@ -16,6 +16,10 @@ import type { ContractorBidDefaults } from "@/lib/contractor-bid-defaults-shared
 import type { ProjectBudgetInfo } from "@/lib/project-budget";
 import type { ProjectTradeContext } from "@/lib/project-trades-server";
 import type { ServiceEngagement } from "@/lib/service-engagement";
+import type {
+  ContractorTierProfile,
+  JobPriceBenchmark,
+} from "@/lib/fair-price-tier";
 
 type BidFormProps = React.ComponentProps<typeof BidForm>;
 
@@ -30,16 +34,16 @@ export function ContractorBidWorkspace({
   pricingRates,
   initialPrimaryQty,
   jobTypeSlug,
-  contractorAvgDeviationPercent,
-  contractorDeviationSampleCount,
+  jobPriceBenchmark,
+  contractorTierProfile,
   ...bidFormProps
 }: {
   calculatorConfig: CalculatorConfig;
   pricingRates: ContractorPricingRates;
   initialPrimaryQty?: number;
   jobTypeSlug?: string | null;
-  contractorAvgDeviationPercent?: number | null;
-  contractorDeviationSampleCount?: number;
+  jobPriceBenchmark?: JobPriceBenchmark | null;
+  contractorTierProfile?: ContractorTierProfile | null;
   projectId: string;
   requiresDeviceAndInstallation: boolean;
   allowOptionalEquipmentOffer: boolean;
@@ -131,8 +135,8 @@ export function ContractorBidWorkspace({
               prefill ? Number(prefill.amountEuros) || null : null
             }
             calculatorSlug={calculatorConfig.slug}
-            contractorAvgDeviationPercent={contractorAvgDeviationPercent}
-            contractorDeviationSampleCount={contractorDeviationSampleCount}
+            jobPriceBenchmark={jobPriceBenchmark}
+            contractorTierProfile={contractorTierProfile}
           />
         </div>
       </div>

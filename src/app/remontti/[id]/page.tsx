@@ -12,6 +12,7 @@ import { CompletedHuoltokirjaLink } from "@/components/project/completed-huoltok
 import { ProjectLifecyclePanel } from "@/components/project/project-lifecycle-panel";
 import { ProjectOverviewCards } from "@/components/project/project-overview-cards";
 import { fetchProjectPhotos } from "@/lib/project-photos";
+import { fetchFairPriceTiersForProjectBids } from "@/lib/fair-price-tier-server";
 import { ReviewDisplay } from "@/components/review/review-display";
 import { ReviewForm } from "@/components/review/review-form";
 import { PlatformFeedbackPanel } from "@/components/feedback/platform-feedback-panel";
@@ -264,6 +265,16 @@ export default async function ProjectPage({
   const jobSlug = Array.isArray(jobSlugRaw)
     ? (jobSlugRaw[0]?.slug ?? null)
     : (jobSlugRaw?.slug ?? null);
+
+  const fairPriceTiers =
+    contractorIds.length > 0
+      ? await fetchFairPriceTiersForProjectBids(
+          dataClient,
+          id,
+          jobSlug,
+          contractorIds,
+        )
+      : {};
 
   const projectQuality = scoreProjectFromRow({
     jobSlug,
@@ -692,6 +703,7 @@ export default async function ProjectPage({
             customerReferralEligibleContractorIds={[
               ...customerReferralEligibleContractorIds,
             ]}
+            fairPriceTiers={fairPriceTiers}
           />
           {submittedBidCount > 0 && biddingPhase && evaluatorCount > 0 && (
             <BidEvaluationPromo

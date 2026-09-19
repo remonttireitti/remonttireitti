@@ -14,6 +14,10 @@ import { bidTotalAmountCents } from "@/lib/bid-amounts";
 import { bidStatusLabels, formatEurosFromCents } from "@/lib/bids";
 import type { CalculatorConfig } from "@/lib/calculators/types";
 import type { ContractorPricingRates } from "@/lib/calculators/contractor-pricing";
+import type {
+  ContractorTierProfile,
+  JobPriceBenchmark,
+} from "@/lib/fair-price-tier";
 import type { ContractorBidDefaults } from "@/lib/contractor-bid-defaults-shared";
 import type { ProjectBudgetInfo } from "@/lib/project-budget";
 import type { ProjectTradeContext } from "@/lib/project-trades-server";
@@ -32,8 +36,8 @@ function BidEntry({
   calculatorConfig,
   pricingRates,
   initialPrimaryQty,
-  contractorAvgDeviationPercent,
-  contractorDeviationSampleCount,
+  jobPriceBenchmark,
+  contractorTierProfile,
   mode,
   bidId,
   initialFields,
@@ -51,8 +55,8 @@ function BidEntry({
   calculatorConfig: CalculatorConfig | null;
   pricingRates?: ContractorPricingRates;
   initialPrimaryQty?: number;
-  contractorAvgDeviationPercent?: number | null;
-  contractorDeviationSampleCount?: number;
+  jobPriceBenchmark?: JobPriceBenchmark | null;
+  contractorTierProfile?: ContractorTierProfile | null;
   mode: "create" | "edit";
   bidId?: string;
   initialFields?: ReturnType<typeof bidToFormFields>;
@@ -64,8 +68,8 @@ function BidEntry({
         calculatorConfig={calculatorConfig}
         pricingRates={pricingRates}
         initialPrimaryQty={initialPrimaryQty}
-        contractorAvgDeviationPercent={contractorAvgDeviationPercent}
-        contractorDeviationSampleCount={contractorDeviationSampleCount}
+        jobPriceBenchmark={jobPriceBenchmark}
+        contractorTierProfile={contractorTierProfile}
         mode={mode}
         bidId={bidId}
         initialFields={initialFields}
@@ -97,8 +101,8 @@ export function ContractorBidPanel({
   calculatorConfig,
   pricingRates,
   initialPrimaryQty,
-  contractorAvgDeviationPercent,
-  contractorDeviationSampleCount,
+  jobPriceBenchmark,
+  contractorTierProfile,
 }: {
   projectId: string;
   bid: BidView | null;
@@ -113,8 +117,8 @@ export function ContractorBidPanel({
   calculatorConfig?: CalculatorConfig | null;
   pricingRates?: ContractorPricingRates;
   initialPrimaryQty?: number;
-  contractorAvgDeviationPercent?: number | null;
-  contractorDeviationSampleCount?: number;
+  jobPriceBenchmark?: JobPriceBenchmark | null;
+  contractorTierProfile?: ContractorTierProfile | null;
 }) {
   const bidFormProps = {
     projectId,
@@ -156,8 +160,8 @@ export function ContractorBidPanel({
             calculatorConfig={calculatorConfig ?? null}
             pricingRates={pricingRates}
             initialPrimaryQty={initialPrimaryQty}
-            contractorAvgDeviationPercent={contractorAvgDeviationPercent}
-            contractorDeviationSampleCount={contractorDeviationSampleCount}
+            jobPriceBenchmark={jobPriceBenchmark}
+            contractorTierProfile={contractorTierProfile}
             mode="create"
           />
         </div>
@@ -184,8 +188,8 @@ export function ContractorBidPanel({
           calculatorConfig={calculatorConfig ?? null}
           pricingRates={pricingRates}
           initialPrimaryQty={initialPrimaryQty}
-          contractorAvgDeviationPercent={contractorAvgDeviationPercent}
-          contractorDeviationSampleCount={contractorDeviationSampleCount}
+          jobPriceBenchmark={jobPriceBenchmark}
+          contractorTierProfile={contractorTierProfile}
           mode="edit"
           bidId={bid.id}
           initialFields={bidToFormFields(bid)}
@@ -211,8 +215,8 @@ export function ContractorBidPanel({
               calculatorConfig={calculatorConfig ?? null}
               pricingRates={pricingRates}
               initialPrimaryQty={initialPrimaryQty}
-              contractorAvgDeviationPercent={contractorAvgDeviationPercent}
-              contractorDeviationSampleCount={contractorDeviationSampleCount}
+              jobPriceBenchmark={jobPriceBenchmark}
+              contractorTierProfile={contractorTierProfile}
               mode="create"
             />
           </div>
@@ -318,8 +322,8 @@ export function ContractorBidPanel({
         calculatorConfig={calculatorConfig ?? null}
         pricingRates={pricingRates}
         initialPrimaryQty={initialPrimaryQty}
-        contractorAvgDeviationPercent={contractorAvgDeviationPercent}
-        contractorDeviationSampleCount={contractorDeviationSampleCount}
+        jobPriceBenchmark={jobPriceBenchmark}
+        contractorTierProfile={contractorTierProfile}
         mode="edit"
         bidId={bid.id}
         initialFields={bidToFormFields(bid)}

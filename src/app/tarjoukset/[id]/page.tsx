@@ -23,7 +23,7 @@ import {
   hintsFromProject,
 } from "@/lib/bid-calculator-bridge";
 import { getCalculatorBySlug } from "@/lib/calculators/registry";
-import { fetchContractorDeviationProfile } from "@/lib/calculator-deviation-server";
+import { fetchContractorFairPriceContext } from "@/lib/fair-price-tier-server";
 import { fetchContractorPricingRates } from "@/lib/contractor-pricing-server";
 import { resolveProjectJobTypeSlug } from "@/lib/project-job-type";
 import { ContractorProjectInterestButtons } from "@/components/contractor/contractor-project-interest-buttons";
@@ -151,10 +151,10 @@ export default async function ContractorProjectPage({
     if (jt?.slug) jobTypeSlug = jt.slug;
   }
 
-  const [defaultBidTerms, pricingRates, contractorDeviation] = await Promise.all([
+  const [defaultBidTerms, pricingRates, fairPriceContext] = await Promise.all([
     fetchContractorBidDefaults(user.id, jobTypeSlug),
     fetchContractorPricingRates(user.id),
-    fetchContractorDeviationProfile(supabase, user.id, jobTypeSlug),
+    fetchContractorFairPriceContext(supabase, user.id, jobTypeSlug),
   ]);
 
   const calculatorSlug = calculatorSlugForJob(jobTypeSlug);
@@ -281,8 +281,8 @@ export default async function ContractorProjectPage({
     calculatorConfig,
     pricingRates,
     initialPrimaryQty: calculatorHints.primaryQty,
-    contractorAvgDeviationPercent: contractorDeviation?.avgDeviationPercent ?? null,
-    contractorDeviationSampleCount: contractorDeviation?.sampleCount ?? 0,
+    jobPriceBenchmark: fairPriceContext.jobBenchmark,
+    contractorTierProfile: fairPriceContext.contractorProfile,
   };
 
   return (
