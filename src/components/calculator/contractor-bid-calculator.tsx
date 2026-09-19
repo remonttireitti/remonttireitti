@@ -41,6 +41,16 @@ const CHART_COLORS = [
   "bg-emerald-500",
 ];
 
+function unitLabel(
+  unit: CalculatorLineItem["unit"],
+  primaryUnit: string,
+  secondaryUnit?: string,
+): string {
+  if (unit === "fixed") return "Kiinteä €";
+  if (unit === "per_secondary") return `€ / ${secondaryUnit ?? "yks."}`;
+  return `€ / ${primaryUnit}`;
+}
+
 function defaultAnswers(config: CalculatorConfig): Record<string, string> {
   const answers: Record<string, string> = {};
   for (const q of config.questions ?? []) {
@@ -193,6 +203,12 @@ export function ContractorBidCalculator({
 
   function setAnswer(questionId: string, optionId: string) {
     setAnswers((prev) => ({ ...prev, [questionId]: optionId }));
+  }
+
+  function updateItem(id: string, patch: Partial<CalculatorLineItem>) {
+    setItems((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, ...patch } : item)),
+    );
   }
 
   const visibleQuestions = (config.questions ?? []).filter(
@@ -364,34 +380,91 @@ export function ContractorBidCalculator({
         </fieldset>
       ))}
 
-      <ul className="space-y-2">
-        {adjustedItems.map((item) => {
-          const lineTotal = calculateEstimate(clampedPrimary, clampedSecondary, [
-            item,
-          ]).total;
-          return (
-            <li
-              key={item.id}
-              className="flex items-center justify-between rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm"
-            >
-              <span className="font-medium text-stone-800">{item.label}</span>
-              <span className="font-semibold tabular-nums text-right">
-                {formatEuro(lineTotal)}
-                <VatLabel treatment={CONTRACTOR_COST_VAT} />
+      <section className="space-y-3">
+        <div>
+          <h3 className="text-sm font-semibold text-stone-900">Kustannusrivit</h3>
+          <p className="mt-1 text-xs text-stone-600">
+            Valitse mukaan tulevat rivit ja muokkaa hintoja viitearvosta poikkeavaksi.
+            Telineet ja nostotyö ovat oletuksena pois — lisää vain tarvittaessa.
+          </p>
+        </div>
+        <ul className="space-y-2">
+          {items.map((item) => {
+            const adjusted =
+              adjustedItems.find((i) => i.id === item.id) ?? item;
+            const lineTotal = calculateEstimate(
+              clampedPrimary,
+              clampedSecondary,
+              [adjusted],
+            ).total;
+            return (
+              <li
+                key={item.id}
+                className={`group rounded-xl border p-3 transition sm:p-4 ${
+                  adjusted.enabled
+                    ? "border-stone-200 bg-white"
+                    : "border-stone-100 bg-stone-50 opacity-70"
+                }`}
+              >
+                <div className="flex flex-wrap items-start gap-3">
+                  <input
+                    type="checkbox"
+                    checked={adjusted.enabled}
+                    onChange={(e) =>
+                      updateItem(item.id, { enabled: e.target.checked })
+                    }
+                    className={`mt-1 ${brand.checkbox}`}
+                    aria-label={`Sisällytä ${item.label}`}
+                  />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <p className="font-medium text-stone-900">{item.label}</p>
+                      <span className="font-semibold tabular-nums text-stone-900">
+                        {formatEuro(lineTotal)}
+                        <VatLabel treatment={CONTRACTOR_COST_VAT} />
+                      </span>
+                    </div>
+                    {item.description && (
+                      <p className="mt-0.5 text-xs text-stone-500">
+                        {item.description}
+                      </p>
+                    )}
+                    <label className="mt-2 block max-w-[9rem] text-xs text-stone-600 opacity-100 transition group-hover:opacity-100 sm:opacity-80">
+                      {unitLabel(
+                        item.unit,
+                        config.primaryInput.unit,
+                        config.secondaryInput?.unit,
+                      )}
+                      <input
+                        type="number"
+                        min={0}
+                        step={1}
+                        inputMode="decimal"
+                        value={item.amount}
+                        onChange={(e) =>
+                          updateItem(item.id, {
+                            amount: Number(e.target.value) || 0,
+                          })
+                        }
+                        className={`mt-0.5 block w-full rounded-lg border border-stone-200 px-2 py-1.5 text-sm tabular-nums ${brand.input}`}
+                      />
+                    </label>
+                  </div>
+                </div>
+              </li>
+            );
+          })}
+          {fixedAdd > 0 && (
+            <li className="flex justify-between rounded-xl border border-dashed border-stone-200 px-3 py-2 text-sm">
+              <span>Lisäkulut (kysymykset)</span>
+              <span className="font-semibold">
+                {formatEuro(fixedAdd)}{" "}
+                <VatLabel treatment={CONTRACTOR_COST_VAT} inline />
               </span>
             </li>
-          );
-        })}
-        {fixedAdd > 0 && (
-          <li className="flex justify-between rounded-xl border border-dashed border-stone-200 px-3 py-2 text-sm">
-            <span>Lisäkulut (kysymykset)</span>
-            <span className="font-semibold">
-              {formatEuro(fixedAdd)}{" "}
-              <VatLabel treatment={CONTRACTOR_COST_VAT} inline />
-            </span>
-          </li>
-        )}
-      </ul>
+          )}
+        </ul>
+      </section>
 
       {!isStandalone && (
       <div className="rounded-xl border border-stone-200 bg-white p-4">

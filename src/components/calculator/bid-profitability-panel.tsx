@@ -79,7 +79,8 @@ export function BidProfitabilityPanel({
           <input
             type="number"
             min={0}
-            step={100}
+            step={1}
+            inputMode="decimal"
             value={sellingPrice || ""}
             onChange={(e) =>
               onSellingPriceChange(Number(e.target.value) || 0)
@@ -98,7 +99,8 @@ export function BidProfitabilityPanel({
             <input
               type="number"
               min={0}
-              step={50}
+              step={1}
+              inputMode="decimal"
               value={costFields[key]}
               onChange={(e) => onCostFieldChange(key, e.target.value)}
               className="mt-1 w-full rounded-xl border border-stone-200 px-3 py-2 tabular-nums"
