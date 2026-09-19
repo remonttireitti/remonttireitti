@@ -13,6 +13,8 @@ Remonttireitti yhdistää asiakkaan ja urakoitsijat. Asiakas luo tarjouspyynnön
 - [Pieni apu](https://remonttireitti.fi/apu): vapaaehtoinen naapuriapu — pyydä tai tarjoa apua
 - [Tarjousvahti](https://remonttireitti.fi/tarjousarvio): ilmainen puolueeton tarjousarvio
 - [Hinta-arkisto](https://remonttireitti.fi/hinta-arkisto): anonymisoituja remontti- ja asennushintoja
+- [Remonttilaskurit](https://remonttireitti.fi/laskurit): interaktiiviset hinta-arviot
+- [Kylpyhuoneremontti laskuri](https://remonttireitti.fi/laskurit/kylpyhuoneremontti): purku, vesieristys, laatoitus, LVI
 - [RSS — avoimet pyynnöt](https://remonttireitti.fi/tarjouspyynnot/feed.xml)
 - [Lämpöpumpun vian selvitys](https://remonttireitti.fi/vian-selvitys): itse-apu ennen huoltopyyntöä
 - [Urakoitsijaksi](https://remonttireitti.fi/urakoitsijaksi): rekisteröityminen ja provisiot
@@ -34,7 +36,7 @@ Remonttireitti yhdistää asiakkaan ja urakoitsijat. Asiakas luo tarjouspyynnön
 
 ## Indeksointi
 
-Julkinen sisältö: /, /palvelut/, /asiakkaalle, /tarjouspyynnot, /apu, /apu/[id], /tarjousarvio, /hinta-arkisto, /vian-selvitys, /urakoitsijaksi, /urakoitsija/[id].
+Julkinen sisältö: /, /palvelut/, /laskurit/, /asiakkaalle, /tarjouspyynnot, /apu, /apu/[id], /tarjousarvio, /hinta-arkisto, /vian-selvitys, /urakoitsijaksi, /urakoitsija/[id].
 Ei julkinen: /oma-tili, /admin/, /remontti/ (wizard), /tarjoukset/, /kirjaudu, /api/, /markkinapaikka (kunnes tori lanseerataan).
 
 Sitemap: https://remonttireitti.fi/sitemap.xml

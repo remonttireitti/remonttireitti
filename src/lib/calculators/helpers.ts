@@ -1,0 +1,143 @@
+import type { ProjectAreaSlug } from "@/constants/project-areas";
+import type {
+  BreakdownSegment,
+  CalculatorConfig,
+  CalculatorInput,
+  CalculatorLineItem,
+  CalculatorTier,
+} from "./types";
+
+type LineDef = Omit<CalculatorLineItem, "enabled">;
+
+export function calcLines(...defs: LineDef[]): CalculatorLineItem[] {
+  return defs.map((d) => ({ ...d, enabled: true }));
+}
+
+export function sqmInput(
+  label: string,
+  defaultValue: number,
+  opts?: Partial<CalculatorInput>,
+): CalculatorInput {
+  return {
+    label,
+    unit: "m²",
+    defaultValue,
+    min: 1,
+    max: 500,
+    step: 0.5,
+    ...opts,
+  };
+}
+
+export function meterInput(
+  label: string,
+  defaultValue: number,
+  opts?: Partial<CalculatorInput>,
+): CalculatorInput {
+  return {
+    label,
+    unit: "m",
+    defaultValue,
+    min: 0,
+    max: 300,
+    step: 1,
+    ...opts,
+  };
+}
+
+export function countInput(
+  label: string,
+  defaultValue: number,
+  unit: string,
+  opts?: Partial<CalculatorInput>,
+): CalculatorInput {
+  return {
+    label,
+    unit,
+    defaultValue,
+    min: 1,
+    max: 100,
+    step: 1,
+    ...opts,
+  };
+}
+
+const CHART_COLORS = [
+  "bg-stone-400",
+  "bg-sky-500",
+  "bg-sky-700",
+  "bg-orange-400",
+  "bg-orange-600",
+  "bg-amber-500",
+  "bg-violet-500",
+  "bg-emerald-500",
+  "bg-rose-400",
+  "bg-teal-500",
+] as const;
+
+export function breakdownFromLines(
+  lines: LineDef[],
+  primaryQty: number,
+): BreakdownSegment[] {
+  return lines.map((line, i) => {
+    let amount = line.amount;
+    if (line.unit === "per_primary") {
+      amount = line.minAmount
+        ? Math.max(line.minAmount, line.amount * primaryQty)
+        : line.amount * primaryQty;
+    }
+    return {
+      label: line.label,
+      amount: Math.round(amount),
+      color: CHART_COLORS[i % CHART_COLORS.length]!,
+    };
+  });
+}
+
+type BuildCalcParams = {
+  slug: string;
+  jobSlug?: string;
+  title: string;
+  pageTitle: string;
+  metaDescription: string;
+  intro: string;
+  areaSlug: ProjectAreaSlug | "extra";
+  primaryInput: CalculatorInput;
+  secondaryInput?: CalculatorInput;
+  lines: LineDef[];
+  typicalPrimaryQty?: number;
+  faq: readonly { q: string; a: string }[];
+  scopeTitle: string;
+  scopeParagraphs: readonly string[];
+  priceRangeNote?: string;
+  ctaLabel?: string;
+  tiers?: CalculatorTier[];
+  defaultTierId?: string;
+};
+
+export function buildCalculator(params: BuildCalcParams): CalculatorConfig {
+  const lineItems = calcLines(...params.lines);
+  const typicalQty = params.typicalPrimaryQty ?? params.primaryInput.defaultValue;
+
+  return {
+    slug: params.slug,
+    jobSlug: params.jobSlug ?? params.slug,
+    title: params.title,
+    pageTitle: params.pageTitle,
+    metaDescription: params.metaDescription,
+    intro: params.intro,
+    areaSlug: params.areaSlug,
+    primaryInput: params.primaryInput,
+    secondaryInput: params.secondaryInput,
+    tiers: params.tiers,
+    defaultTierId: params.defaultTierId,
+    lineItems,
+    typicalBreakdown: breakdownFromLines(params.lines, typicalQty),
+    faq: params.faq,
+    scopeTitle: params.scopeTitle,
+    scopeParagraphs: params.scopeParagraphs,
+    priceRangeNote: params.priceRangeNote,
+    ctaLabel: params.ctaLabel,
+    priceArchiveParam: params.jobSlug ?? params.slug,
+  };
+}

@@ -2,6 +2,7 @@ import type { MetadataRoute } from "next";
 import { HEAT_PUMP_JOB_SLUGS } from "@/constants/heat-pumps";
 import { LISTING_PRODUCT_CATEGORIES } from "@/lib/marketplace-categories";
 import {
+  CALCULATOR_KEYWORDS,
   CONTRACTOR_KEYWORDS,
   HELP_KEYWORDS,
   HEAT_PUMP_KEYWORDS,
@@ -98,6 +99,15 @@ export const STATIC_SEO_PAGES: SeoPageDef[] = [
     keywords: mergeKeywords(SITE_KEYWORDS, TARJOUSARVIO_KEYWORDS, HEAT_PUMP_KEYWORDS.slice(0, 3)),
     changeFrequency: "monthly",
     priority: 0.88,
+  },
+  {
+    path: "/laskurit",
+    title: "Remonttilaskurit — arvioi remontin hinta",
+    description:
+      "Ilmaiset remonttilaskurit kaikille alueille: lämpöpumppu, keittiö, kylpyhuone, katto, piha, piharakennus ja muut. Viitehinnat, muokattavat rivit — kilpailuta ilmaiseksi.",
+    keywords: mergeKeywords(SITE_KEYWORDS, CALCULATOR_KEYWORDS),
+    changeFrequency: "monthly",
+    priority: 0.82,
   },
   {
     path: "/apu",
@@ -282,6 +292,19 @@ export function contractorProfileSitemapEntries(
     lastModified: new Date(row.updated_at),
     changeFrequency: "weekly" as const,
     priority: 0.55,
+  }));
+}
+
+export function calculatorSitemapEntries(
+  base: string,
+  now: Date,
+  slugs: string[],
+): MetadataRoute.Sitemap {
+  return slugs.map((slug) => ({
+    url: `${base}/laskurit/${slug}`,
+    lastModified: now,
+    changeFrequency: "monthly" as const,
+    priority: slug === "kylpyhuone" || slug === "ilmalampopumppu" ? 0.88 : 0.8,
   }));
 }
 

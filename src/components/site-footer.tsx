@@ -87,6 +87,11 @@ export async function SiteFooter() {
                 </Link>
               </li>
               <li>
+                <Link href="/laskurit" className="text-stone-600 hover:text-sky-700">
+                  Remonttilaskurit
+                </Link>
+              </li>
+              <li>
                 <Link
                   href={contractor ? "/tarjoukset" : "/tarjouspyynnot"}
                   className="text-stone-600 hover:text-sky-700"
