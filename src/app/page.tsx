@@ -51,6 +51,7 @@ import {
 } from "@/lib/public-projects-server";
 import { fetchPublicPlatformStats } from "@/lib/public-platform-stats";
 import { brand } from "@/lib/brand-theme";
+import { contractorHomePath } from "@/lib/contractor-paths";
 import { fetchBidEvaluationSettings } from "@/lib/bid-evaluation-server";
 import { hasAnyActiveEvaluator } from "@/lib/bid-evaluation-availability-server";
 import { createClient } from "@/lib/supabase/server";
@@ -65,7 +66,7 @@ export default async function Home() {
   const previewMode = user && (await isAdmin()) ? await getAdminPreviewMode() : null;
   const contractor = user ? await isContractor() : false;
   if (previewMode === "contractor" || (contractor && previewMode !== "customer")) {
-    redirect("/tarjoukset");
+    redirect(contractorHomePath());
   }
   const profile = user ? await getProfile() : null;
   const isCustomer = !!user && profile?.role === "customer";

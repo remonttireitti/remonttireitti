@@ -9,6 +9,7 @@ import { getProfile, getSessionUser, isContractor } from "@/lib/auth";
 import { fetchProjectCatalog } from "@/lib/job-catalog-server";
 import { parseRemonttiPrefillFromSearchParams } from "@/lib/remontti-prefill";
 import { brand } from "@/lib/brand-theme";
+import { contractorHomePath } from "@/lib/contractor-paths";
 import { fetchAllLearnedProposals } from "@/lib/learned-proposals";
 import {
   fetchAllEmphasizedCriteria,
@@ -28,7 +29,7 @@ export default async function NewProjectPage({
   const profile = user ? await getProfile() : null;
 
   if (!(await canBrowseAsCustomer())) {
-    if (await isContractor()) redirect("/tarjoukset");
+    if (await isContractor()) redirect(contractorHomePath());
     if (await isAdmin()) redirect("/admin?viesti=valitse-asiakas-esikatselu");
     redirect("/oma-tili");
   }

@@ -19,10 +19,6 @@ export async function GET(request: Request) {
       if (user) {
         await syncContractorAccount(user);
         await syncUserReferrals(user);
-        const metaRole = user.user_metadata?.role;
-        if (metaRole === "contractor" && !safeNext.startsWith("/salasana")) {
-          return NextResponse.redirect(`${origin}/tarjoukset`);
-        }
       }
       return NextResponse.redirect(`${origin}${safeNext}`);
     }

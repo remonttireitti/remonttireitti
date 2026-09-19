@@ -82,5 +82,5 @@ export function adminPreviewModeLabel(mode: AdminPreviewMode): string {
 }
 
 export function adminPreviewRedirectForMode(mode: AdminPreviewMode): string {
-  return mode === "contractor" ? "/tarjoukset" : "/";
+  return mode === "contractor" ? "/oma-tili" : "/";
 }
