@@ -15,6 +15,7 @@ import {
   buildBidDefaultsTabs,
   parseBidDefaultsByJobType,
 } from "@/lib/contractor-bid-defaults-shared";
+import { parseContractorPricingRates } from "@/lib/calculators/contractor-pricing";
 import { HEAT_PUMP_MARKETING } from "@/constants/heat-pumps";
 import { resolveContractorTradeIdsFromForm } from "@/lib/resolve-contractor-trades";
 import {
@@ -147,6 +148,58 @@ export async function updateContractorBidDefaults(
   revalidatePath("/oma-tili");
   revalidatePath("/tarjoukset");
   return { ok: "Tarjouksen oletusehdot tallennettu." };
+}
+
+export async function updateContractorPricingRates(
+  _prev: ContractorProfileState,
+  formData: FormData,
+): Promise<ContractorProfileState> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) redirect("/kirjaudu");
+
+  const hourlyRate = Number(formData.get("hourly_rate"));
+  const marginPercent = Number(formData.get("margin_percent"));
+  const wasteFee = Number(formData.get("waste_fee"));
+  const scaffoldingFee = Number(formData.get("scaffolding_fee"));
+  const travelPerKm = Number(formData.get("travel_per_km"));
+  const travelKm = Number(formData.get("travel_km"));
+
+  if (!Number.isFinite(hourlyRate) || hourlyRate < 1) {
+    return { error: "Työtunnin hinnan tulee olla vähintään 1 €." };
+  }
+  if (!Number.isFinite(marginPercent) || marginPercent < 0 || marginPercent > 100) {
+    return { error: "Katteen tulee olla 0–100 %." };
+  }
+
+  const rates = parseContractorPricingRates({
+    hourlyRate,
+    marginPercent,
+    wasteFee: Number.isFinite(wasteFee) ? wasteFee : 180,
+    scaffoldingFee: Number.isFinite(scaffoldingFee) ? scaffoldingFee : 650,
+    travelPerKm: Number.isFinite(travelPerKm) ? travelPerKm : 0.7,
+    travelKm: Number.isFinite(travelKm) ? travelKm : 0,
+    lineRates: {},
+  });
+
+  const { error } = await supabase
+    .from("contractor_profiles")
+    .update({ calculator_pricing_rates: rates })
+    .eq("id", user.id);
+
+  if (error) {
+    const msg = error.message.includes("calculator_pricing_rates")
+      ? "Aja Supabase-migraatio 20260919100000_contractor_calculator_pricing.sql"
+      : error.message;
+    return { error: msg };
+  }
+
+  revalidatePath("/oma-tili");
+  revalidatePath("/tarjoukset");
+  return { ok: "Laskentaparametrit tallennettu." };
 }
 
 async function getContractorQualificationsForDefaults(contractorId: string) {

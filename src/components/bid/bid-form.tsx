@@ -68,6 +68,12 @@ function fieldClass(hasError: boolean): string {
   return hasError ? inputErrorClass : inputClass;
 }
 
+type CalculatorPrefill = {
+  amountEuros: string;
+  scopeLines: BidScopeLine[];
+  messageNote: string;
+};
+
 export function BidForm({
   projectId,
   requiresDeviceAndInstallation,
@@ -80,6 +86,8 @@ export function BidForm({
   jobTypeSlug,
   tradeContext,
   serviceEngagement,
+  calculatorPrefill,
+  calculatorPrefillVersion = 0,
 }: {
   projectId: string;
   /** Urakoitsija toimittaa laitteet (pakollinen laitetakuu). */
@@ -98,6 +106,9 @@ export function BidForm({
   tradeContext?: ProjectTradeContext;
   /** Jatkuva palvelu — hinnoittelu per käynti / kk / kausi. */
   serviceEngagement?: ServiceEngagement | null;
+  /** Tarjouslaskurista siirretty summa ja rivit. */
+  calculatorPrefill?: CalculatorPrefill | null;
+  calculatorPrefillVersion?: number;
 }) {
   const isServiceProject = Boolean(serviceEngagement);
   const initialFormFields = (() => {
@@ -143,6 +154,33 @@ export function BidForm({
       setFieldErrors(state.fieldErrors);
     }
   }, [state.fields, state.fieldErrors]);
+
+  useEffect(() => {
+    if (!calculatorPrefill || calculatorPrefillVersion === 0) return;
+
+    setFields((prev) => {
+      const message = calculatorPrefill.messageNote.trim();
+      const hasNote = prev.message.includes(message);
+      return {
+        ...prev,
+        amount_euros: calculatorPrefill.amountEuros,
+        message: hasNote
+          ? prev.message
+          : prev.message.trim()
+            ? `${prev.message.trim()}\n\n${message}`
+            : message,
+      };
+    });
+    setScopeLines(calculatorPrefill.scopeLines);
+    setFieldErrors((prev) => {
+      if (!prev.amount_euros && !prev.scope_terms) return prev;
+      const next = { ...prev };
+      delete next.amount_euros;
+      delete next.scope_terms;
+      return next;
+    });
+    setClientError(null);
+  }, [calculatorPrefill, calculatorPrefillVersion]);
 
   function syncScopeLines(lines: BidScopeLine[]) {
     setScopeLines(lines);

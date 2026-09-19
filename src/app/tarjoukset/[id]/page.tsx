@@ -18,6 +18,12 @@ import { ensureProjectConversation } from "@/app/actions/messages";
 import { fetchContractorProjectConversation } from "@/lib/messages-server";
 import { fetchProjectPhotos } from "@/lib/project-photos";
 import { fetchContractorBidDefaults } from "@/lib/contractor-bid-defaults-server";
+import {
+  calculatorSlugForJob,
+  hintsFromProject,
+} from "@/lib/bid-calculator-bridge";
+import { getCalculatorBySlug } from "@/lib/calculators/registry";
+import { fetchContractorPricingRates } from "@/lib/contractor-pricing-server";
 import { resolveProjectJobTypeSlug } from "@/lib/project-job-type";
 import { ContractorProjectInterestButtons } from "@/components/contractor/contractor-project-interest-buttons";
 import { ProjectMatchBadges } from "@/components/contractor/contractor-service-area-form";
@@ -144,10 +150,21 @@ export default async function ContractorProjectPage({
     if (jt?.slug) jobTypeSlug = jt.slug;
   }
 
-  const defaultBidTerms = await fetchContractorBidDefaults(
-    user.id,
-    jobTypeSlug,
-  );
+  const [defaultBidTerms, pricingRates] = await Promise.all([
+    fetchContractorBidDefaults(user.id, jobTypeSlug),
+    fetchContractorPricingRates(user.id),
+  ]);
+
+  const calculatorSlug = calculatorSlugForJob(jobTypeSlug);
+  const calculatorConfig = calculatorSlug
+    ? getCalculatorBySlug(calculatorSlug)
+    : null;
+  const calculatorHints = hintsFromProject({
+    title: project.title as string,
+    description: project.description as string,
+    details: project.details,
+    municipality: project.municipality as string | null,
+  });
 
   const tradeContext = await fetchProjectTradeContextForContractor(
     supabase,
@@ -259,7 +276,9 @@ export default async function ContractorProjectPage({
     jobTypeSlug,
     tradeContext,
     serviceEngagement,
-    projectQuality,
+    calculatorConfig,
+    pricingRates,
+    initialPrimaryQty: calculatorHints.primaryQty,
   };
 
   return (
