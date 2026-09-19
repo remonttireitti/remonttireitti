@@ -13,8 +13,15 @@ import { brand } from "@/lib/brand-theme";
 import type { BidCalculatorResult } from "@/lib/bid-calculator-bridge";
 import type { ContractorQuotePdfUsage } from "@/lib/contractor-quote-limits";
 import {
+  bidResultFromQuote,
+  calculatorItemsFromQuote,
+  formFieldsFromQuote,
+  quoteUsesCustomTerms,
+} from "@/lib/contractor-quote-edit";
+import {
   defaultQuoteFormForConfig,
   type ContractorQuoteFormFields,
+  type ContractorQuoteRow,
 } from "@/lib/contractor-quote-types";
 import type { ContractorPricingRates } from "@/lib/calculators/contractor-pricing";
 import { formatEuro } from "@/lib/calculators/math";
@@ -32,6 +39,7 @@ export function StandaloneQuoteWorkspace({
   jobSlug,
   defaultValidityDays = 30,
   defaultTerms = "",
+  initialQuote = null,
 }: {
   config: CalculatorConfig;
   rates: ContractorPricingRates;
@@ -39,17 +47,31 @@ export function StandaloneQuoteWorkspace({
   jobSlug?: string | null;
   defaultValidityDays?: number;
   defaultTerms?: string;
+  /** Existing contractor_quotes row — reopen for update (fields stay editable). */
+  initialQuote?: ContractorQuoteRow | null;
 }) {
   const [fields, setFields] = useState<ContractorQuoteFormFields>(() =>
-    defaultQuoteFormForConfig(config.title, {
-      terms: defaultTerms,
-      validityDays: defaultValidityDays,
-    }),
+    initialQuote
+      ? formFieldsFromQuote(initialQuote)
+      : defaultQuoteFormForConfig(config.title, {
+          terms: defaultTerms,
+          validityDays: defaultValidityDays,
+        }),
   );
-  const [editTerms, setEditTerms] = useState(false);
+  const [editTerms, setEditTerms] = useState(() =>
+    initialQuote ? quoteUsesCustomTerms(initialQuote, defaultTerms) : false,
+  );
   const [calculatorResult, setCalculatorResult] =
-    useState<BidCalculatorResult | null>(null);
-  const [savedQuoteId, setSavedQuoteId] = useState<string | null>(null);
+    useState<BidCalculatorResult | null>(() =>
+      initialQuote ? bidResultFromQuote(initialQuote) : null,
+    );
+  const [savedQuoteId, setSavedQuoteId] = useState<string | null>(
+    () => initialQuote?.id ?? null,
+  );
+  const initialLineItems = initialQuote
+    ? calculatorItemsFromQuote(initialQuote)
+    : null;
+  const initialPrimaryQty = initialQuote?.primary_qty ?? undefined;
   const [, startLearning] = useTransition();
   const [saveState, saveAction, savePending] = useActionState<
     ContractorQuoteActionState,
@@ -93,6 +115,7 @@ export function StandaloneQuoteWorkspace({
   }, [saveState.quoteId]);
 
   const effectiveQuoteId = saveState.quoteId ?? savedQuoteId;
+  const isEditingExisting = Boolean(effectiveQuoteId);
   const hasDefaultTerms = Boolean(defaultTerms.trim());
   const termsForSave = editTerms ? fields.terms : defaultTerms;
 
@@ -101,7 +124,9 @@ export function StandaloneQuoteWorkspace({
       <section className="rounded-2xl border border-stone-200 bg-white p-5 sm:p-6">
         <h2 className="text-lg font-semibold text-stone-900">Asiakas ja kohde</h2>
         <p className="mt-1 text-sm text-stone-600">
-          Nämä tiedot näkyvät PDF-tarjouksessa. Voit täydentää ne myöhemmin.
+          {isEditingExisting
+            ? "Asiakas- ja kohdetiedot on lukittu tallennuksen jälkeen. Voit päivittää ehtoja ja hintoja — Päivitä tallentaa samaan tarjoukseen."
+            : "Nämä tiedot näkyvät PDF-tarjouksessa. Voit täydentää ne myöhemmin."}
         </p>
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <label className="block text-sm sm:col-span-2">
@@ -120,6 +145,8 @@ export function StandaloneQuoteWorkspace({
               onChange={(e) => updateField("clientName", e.target.value)}
               className={inputClass}
               placeholder="Matti Meikäläinen"
+              readOnly={isEditingExisting}
+              disabled={isEditingExisting}
             />
           </label>
           <label className="block text-sm">
@@ -130,6 +157,8 @@ export function StandaloneQuoteWorkspace({
               onChange={(e) => updateField("clientEmail", e.target.value)}
               className={inputClass}
               placeholder="asiakas@esimerkki.fi"
+              readOnly={isEditingExisting}
+              disabled={isEditingExisting}
             />
           </label>
           <label className="block text-sm">
@@ -139,6 +168,8 @@ export function StandaloneQuoteWorkspace({
               onChange={(e) => updateField("siteMunicipality", e.target.value)}
               className={inputClass}
               placeholder="Espoo"
+              readOnly={isEditingExisting}
+              disabled={isEditingExisting}
             />
           </label>
           <label className="block text-sm">
@@ -148,6 +179,8 @@ export function StandaloneQuoteWorkspace({
               onChange={(e) => updateField("siteAddress", e.target.value)}
               className={inputClass}
               placeholder="Esimerkkikatu 1"
+              readOnly={isEditingExisting}
+              disabled={isEditingExisting}
             />
           </label>
           <label className="block text-sm">
@@ -259,6 +292,8 @@ export function StandaloneQuoteWorkspace({
         config={config}
         rates={rates}
         variant="standalone"
+        initialPrimaryQty={initialPrimaryQty}
+        initialLineItems={initialLineItems}
         onApply={handleCalculatorReady}
       />
 
@@ -268,7 +303,7 @@ export function StandaloneQuoteWorkspace({
           className="scroll-mt-24 rounded-2xl border-2 border-emerald-200 bg-gradient-to-b from-emerald-50/80 to-white p-5 sm:p-6"
         >
           <h2 className="text-lg font-semibold text-emerald-950">
-            Tarjous valmis
+            {isEditingExisting ? "Muokkaa tarjousta" : "Tarjous valmis"}
           </h2>
           <p className="mt-1 text-sm text-stone-600">
             Summa{" "}
@@ -333,7 +368,13 @@ export function StandaloneQuoteWorkspace({
                 disabled={savePending || !fields.title.trim()}
                 className={`${brand.btnPrimary} disabled:opacity-60`}
               >
-                {savePending ? "Tallennetaan…" : "Tallenna tarjous"}
+                {savePending
+                  ? isEditingExisting
+                    ? "Päivitetään…"
+                    : "Tallennetaan…"
+                  : isEditingExisting
+                    ? "Päivitä"
+                    : "Tallenna"}
               </button>
 
               {effectiveQuoteId && (
@@ -360,8 +401,13 @@ export function StandaloneQuoteWorkspace({
 
           {!effectiveQuoteId && (
             <p className="mt-3 text-xs text-stone-500">
-              Tallenna tarjous ennen PDF-latausta. PDF-lataus lasketaan
-              kuukausirajaan (10 kpl/kk).
+              Tallenna ennen PDF-latausta. PDF-lataus lasketaan kuukausirajaan
+              (10 kpl/kk).
+            </p>
+          )}
+          {effectiveQuoteId && (
+            <p className="mt-3 text-xs text-stone-500">
+              Päivitä tallentaa muutokset tähän tarjoukseen (ei luo uutta).
             </p>
           )}
         </section>

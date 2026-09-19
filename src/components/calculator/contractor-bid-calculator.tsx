@@ -55,6 +55,8 @@ type Props = {
   config: CalculatorConfig;
   rates: ContractorPricingRates;
   initialPrimaryQty?: number;
+  /** Prefill line items (e.g. when reopening a saved contractor quote). */
+  initialLineItems?: CalculatorLineItem[] | null;
   projectCalculatorHints?: ProjectCalculatorInputHints;
   customerEstimate?: CustomerCalculatorEstimate | null;
   jobPriceBenchmark?: JobPriceBenchmark | null;
@@ -67,6 +69,7 @@ export function ContractorBidCalculator({
   config,
   rates,
   initialPrimaryQty,
+  initialLineItems = null,
   projectCalculatorHints,
   customerEstimate,
   jobPriceBenchmark = null,
@@ -105,7 +108,9 @@ export function ContractorBidCalculator({
   const [costsManuallyEdited, setCostsManuallyEdited] = useState(false);
 
   const [items, setItems] = useState<CalculatorLineItem[]>(() =>
-    buildInitialContractorLineItems(config, initialInputs.tierId, rates),
+    initialLineItems && initialLineItems.length > 0
+      ? initialLineItems
+      : buildInitialContractorLineItems(config, initialInputs.tierId, rates),
   );
 
   const clampedPrimary = clampQuantity(

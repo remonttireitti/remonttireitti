@@ -10,7 +10,7 @@ import {
   filterContractorProjects,
 } from "@/lib/contractor-work-filter";
 import {
-  contractorQuoteCalculatorPath,
+  contractorQuoteEditPath,
   contractorQuotePdfDownloadPath,
 } from "@/lib/contractor-quote-paths";
 import {
@@ -181,7 +181,7 @@ function offerFromQuote(quote: QuoteRow): ContractorDashboardOffer {
       ? CONTRACTOR_QUOTE_OUTCOME_LABELS[outcome]
       : "Tallennettu",
     statusTone: quote.pdf_generated_at ? quoteOutcomeTone(outcome) : "sky",
-    href: contractorQuoteCalculatorPath(quote.calculator_slug),
+    href: contractorQuoteEditPath(quote.calculator_slug, quote.id),
     pdfHref: contractorQuotePdfDownloadPath(quote.id),
     pdfLabel: quote.pdf_generated_at
       ? "Lataa PDF uudelleen"

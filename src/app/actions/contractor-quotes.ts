@@ -103,11 +103,13 @@ export async function saveContractorQuote(
 
     if (error) return { error: "Tallennus epäonnistui." };
 
+    const slug = calculatorSlug || result.calculatorSlug;
     revalidatePath("/tarjouslaskuri");
-    revalidatePath(`/tarjouslaskuri/${calculatorSlug || result.calculatorSlug}`);
+    revalidatePath(`/tarjouslaskuri/${slug}`);
+    revalidatePath(`/tarjouslaskuri/${slug}?tarjous=${quoteId}`);
     revalidatePath("/oma-tili");
     return {
-      success: "Tarjous tallennettu.",
+      success: "Tarjous päivitetty.",
       quoteId,
     };
   }
