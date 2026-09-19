@@ -84,7 +84,7 @@ function heatPumpContent(name: string, slug: string): ServiceContentBlock {
     ],
     relatedLinks: [
       { href: "/hinta-arkisto", label: "Hinta-arkisto — toteutuneet hinnat" },
-      { href: "/laskurit/kylpyhuoneremontti", label: "Kylpyhuoneremontin hintalaskuri" },
+      { href: "/laskurit", label: "Remonttilaskurit" },
       { href: `/vian-selvitys/${pumpSlug}`, label: "Lämpöpumpun vian selvitys" },
       { href: "/huolto/uusi", label: "Huolto- tai korjauspyyntö" },
     ],

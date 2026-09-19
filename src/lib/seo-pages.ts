@@ -104,23 +104,10 @@ export const STATIC_SEO_PAGES: SeoPageDef[] = [
     path: "/laskurit",
     title: "Remonttilaskurit — arvioi remontin hinta",
     description:
-      "Ilmaiset remonttilaskurit budjetointiin. Kylpyhuoneremontin hinta-arvio purusta laatoitukseen — kilpailuta lopullinen hinta ilmaiseksi.",
+      "Ilmaiset remonttilaskurit kaikille alueille: lämpöpumppu, keittiö, kylpyhuone, katto, piha, piharakennus ja muut. Viitehinnat, muokattavat rivit — kilpailuta ilmaiseksi.",
     keywords: mergeKeywords(SITE_KEYWORDS, CALCULATOR_KEYWORDS),
     changeFrequency: "monthly",
     priority: 0.82,
-  },
-  {
-    path: "/laskurit/kylpyhuoneremontti",
-    title: "Kylpyhuoneremontti laskuri — arvioi remontin hinta",
-    description:
-      "Laske kylpyhuoneremontin hinta-arvio: purku, vesieristys, laatoitus, LVI ja kalusteet. Muokattavat hinnat, oma kulut, Google-hintahaut. Kilpailuta ilmaiseksi.",
-    keywords: mergeKeywords(
-      SITE_KEYWORDS,
-      CALCULATOR_KEYWORDS,
-      ["kylpyhuoneremontti", "vesieristys", "laatoitus"],
-    ),
-    changeFrequency: "monthly",
-    priority: 0.88,
   },
   {
     path: "/apu",
@@ -305,6 +292,19 @@ export function contractorProfileSitemapEntries(
     lastModified: new Date(row.updated_at),
     changeFrequency: "weekly" as const,
     priority: 0.55,
+  }));
+}
+
+export function calculatorSitemapEntries(
+  base: string,
+  now: Date,
+  slugs: string[],
+): MetadataRoute.Sitemap {
+  return slugs.map((slug) => ({
+    url: `${base}/laskurit/${slug}`,
+    lastModified: now,
+    changeFrequency: "monthly" as const,
+    priority: slug === "kylpyhuone" || slug === "ilmalampopumppu" ? 0.88 : 0.8,
   }));
 }
 

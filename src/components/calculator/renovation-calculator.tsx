@@ -5,15 +5,15 @@ import { useMemo, useState } from "react";
 import { CostBreakdownChart } from "@/components/calculator/cost-breakdown-chart";
 import { brand } from "@/lib/brand-theme";
 import {
-  calculateBathroomEstimate,
-  defaultCalculatorLineItems,
+  applyTierOverrides,
+  calculateEstimate,
+  clampQuantity,
   formatEuro,
   googlePriceSearch,
   newCustomLineItem,
-  TILE_TIER_AMOUNTS,
-  type CalculatorLineItem,
-  type TileTier,
-} from "@/lib/bathroom-calculator";
+} from "@/lib/calculators/math";
+import type { CalculatorConfig, CalculatorLineItem } from "@/lib/calculators/types";
+import { MAINTENANCE_JOB_SLUGS } from "@/constants/maintenance";
 
 const CHART_COLORS = [
   "bg-stone-400",
@@ -24,18 +24,53 @@ const CHART_COLORS = [
   "bg-amber-500",
   "bg-violet-500",
   "bg-emerald-500",
+  "bg-rose-400",
+  "bg-teal-500",
 ];
 
-export function BathroomRenovationCalculator() {
-  const [floorSqm, setFloorSqm] = useState(5);
-  const [tileTier, setTileTier] = useState<TileTier>("perus");
-  const [items, setItems] = useState<CalculatorLineItem[]>(() =>
-    defaultCalculatorLineItems("perus"),
+function ctaHref(jobSlug: string): string {
+  if ((MAINTENANCE_JOB_SLUGS as readonly string[]).includes(jobSlug)) {
+    return `/huolto/uusi?tyyppi=${jobSlug}`;
+  }
+  return `/remontti/uusi?tyyppi=${jobSlug}`;
+}
+
+function unitLabel(unit: CalculatorLineItem["unit"], primaryUnit: string, secondaryUnit?: string): string {
+  if (unit === "fixed") return "Kiinteä €";
+  if (unit === "per_secondary") return `€ / ${secondaryUnit ?? "yks."}`;
+  return `€ / ${primaryUnit}`;
+}
+
+export function RenovationCalculator({ config }: { config: CalculatorConfig }) {
+  const defaultTier = config.defaultTierId ?? config.tiers?.[0]?.id;
+  const [primaryQty, setPrimaryQty] = useState(config.primaryInput.defaultValue);
+  const [secondaryQty, setSecondaryQty] = useState(
+    config.secondaryInput?.defaultValue ?? 0,
   );
+  const [tierId, setTierId] = useState(defaultTier);
+  const [items, setItems] = useState<CalculatorLineItem[]>(() => {
+    const tier = config.tiers?.find((t) => t.id === defaultTier);
+    return tier
+      ? applyTierOverrides(structuredClone(config.lineItems), tier.overrides)
+      : structuredClone(config.lineItems);
+  });
+
+  const clampedPrimary = clampQuantity(
+    primaryQty,
+    config.primaryInput.min,
+    config.primaryInput.max,
+  );
+  const clampedSecondary = config.secondaryInput
+    ? clampQuantity(
+        secondaryQty,
+        config.secondaryInput.min,
+        config.secondaryInput.max,
+      )
+    : 0;
 
   const estimate = useMemo(
-    () => calculateBathroomEstimate(floorSqm, items),
-    [floorSqm, items],
+    () => calculateEstimate(clampedPrimary, clampedSecondary, items),
+    [clampedPrimary, clampedSecondary, items],
   );
 
   const chartSegments = useMemo(
@@ -45,7 +80,7 @@ export function BathroomRenovationCalculator() {
         .map((l, i) => ({
           label: l.label,
           amount: l.amount,
-          color: CHART_COLORS[i % CHART_COLORS.length],
+          color: CHART_COLORS[i % CHART_COLORS.length]!,
         })),
     [estimate.lines],
   );
@@ -60,70 +95,96 @@ export function BathroomRenovationCalculator() {
     setItems((prev) => prev.filter((item) => item.id !== id));
   }
 
-  function applyTileTier(tier: TileTier) {
-    setTileTier(tier);
-    setItems((prev) =>
-      prev.map((item) =>
-        item.id === "laatat"
-          ? { ...item, amount: TILE_TIER_AMOUNTS[tier] }
-          : item,
-      ),
-    );
+  function applyTier(nextTierId: string) {
+    setTierId(nextTierId);
+    const tier = config.tiers?.find((t) => t.id === nextTierId);
+    if (!tier) return;
+    setItems((prev) => applyTierOverrides(prev, tier.overrides));
   }
 
-  const wallEstimate = Math.round(floorSqm * 4);
+  const primaryLabel = `${clampedPrimary} ${config.primaryInput.unit}`;
+  const subtitleParts = [primaryLabel];
+  if (config.secondaryInput) {
+    subtitleParts.push(`${clampedSecondary} ${config.secondaryInput.unit}`);
+  }
 
   return (
     <div className="space-y-8">
       <section className={`${brand.section} p-5 sm:p-6`}>
         <h2 className="text-xl font-bold text-stone-900">Laske arvio</h2>
-        <p className="mt-2 text-sm text-stone-600">
-          Syötä kylpyhuoneen <strong>lattian neliömäärä</strong>. Seinäpinta-alan
-          arvioidaan olevan noin 4-kertainen lattiaan nähden (~{wallEstimate} m²
-          seinää {floorSqm} m² lattialla).
-        </p>
+        {config.primaryInput.hint && (
+          <p className="mt-2 text-sm text-stone-600">{config.primaryInput.hint}</p>
+        )}
 
         <div className="mt-5 grid gap-4 sm:grid-cols-2">
           <label className="block">
             <span className="text-sm font-medium text-stone-700">
-              Lattian pinta-ala (m²)
+              {config.primaryInput.label} ({config.primaryInput.unit})
             </span>
             <input
               type="number"
-              min={1}
-              max={30}
-              step={0.5}
-              value={floorSqm}
-              onChange={(e) => setFloorSqm(Number(e.target.value) || 1)}
+              min={config.primaryInput.min}
+              max={config.primaryInput.max}
+              step={config.primaryInput.step ?? 1}
+              value={primaryQty}
+              onChange={(e) => setPrimaryQty(Number(e.target.value) || config.primaryInput.min)}
               className={`mt-1 w-full rounded-xl border border-stone-200 px-3 py-2.5 text-lg font-semibold ${brand.input}`}
             />
           </label>
 
-          <fieldset>
-            <legend className="text-sm font-medium text-stone-700">
-              Laatataso (materiaalit)
-            </legend>
-            <div className="mt-1 flex gap-2">
-              {(["perus", "premium"] as const).map((tier) => (
+          {config.secondaryInput && (
+            <label className="block">
+              <span className="text-sm font-medium text-stone-700">
+                {config.secondaryInput.label} ({config.secondaryInput.unit})
+              </span>
+              <input
+                type="number"
+                min={config.secondaryInput.min}
+                max={config.secondaryInput.max}
+                step={config.secondaryInput.step ?? 1}
+                value={secondaryQty}
+                onChange={(e) =>
+                  setSecondaryQty(
+                    Number(e.target.value) || config.secondaryInput!.min,
+                  )
+                }
+                className={`mt-1 w-full rounded-xl border border-stone-200 px-3 py-2.5 text-lg font-semibold ${brand.input}`}
+              />
+              {config.secondaryInput.hint && (
+                <span className="mt-1 block text-xs text-stone-500">
+                  {config.secondaryInput.hint}
+                </span>
+              )}
+            </label>
+          )}
+        </div>
+
+        {config.tiers && config.tiers.length > 0 && (
+          <fieldset className="mt-4">
+            <legend className="text-sm font-medium text-stone-700">Laite- / materiaalitaso</legend>
+            <div className="mt-1 flex flex-wrap gap-2">
+              {config.tiers.map((tier) => (
                 <button
-                  key={tier}
+                  key={tier.id}
                   type="button"
-                  onClick={() => applyTileTier(tier)}
-                  className={`flex-1 rounded-xl border px-3 py-2.5 text-sm font-semibold transition ${
-                    tileTier === tier
+                  onClick={() => applyTier(tier.id)}
+                  className={`rounded-xl border px-3 py-2.5 text-sm font-semibold transition ${
+                    tierId === tier.id
                       ? "border-sky-600 bg-sky-50 text-sky-900"
                       : "border-stone-200 bg-white text-stone-700 hover:border-sky-200"
                   }`}
                 >
-                  {tier === "perus" ? "Perustaso" : "Premium"}
-                  <span className="mt-0.5 block text-xs font-normal text-stone-500">
-                    {TILE_TIER_AMOUNTS[tier]} €/m²
-                  </span>
+                  {tier.label}
+                  {tier.subtitle && (
+                    <span className="mt-0.5 block text-xs font-normal text-stone-500">
+                      {tier.subtitle}
+                    </span>
+                  )}
                 </button>
               ))}
             </div>
           </fieldset>
-        </div>
+        )}
       </section>
 
       <section className="space-y-4">
@@ -145,7 +206,7 @@ export function BathroomRenovationCalculator() {
 
         <ul className="space-y-3">
           {items.map((item) => {
-            const lineTotal = calculateBathroomEstimate(floorSqm, [item]).total;
+            const lineTotal = calculateEstimate(clampedPrimary, clampedSecondary, [item]).total;
             return (
               <li
                 key={item.id}
@@ -186,11 +247,21 @@ export function BathroomRenovationCalculator() {
 
                     <div className="mt-3 flex flex-wrap items-end gap-3">
                       <label className="text-xs text-stone-600">
-                        {item.unit === "per_sqm" ? "€ / lattia-m²" : "Kiinteä €"}
+                        {unitLabel(
+                          item.unit,
+                          config.primaryInput.unit,
+                          config.secondaryInput?.unit,
+                        )}
                         <input
                           type="number"
                           min={0}
-                          step={item.unit === "per_sqm" ? 10 : 50}
+                          step={
+                            item.unit === "fixed"
+                              ? 50
+                              : item.unit === "per_secondary"
+                                ? 5
+                                : 10
+                          }
                           value={item.amount}
                           onChange={(e) =>
                             updateItem(item.id, {
@@ -224,13 +295,20 @@ export function BathroomRenovationCalculator() {
                             value={item.unit}
                             onChange={(e) =>
                               updateItem(item.id, {
-                                unit: e.target.value as "per_sqm" | "fixed",
+                                unit: e.target.value as CalculatorLineItem["unit"],
                               })
                             }
                             className={`mt-0.5 block rounded-lg border border-stone-200 px-2 py-1.5 text-sm ${brand.input}`}
                           >
                             <option value="fixed">Kiinteä summa</option>
-                            <option value="per_sqm">€ / lattia-m²</option>
+                            <option value="per_primary">
+                              € / {config.primaryInput.unit}
+                            </option>
+                            {config.secondaryInput && (
+                              <option value="per_secondary">
+                                € / {config.secondaryInput.unit}
+                              </option>
+                            )}
                           </select>
                         </label>
                       )}
@@ -271,7 +349,7 @@ export function BathroomRenovationCalculator() {
         <CostBreakdownChart
           segments={chartSegments}
           title="Arviosi kustannusjako"
-          subtitle={`${floorSqm} m² lattia · arvio yhteensä ${formatEuro(estimate.total)}`}
+          subtitle={`${subtitleParts.join(" · ")} · arvio yhteensä ${formatEuro(estimate.total)}`}
         />
 
         <div className={`${brand.estimateBox} flex flex-col justify-center p-6`}>
@@ -287,31 +365,30 @@ export function BathroomRenovationCalculator() {
             kotitalousvähennystä). Todellinen hinta riippuu kohteesta, alueesta ja
             materiaalivalinnoista.
           </p>
-          <p className="mt-3 text-xs text-stone-600">
-            Suomessa täysremontin neliöhinta on tyypillisesti 900–2 000 €/m²
-            (lähde: toteutuneet urakat 2025–2026).
-          </p>
+          {config.priceRangeNote && (
+            <p className="mt-3 text-xs text-stone-600">{config.priceRangeNote}</p>
+          )}
         </div>
       </div>
 
       <aside className="rounded-2xl border-2 border-orange-200 bg-gradient-to-r from-orange-50 via-white to-sky-50 p-6">
         <h2 className="text-xl font-bold text-stone-900">
-          Haluatko tarkan tarjouksen urakoitsijoilta?
+          Haluatko tarkan tarjouksen ammattilaisilta?
         </h2>
         <p className="mt-2 text-sm leading-relaxed text-stone-700">
-          Laskuri antaa suuntaa-antavan arvion. Kilpailuta kylpyhuoneremontti
-          ilmaiseksi — saat oikeat tarjoukset alueeltasi ja vertailet samassa
-          muodossa. Tarjouspyyntö onnistuu ilman tiliä.
+          Laskuri antaa suuntaa-antavan arvion. Kilpailuta ilmaiseksi — saat oikeat
+          tarjoukset alueeltasi ja vertailet samassa muodossa. Tarjouspyyntö onnistuu
+          ilman tiliä.
         </p>
         <div className={`${brand.actionsStack} mt-5`}>
           <Link
-            href="/remontti/uusi?tyyppi=kylpyhuone"
+            href={ctaHref(config.jobSlug)}
             className={`${brand.btnPrimary} ${brand.btnPrimaryBlock}`}
           >
-            Kilpailuta kylpyhuoneremontti ilmaiseksi
+            {config.ctaLabel ?? "Kilpailuta ilmaiseksi"}
           </Link>
           <Link
-            href="/hinta-arkisto?tyo=kylpyhuone"
+            href={`/hinta-arkisto?tyo=${config.priceArchiveParam ?? config.jobSlug}`}
             className={`${brand.btnSecondary} ${brand.btnSecondaryBlock}`}
           >
             Katso toteutuneet hinnat

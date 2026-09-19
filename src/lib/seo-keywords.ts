@@ -85,14 +85,16 @@ export const CONTRACTOR_KEYWORDS = [
 
 /** Remonttilaskurit — hinta-arviot hakukoneille. */
 export const CALCULATOR_KEYWORDS = [
-  "kylpyhuoneremontti hinta",
-  "kylpyhuoneremontin hinta",
-  "mitä maksaa kylpyhuoneremontti",
-  "kylpyhuoneen vesieristys hinta",
-  "kylpyhuone remontti laskuri",
   "remontin hintalaskuri",
-  "kylpyhuone neliöhinta",
-  "laatoitus hinta neliö",
+  "remonttilaskuri",
+  "kylpyhuoneremontti hinta",
+  "ilmalämpöpumppu hinta asennus",
+  "keittiöremontti hinta",
+  "kattoremontti hinta",
+  "piharakennus hinta",
+  "terassin hinta",
+  "mitä maksaa remontti",
+  "remontin hinta-arvio",
 ] as const;
 
 /** Pieni apu — vapaaehtoinen naapuriapu (kapea long-tail). */

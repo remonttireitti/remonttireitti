@@ -1,6 +1,6 @@
 "use client";
 
-import { formatEuro } from "@/lib/bathroom-calculator";
+import { formatEuro } from "@/lib/calculators/math";
 
 type Segment = {
   label: string;
