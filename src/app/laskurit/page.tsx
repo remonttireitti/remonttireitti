@@ -8,7 +8,7 @@ import { CalculatorsIndexJsonLd } from "@/components/seo/calculators-index-json-
 import { SiteHeader } from "@/components/site-header";
 import { brand } from "@/lib/brand-theme";
 import {
-  calculatorPath,
+  publicCalculatorPath,
   getCalculatorsGroupedByArea,
 } from "@/lib/calculators/registry";
 import { pageMetadata } from "@/lib/seo";
@@ -59,7 +59,7 @@ export default function CalculatorsIndexPage() {
                 {group.calculators.map((calc) => (
                   <li key={calc.slug}>
                     <Link
-                      href={calculatorPath(calc.slug)}
+                      href={publicCalculatorPath(calc.slug)}
                       className="block h-full rounded-2xl border border-stone-200 bg-white p-4 transition hover:border-sky-300 hover:shadow-md"
                     >
                       <p className="font-semibold text-stone-900">{calc.title}</p>
@@ -76,6 +76,27 @@ export default function CalculatorsIndexPage() {
             </section>
           ))}
         </section>
+
+        <nav className="mt-10 flex flex-wrap gap-3 text-sm" aria-label="Liittyvät sivut">
+          <Link
+            href="/palvelut"
+            className="inline-flex min-h-[2.75rem] items-center rounded-lg border border-stone-200 bg-white px-4 py-2 font-medium text-sky-800 hover:bg-sky-50"
+          >
+            Palvelut ja kilpailutus
+          </Link>
+          <Link
+            href="/vian-selvitys"
+            className="inline-flex min-h-[2.75rem] items-center rounded-lg border border-stone-200 bg-white px-4 py-2 font-medium text-sky-800 hover:bg-sky-50"
+          >
+            Lämpöpumpun vian selvitys
+          </Link>
+          <Link
+            href="/tarjouspyynnot"
+            className="inline-flex min-h-[2.75rem] items-center rounded-lg border border-stone-200 bg-white px-4 py-2 font-medium text-sky-800 hover:bg-sky-50"
+          >
+            Avoimet tarjouspyynnöt
+          </Link>
+        </nav>
 
         <aside className={`${brand.section} mt-12 p-6`}>
           <h2 className="text-lg font-bold text-stone-900">

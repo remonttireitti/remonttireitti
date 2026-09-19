@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import { ContractorCalculatorBanner } from "@/components/calculator/contractor-calculator-banner";
 import { RenovationCalculator } from "@/components/calculator/renovation-calculator";
 import { CostBreakdownChart } from "@/components/calculator/cost-breakdown-chart";
@@ -8,9 +8,10 @@ import { CalculatorJsonLd } from "@/components/seo/calculator-json-ld";
 import { SiteHeader } from "@/components/site-header";
 import { brand } from "@/lib/brand-theme";
 import {
-  calculatorPath,
   getCalculatorBySlug,
   getCalculatorSlugs,
+  getPreferredPublicSlug,
+  publicCalculatorPath,
 } from "@/lib/calculators/registry";
 import { resolveCalculatorContent, resolvePriceRangeNote } from "@/lib/calculators/resolve";
 import { enrichCalculatorConfig } from "@/lib/calculators/resolve-with-learning";
@@ -35,10 +36,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     });
   }
 
+  const publicSlug = getPreferredPublicSlug(slug);
   return pageMetadata({
     title: config.pageTitle,
     description: config.metaDescription,
-    path: calculatorPath(slug),
+    path: publicCalculatorPath(publicSlug),
     keywords: mergeKeywords(SITE_KEYWORDS, CALCULATOR_KEYWORDS, [config.title]),
   });
 }
@@ -47,6 +49,11 @@ export default async function CalculatorPage({ params }: Props) {
   const { slug } = await params;
   const baseConfig = getCalculatorBySlug(slug);
   if (!baseConfig) notFound();
+
+  const publicSlug = getPreferredPublicSlug(slug);
+  if (slug !== publicSlug) {
+    permanentRedirect(publicCalculatorPath(publicSlug));
+  }
 
   const supabase = await createClient();
   const { config, learnedRange } = await enrichCalculatorConfig(
@@ -60,7 +67,7 @@ export default async function CalculatorPage({ params }: Props) {
 
   return (
     <div className={brand.page}>
-      <CalculatorJsonLd config={config} faq={faq} urlSlug={slug} />
+      <CalculatorJsonLd config={config} faq={faq} urlSlug={publicSlug} />
       <SiteHeader />
       <main className={brand.mainWide}>
         <nav className="text-sm text-stone-500">

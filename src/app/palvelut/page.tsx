@@ -84,6 +84,28 @@ export default async function PalvelutPage() {
           )}
         </div>
 
+        
+        <nav className="mt-8 flex flex-wrap gap-3 text-sm" aria-label="Liittyvät sivut">
+          <Link
+            href="/laskurit"
+            className="inline-flex min-h-[2.75rem] items-center rounded-lg border border-stone-200 bg-white px-4 py-2 font-medium text-sky-800 hover:bg-sky-50"
+          >
+            Remonttilaskurit
+          </Link>
+          <Link
+            href="/vian-selvitys"
+            className="inline-flex min-h-[2.75rem] items-center rounded-lg border border-stone-200 bg-white px-4 py-2 font-medium text-sky-800 hover:bg-sky-50"
+          >
+            Lämpöpumpun vian selvitys
+          </Link>
+          <Link
+            href="/hinta-arkisto"
+            className="inline-flex min-h-[2.75rem] items-center rounded-lg border border-stone-200 bg-white px-4 py-2 font-medium text-sky-800 hover:bg-sky-50"
+          >
+            Hinta-arkisto
+          </Link>
+        </nav>
+
         <div className={`${brand.panel} mt-10`}>
           <p className={brand.panelTitle}>Valmis aloittamaan?</p>
           <p className={`${brand.panelText} mt-1`}>

@@ -1,5 +1,5 @@
 import { siteConfig } from "@/lib/site-config";
-import { calculatorPath } from "@/lib/calculators/registry";
+import { publicCalculatorPath } from "@/lib/calculators/registry";
 import type { CalculatorConfig } from "@/lib/calculators/types";
 import { getSiteUrl } from "@/lib/seo";
 
@@ -15,11 +15,9 @@ export function CalculatorJsonLd({
 }) {
   const faqItems = faq ?? config.faq;
   const base = getSiteUrl();
-  const pageUrl = `${base}${calculatorPath(urlSlug ?? config.slug)}`;
+  const pageUrl = `${base}${publicCalculatorPath(urlSlug ?? config.slug)}`;
 
-  const schema = {
-    "@context": "https://schema.org",
-    "@graph": [
+  const graph: Record<string, unknown>[] = [
       {
         "@type": "WebApplication",
         name: config.title,
@@ -38,18 +36,23 @@ export function CalculatorJsonLd({
           url: base,
         },
       },
-      {
-        "@type": "FAQPage",
-        mainEntity: faqItems.map((item) => ({
-          "@type": "Question",
-          name: item.q,
-          acceptedAnswer: {
-            "@type": "Answer",
-            text: item.a,
-          },
-        })),
-      },
-      {
+    ];
+
+  if (faqItems.length > 0) {
+    graph.push({
+      "@type": "FAQPage",
+      mainEntity: faqItems.map((item) => ({
+        "@type": "Question",
+        name: item.q,
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: item.a,
+        },
+      })),
+    });
+  }
+
+  graph.push({
         "@type": "BreadcrumbList",
         itemListElement: [
           {
@@ -71,8 +74,11 @@ export function CalculatorJsonLd({
             item: pageUrl,
           },
         ],
-      },
-    ],
+      });
+
+  const schema = {
+    "@context": "https://schema.org",
+    "@graph": graph,
   };
 
   return (

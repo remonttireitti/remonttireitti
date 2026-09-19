@@ -29,7 +29,7 @@ export const STATIC_SEO_PAGES: SeoPageDef[] = [
     path: "/",
     title: "Kilpailuta remontti ilmaiseksi — ohjattu tarjouspyyntö",
     description:
-      "Ohjattu tarjouspyyntö ilman tiliä, laatupiste ja oppiva pohja. Julkaise ilmaiseksi, vertaa tarjouksia. Pieni apu — vapaaehtoista naapuriapua pieniin hommiin. Asiakkaalle 0 €.",
+      "Kilpailuta remontti ja palvelut ilmaiseksi. Ohjattu tarjouspyyntö ilman tiliä, vertaa tarjouksia ja tingaa vastatarjouksella. Ilmalämpöpumpun vian selvitys ja huolto. Asiakkaalle 0 €.",
     keywords: mergeKeywords(
       SITE_KEYWORDS,
       HEAT_PUMP_KEYWORDS.slice(0, 3),
@@ -57,9 +57,9 @@ export const STATIC_SEO_PAGES: SeoPageDef[] = [
   },
   {
     path: "/urakoitsijaksi",
-    title: "Urakoitsijalle — tuomme sopivat tarjouspyynnöt",
+    title: "Urakoitsijaksi — vastaanota remonttitarjouspyyntöjä",
     description:
-      "Remonttireitti tuo valmiit tarjouspyynnöt alueeltasi suoraan eteesi. Tarjous ilmaiseksi — maksat vain voitetusta diilistä. Ensimmäiset 3 diiliä 0 €.",
+      "Liity Remonttireittiin urakoitsijana: vastaanota valmiita tarjouspyyntöjä alueeltasi. Tarjous ilmaiseksi — maksat vain voitetusta diilistä. Ensimmäiset 3 diiliä 0 €.",
     keywords: mergeKeywords(SITE_KEYWORDS, CONTRACTOR_KEYWORDS),
     changeFrequency: "monthly",
     priority: 0.8,
@@ -120,9 +120,9 @@ export const STATIC_SEO_PAGES: SeoPageDef[] = [
   },
   {
     path: "/tarjouspyynnot",
-    title: "Avoimet tarjouspyynnöt",
+    title: "Avoimet tarjouspyynnöt — remontti ja palvelut",
     description:
-      "Selaa avoimia remontti- ja palvelupyyntöjä ilman kirjautumista. Urakoitsijat näkevät täydet tiedot ja voivat jättää tarjouksen ilmaiseksi.",
+      "Selaa avoimia remontti-, asennus- ja palvelupyyntöjä ilman kirjautumista. Urakoitsijat näkevät täydet tiedot ja jättävät tarjouksen ilmaiseksi.",
     keywords: mergeKeywords(SITE_KEYWORDS, CONTRACTOR_KEYWORDS, [
       "avoimet työt",
       "tarjouspyynnöt",
@@ -304,7 +304,14 @@ export function calculatorSitemapEntries(
     url: `${base}/laskurit/${slug}`,
     lastModified: now,
     changeFrequency: "monthly" as const,
-    priority: slug === "kylpyhuone" || slug === "ilmalampopumppu" ? 0.88 : 0.8,
+    priority:
+      slug === "kylpyhuoneremontti" ||
+      slug === "kylpyhuone" ||
+      slug === "ilmalampopumppu" ||
+      slug === "kattoremontti" ||
+      slug === "keittioremontti"
+        ? 0.88
+        : 0.8,
   }));
 }
 
@@ -320,6 +327,65 @@ export function helpRequestSitemapEntries(
   }));
 }
 
+const SERVICE_SEO_OVERRIDES: Record<
+  string,
+  { title: string; description: string; keywords?: string[] }
+> = {
+  ilmalampopumppu: {
+    title: "Ilmalämpöpumpun asennus — kilpailuta ilmaiseksi",
+    description:
+      "Kilpailuta ilmalämpöpumpun asennus ilmaiseksi. Vertaa tarjouksia samassa muodossa, tingaa vastatarjouksella. Laskuri ja vian selvitys samassa palvelussa.",
+    keywords: [
+      "ilmalämpöpumpun asennus",
+      "ilmalämpöpumppu hinta",
+      "ILP asennus",
+      "kilpailuta ilmalämpöpumppu",
+    ],
+  },
+  ilmavesilampopumppu: {
+    title: "Ilmavesilämpöpumpun asennus — kilpailuta ilmaiseksi",
+    description:
+      "Kilpailuta ilmavesilämpöpumpun asennus ilmaiseksi. Vertaa laite- ja asennustarjouksia, tingaa ennen valintaa.",
+    keywords: ["ilmavesilämpöpumppu", "VILP asennus", "ilmavesilämpöpumppu hinta"],
+  },
+  maalampopumppu: {
+    title: "Maalämpöpumpun asennus — kilpailuta ilmaiseksi",
+    description:
+      "Kilpailuta maalämpöpumpun asennus ilmaiseksi. Vertaa kokonaistarjouksia: laite, kaivo ja asennus.",
+    keywords: ["maalämpöpumppu", "maalämpö asennus", "maalämpöpumppu hinta"],
+  },
+  "lampopumppu-huolto": {
+    title: "Lämpöpumpun huolto — kilpailuta ilmaiseksi",
+    description:
+      "Kilpailuta lämpöpumpun huolto ilmaiseksi. Selvitä vika itse oppailla ja pyydä tarjouksia alueesi huoltajilta.",
+    keywords: ["lämpöpumpun huolto", "ilmalämpöpumppu huolto", "ILP huolto"],
+  },
+  "lampopumppu-korjaus": {
+    title: "Lämpöpumpun korjaus — kilpailuta ilmaiseksi",
+    description:
+      "Kilpailuta lämpöpumpun korjaus ilmaiseksi. Käytä vian selvitystä ensin — sitten tarjoukset samassa muodossa.",
+    keywords: ["lämpöpumpun korjaus", "ilmalämpöpumppu korjaus", "ILP korjaus"],
+  },
+  kylpyhuone: {
+    title: "Kylpyhuoneremontti — kilpailuta ilmaiseksi",
+    description:
+      "Kilpailuta kylpyhuoneremontti ilmaiseksi. Vertaa tarjouksia, arvioi hinta laskurilla ja tingaa vastatarjouksella.",
+    keywords: ["kylpyhuoneremontti", "kylpyhuoneremontti hinta", "vesieristys"],
+  },
+  keittio: {
+    title: "Keittiöremontti — kilpailuta ilmaiseksi",
+    description:
+      "Kilpailuta keittiöremontti ilmaiseksi. Vertaa tarjouksia samassa muodossa ja arvioi kustannukset laskurilla.",
+    keywords: ["keittiöremontti", "keittiöremontti hinta"],
+  },
+  "katto-pelti": {
+    title: "Kattoremontti — kilpailuta ilmaiseksi",
+    description:
+      "Kilpailuta kattoremontti ilmaiseksi. Vertaa tarjouksia ja arvioi hinta kattoremonttilaskurilla ennen pyyntöä.",
+    keywords: ["kattoremontti", "kattoremontti hinta", "peltikatto"],
+  },
+};
+
 export function buildServicePageSeo(job: {
   slug: string;
   name_fi: string;
@@ -327,13 +393,20 @@ export function buildServicePageSeo(job: {
   search_keywords: string[];
 }): Pick<SeoPageDef, "title" | "description" | "keywords"> {
   const name = job.name_fi.trim();
+  const override = SERVICE_SEO_OVERRIDES[job.slug];
   const desc =
+    override?.description ||
     job.description_fi?.trim() ||
     `Kilpailuta ${name.toLowerCase()} ilmaiseksi. Luo tarjouspyyntö, vertaile urakoitsijoiden tarjouksia ja valitse paras — Remonttireitti.`;
 
   return {
-    title: `Kilpailuta ${name.toLowerCase()} — ilmainen tarjouspyyntö`,
+    title: override?.title ?? `Kilpailuta ${name.toLowerCase()} — ilmainen tarjouspyyntö`,
     description: desc.slice(0, 160),
-    keywords: mergeKeywords(SITE_KEYWORDS, job.search_keywords, [name.toLowerCase()]),
+    keywords: mergeKeywords(
+      SITE_KEYWORDS,
+      job.search_keywords,
+      override?.keywords,
+      [name.toLowerCase()],
+    ),
   };
 }

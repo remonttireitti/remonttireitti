@@ -19,6 +19,7 @@ export const metadata: Metadata = pageMetadata({
   title: "Omat apupyynnöt",
   description: "Hallinnoi apupyyntöjäsi ja vapaaehtoisia auttamisia.",
   path: "/apu/omat",
+  noIndex: true,
 });
 
 const STATUS_LABELS: Record<string, string> = {

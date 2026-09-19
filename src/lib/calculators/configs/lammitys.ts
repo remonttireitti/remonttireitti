@@ -5,9 +5,9 @@ export const LAMMITYS_CALCULATORS: CalculatorConfig[] = [
   buildCalculator({
     slug: "ilmalampopumppu",
     title: "Ilmalämpöpumpun hintalaskuri",
-    pageTitle: "Ilmalämpöpumppu laskuri — laite ja asennus",
+    pageTitle: "Ilmalämpöpumppu hinta asennettuna — laskuri",
     metaDescription:
-      "Laske ilmalämpöpumpun hinta-arvio: laite, perusasennus, lisäputket ja sähkötyöt. Muokattavat hinnat — kilpailuta ilmaiseksi.",
+      "Laske ilmalämpöpumpun hinta asennettuna: laite, perusasennus, lisäputket ja sähkötyöt. Muokattavat hinnat — kilpailuta sitten ilmaiseksi.",
     intro:
       "Arvioi ilmalämpöpumpun kokonaishinta. Perusasennus sisältää tyypillisesti noin 4 m putkituksen, seinäläpiviennin, kondenssiveden ohjauksen ja perussähköistyksen valmiista pistorasiasta.",
     areaSlug: "lammitys",

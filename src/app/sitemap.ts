@@ -6,7 +6,7 @@ import {
   fetchSitemapProjects,
 } from "@/lib/sitemap-data";
 import { SHOW_MARKETPLACE_IN_MARKETING } from "@/lib/marketing-focus";
-import { getCalculatorSlugs } from "@/lib/calculators/registry";
+import { getSitemapCalculatorSlugs } from "@/lib/calculators/registry";
 import {
   STATIC_SEO_PAGES,
   calculatorSitemapEntries,
@@ -44,7 +44,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   const servicePages = publicServiceSitemapEntries(base, now);
   const troubleshootingPages = troubleshootingSitemapEntries(base, now);
-  const calculatorPages = calculatorSitemapEntries(base, now, getCalculatorSlugs());
+  const calculatorPages = calculatorSitemapEntries(base, now, getSitemapCalculatorSlugs());
 
   let categoryPages: MetadataRoute.Sitemap = [];
   let listingPages: MetadataRoute.Sitemap = [];

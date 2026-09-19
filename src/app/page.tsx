@@ -128,8 +128,8 @@ export default async function Home() {
                 Ilmainen kilpailutus
               </p>
               <h1 className="text-3xl font-bold tracking-tight text-stone-900 sm:text-5xl">
-                Tarvitsetko remontille{" "}
-                <span className="text-sky-800">tekijän?</span>
+                Kilpailuta remontti{" "}
+                <span className="text-sky-800">ilmaiseksi</span>
               </h1>
               <p className="mx-auto mt-5 max-w-2xl text-base leading-relaxed text-stone-600 sm:text-lg lg:mx-0">
                 Julkaise tarjouspyyntö ilmaiseksi —{" "}

@@ -68,6 +68,15 @@ Sinulla on:
 - Hakukoneystävälliset otsikot oire-sivuille
 - Tori piilotettu sitemapista (tyhjä marketplace ei hidasta)
 
+- Preferoidut SEO-URL:t laskureille (`kylpyhuoneremontti`, `kattoremontti`, …) + 301 kylmistä slugista
+- Sitemap listaa yhden URL:n per laskuri (ei alias-duplikaatteja)
+- FAQPage-schema vain kun FAQ-sisältö on olemassa
+- Prioriteettipalveluiden metadata (ILP, kylpyhuone, katto, keittiö, huolto/korjaus)
+- Sisälinkit: `/laskurit` ↔ `/palvelut` ↔ `/vian-selvitys`, palvelusivut → laskurit
+- robots.txt: `/apu/omat`, `/tarjousarvio/omat`, `/tarjouslaskuri`, `/arvioija`
+- noindex yksityisille näkymille (omat-sivut, tarjouslaskuri, arvioija)
+- H1/title -linjaus etusivulla + prioriteettilaskurien otsikot (hinta-haut)
+
 ---
 
 ## Sinun tehtävälista (ei koodia)
