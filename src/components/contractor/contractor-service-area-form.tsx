@@ -178,6 +178,7 @@ export function ContractorProjectFilterBar({
 
 export function ProjectMatchBadges({
   match,
+  className = "mt-2",
 }: {
   match: {
     tradeMatch: boolean;
@@ -187,9 +188,10 @@ export function ProjectMatchBadges({
     distanceKm: number | null;
     withinRange: boolean;
   };
+  className?: string;
 }) {
   return (
-    <div className="mt-2 flex flex-wrap gap-1.5">
+    <div className={`flex flex-wrap gap-1.5 ${className}`.trim()}>
       {match.tradeMatch ? (
         <span className="rounded-full bg-sky-100 px-2 py-0.5 text-xs font-medium text-sky-900">
           Oma ammatti

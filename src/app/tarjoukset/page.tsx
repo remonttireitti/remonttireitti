@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ContractorProjectFilterBar } from "@/components/contractor/contractor-service-area-form";
-import { ContractorProjectListItem } from "@/components/contractor/contractor-project-list-item";
+import { ContractorProjectsTable } from "@/components/contractor/contractor-projects-table";
 import { ValuePromoBanner } from "@/components/promo/value-promo-banner";
 import { SiteHeader } from "@/components/site-header";
 import {
@@ -171,16 +171,12 @@ export default async function ContractorProjectsPage({
             )}
           </div>
         ) : (
-          <ul className="mt-8 space-y-3">
-            {projects.map((p) => (
-              <ContractorProjectListItem
-                key={p.id}
-                project={p}
-                hasBid={bidProjectIds.has(p.id)}
-                showBudgetWarning={activeFilter === "kaikki"}
-              />
-            ))}
-          </ul>
+          <ContractorProjectsTable
+            className="mt-8"
+            projects={projects}
+            bidProjectIds={bidProjectIds}
+            showBudgetWarning={activeFilter === "kaikki"}
+          />
         )}
       </main>
     </div>
