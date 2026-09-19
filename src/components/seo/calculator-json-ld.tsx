@@ -5,12 +5,15 @@ import { getSiteUrl } from "@/lib/seo";
 
 export function CalculatorJsonLd({
   config,
+  faq,
   urlSlug,
 }: {
   config: CalculatorConfig;
+  faq?: { q: string; a: string }[];
   /** Julkinen URL-slug (voi olla SEO-alias) */
   urlSlug?: string;
 }) {
+  const faqItems = faq ?? config.faq;
   const base = getSiteUrl();
   const pageUrl = `${base}${calculatorPath(urlSlug ?? config.slug)}`;
 
@@ -37,7 +40,7 @@ export function CalculatorJsonLd({
       },
       {
         "@type": "FAQPage",
-        mainEntity: config.faq.map((item) => ({
+        mainEntity: faqItems.map((item) => ({
           "@type": "Question",
           name: item.q,
           acceptedAnswer: {

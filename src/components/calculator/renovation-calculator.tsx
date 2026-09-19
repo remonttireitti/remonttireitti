@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { CalculatorEstimateSummary } from "@/components/calculator/calculator-estimate-summary";
 import { CostBreakdownChart } from "@/components/calculator/cost-breakdown-chart";
 import { brand } from "@/lib/brand-theme";
 import {
@@ -12,6 +13,11 @@ import {
   googlePriceSearch,
   newCustomLineItem,
 } from "@/lib/calculators/math";
+import {
+  applyConfiguredQuestions,
+  formatLivePriceNote,
+  resolveEstimateRange,
+} from "@/lib/calculators/resolve";
 import type { CalculatorConfig, CalculatorLineItem } from "@/lib/calculators/types";
 import { MAINTENANCE_JOB_SLUGS } from "@/constants/maintenance";
 
@@ -41,8 +47,19 @@ function unitLabel(unit: CalculatorLineItem["unit"], primaryUnit: string, second
   return `€ / ${primaryUnit}`;
 }
 
+function defaultAnswers(config: CalculatorConfig): Record<string, string> {
+  const answers: Record<string, string> = {};
+  for (const q of config.questions ?? []) {
+    answers[q.id] = q.defaultOptionId;
+  }
+  return answers;
+}
+
 export function RenovationCalculator({ config }: { config: CalculatorConfig }) {
   const defaultTier = config.defaultTierId ?? config.tiers?.[0]?.id;
+  const hasQuestions = (config.questions?.length ?? 0) > 0;
+  const [estimateMode, setEstimateMode] = useState<"quick" | "detail">("quick");
+  const [answers, setAnswers] = useState<Record<string, string>>(() => defaultAnswers(config));
   const [primaryQty, setPrimaryQty] = useState(config.primaryInput.defaultValue);
   const [secondaryQty, setSecondaryQty] = useState(
     config.secondaryInput?.defaultValue ?? 0,
@@ -68,9 +85,28 @@ export function RenovationCalculator({ config }: { config: CalculatorConfig }) {
       )
     : 0;
 
-  const estimate = useMemo(
-    () => calculateEstimate(clampedPrimary, clampedSecondary, items),
-    [clampedPrimary, clampedSecondary, items],
+  const adjustedItems = useMemo(() => {
+    const { items: questionItems } = applyConfiguredQuestions(
+      items,
+      config,
+      answers,
+      estimateMode,
+    );
+    return questionItems;
+  }, [items, config, answers, estimateMode]);
+
+  const fixedAdd = useMemo(() => {
+    return applyConfiguredQuestions(items, config, answers, estimateMode).fixedAdd;
+  }, [items, config, answers, estimateMode]);
+
+  const estimate = useMemo(() => {
+    const result = calculateEstimate(clampedPrimary, clampedSecondary, adjustedItems);
+    return { ...result, total: result.total + fixedAdd };
+  }, [clampedPrimary, clampedSecondary, adjustedItems, fixedAdd]);
+
+  const range = useMemo(
+    () => resolveEstimateRange(config, estimate.total, clampedPrimary),
+    [config, estimate.total, clampedPrimary],
   );
 
   const chartSegments = useMemo(
@@ -83,6 +119,21 @@ export function RenovationCalculator({ config }: { config: CalculatorConfig }) {
           color: CHART_COLORS[i % CHART_COLORS.length]!,
         })),
     [estimate.lines],
+  );
+
+  const unansweredDetailQuestionIds = useMemo(() => {
+    if (estimateMode === "detail") return [];
+    return (config.questions ?? [])
+      .filter((q) => q.mode === "detail")
+      .map((q) => q.id);
+  }, [config.questions, estimateMode]);
+
+  const visibleQuestions = useMemo(
+    () =>
+      (config.questions ?? []).filter(
+        (q) => q.mode === "quick" || estimateMode === "detail",
+      ),
+    [config.questions, estimateMode],
   );
 
   function updateItem(id: string, patch: Partial<CalculatorLineItem>) {
@@ -102,16 +153,57 @@ export function RenovationCalculator({ config }: { config: CalculatorConfig }) {
     setItems((prev) => applyTierOverrides(prev, tier.overrides));
   }
 
+  function setAnswer(questionId: string, optionId: string) {
+    setAnswers((prev) => ({ ...prev, [questionId]: optionId }));
+  }
+
   const primaryLabel = `${clampedPrimary} ${config.primaryInput.unit}`;
   const subtitleParts = [primaryLabel];
   if (config.secondaryInput) {
     subtitleParts.push(`${clampedSecondary} ${config.secondaryInput.unit}`);
   }
 
+  const livePriceNote = formatLivePriceNote(
+    config,
+    clampedPrimary,
+    estimate.total,
+    range.low,
+    range.high,
+  );
+
   return (
     <div className="space-y-8">
       <section className={`${brand.section} p-5 sm:p-6`}>
-        <h2 className="text-xl font-bold text-stone-900">Laske arvio</h2>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <h2 className="text-xl font-bold text-stone-900">Laske arvio</h2>
+          {hasQuestions && (
+            <div className="inline-flex rounded-xl border border-stone-200 bg-stone-50 p-1">
+              <button
+                type="button"
+                onClick={() => setEstimateMode("quick")}
+                className={`rounded-lg px-3 py-1.5 text-sm font-semibold transition ${
+                  estimateMode === "quick"
+                    ? "bg-white text-sky-900 shadow-sm"
+                    : "text-stone-600 hover:text-stone-900"
+                }`}
+              >
+                Nopea arvio
+              </button>
+              <button
+                type="button"
+                onClick={() => setEstimateMode("detail")}
+                className={`rounded-lg px-3 py-1.5 text-sm font-semibold transition ${
+                  estimateMode === "detail"
+                    ? "bg-white text-sky-900 shadow-sm"
+                    : "text-stone-600 hover:text-stone-900"
+                }`}
+              >
+                Tarkempi arvio
+              </button>
+            </div>
+          )}
+        </div>
+
         {config.primaryInput.hint && (
           <p className="mt-2 text-sm text-stone-600">{config.primaryInput.hint}</p>
         )}
@@ -185,6 +277,40 @@ export function RenovationCalculator({ config }: { config: CalculatorConfig }) {
             </div>
           </fieldset>
         )}
+
+        {visibleQuestions.length > 0 && (
+          <div className="mt-6 space-y-4 border-t border-stone-100 pt-5">
+            <p className="text-sm text-stone-600">
+              {estimateMode === "quick"
+                ? "Vastaa muutamaan kysymykseen — saat tarkemman suuntaa-antavan arvion."
+                : "Lisäkysymykset tarkentavat arviota erityisesti kohteen rakenteen ja työn vaikeuden osalta."}
+            </p>
+            {visibleQuestions.map((question) => (
+              <fieldset key={question.id}>
+                <legend className="text-sm font-medium text-stone-800">{question.label}</legend>
+                {question.hint && (
+                  <p className="mt-0.5 text-xs text-stone-500">{question.hint}</p>
+                )}
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {question.options.map((option) => (
+                    <button
+                      key={option.id}
+                      type="button"
+                      onClick={() => setAnswer(question.id, option.id)}
+                      className={`rounded-xl border px-3 py-2 text-sm font-medium transition ${
+                        (answers[question.id] ?? question.defaultOptionId) === option.id
+                          ? "border-sky-600 bg-sky-50 text-sky-900"
+                          : "border-stone-200 bg-white text-stone-700 hover:border-sky-200"
+                      }`}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              </fieldset>
+            ))}
+          </div>
+        )}
       </section>
 
       <section className="space-y-4">
@@ -206,12 +332,13 @@ export function RenovationCalculator({ config }: { config: CalculatorConfig }) {
 
         <ul className="space-y-3">
           {items.map((item) => {
-            const lineTotal = calculateEstimate(clampedPrimary, clampedSecondary, [item]).total;
+            const adjusted = adjustedItems.find((i) => i.id === item.id) ?? item;
+            const lineTotal = calculateEstimate(clampedPrimary, clampedSecondary, [adjusted]).total;
             return (
               <li
                 key={item.id}
                 className={`rounded-2xl border p-4 transition ${
-                  item.enabled
+                  adjusted.enabled
                     ? "border-stone-200 bg-white"
                     : "border-stone-100 bg-stone-50 opacity-60"
                 }`}
@@ -219,7 +346,7 @@ export function RenovationCalculator({ config }: { config: CalculatorConfig }) {
                 <div className="flex flex-wrap items-start gap-3">
                   <input
                     type="checkbox"
-                    checked={item.enabled}
+                    checked={adjusted.enabled}
                     onChange={(e) =>
                       updateItem(item.id, { enabled: e.target.checked })
                     }
@@ -343,6 +470,12 @@ export function RenovationCalculator({ config }: { config: CalculatorConfig }) {
             );
           })}
         </ul>
+        {fixedAdd > 0 && (
+          <p className="text-sm text-stone-600">
+            Lisäkulut (läpiviennit, piiput, eristeet ym.):{" "}
+            <strong>{formatEuro(fixedAdd)}</strong>
+          </p>
+        )}
       </section>
 
       <div className="grid gap-6 lg:grid-cols-2">
@@ -354,53 +487,34 @@ export function RenovationCalculator({ config }: { config: CalculatorConfig }) {
 
         <div className={`${brand.estimateBox} flex flex-col justify-center p-6`}>
           <p className="text-sm font-medium uppercase tracking-wide text-sky-800">
-            Hintahaarukka
+            Arvioitu kustannus
           </p>
           <p className="mt-2 text-3xl font-bold text-sky-950">
-            {formatEuro(Math.round(estimate.total * 0.9))} –{" "}
-            {formatEuro(Math.round(estimate.total * 1.15))}
+            {formatEuro(range.low)} – {formatEuro(range.high)}
           </p>
           <p className="mt-2 text-sm text-sky-900/90">
-            Keskiarvo-arvio: <strong>{formatEuro(estimate.total)}</strong> (ennen
-            kotitalousvähennystä). Todellinen hinta riippuu kohteesta, alueesta ja
-            materiaalivalinnoista.
+            Todennäköinen taso: <strong>noin {formatEuro(estimate.total)}</strong>
           </p>
-          {config.priceRangeNote && (
-            <p className="mt-3 text-xs text-stone-600">{config.priceRangeNote}</p>
-          )}
+          <p className="mt-2 text-xs text-sky-900/80">{livePriceNote}</p>
+          <Link
+            href={ctaHref(config.jobSlug)}
+            className={`${brand.btnPrimary} mt-4 text-center text-sm`}
+          >
+            {config.ctaLabel ?? "Pyydä tarjoukset"}
+          </Link>
         </div>
       </div>
 
-      <aside className="rounded-2xl border-2 border-orange-200 bg-gradient-to-r from-orange-50 via-white to-sky-50 p-6">
-        <p className="text-sm font-medium uppercase tracking-wide text-orange-800">
-          Arvioitu hinta
-        </p>
-        <p className="mt-1 text-2xl font-bold text-stone-900">
-          {formatEuro(Math.round(estimate.total * 0.9))} –{" "}
-          {formatEuro(Math.round(estimate.total * 1.15))}
-        </p>
-        <p className="mt-2 text-sm leading-relaxed text-stone-700">
-          Tämä on suuntaa-antava arvio. Lopullinen hinta riippuu kohteesta, alueesta ja
-          työn laajuudesta.
-        </p>
-        <h2 className="mt-5 text-lg font-bold text-stone-900">
-          Haluatko oikeat tarjoukset juuri sinun kohteestasi?
-        </h2>
-        <div className={`${brand.actionsStack} mt-4`}>
-          <Link
-            href={ctaHref(config.jobSlug)}
-            className={`${brand.btnPrimary} ${brand.btnPrimaryBlock}`}
-          >
-            Pyydä tarjoukset ilmaiseksi
-          </Link>
-          <Link
-            href={`/hinta-arkisto?tyo=${config.priceArchiveParam ?? config.jobSlug}`}
-            className={`${brand.btnSecondary} ${brand.btnSecondaryBlock}`}
-          >
-            Katso toteutuneet hinnat
-          </Link>
-        </div>
-      </aside>
+      <CalculatorEstimateSummary
+        config={config}
+        total={estimate.total}
+        low={range.low}
+        high={range.high}
+        perUnitMid={range.perUnitMid}
+        primaryQty={clampedPrimary}
+        detailMode={estimateMode === "detail"}
+        unansweredDetailQuestionIds={unansweredDetailQuestionIds}
+      />
     </div>
   );
 }
