@@ -32,6 +32,16 @@ function parseQuoteRow(raw: Record<string, unknown>): ContractorQuoteRow {
     status: raw.status === "finalized" ? "finalized" : "draft",
     pdf_generated_at:
       raw.pdf_generated_at != null ? String(raw.pdf_generated_at) : null,
+    outcome:
+      raw.outcome === "won" || raw.outcome === "lost"
+        ? raw.outcome
+        : "pending",
+    outcome_updated_at:
+      raw.outcome_updated_at != null ? String(raw.outcome_updated_at) : null,
+    remonttireitti_project_id:
+      raw.remonttireitti_project_id != null
+        ? String(raw.remonttireitti_project_id)
+        : null,
     created_at: String(raw.created_at),
     updated_at: String(raw.updated_at),
   };

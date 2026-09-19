@@ -8,7 +8,14 @@ import {
   contractorQuoteCalculatorPath,
   contractorQuoteHubPath,
 } from "@/lib/contractor-quote-paths";
+import { ContractorQuoteOutcomeControl } from "@/components/contractor/contractor-quote-outcome-control";
+import { ContractorQuoteStatsPanel } from "@/components/contractor/contractor-quote-stats-panel";
 import { fetchContractorQuotePdfUsage } from "@/lib/contractor-quote-limits";
+import { parseQuoteStatsPeriod } from "@/lib/contractor-quote-period";
+import {
+  fetchContractorQuoteStats,
+  fetchContractorQuotesForStats,
+} from "@/lib/contractor-quote-stats";
 import { fetchContractorQuotes } from "@/lib/contractor-quote-server";
 import { fetchContractorPricingRates } from "@/lib/contractor-pricing-server";
 import { getCalculatorsGroupedByArea } from "@/lib/calculators/registry";
@@ -17,7 +24,13 @@ import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
-export default async function ContractorQuoteHubPage() {
+export default async function ContractorQuoteHubPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ jakso?: string }>;
+}) {
+  const { jakso } = await searchParams;
+  const statsPeriod = parseQuoteStatsPeriod(jakso);
   const user = await getSessionUser();
   if (!user) {
     redirect(`/kirjaudu?redirect=${encodeURIComponent(contractorQuoteHubPath())}`);
@@ -28,10 +41,12 @@ export default async function ContractorQuoteHubPage() {
   }
 
   const supabase = await createClient();
-  const [pdfUsage, recentQuotes, rates] = await Promise.all([
+  const [pdfUsage, recentQuotes, rates, stats, printedQuotes] = await Promise.all([
     fetchContractorQuotePdfUsage(supabase, user.id),
     fetchContractorQuotes(supabase, user.id, 8),
     fetchContractorPricingRates(user.id),
+    fetchContractorQuoteStats(supabase, user.id, statsPeriod),
+    fetchContractorQuotesForStats(supabase, user.id, 12),
   ]);
 
   const groups = getCalculatorsGroupedByArea();
@@ -85,6 +100,46 @@ export default async function ContractorQuoteHubPage() {
             </p>
           </div>
         </div>
+
+        <div className="mt-8">
+          <ContractorQuoteStatsPanel stats={stats} activePeriod={statsPeriod} />
+        </div>
+
+        {printedQuotes.length > 0 && (
+          <section className="mt-8">
+            <h2 className="text-lg font-semibold">Tulostetut tarjoukset</h2>
+            <p className="mt-1 text-sm text-stone-600">
+              Merkitse tilauskuittaus — näin näet käyttöasteen (lähetetty vs.
+              tilattu).
+            </p>
+            <ul className="mt-3 divide-y divide-stone-100 rounded-xl border border-stone-200 bg-white">
+              {printedQuotes.map((quote) => (
+                <li
+                  key={quote.id}
+                  className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <div className="min-w-0">
+                    <p className="font-medium text-stone-900">{quote.title}</p>
+                    <p className="text-sm text-stone-500">
+                      {formatEuro(quote.total_cents / 100)}
+                      {quote.client_name ? ` · ${quote.client_name}` : ""}
+                      {quote.pdf_generated_at && (
+                        <>
+                          {" "}
+                          · PDF{" "}
+                          {new Date(quote.pdf_generated_at).toLocaleDateString(
+                            "fi-FI",
+                          )}
+                        </>
+                      )}
+                    </p>
+                  </div>
+                  <ContractorQuoteOutcomeControl quote={quote} />
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
 
         <section className="mt-10">
           <h2 className="text-lg font-semibold">Valitse laskuri</h2>
