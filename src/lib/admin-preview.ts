@@ -69,6 +69,14 @@ export async function canBrowseAsContractor(): Promise<boolean> {
   return isContractor();
 }
 
+/** Yrityksen hinnasto, pätevyydet ja brändäys — ei adminille (ei myöskään admin+urakoitsija ilman esikatselua). */
+export async function canManageContractorCompanySettings(): Promise<boolean> {
+  const preview = await getAdminPreviewMode();
+  if (preview === "contractor") return true;
+  if (await isAdmin()) return false;
+  return isContractor();
+}
+
 export function adminPreviewModeLabel(mode: AdminPreviewMode): string {
   return mode === "customer" ? "asiakkaana" : "urakoitsijana";
 }

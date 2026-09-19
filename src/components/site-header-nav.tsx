@@ -12,6 +12,8 @@ type NavProps = {
   loggedIn: boolean;
   isCustomer: boolean;
   isContractor: boolean;
+  contractorWorkspace?: boolean;
+  contractorCompanySettings?: boolean;
   isAdmin: boolean;
   isEvaluator: boolean;
   unreadNotifications?: number;
@@ -54,6 +56,8 @@ export function SiteHeaderNav({
   loggedIn,
   isCustomer,
   isContractor,
+  contractorWorkspace = isContractor,
+  contractorCompanySettings = isContractor,
   isAdmin,
   isEvaluator,
   unreadNotifications = 0,
@@ -108,14 +112,14 @@ export function SiteHeaderNav({
               </span>
             </NavItem>
             {isCustomer && <NavItem href="/oma-tili/huoltokirja">Huoltokirja</NavItem>}
-            {isContractor && (
+            {contractorCompanySettings && (
               <>
                 <NavItem href="/tarjouslaskuri">Tarjouslaskuri</NavItem>
                 <NavItem href="/oma-tili/yritys">Yrityksen asetukset</NavItem>
               </>
             )}
             <NavItem href="/oma-tili">
-              {isContractor ? "Työpöytä" : "Oma tili"}
+              {contractorWorkspace ? "Työpöytä" : "Oma tili"}
             </NavItem>
             {isEvaluator && <NavItem href="/arvioija">Arvioija</NavItem>}
             {isAdmin && <NavItem href="/admin">Admin</NavItem>}

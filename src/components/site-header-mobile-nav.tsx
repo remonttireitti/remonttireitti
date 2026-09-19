@@ -13,6 +13,8 @@ type Props = {
   loggedIn: boolean;
   isCustomer: boolean;
   isContractor: boolean;
+  contractorWorkspace?: boolean;
+  contractorCompanySettings?: boolean;
   isAdmin: boolean;
   isEvaluator: boolean;
   unreadNotifications?: number;
@@ -56,6 +58,8 @@ export function SiteHeaderMobileNav({
   loggedIn,
   isCustomer,
   isContractor,
+  contractorWorkspace = isContractor,
+  contractorCompanySettings = isContractor,
   isAdmin,
   isEvaluator,
   unreadNotifications = 0,
@@ -139,14 +143,14 @@ export function SiteHeaderMobileNav({
               {isCustomer && (
                 <NavChip href="/oma-tili/huoltokirja">Huoltokirja</NavChip>
               )}
-              {isContractor && (
+              {contractorCompanySettings && (
                 <>
                   <NavChip href="/tarjouslaskuri">Tarjouslaskuri</NavChip>
                   <NavChip href="/oma-tili/yritys">Yrityksen asetukset</NavChip>
                 </>
               )}
               <NavChip href="/oma-tili">
-                {isContractor ? "Työpöytä" : "Oma tili"}
+                {contractorWorkspace ? "Työpöytä" : "Oma tili"}
               </NavChip>
             </>
           ) : (

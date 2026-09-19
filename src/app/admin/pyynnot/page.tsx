@@ -1,8 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { AdminGridCard } from "@/components/admin/admin-grid-card";
 import { AdminNav } from "@/components/admin/admin-nav";
-import { AdminProjectBidsList } from "@/components/admin/admin-project-bids-list";
-import { ProjectRowActions } from "@/components/admin/project-row-actions";
 import { SiteHeader } from "@/components/site-header";
 import { requireAdmin } from "@/lib/admin";
 import { fetchAdminProjectsList } from "@/lib/admin-projects-server";
@@ -44,8 +43,7 @@ export default async function AdminProjectsPage({
         </Link>
         <h1 className="mt-4 text-2xl font-bold">Admin — tarjouspyynnöt</h1>
         <p className="mt-2 text-sm text-stone-600">
-          Kaikki asiakkaiden pyynnöt ja tarjousmäärät. Peruuta testipyyntöjä tai
-          poista ne pysyvästi.
+          Klikkaa pyyntöä avataksesi tiedot, tarjoukset ja hallintatoiminnot.
         </p>
 
         <AdminNav current="/admin/pyynnot" />
@@ -84,100 +82,49 @@ export default async function AdminProjectsPage({
           {rows.length} pyyntö{rows.length === 1 ? "" : "ä"}
         </p>
 
-        <div className="mt-4 space-y-4">
-          {rows.length === 0 ? (
-            <p className="rounded-xl border border-stone-200 bg-white p-6 text-sm text-stone-600">
-              {error
-                ? "Ei näytettäviä pyyntöjä haun virheen takia."
-                : tila === "draft"
-                  ? "Ei luonnoksia. Asiakas on voinut julkaista pyynnön suoraan."
-                  : tila === "has_bids"
-                    ? "Ei julkaistuja pyyntöjä, joilla olisi vielä tarjouksia. Tarkista suodatin Kaikki tai Julkaistu."
-                    : tila === "no_bids"
-                      ? "Kaikilla avoimilla pyynnöillä on jo vähintään yksi tarjous."
-                      : "Ei pyyntöjä tällä suodattimella. Kokeile suodatinta Kaikki."}
-            </p>
-          ) : (
-            rows.map((row) => (
-              <article
+        {rows.length === 0 ? (
+          <p className="mt-4 rounded-xl border border-stone-200 bg-white p-6 text-sm text-stone-600">
+            {error
+              ? "Ei näytettäviä pyyntöjä haun virheen takia."
+              : tila === "draft"
+                ? "Ei luonnoksia. Asiakas on voinut julkaista pyynnön suoraan."
+                : tila === "has_bids"
+                  ? "Ei julkaistuja pyyntöjä, joilla olisi vielä tarjouksia. Tarkista suodatin Kaikki tai Julkaistu."
+                  : tila === "no_bids"
+                    ? "Kaikilla avoimilla pyynnöillä on jo vähintään yksi tarjous."
+                    : "Ei pyyntöjä tällä suodattimella. Kokeile suodatinta Kaikki."}
+          </p>
+        ) : (
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {rows.map((row) => (
+              <AdminGridCard
                 key={row.id}
-                className="rounded-xl border border-stone-200 bg-white p-4"
-              >
-                <div className="flex flex-wrap items-start justify-between gap-2">
-                  <div className="min-w-0 flex-1">
-                    <Link
-                      href={`/admin/pyynnot/${row.id}`}
-                      className="font-semibold text-sky-800 hover:underline"
-                    >
-                      {row.title}
-                    </Link>
-                  </div>
-                  <span className="shrink-0 rounded-full bg-stone-100 px-2.5 py-1 text-xs font-medium">
+                id={row.id}
+                href={`/admin/pyynnot/${row.id}`}
+                title={row.title}
+                footer={
+                  <>
+                    <span className="font-medium">Tila:</span>{" "}
                     {projectStatusLabels[row.status as ProjectStatus]}
-                  </span>
-                </div>
-
-                <dl className="mt-3 grid gap-1 text-sm text-stone-600 sm:grid-cols-2">
-                  <div>
-                    <dt className="text-stone-400">Asiakas</dt>
-                    <dd>
-                      {row.customerEmail}
-                      {row.customerName ? ` (${row.customerName})` : ""}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-stone-400">Sijainti</dt>
-                    <dd>
-                      {row.postal_code} {row.municipality}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-stone-400">Kategoria</dt>
-                    <dd>{row.categoryName}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-stone-400">Luotu</dt>
-                    <dd>
-                      {new Date(row.created_at).toLocaleString("fi-FI")}
-                    </dd>
-                  </div>
-                  {row.published_at && (
-                    <div>
-                      <dt className="text-stone-400">Julkaistu</dt>
-                      <dd>
-                        {new Date(row.published_at).toLocaleString("fi-FI")}
-                      </dd>
-                    </div>
-                  )}
-                </dl>
-
-                <div className="mt-4 border-t border-stone-100 pt-4">
-                  <h3 className="text-xs font-medium uppercase tracking-wide text-stone-500">
-                    Tarjoukset ({row.bidCount})
-                  </h3>
-                  <div className="mt-2">
-                    <AdminProjectBidsList bids={row.bids} compact />
-                  </div>
-                  {row.bidCount === 0 &&
-                    ["published", "receiving_bids"].includes(row.status) && (
-                      <Link
-                        href={`/admin/pyynnot/${row.id}#muistutus`}
-                        className="mt-3 inline-block text-sm font-medium text-amber-800 hover:underline"
-                      >
-                        Muistuta urakoitsijoita →
-                      </Link>
-                    )}
-                </div>
-
-                <ProjectRowActions
-                  projectId={row.id}
-                  title={row.title}
-                  status={row.status}
-                />
-              </article>
-            ))
-          )}
-        </div>
+                    {" · "}
+                    {row.bidCount} tarjous
+                    {row.bidCount === 1 ? "" : "ta"}
+                  </>
+                }
+              >
+                <p>
+                  {row.postal_code} {row.municipality}
+                </p>
+                <p>
+                  <span className="text-white/75">Asiakas:</span> {row.customerEmail}
+                </p>
+                <p>
+                  <span className="text-white/75">Kategoria:</span> {row.categoryName}
+                </p>
+              </AdminGridCard>
+            ))}
+          </div>
+        )}
       </main>
     </div>
   );
