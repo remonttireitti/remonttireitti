@@ -76,7 +76,11 @@ export default async function NewProjectPage({
         <p className="mt-2 max-w-2xl text-stone-600">
           {isGuest
             ? "Täytä pyyntö ilman tiliä. Lähetämme vahvistuslinkin sähköpostiisi — julkaisu ja urakoitsijailmoitukset tapahtuvat vasta vahvistuksen jälkeen. Linkki on voimassa 24 tuntia."
-            : "Valitse remontin tyyppi ja täytä pyyntö. Julkaise tarjouspyyntö ilmaiseksi."}
+            : "Valitse remontin tyyppi ja täytä pyyntö. Julkaise tarjouspyyntö ilmaiseksi."}{" "}
+          <Link href="/laskurit" className="font-medium text-violet-800 hover:underline">
+            Arvioi kustannukset laskurilla
+          </Link>{" "}
+          ennen lähettämistä.
         </p>
         {isGuest && (
           <p className="mt-3 max-w-2xl rounded-xl border border-amber-200 bg-amber-50/80 px-4 py-3 text-sm text-amber-950">
