@@ -10,8 +10,9 @@ import {
   filterContractorProjects,
 } from "@/lib/contractor-work-filter";
 import {
-  fetchContractorQuotePdfUsage,
-  type ContractorQuotePdfUsage,
+  fetchContractorQuotePdfExportCount,
+  fetchContractorQuoteSaveUsage,
+  type ContractorQuoteSaveUsage,
 } from "@/lib/contractor-quote-limits";
 import {
   contractorQuoteEditPath,
@@ -57,12 +58,15 @@ export type ContractorDashboardStats = {
   openTotalCount: number;
 };
 
-/** Ulkoisen tarjouslaskurin resurssikäyttö (tallennukset / PDF). */
+/** Ulkoisen tarjouslaskurin resurssikäyttö (tallennuskiintiö + PDF-tilasto). */
 export type ContractorDashboardQuoteUsage = {
-  pdf: ContractorQuotePdfUsage;
-  /** Kaikki tallennetut laskuritarjoukset (myös luonnokset). */
+  /** Kuukauden tallennuskiintiö (ledger; ei palaudu poistolla). */
+  saves: ContractorQuoteSaveUsage;
+  /** PDF-vientien määrä tällä kuulla (ei kiintiö). */
+  pdfExportsThisMonth: number;
+  /** Ledgerin kaikki tallennustapahtumat (myös poistetut tarjoukset). */
   savedTotal: number;
-  /** Tallennetut laskuritarjoukset tällä UTC-kuukaudella (created_at). */
+  /** Ledgerin tallennukset tällä UTC-kuukaudella (= saves.used). */
   savedThisMonth: number;
 };
 
@@ -263,11 +267,7 @@ export async function fetchContractorDashboard(
     "oma-alue",
   ).slice(0, 5);
 
-  const monthStartIso = new Date(
-    Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), 1),
-  ).toISOString();
-
-  const [bidsResult, quotesResult, pdfUsage, savedTotalRes, savedMonthRes] =
+  const [bidsResult, quotesResult, saveUsage, pdfExportCount, savedTotalRes] =
     await Promise.all([
       supabase
         .from("bids")
@@ -284,16 +284,12 @@ export async function fetchContractorDashboard(
         .eq("contractor_id", contractorId)
         .in("status", [...QUOTE_LIST_STATUSES])
         .order("updated_at", { ascending: false }),
-      fetchContractorQuotePdfUsage(supabase, contractorId),
+      fetchContractorQuoteSaveUsage(supabase, contractorId),
+      fetchContractorQuotePdfExportCount(supabase, contractorId),
       supabase
-        .from("contractor_quotes")
+        .from("contractor_quote_creation_events")
         .select("id", { count: "exact", head: true })
         .eq("contractor_id", contractorId),
-      supabase
-        .from("contractor_quotes")
-        .select("id", { count: "exact", head: true })
-        .eq("contractor_id", contractorId)
-        .gte("created_at", monthStartIso),
     ]);
 
   if (bidsResult.error) {
@@ -309,12 +305,6 @@ export async function fetchContractorDashboard(
     console.warn(
       "[fetchContractorDashboard/savedTotal]",
       savedTotalRes.error.message,
-    );
-  }
-  if (savedMonthRes.error) {
-    console.warn(
-      "[fetchContractorDashboard/savedMonth]",
-      savedMonthRes.error.message,
     );
   }
 
@@ -392,9 +382,10 @@ export async function fetchContractorDashboard(
       openTotalCount: counts.kaikki,
     },
     quoteUsage: {
-      pdf: pdfUsage,
+      saves: saveUsage,
+      pdfExportsThisMonth: pdfExportCount.used,
       savedTotal: savedTotalRes.count ?? 0,
-      savedThisMonth: savedMonthRes.count ?? 0,
+      savedThisMonth: saveUsage.used,
     },
   };
 }

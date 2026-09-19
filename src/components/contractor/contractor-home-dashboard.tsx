@@ -67,8 +67,8 @@ export function ContractorHomeDashboard({
   const { recommendedProjects, recentOffers, bidProjectIds, stats, quoteUsage } =
     dashboard;
   const hasOffers = recentOffers.length > 0;
-  const pdfNearLimit =
-    quoteUsage.pdf.remaining <= 2 && quoteUsage.pdf.limit > 0;
+  const saveNearLimit =
+    quoteUsage.saves.remaining <= 2 && quoteUsage.saves.limit > 0;
 
   return (
     <div className="space-y-8">
@@ -221,28 +221,30 @@ export function ContractorHomeDashboard({
           <DataTableBody>
             <DataTableRow>
               <DataTableTd className="font-medium text-stone-900">
-                PDF-vienti tällä kuulla
+                Tallennetut tarjoukset tällä kuulla
               </DataTableTd>
               <DataTableTd
                 className={`whitespace-nowrap tabular-nums font-semibold ${
-                  pdfNearLimit ? "text-amber-900" : "text-stone-900"
+                  saveNearLimit ? "text-amber-900" : "text-stone-900"
                 }`}
               >
-                {quoteUsage.pdf.used} / {quoteUsage.pdf.limit}
+                {quoteUsage.saves.used} / {quoteUsage.saves.limit}
               </DataTableTd>
               <DataTableTd className="text-stone-500">
-                {quoteUsage.pdf.remaining} jäljellä · {quoteUsage.pdf.monthLabel}
+                {quoteUsage.saves.remaining} jäljellä ·{" "}
+                {quoteUsage.saves.monthLabel} · poisto ei vapauta
               </DataTableTd>
             </DataTableRow>
             <DataTableRow>
               <DataTableTd className="font-medium text-stone-900">
-                Tallennetut laskuritarjoukset
+                Tallennetut yhteensä (ledger)
               </DataTableTd>
               <DataTableTd className="whitespace-nowrap tabular-nums font-semibold text-stone-900">
                 {quoteUsage.savedTotal}
               </DataTableTd>
               <DataTableTd className="text-stone-500">
-                {quoteUsage.savedThisMonth} tällä kuulla
+                sisältää poistetut · PDF-vienti tällä kuulla:{" "}
+                {quoteUsage.pdfExportsThisMonth}
               </DataTableTd>
             </DataTableRow>
             <DataTableRow>

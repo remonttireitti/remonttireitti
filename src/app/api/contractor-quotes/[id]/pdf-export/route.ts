@@ -1,8 +1,4 @@
 import { NextResponse } from "next/server";
-import {
-  canExportContractorQuotePdf,
-  fetchContractorQuotePdfUsage,
-} from "@/lib/contractor-quote-limits";
 import { recordContractorQuotePdfExport } from "@/lib/contractor-quote-pdf-export-server";
 import { loadContractorQuotePdfData } from "@/lib/contractor-quote-server";
 import { createClient } from "@/lib/supabase/server";
@@ -38,18 +34,7 @@ export async function POST(
     return NextResponse.json({ ok: true, alreadyExported: true });
   }
 
-  const usage = await fetchContractorQuotePdfUsage(supabase, user.id);
-  if (!canExportContractorQuotePdf(usage, false)) {
-    return NextResponse.json(
-      {
-        error: "Kuukausiraja täynnä",
-        limit: usage.limit,
-        used: usage.used,
-      },
-      { status: 429 },
-    );
-  }
-
+  // PDF-vienti ei kuluta tallennuskiintiötä — vain tilasto-/tila-kirjaus.
   await recordContractorQuotePdfExport(supabase, quoteId, user.id);
   return NextResponse.json({ ok: true });
 }
