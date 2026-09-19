@@ -2,7 +2,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ContractorJsonLd } from "@/components/seo/contractor-json-ld";
+import { ContractorMarketSignals } from "@/components/bid/contractor-market-signals";
 import { ContractorQualificationsCell } from "@/components/bid/contractor-qualifications-cell";
+import { BID_CONVERSION_DISCLAIMER } from "@/lib/contractor-market-profile";
 import { ContractorReviewsList } from "@/components/review/contractor-reviews-list";
 import { StarRatingDisplay } from "@/components/review/star-rating-display";
 import { SiteHeader } from "@/components/site-header";
@@ -93,6 +95,16 @@ export default async function PublicContractorPage({
                 size="md"
               />
             </div>
+          )}
+          <ContractorMarketSignals
+            conversion={profile.market_signals.conversion}
+            responseTime={profile.market_signals.responseTime}
+          />
+          {(profile.market_signals.conversion.kind === "shown" ||
+            profile.market_signals.responseTime.kind === "shown") && (
+            <p className="mt-2 max-w-xl text-xs leading-relaxed text-stone-500">
+              {BID_CONVERSION_DISCLAIMER}
+            </p>
           )}
           <ul className="mt-3 flex flex-wrap gap-2 text-xs text-stone-600">
             {profile.verification_status === "verified" && (

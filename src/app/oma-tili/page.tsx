@@ -11,7 +11,9 @@ import { NotificationPreferencesForm } from "@/components/account/notification-p
 import { SiteHeader } from "@/components/site-header";
 import { isAdmin } from "@/lib/admin";
 import { getProfile, getSessionUser, isContractor } from "@/lib/auth";
+import { ContractorMarketProfilePanel } from "@/components/contractor/contractor-market-profile-panel";
 import { ContractorBillingForm } from "@/components/contractor/contractor-billing-form";
+import { fetchContractorMarketSignalsForOne } from "@/lib/contractor-market-profile-server";
 import { ContractorBidDefaultsForm } from "@/components/contractor/contractor-bid-defaults-form";
 import { ContractorPricingRatesForm } from "@/components/contractor/contractor-pricing-rates-form";
 import { fetchContractorPricingRates } from "@/lib/contractor-pricing-server";
@@ -457,6 +459,11 @@ export default async function AccountPage({
 
         {contractor && (
           <section className="mt-8 space-y-8">
+            <ContractorMarketProfilePanel
+              signals={await fetchContractorMarketSignalsForOne(supabase, user.id)}
+              publicProfileHref={`/urakoitsija/${user.id}`}
+            />
+
             <div>
               <h2 className="text-lg font-semibold text-stone-900">
                 Urakoitsijan asetukset
