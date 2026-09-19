@@ -3,6 +3,10 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { CalculatorEstimateSummary } from "@/components/calculator/calculator-estimate-summary";
+import {
+  CalculatorLineItemsEditor,
+  newCustomLineItem,
+} from "@/components/calculator/calculator-line-items-editor";
 import { CostBreakdownChart } from "@/components/calculator/cost-breakdown-chart";
 import { brand } from "@/lib/brand-theme";
 import {
@@ -10,8 +14,6 @@ import {
   calculateEstimate,
   clampQuantity,
   formatEuro,
-  googlePriceSearch,
-  newCustomLineItem,
 } from "@/lib/calculators/math";
 import {
   applyConfiguredQuestions,
@@ -41,12 +43,6 @@ function ctaHref(jobSlug: string): string {
     return `/huolto/uusi?tyyppi=${jobSlug}`;
   }
   return `/remontti/uusi?tyyppi=${jobSlug}`;
-}
-
-function unitLabel(unit: CalculatorLineItem["unit"], primaryUnit: string, secondaryUnit?: string): string {
-  if (unit === "fixed") return "Kiinteä €";
-  if (unit === "per_secondary") return `€ / ${secondaryUnit ?? "yks."}`;
-  return `€ / ${primaryUnit}`;
 }
 
 function defaultAnswers(config: CalculatorConfig): Record<string, string> {
@@ -315,172 +311,21 @@ export function RenovationCalculator({ config }: { config: CalculatorConfig }) {
         )}
       </section>
 
-      <section className="space-y-4">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <h2 className="text-xl font-bold text-stone-900">Kustannusrivit</h2>
-          <button
-            type="button"
-            onClick={() => setItems((prev) => [...prev, newCustomLineItem()])}
-            className={`${brand.btnSecondary} text-sm`}
-          >
-            + Lisää oma kulu
-          </button>
-        </div>
-        <p className="text-sm text-stone-600">
-          Muokkaa hintoja tarpeen mukaan. Voit tarkistaa markkinahintoja{" "}
-          <span className="font-medium">Google-haun</span> kautta jokaisen rivin
-          kohdalta.
-        </p>
-
-        <ul className="space-y-3">
-          {items.map((item) => {
-            const adjusted = adjustedItems.find((i) => i.id === item.id) ?? item;
-            const lineTotal = calculateEstimate(clampedPrimary, clampedSecondary, [adjusted]).total;
-            return (
-              <li
-                key={item.id}
-                className={`rounded-2xl border p-4 transition ${
-                  adjusted.enabled
-                    ? "border-stone-200 bg-white"
-                    : "border-stone-100 bg-stone-50 opacity-60"
-                }`}
-              >
-                <div className="flex flex-wrap items-start gap-3">
-                  <input
-                    type="checkbox"
-                    checked={adjusted.enabled}
-                    onChange={(e) =>
-                      updateItem(item.id, { enabled: e.target.checked })
-                    }
-                    className={`mt-1 ${brand.checkbox}`}
-                    aria-label={`Sisällytä ${item.label}`}
-                  />
-                  <div className="min-w-0 flex-1">
-                    {item.custom ? (
-                      <input
-                        type="text"
-                        value={item.label}
-                        onChange={(e) =>
-                          updateItem(item.id, { label: e.target.value })
-                        }
-                        className={`mb-2 w-full rounded-lg border border-stone-200 px-2 py-1 text-sm font-semibold ${brand.input}`}
-                      />
-                    ) : (
-                      <p className="font-semibold text-stone-900">{item.label}</p>
-                    )}
-                    {item.description && (
-                      <p className="mt-0.5 text-xs text-stone-500">
-                        {item.description}
-                      </p>
-                    )}
-
-                    <div className="mt-3 flex flex-wrap items-end gap-3">
-                      <label className="text-xs text-stone-600">
-                        {unitLabel(
-                          item.unit,
-                          config.primaryInput.unit,
-                          config.secondaryInput?.unit,
-                        )}
-                        <input
-                          type="number"
-                          min={0}
-                          step={
-                            item.unit === "fixed"
-                              ? 50
-                              : item.unit === "per_secondary"
-                                ? 5
-                                : 10
-                          }
-                          value={item.amount}
-                          onChange={(e) =>
-                            updateItem(item.id, {
-                              amount: Number(e.target.value) || 0,
-                            })
-                          }
-                          className={`mt-0.5 block w-28 rounded-lg border border-stone-200 px-2 py-1.5 text-sm ${brand.input}`}
-                        />
-                      </label>
-                      {item.minAmount != null && (
-                        <label className="text-xs text-stone-600">
-                          Minimi €
-                          <input
-                            type="number"
-                            min={0}
-                            step={100}
-                            value={item.minAmount}
-                            onChange={(e) =>
-                              updateItem(item.id, {
-                                minAmount: Number(e.target.value) || 0,
-                              })
-                            }
-                            className={`mt-0.5 block w-28 rounded-lg border border-stone-200 px-2 py-1.5 text-sm ${brand.input}`}
-                          />
-                        </label>
-                      )}
-                      {item.custom && (
-                        <label className="text-xs text-stone-600">
-                          Tyyppi
-                          <select
-                            value={item.unit}
-                            onChange={(e) =>
-                              updateItem(item.id, {
-                                unit: e.target.value as CalculatorLineItem["unit"],
-                              })
-                            }
-                            className={`mt-0.5 block rounded-lg border border-stone-200 px-2 py-1.5 text-sm ${brand.input}`}
-                          >
-                            <option value="fixed">Kiinteä summa</option>
-                            <option value="per_primary">
-                              € / {config.primaryInput.unit}
-                            </option>
-                            {config.secondaryInput && (
-                              <option value="per_secondary">
-                                € / {config.secondaryInput.unit}
-                              </option>
-                            )}
-                          </select>
-                        </label>
-                      )}
-                      {item.searchHint && (
-                        <a
-                          href={googlePriceSearch(item.searchHint)}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-xs font-medium text-sky-700 hover:underline"
-                        >
-                          Hae hintoja Googlesta ↗
-                        </a>
-                      )}
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-lg font-bold text-stone-900">
-                      {formatEuro(lineTotal)}
-                    </p>
-                    <VatLabel treatment={CONSUMER_VAT} />
-                    {item.custom && (
-                      <button
-                        type="button"
-                        onClick={() => removeItem(item.id)}
-                        className="mt-1 text-xs text-red-600 hover:underline"
-                      >
-                        Poista
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </li>
-            );
-          })}
-        </ul>
-        {fixedAdd > 0 && (
-          <p className="text-sm text-stone-600">
-            Lisäkulut (läpiviennit, piiput, eristeet ym.):{" "}
-            <strong>{formatEuro(fixedAdd)}</strong>{" "}
-            <VatLabel treatment={CONSUMER_VAT} inline />
-          </p>
-        )}
-      </section>
+      <CalculatorLineItemsEditor
+        config={config}
+        items={items}
+        adjustedItems={adjustedItems}
+        primaryQty={clampedPrimary}
+        secondaryQty={clampedSecondary}
+        onUpdateItem={updateItem}
+        onRemoveItem={removeItem}
+        onAddCustomItem={() =>
+          setItems((prev) => [...prev, newCustomLineItem()])
+        }
+        vatTreatment={CONSUMER_VAT}
+        fixedAdd={fixedAdd}
+        description="Muokkaa hintoja tarpeen mukaan. Voit tarkistaa markkinahintoja Google-haun kautta jokaisen rivin kohdalta."
+      />
 
       <div className="grid gap-6 lg:grid-cols-2">
         <CostBreakdownChart
