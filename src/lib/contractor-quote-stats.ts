@@ -193,6 +193,7 @@ export type ContractorQuoteListItem = {
   title: string;
   total_cents: number;
   client_name: string | null;
+  calculator_slug: string;
   pdf_generated_at: string | null;
   outcome: "pending" | "won" | "lost";
   outcome_updated_at: string | null;
@@ -208,7 +209,7 @@ export async function fetchContractorQuotesForStats(
   const { data } = await supabase
     .from("contractor_quotes")
     .select(
-      "id, title, total_cents, client_name, pdf_generated_at, outcome, outcome_updated_at, remonttireitti_project_id, updated_at",
+      "id, title, total_cents, client_name, calculator_slug, pdf_generated_at, outcome, outcome_updated_at, remonttireitti_project_id, updated_at",
     )
     .eq("contractor_id", contractorId)
     .not("pdf_generated_at", "is", null)
@@ -220,6 +221,7 @@ export async function fetchContractorQuotesForStats(
     title: row.title as string,
     total_cents: Number(row.total_cents),
     client_name: row.client_name as string | null,
+    calculator_slug: String(row.calculator_slug ?? ""),
     pdf_generated_at: row.pdf_generated_at as string | null,
     outcome: (row.outcome as ContractorQuoteListItem["outcome"]) ?? "pending",
     outcome_updated_at: row.outcome_updated_at as string | null,
