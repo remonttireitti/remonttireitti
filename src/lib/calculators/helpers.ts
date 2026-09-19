@@ -4,6 +4,7 @@ import {
   buildDefaultQuestions,
   enrichFaqAnswer,
 } from "./default-questions";
+import { getCustomQuestions } from "./custom-questions";
 import type {
   BreakdownSegment,
   CalculatorConfig,
@@ -135,15 +136,19 @@ export function buildCalculator(params: BuildCalcParams): CalculatorConfig {
     primaryInputLabel: params.primaryInput.label,
   };
 
+  const custom = getCustomQuestions(params.slug);
+
   const questions =
-    params.questions && params.questions.length > 0
+    custom?.questions ??
+    (params.questions && params.questions.length > 0
       ? params.questions
-      : buildDefaultQuestions(defaultParams);
+      : buildDefaultQuestions(defaultParams));
 
   const priceFactors =
-    params.priceFactors && params.priceFactors.length > 0
+    custom?.priceFactors ??
+    (params.priceFactors && params.priceFactors.length > 0
       ? params.priceFactors
-      : buildDefaultPriceFactors(defaultParams, questions);
+      : buildDefaultPriceFactors(defaultParams, questions));
 
   const faq = params.faq.map((item) => ({
     q: item.q,
