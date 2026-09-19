@@ -38,6 +38,10 @@ type Props = {
   high: number;
   perUnitMid?: number;
   primaryQty: number;
+  secondaryQty?: number;
+  tierId?: string;
+  answers?: Record<string, string>;
+  estimateMode?: "quick" | "detail";
   detailMode: boolean;
   unansweredDetailQuestionIds: string[];
 };
@@ -49,6 +53,10 @@ export function CalculatorEstimateSummary({
   high,
   perUnitMid,
   primaryQty,
+  secondaryQty = 0,
+  tierId,
+  answers,
+  estimateMode,
   detailMode,
   unansweredDetailQuestionIds,
 }: Props) {
@@ -62,6 +70,10 @@ export function CalculatorEstimateSummary({
       calculatorTitle: config.title,
       primaryQty,
       primaryUnit: unit,
+      secondaryQty,
+      tierId,
+      answers,
+      estimateMode,
       totalEuros: total,
       lowEuros: low,
       highEuros: high,

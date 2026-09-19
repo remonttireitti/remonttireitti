@@ -8,7 +8,12 @@ import {
   newCustomLineItem,
 } from "@/components/calculator/calculator-line-items-editor";
 import { CostBreakdownChart } from "@/components/calculator/cost-breakdown-chart";
+import { CalculatorInputsSection } from "@/components/calculator/calculator-form-controls";
 import { brand } from "@/lib/brand-theme";
+import {
+  defaultCalculatorAnswers,
+  type CalculatorInputState,
+} from "@/lib/calculator-input-state";
 import { saveCalculatorProjectSnapshot } from "@/lib/calculator-project-snapshot";
 import {
   applyTierOverrides,
@@ -46,24 +51,16 @@ function ctaHref(jobSlug: string): string {
   return `/remontti/uusi?tyyppi=${jobSlug}`;
 }
 
-function defaultAnswers(config: CalculatorConfig): Record<string, string> {
-  const answers: Record<string, string> = {};
-  for (const q of config.questions ?? []) {
-    answers[q.id] = q.defaultOptionId;
-  }
-  return answers;
-}
-
 export function RenovationCalculator({ config }: { config: CalculatorConfig }) {
   const defaultTier = config.defaultTierId ?? config.tiers?.[0]?.id;
-  const hasQuestions = (config.questions?.length ?? 0) > 0;
-  const [estimateMode, setEstimateMode] = useState<"quick" | "detail">("quick");
-  const [answers, setAnswers] = useState<Record<string, string>>(() => defaultAnswers(config));
-  const [primaryQty, setPrimaryQty] = useState(config.primaryInput.defaultValue);
-  const [secondaryQty, setSecondaryQty] = useState(
-    config.secondaryInput?.defaultValue ?? 0,
-  );
-  const [tierId, setTierId] = useState(defaultTier);
+  const [calcInputs, setCalcInputs] = useState<CalculatorInputState>(() => ({
+    primaryQty: config.primaryInput.defaultValue,
+    secondaryQty: config.secondaryInput?.defaultValue ?? 0,
+    tierId: defaultTier,
+    answers: defaultCalculatorAnswers(config),
+    estimateMode: "quick",
+  }));
+  const { primaryQty, secondaryQty, tierId, answers, estimateMode } = calcInputs;
   const [items, setItems] = useState<CalculatorLineItem[]>(() => {
     const tier = config.tiers?.find((t) => t.id === defaultTier);
     return tier
@@ -127,14 +124,6 @@ export function RenovationCalculator({ config }: { config: CalculatorConfig }) {
       .map((q) => q.id);
   }, [config.questions, estimateMode]);
 
-  const visibleQuestions = useMemo(
-    () =>
-      (config.questions ?? []).filter(
-        (q) => q.mode === "quick" || estimateMode === "detail",
-      ),
-    [config.questions, estimateMode],
-  );
-
   function updateItem(id: string, patch: Partial<CalculatorLineItem>) {
     setItems((prev) =>
       prev.map((item) => (item.id === id ? { ...item, ...patch } : item)),
@@ -145,15 +134,34 @@ export function RenovationCalculator({ config }: { config: CalculatorConfig }) {
     setItems((prev) => prev.filter((item) => item.id !== id));
   }
 
-  function applyTier(nextTierId: string) {
-    setTierId(nextTierId);
-    const tier = config.tiers?.find((t) => t.id === nextTierId);
-    if (!tier) return;
-    setItems((prev) => applyTierOverrides(prev, tier.overrides));
+  function patchCalcInputs(patch: Partial<CalculatorInputState>) {
+    setCalcInputs((prev) => {
+      const next = { ...prev, ...patch };
+      if (patch.tierId) {
+        const tier = config.tiers?.find((t) => t.id === patch.tierId);
+        if (tier) {
+          setItems((itemsPrev) => applyTierOverrides(itemsPrev, tier.overrides));
+        }
+      }
+      return next;
+    });
   }
 
-  function setAnswer(questionId: string, optionId: string) {
-    setAnswers((prev) => ({ ...prev, [questionId]: optionId }));
+  function persistSnapshot() {
+    saveCalculatorProjectSnapshot({
+      calculatorSlug: config.slug,
+      jobSlug: config.jobSlug,
+      calculatorTitle: config.title,
+      primaryQty: clampedPrimary,
+      primaryUnit: config.primaryInput.unit,
+      secondaryQty: clampedSecondary,
+      tierId,
+      answers,
+      estimateMode,
+      totalEuros: estimate.total,
+      lowEuros: range.low,
+      highEuros: range.high,
+    });
   }
 
   const primaryLabel = `${clampedPrimary} ${config.primaryInput.unit}`;
@@ -172,145 +180,12 @@ export function RenovationCalculator({ config }: { config: CalculatorConfig }) {
 
   return (
     <div className="space-y-8">
-      <section className={`${brand.section} p-5 sm:p-6`}>
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <h2 className="text-xl font-bold text-stone-900">Laske arvio</h2>
-          {hasQuestions && (
-            <div className="inline-flex rounded-xl border border-stone-200 bg-stone-50 p-1">
-              <button
-                type="button"
-                onClick={() => setEstimateMode("quick")}
-                className={`rounded-lg px-3 py-1.5 text-sm font-semibold transition ${
-                  estimateMode === "quick"
-                    ? "bg-white text-sky-900 shadow-sm"
-                    : "text-stone-600 hover:text-stone-900"
-                }`}
-              >
-                Nopea arvio
-              </button>
-              <button
-                type="button"
-                onClick={() => setEstimateMode("detail")}
-                className={`rounded-lg px-3 py-1.5 text-sm font-semibold transition ${
-                  estimateMode === "detail"
-                    ? "bg-white text-sky-900 shadow-sm"
-                    : "text-stone-600 hover:text-stone-900"
-                }`}
-              >
-                Tarkempi arvio
-              </button>
-            </div>
-          )}
-        </div>
-
-        {config.primaryInput.hint && (
-          <p className="mt-2 text-sm text-stone-600">{config.primaryInput.hint}</p>
-        )}
-
-        <div className="mt-5 grid gap-4 sm:grid-cols-2">
-          <label className="block">
-            <span className="text-sm font-medium text-stone-700">
-              {config.primaryInput.label} ({config.primaryInput.unit})
-            </span>
-            <input
-              type="number"
-              min={config.primaryInput.min}
-              max={config.primaryInput.max}
-              step={config.primaryInput.step ?? 1}
-              value={primaryQty}
-              onChange={(e) => setPrimaryQty(Number(e.target.value) || config.primaryInput.min)}
-              className={`mt-1 w-full rounded-xl border border-stone-200 px-3 py-2.5 text-lg font-semibold ${brand.input}`}
-            />
-          </label>
-
-          {config.secondaryInput && (
-            <label className="block">
-              <span className="text-sm font-medium text-stone-700">
-                {config.secondaryInput.label} ({config.secondaryInput.unit})
-              </span>
-              <input
-                type="number"
-                min={config.secondaryInput.min}
-                max={config.secondaryInput.max}
-                step={config.secondaryInput.step ?? 1}
-                value={secondaryQty}
-                onChange={(e) =>
-                  setSecondaryQty(
-                    Number(e.target.value) || config.secondaryInput!.min,
-                  )
-                }
-                className={`mt-1 w-full rounded-xl border border-stone-200 px-3 py-2.5 text-lg font-semibold ${brand.input}`}
-              />
-              {config.secondaryInput.hint && (
-                <span className="mt-1 block text-xs text-stone-500">
-                  {config.secondaryInput.hint}
-                </span>
-              )}
-            </label>
-          )}
-        </div>
-
-        {config.tiers && config.tiers.length > 0 && (
-          <fieldset className="mt-4">
-            <legend className="text-sm font-medium text-stone-700">Laite- / materiaalitaso</legend>
-            <div className="mt-1 flex flex-wrap gap-2">
-              {config.tiers.map((tier) => (
-                <button
-                  key={tier.id}
-                  type="button"
-                  onClick={() => applyTier(tier.id)}
-                  className={`rounded-xl border px-3 py-2.5 text-sm font-semibold transition ${
-                    tierId === tier.id
-                      ? "border-sky-600 bg-sky-50 text-sky-900"
-                      : "border-stone-200 bg-white text-stone-700 hover:border-sky-200"
-                  }`}
-                >
-                  {tier.label}
-                  {tier.subtitle && (
-                    <span className="mt-0.5 block text-xs font-normal text-stone-500">
-                      {tier.subtitle}
-                    </span>
-                  )}
-                </button>
-              ))}
-            </div>
-          </fieldset>
-        )}
-
-        {visibleQuestions.length > 0 && (
-          <div className="mt-6 space-y-4 border-t border-stone-100 pt-5">
-            <p className="text-sm text-stone-600">
-              {estimateMode === "quick"
-                ? "Vastaa muutamaan kysymykseen — saat tarkemman suuntaa-antavan arvion."
-                : "Lisäkysymykset tarkentavat arviota erityisesti kohteen rakenteen ja työn vaikeuden osalta."}
-            </p>
-            {visibleQuestions.map((question) => (
-              <fieldset key={question.id}>
-                <legend className="text-sm font-medium text-stone-800">{question.label}</legend>
-                {question.hint && (
-                  <p className="mt-0.5 text-xs text-stone-500">{question.hint}</p>
-                )}
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {question.options.map((option) => (
-                    <button
-                      key={option.id}
-                      type="button"
-                      onClick={() => setAnswer(question.id, option.id)}
-                      className={`rounded-xl border px-3 py-2 text-sm font-medium transition ${
-                        (answers[question.id] ?? question.defaultOptionId) === option.id
-                          ? "border-sky-600 bg-sky-50 text-sky-900"
-                          : "border-stone-200 bg-white text-stone-700 hover:border-sky-200"
-                      }`}
-                    >
-                      {option.label}
-                    </button>
-                  ))}
-                </div>
-              </fieldset>
-            ))}
-          </div>
-        )}
-      </section>
+      <CalculatorInputsSection
+        config={config}
+        inputs={calcInputs}
+        onChange={patchCalcInputs}
+        title="Laske arvio"
+      />
 
       <CalculatorLineItemsEditor
         config={config}
@@ -352,18 +227,7 @@ export function RenovationCalculator({ config }: { config: CalculatorConfig }) {
           <p className="mt-2 text-xs text-sky-900/80">{livePriceNote}</p>
           <Link
             href={ctaHref(config.jobSlug)}
-            onClick={() =>
-              saveCalculatorProjectSnapshot({
-                calculatorSlug: config.slug,
-                jobSlug: config.jobSlug,
-                calculatorTitle: config.title,
-                primaryQty: clampedPrimary,
-                primaryUnit: config.primaryInput.unit,
-                totalEuros: estimate.total,
-                lowEuros: range.low,
-                highEuros: range.high,
-              })
-            }
+            onClick={persistSnapshot}
             className={`${brand.btnPrimary} mt-4 text-center text-sm`}
           >
             {config.ctaLabel ?? "Pyydä tarjoukset"}
@@ -378,6 +242,10 @@ export function RenovationCalculator({ config }: { config: CalculatorConfig }) {
         high={range.high}
         perUnitMid={range.perUnitMid}
         primaryQty={clampedPrimary}
+        secondaryQty={clampedSecondary}
+        tierId={tierId}
+        answers={answers}
+        estimateMode={estimateMode}
         detailMode={estimateMode === "detail"}
         unansweredDetailQuestionIds={unansweredDetailQuestionIds}
       />
