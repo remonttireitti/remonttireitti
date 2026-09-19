@@ -1,8 +1,4 @@
 import { NextResponse } from "next/server";
-import {
-  canExportContractorQuotePdf,
-  fetchContractorQuotePdfUsage,
-} from "@/lib/contractor-quote-limits";
 import { quotePdfFilename } from "@/lib/contractor-quote-types";
 import { loadContractorQuotePdfData } from "@/lib/contractor-quote-server";
 import { createClient } from "@/lib/supabase/server";
@@ -34,18 +30,6 @@ export async function GET(
   }
 
   const alreadyExported = Boolean(pdfData.quote.pdf_generated_at);
-  const usage = await fetchContractorQuotePdfUsage(supabase, user.id);
-
-  if (!canExportContractorQuotePdf(usage, alreadyExported)) {
-    return NextResponse.json(
-      {
-        error: "Kuukausiraja täynnä",
-        limit: usage.limit,
-        used: usage.used,
-      },
-      { status: 429 },
-    );
-  }
 
   return NextResponse.json({
     pdfData,

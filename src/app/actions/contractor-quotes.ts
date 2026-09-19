@@ -5,8 +5,9 @@ import type { BidCalculatorResult } from "@/lib/bid-calculator-bridge";
 import { scopeLinesFromCalculatorResult } from "@/lib/bid-calculator-bridge";
 import { buildSeededScopeLines } from "@/lib/bid-scope-lines";
 import {
-  canExportContractorQuotePdf,
-  fetchContractorQuotePdfUsage,
+  canSaveNewContractorQuote,
+  fetchContractorQuoteSaveUsage,
+  recordContractorQuoteCreationEvent,
 } from "@/lib/contractor-quote-limits";
 import { clampQuoteValidityDays } from "@/lib/contractor-quote-defaults";
 import {
@@ -14,12 +15,19 @@ import {
   statusAfterQuoteSave,
   type ContractorQuoteFormFields,
 } from "@/lib/contractor-quote-types";
+import { contractorQuoteHubPath } from "@/lib/contractor-quote-paths";
 import { revalidatePath } from "next/cache";
 
 export type ContractorQuoteActionState = {
   error?: string;
   success?: string;
   quoteId?: string;
+};
+
+export type DeleteContractorQuoteActionState = {
+  error?: string;
+  success?: string;
+  redirectPath?: string;
 };
 
 function parseQuoteForm(formData: FormData): ContractorQuoteFormFields {
@@ -42,6 +50,15 @@ function parseCalculatorResult(raw: string): BidCalculatorResult | null {
   } catch {
     return null;
   }
+}
+
+function revalidateQuotePaths(slug: string, quoteId?: string) {
+  revalidatePath("/tarjouslaskuri");
+  revalidatePath(`/tarjouslaskuri/${slug}`);
+  if (quoteId) {
+    revalidatePath(`/tarjouslaskuri/${slug}?tarjous=${quoteId}`);
+  }
+  revalidatePath("/oma-tili");
 }
 
 export async function saveContractorQuote(
@@ -89,6 +106,13 @@ export async function saveContractorQuote(
         outcome: existing.outcome as string | null,
       }),
     );
+  } else {
+    const usage = await fetchContractorQuoteSaveUsage(supabase, user.id);
+    if (!canSaveNewContractorQuote(usage)) {
+      return {
+        error: `Kuukausiraja (${usage.limit} tallennettua tarjousta) on täynnä. Poisto ei vapauta kiintiötä. Suurempaan käyttöön hinnoittelu julkaistaan myöhemmin.`,
+      };
+    }
   }
 
   const row = {
@@ -126,10 +150,7 @@ export async function saveContractorQuote(
     if (error) return { error: "Tallennus epäonnistui." };
 
     const slug = calculatorSlug || result.calculatorSlug;
-    revalidatePath("/tarjouslaskuri");
-    revalidatePath(`/tarjouslaskuri/${slug}`);
-    revalidatePath(`/tarjouslaskuri/${slug}?tarjous=${quoteId}`);
-    revalidatePath("/oma-tili");
+    revalidateQuotePaths(slug, quoteId);
     return {
       success: "Tarjous päivitetty.",
       quoteId,
@@ -144,15 +165,81 @@ export async function saveContractorQuote(
 
   if (error || !data) return { error: "Tallennus epäonnistui." };
 
-  revalidatePath("/tarjouslaskuri");
-  revalidatePath(`/tarjouslaskuri/${calculatorSlug || result.calculatorSlug}`);
-  revalidatePath("/oma-tili");
+  const ledger = await recordContractorQuoteCreationEvent(
+    supabase,
+    user.id,
+    data.id,
+  );
+  if (ledger.error) {
+    // Kiintiö pitää kirjata — peruuta rivi jos ledger epäonnistuu.
+    await supabase
+      .from("contractor_quotes")
+      .delete()
+      .eq("id", data.id)
+      .eq("contractor_id", user.id);
+    return { error: "Tallennus epäonnistui (kiintiökirjaus)." };
+  }
+
+  const slug = calculatorSlug || result.calculatorSlug;
+  revalidateQuotePaths(slug, data.id);
   return {
     success: "Tarjous tallennettu.",
     quoteId: data.id,
   };
 }
 
+/**
+ * Pysyvä poisto (hard delete). Kiintiöledgeriä ei pienennetä —
+ * käyttäjä ei voi huijata tallenna→poista→tallenna -kierroksella.
+ */
+export async function deleteContractorQuote(
+  _prev: DeleteContractorQuoteActionState,
+  formData: FormData,
+): Promise<DeleteContractorQuoteActionState> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Kirjaudu sisään." };
+
+  const quoteId = String(formData.get("quote_id") ?? "").trim();
+  if (!quoteId) return { error: "Puuttuva tarjous." };
+
+  const { data: existing } = await supabase
+    .from("contractor_quotes")
+    .select("id, calculator_slug, title")
+    .eq("id", quoteId)
+    .eq("contractor_id", user.id)
+    .maybeSingle();
+
+  if (!existing) {
+    return {
+      error: "Tarjousta ei löytynyt tai sinulla ei ole oikeutta poistaa sitä.",
+    };
+  }
+
+  const { error } = await supabase
+    .from("contractor_quotes")
+    .delete()
+    .eq("id", quoteId)
+    .eq("contractor_id", user.id);
+
+  if (error) {
+    console.error("[deleteContractorQuote]", error.code, error.message);
+    return { error: "Poisto epäonnistui. Yritä uudelleen." };
+  }
+
+  const slug = String(existing.calculator_slug ?? "");
+  revalidateQuotePaths(slug);
+  revalidatePath(contractorQuoteHubPath());
+
+  return {
+    success: "Tarjous poistettu pysyvästi.",
+    redirectPath: `${contractorQuoteHubPath()}?poistettu=1`,
+  };
+}
+
+/** PDF-vienti ei enää kuluta kiintiötä; tarkistus säilyy API-yhteensopivuuteen. */
 export async function checkContractorQuotePdfExport(
   quoteId: string,
 ): Promise<{ ok: boolean; error?: string; remaining?: number }> {
@@ -164,23 +251,13 @@ export async function checkContractorQuotePdfExport(
 
   const { data: quote } = await supabase
     .from("contractor_quotes")
-    .select("id, pdf_generated_at")
+    .select("id")
     .eq("id", quoteId)
     .eq("contractor_id", user.id)
     .maybeSingle();
 
   if (!quote) return { ok: false, error: "Tarjousta ei löydy." };
 
-  const usage = await fetchContractorQuotePdfUsage(supabase, user.id);
-  const alreadyExported = Boolean(quote.pdf_generated_at);
-
-  if (!canExportContractorQuotePdf(usage, alreadyExported)) {
-    return {
-      ok: false,
-      error: `Kuukausiraja (${usage.limit} PDF-tarjousta) on täynnä. Suurempaan käyttöön hinnoittelu julkaistaan myöhemmin.`,
-      remaining: 0,
-    };
-  }
-
+  const usage = await fetchContractorQuoteSaveUsage(supabase, user.id);
   return { ok: true, remaining: usage.remaining };
 }

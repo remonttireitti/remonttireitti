@@ -9,9 +9,10 @@ import {
 } from "@/app/actions/contractor-quotes";
 import { ContractorBidCalculator } from "@/components/calculator/contractor-bid-calculator";
 import { ContractorQuotePdfDownloadButton } from "@/components/contractor/contractor-quote-pdf-download";
+import { DeleteContractorQuoteButton } from "@/components/contractor/delete-contractor-quote-button";
 import { brand } from "@/lib/brand-theme";
 import type { BidCalculatorResult } from "@/lib/bid-calculator-bridge";
-import type { ContractorQuotePdfUsage } from "@/lib/contractor-quote-limits";
+import type { ContractorQuoteSaveUsage } from "@/lib/contractor-quote-limits";
 import {
   bidResultFromQuote,
   calculatorItemsFromQuote,
@@ -35,7 +36,7 @@ const inputClass =
 export function StandaloneQuoteWorkspace({
   config,
   rates,
-  pdfUsage,
+  saveUsage,
   jobSlug,
   defaultValidityDays = 30,
   defaultTerms = "",
@@ -43,7 +44,7 @@ export function StandaloneQuoteWorkspace({
 }: {
   config: CalculatorConfig;
   rates: ContractorPricingRates;
-  pdfUsage: ContractorQuotePdfUsage;
+  saveUsage: ContractorQuoteSaveUsage;
   jobSlug?: string | null;
   defaultValidityDays?: number;
   defaultTerms?: string;
@@ -308,8 +309,8 @@ export function StandaloneQuoteWorkspace({
           <p className="mt-1 text-sm text-stone-600">
             Summa{" "}
             <strong>{formatEuro(calculatorResult.totalWithMargin)}</strong> ·{" "}
-            {pdfUsage.remaining} / {pdfUsage.limit} PDF-tarjousta jäljellä (
-            {pdfUsage.monthLabel})
+            {saveUsage.remaining} / {saveUsage.limit} uutta tallennusta jäljellä
+            ({saveUsage.monthLabel})
           </p>
 
           <form action={saveAction} className="mt-4 space-y-4">
@@ -365,7 +366,11 @@ export function StandaloneQuoteWorkspace({
             <div className="flex flex-wrap gap-3">
               <button
                 type="submit"
-                disabled={savePending || !fields.title.trim()}
+                disabled={
+                  savePending ||
+                  !fields.title.trim() ||
+                  (!effectiveQuoteId && saveUsage.remaining === 0)
+                }
                 className={`${brand.btnPrimary} disabled:opacity-60`}
               >
                 {savePending
@@ -384,9 +389,9 @@ export function StandaloneQuoteWorkspace({
                 />
               )}
 
-              {!effectiveQuoteId && pdfUsage.remaining === 0 && (
+              {!effectiveQuoteId && saveUsage.remaining === 0 && (
                 <span className="text-sm text-amber-800">
-                  PDF-raja täynnä tässä kuussa.
+                  Tallennusraja täynnä tässä kuussa (poisto ei vapauta).
                 </span>
               )}
 
@@ -401,14 +406,22 @@ export function StandaloneQuoteWorkspace({
 
           {!effectiveQuoteId && (
             <p className="mt-3 text-xs text-stone-500">
-              Tallenna ennen PDF-latausta. PDF-lataus lasketaan kuukausirajaan
-              (10 kpl/kk).
+              Uusi tallennus kuluttaa kuukausikiintiötä (
+              {saveUsage.limit} kpl/kk). PDF-vienti ei kuluta kiintiötä. Poisto
+              ei vapauta paikkaa.
             </p>
           )}
           {effectiveQuoteId && (
-            <p className="mt-3 text-xs text-stone-500">
-              Päivitä tallentaa muutokset tähän tarjoukseen (ei luo uutta).
-            </p>
+            <div className="mt-3 flex flex-wrap items-center gap-3">
+              <p className="text-xs text-stone-500">
+                Päivitä tallentaa muutokset tähän tarjoukseen (ei kuluta
+                kiintiötä).
+              </p>
+              <DeleteContractorQuoteButton
+                quoteId={effectiveQuoteId}
+                title={fields.title || initialQuote?.title || "Tarjous"}
+              />
+            </div>
           )}
         </section>
       )}

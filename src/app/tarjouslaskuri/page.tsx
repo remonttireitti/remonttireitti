@@ -12,7 +12,8 @@ import {
 } from "@/lib/contractor-quote-paths";
 import { ContractorQuoteOutcomeControl } from "@/components/contractor/contractor-quote-outcome-control";
 import { ContractorQuoteStatsPanel } from "@/components/contractor/contractor-quote-stats-panel";
-import { fetchContractorQuotePdfUsage } from "@/lib/contractor-quote-limits";
+import { fetchContractorQuoteSaveUsage } from "@/lib/contractor-quote-limits";
+import { DeleteContractorQuoteButton } from "@/components/contractor/delete-contractor-quote-button";
 import { parseQuoteStatsPeriod } from "@/lib/contractor-quote-period";
 import {
   fetchContractorQuoteStats,
@@ -44,8 +45,8 @@ export default async function ContractorQuoteHubPage({
   }
 
   const supabase = await createClient();
-  const [pdfUsage, recentQuotes, rates, stats, printedQuotes] = await Promise.all([
-    fetchContractorQuotePdfUsage(supabase, user.id),
+  const [saveUsage, recentQuotes, rates, stats, printedQuotes] = await Promise.all([
+    fetchContractorQuoteSaveUsage(supabase, user.id),
     fetchContractorQuotes(supabase, user.id, 8),
     fetchContractorPricingRates(user.id),
     fetchContractorQuoteStats(supabase, user.id, statsPeriod),
@@ -67,19 +68,20 @@ export default async function ContractorQuoteHubPage({
         <p className="mt-2 max-w-2xl text-stone-600">
           Laske tarjous omille asiakkaillesi — sama moottori kuin Remonttireitin
           tarjouspyynnöissä.{" "}
-          <strong>{pdfUsage.limit} tarjousta kuukaudessa maksutta</strong>{" "}
-          (PDF-lataus). Suurempaan käyttöön hinnoittelu julkaistaan myöhemmin.
+          <strong>{saveUsage.limit} tallennettua tarjousta kuukaudessa maksutta</strong>
+          . Poisto ei vapauta kiintiötä. Suurempaan käyttöön hinnoittelu
+          julkaistaan myöhemmin.
         </p>
 
         <div className="mt-6 grid gap-3 sm:grid-cols-3">
           <div className="rounded-xl border border-sky-200 bg-sky-50/60 px-4 py-3">
             <p className="text-xs font-medium uppercase text-sky-800">
-              PDF:tä jäljellä
+              Tallennuksia jäljellä
             </p>
             <p className="mt-1 text-2xl font-bold text-sky-950">
-              {pdfUsage.remaining} / {pdfUsage.limit}
+              {saveUsage.remaining} / {saveUsage.limit}
             </p>
-            <p className="text-xs text-sky-900/80">{pdfUsage.monthLabel}</p>
+            <p className="text-xs text-sky-900/80">{saveUsage.monthLabel}</p>
           </div>
           <div className="rounded-xl border border-stone-200 bg-white px-4 py-3 sm:col-span-2">
             <p className="text-xs font-medium uppercase text-stone-500">
@@ -136,7 +138,7 @@ export default async function ContractorQuoteHubPage({
                         </>
                       )}
                     </p>
-                    <div className="mt-1 flex flex-wrap gap-3">
+                    <div className="mt-1 flex flex-wrap items-center gap-3">
                       <Link
                         href={contractorQuoteEditPath(
                           quote.calculator_slug,
@@ -152,6 +154,10 @@ export default async function ContractorQuoteHubPage({
                       >
                         Lataa PDF uudelleen
                       </Link>
+                      <DeleteContractorQuoteButton
+                        quoteId={quote.id}
+                        title={quote.title}
+                      />
                     </div>
                   </div>
                   <ContractorQuoteOutcomeControl quote={quote} />
@@ -204,7 +210,7 @@ export default async function ContractorQuoteHubPage({
                       {CONTRACTOR_QUOTE_STATUS_LABELS[quote.status]}
                     </p>
                   </div>
-                  <div className="flex gap-3">
+                  <div className="flex flex-wrap items-center gap-3">
                     <Link
                       href={contractorQuoteEditPath(
                         quote.calculator_slug,
@@ -220,6 +226,10 @@ export default async function ContractorQuoteHubPage({
                     >
                       {quote.pdf_generated_at ? "PDF uudelleen" : "Lataa PDF"}
                     </Link>
+                    <DeleteContractorQuoteButton
+                      quoteId={quote.id}
+                      title={quote.title}
+                    />
                   </div>
                 </li>
               ))}

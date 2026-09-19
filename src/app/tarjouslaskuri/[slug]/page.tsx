@@ -15,7 +15,7 @@ import {
   contractorQuoteEditPath,
   contractorQuoteHubPath,
 } from "@/lib/contractor-quote-paths";
-import { fetchContractorQuotePdfUsage } from "@/lib/contractor-quote-limits";
+import { fetchContractorQuoteSaveUsage } from "@/lib/contractor-quote-limits";
 import { fetchContractorQuote } from "@/lib/contractor-quote-server";
 import { fetchContractorPricingRates } from "@/lib/contractor-pricing-server";
 import { getCalculatorBySlug } from "@/lib/calculators/registry";
@@ -70,10 +70,10 @@ export default async function ContractorQuoteCalculatorPage({
     );
   }
 
-  const [enriched, rates, pdfUsage, bidDefaults, profileRow] = await Promise.all([
+  const [enriched, rates, saveUsage, bidDefaults, profileRow] = await Promise.all([
     enrichCalculatorConfig(supabase, baseConfig),
     fetchContractorPricingRates(user.id),
-    fetchContractorQuotePdfUsage(supabase, user.id),
+    fetchContractorQuoteSaveUsage(supabase, user.id),
     fetchContractorBidDefaults(user.id, jobSlug),
     supabase
       .from("contractor_profiles")
@@ -102,13 +102,14 @@ export default async function ContractorQuoteCalculatorPage({
         {initialQuote ? (
           <p className="mt-1 text-sm text-stone-600">
             Muokkaat tallennettua tarjousta — asiakas- ja kohdetiedot ovat
-            muokattavissa. {pdfUsage.remaining} / {pdfUsage.limit} PDF-tarjousta
-            jäljellä ({pdfUsage.monthLabel})
+            muokattavissa. Päivitys ei kuluta kiintiötä.{" "}
+            {saveUsage.remaining} / {saveUsage.limit} uutta tallennusta jäljellä
+            ({saveUsage.monthLabel})
           </p>
         ) : (
           <p className="mt-1 text-sm text-stone-600">
-            {pdfUsage.remaining} / {pdfUsage.limit} PDF-tarjousta jäljellä (
-            {pdfUsage.monthLabel})
+            {saveUsage.remaining} / {saveUsage.limit} uutta tallennusta jäljellä
+            ({saveUsage.monthLabel}). Poisto ei vapauta kiintiötä.
           </p>
         )}
 
@@ -116,7 +117,7 @@ export default async function ContractorQuoteCalculatorPage({
           <StandaloneQuoteWorkspace
             config={config}
             rates={rates}
-            pdfUsage={pdfUsage}
+            saveUsage={saveUsage}
             jobSlug={jobSlug}
             defaultValidityDays={defaultValidityDays}
             defaultTerms={defaultTerms}
