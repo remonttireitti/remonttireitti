@@ -13,6 +13,7 @@ import { STALE_BID_CONTRACTOR_MESSAGE } from "@/lib/bid-staleness";
 import { bidTotalAmountCents } from "@/lib/bid-amounts";
 import { bidStatusLabels } from "@/lib/bids";
 import { PriceWithVat } from "@/components/price/price-with-vat";
+import type { ProjectCalculatorInputHints } from "@/lib/bid-calculator-bridge";
 import type { CalculatorConfig } from "@/lib/calculators/types";
 import type { ContractorPricingRates } from "@/lib/calculators/contractor-pricing";
 import type {
@@ -37,6 +38,7 @@ function BidEntry({
   calculatorConfig,
   pricingRates,
   initialPrimaryQty,
+  projectCalculatorHints,
   jobPriceBenchmark,
   contractorTierProfile,
   mode,
@@ -56,6 +58,7 @@ function BidEntry({
   calculatorConfig: CalculatorConfig | null;
   pricingRates?: ContractorPricingRates;
   initialPrimaryQty?: number;
+  projectCalculatorHints?: ProjectCalculatorInputHints;
   jobPriceBenchmark?: JobPriceBenchmark | null;
   contractorTierProfile?: ContractorTierProfile | null;
   mode: "create" | "edit";
@@ -69,6 +72,7 @@ function BidEntry({
         calculatorConfig={calculatorConfig}
         pricingRates={pricingRates}
         initialPrimaryQty={initialPrimaryQty}
+        projectCalculatorHints={projectCalculatorHints}
         jobPriceBenchmark={jobPriceBenchmark}
         contractorTierProfile={contractorTierProfile}
         mode={mode}
@@ -102,6 +106,7 @@ export function ContractorBidPanel({
   calculatorConfig,
   pricingRates,
   initialPrimaryQty,
+  projectCalculatorHints,
   jobPriceBenchmark,
   contractorTierProfile,
 }: {
@@ -118,6 +123,7 @@ export function ContractorBidPanel({
   calculatorConfig?: CalculatorConfig | null;
   pricingRates?: ContractorPricingRates;
   initialPrimaryQty?: number;
+  projectCalculatorHints?: ProjectCalculatorInputHints;
   jobPriceBenchmark?: JobPriceBenchmark | null;
   contractorTierProfile?: ContractorTierProfile | null;
 }) {
@@ -161,6 +167,7 @@ export function ContractorBidPanel({
             calculatorConfig={calculatorConfig ?? null}
             pricingRates={pricingRates}
             initialPrimaryQty={initialPrimaryQty}
+            projectCalculatorHints={projectCalculatorHints}
             jobPriceBenchmark={jobPriceBenchmark}
             contractorTierProfile={contractorTierProfile}
             mode="create"
@@ -189,6 +196,7 @@ export function ContractorBidPanel({
           calculatorConfig={calculatorConfig ?? null}
           pricingRates={pricingRates}
           initialPrimaryQty={initialPrimaryQty}
+          projectCalculatorHints={projectCalculatorHints}
           jobPriceBenchmark={jobPriceBenchmark}
           contractorTierProfile={contractorTierProfile}
           mode="edit"
@@ -216,6 +224,7 @@ export function ContractorBidPanel({
               calculatorConfig={calculatorConfig ?? null}
               pricingRates={pricingRates}
               initialPrimaryQty={initialPrimaryQty}
+              projectCalculatorHints={projectCalculatorHints}
               jobPriceBenchmark={jobPriceBenchmark}
               contractorTierProfile={contractorTierProfile}
               mode="create"
@@ -336,6 +345,7 @@ export function ContractorBidPanel({
         calculatorConfig={calculatorConfig ?? null}
         pricingRates={pricingRates}
         initialPrimaryQty={initialPrimaryQty}
+        projectCalculatorHints={projectCalculatorHints}
         jobPriceBenchmark={jobPriceBenchmark}
         contractorTierProfile={contractorTierProfile}
         mode="edit"

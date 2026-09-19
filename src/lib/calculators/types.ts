@@ -9,6 +9,8 @@ export type CalculatorLineItem = {
   unit: CostUnit;
   /** €/yksikkö tai kiinteä € */
   amount: number;
+  /** Markkinaviite / laskurin oletushinta vertailua varten. */
+  referenceAmount?: number;
   minAmount?: number;
   enabled: boolean;
   searchHint?: string;

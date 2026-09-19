@@ -7,16 +7,22 @@ import {
 } from "@/components/calculator/calculator-line-items-editor";
 import { CostBreakdownChart } from "@/components/calculator/cost-breakdown-chart";
 import { brand } from "@/lib/brand-theme";
-import type { BidCalculatorResult } from "@/lib/bid-calculator-bridge";
+import type {
+  BidCalculatorResult,
+  CustomerCalculatorEstimate,
+  ProjectCalculatorInputHints,
+} from "@/lib/bid-calculator-bridge";
+import {
+  buildInitialContractorLineItems,
+  calculatorInputsFromProjectHints,
+} from "@/lib/bid-calculator-bridge";
 import { applyConfiguredQuestions } from "@/lib/calculators/resolve";
 import {
-  applyContractorRatesToLines,
+  attachReferenceAmounts,
   applyMargin,
-  contractorOverheadLines,
   type ContractorPricingRates,
 } from "@/lib/calculators/contractor-pricing";
 import {
-  applyTierOverrides,
   calculateEstimate,
   clampQuantity,
   formatEuro,
@@ -45,18 +51,12 @@ const CHART_COLORS = [
   "bg-emerald-500",
 ];
 
-function defaultAnswers(config: CalculatorConfig): Record<string, string> {
-  const answers: Record<string, string> = {};
-  for (const q of config.questions ?? []) {
-    answers[q.id] = q.defaultOptionId;
-  }
-  return answers;
-}
-
 type Props = {
   config: CalculatorConfig;
   rates: ContractorPricingRates;
   initialPrimaryQty?: number;
+  projectCalculatorHints?: ProjectCalculatorInputHints;
+  customerEstimate?: CustomerCalculatorEstimate | null;
   jobPriceBenchmark?: JobPriceBenchmark | null;
   onApply: (result: BidCalculatorResult) => void;
   /** bid = tarjouspyyntöön, standalone = oma asiakas */
@@ -67,23 +67,26 @@ export function ContractorBidCalculator({
   config,
   rates,
   initialPrimaryQty,
+  projectCalculatorHints,
+  customerEstimate,
   jobPriceBenchmark = null,
   onApply,
   variant = "bid",
 }: Props) {
   const isStandalone = variant === "standalone";
-  const defaultTier = config.defaultTierId ?? config.tiers?.[0]?.id;
-  const [estimateMode, setEstimateMode] = useState<"quick" | "detail">("quick");
-  const [answers, setAnswers] = useState<Record<string, string>>(() =>
-    defaultAnswers(config),
+  const initialInputs = calculatorInputsFromProjectHints(config, {
+    ...projectCalculatorHints,
+    primaryQty: projectCalculatorHints?.primaryQty ?? initialPrimaryQty,
+  });
+  const [estimateMode, setEstimateMode] = useState<"quick" | "detail">(
+    initialInputs.estimateMode,
   );
-  const [primaryQty, setPrimaryQty] = useState(
-    initialPrimaryQty ?? config.primaryInput.defaultValue,
+  const [answers, setAnswers] = useState<Record<string, string>>(
+    () => initialInputs.answers,
   );
-  const [secondaryQty, setSecondaryQty] = useState(
-    config.secondaryInput?.defaultValue ?? 0,
-  );
-  const [tierId, setTierId] = useState(defaultTier);
+  const [primaryQty, setPrimaryQty] = useState(initialInputs.primaryQty);
+  const [secondaryQty, setSecondaryQty] = useState(initialInputs.secondaryQty);
+  const [tierId, setTierId] = useState(initialInputs.tierId);
   const [suggestedAddons, setSuggestedAddons] = useState<string[]>([]);
   const [suggestedInfoNeeds, setSuggestedInfoNeeds] = useState<string[]>([]);
   const [addonDraft, setAddonDraft] = useState("");
@@ -101,14 +104,9 @@ export function ContractorBidCalculator({
   });
   const [costsManuallyEdited, setCostsManuallyEdited] = useState(false);
 
-  const [items, setItems] = useState<CalculatorLineItem[]>(() => {
-    const tier = config.tiers?.find((t) => t.id === defaultTier);
-    const base = tier
-      ? applyTierOverrides(structuredClone(config.lineItems), tier.overrides)
-      : structuredClone(config.lineItems);
-    const withOverhead = [...base, ...contractorOverheadLines(rates)];
-    return applyContractorRatesToLines(withOverhead, rates);
-  });
+  const [items, setItems] = useState<CalculatorLineItem[]>(() =>
+    buildInitialContractorLineItems(config, initialInputs.tierId, rates),
+  );
 
   const clampedPrimary = clampQuantity(
     primaryQty,
@@ -183,17 +181,10 @@ export function ContractorBidCalculator({
 
   function applyTier(nextTierId: string) {
     setTierId(nextTierId);
-    const tier = config.tiers?.find((t) => t.id === nextTierId);
-    if (!tier) return;
     setItems((prev) => {
       const custom = prev.filter((i) => i.custom);
-      const baseOnly = prev.filter(
-        (i) =>
-          !i.custom && !["telineet", "jate", "matka"].includes(i.id),
-      );
-      const tiered = applyTierOverrides(baseOnly, tier.overrides);
-      const withOverhead = [...tiered, ...custom, ...contractorOverheadLines(rates)];
-      return applyContractorRatesToLines(withOverhead, rates);
+      const rebuilt = buildInitialContractorLineItems(config, nextTierId, rates);
+      return [...rebuilt, ...custom.map((c) => attachReferenceAmounts([c])[0]!)];
     });
   }
 
@@ -272,9 +263,41 @@ export function ContractorBidCalculator({
         <p className="mt-1 text-sm text-stone-600">
           {isStandalone
             ? "Laske tarjous omille asiakkaillesi — sama moottori kuin Remonttireitin tarjouspyynnöissä."
-            : "Laske tarjous omilla hinnoillasi ja katteellasi. Sama rakenne kuin asiakkaan vertailussa — eri tarkoitus, sama moottori."}
+            : "Laske tarjous omilla hinnoillasi ja katteellasi. Sama rakenne kuin asiakkaan vertailussa — viitehinnat auttavat arvioimaan hintatasoa."}
         </p>
       </div>
+
+      {!isStandalone && customerEstimate && (
+        <aside className="rounded-xl border border-violet-200 bg-violet-50/70 px-4 py-3 text-sm text-violet-950">
+          <p className="font-semibold">Asiakkaan laskuriarvo (viite)</p>
+          {(customerEstimate.lowEuros != null &&
+            customerEstimate.highEuros != null) ||
+          customerEstimate.totalEuros != null ? (
+            <p className="mt-1">
+              {customerEstimate.lowEuros != null &&
+              customerEstimate.highEuros != null ? (
+                <>
+                  {formatEuro(customerEstimate.lowEuros)} –{" "}
+                  {formatEuro(customerEstimate.highEuros)}
+                </>
+              ) : (
+                <>noin {formatEuro(customerEstimate.totalEuros!)}</>
+              )}
+              {customerEstimate.primaryQty != null &&
+                customerEstimate.primaryUnit && (
+                  <span className="text-violet-800">
+                    {" "}
+                    · {customerEstimate.primaryQty} {customerEstimate.primaryUnit}
+                  </span>
+                )}
+            </p>
+          ) : null}
+          <p className="mt-1 text-xs text-violet-800/90">
+            Asiakkaan suuntaa-antava arvio — vertaa omaan tarjoukseesi. Rivikohtaiset
+            viitehinnat näkyvät alla.
+          </p>
+        </aside>
+      )}
 
       {(config.questions?.length ?? 0) > 0 && (
         <div className="inline-flex rounded-xl border border-stone-200 bg-stone-50 p-1">
@@ -397,7 +420,8 @@ export function ContractorBidCalculator({
         fixedAdd={fixedAdd}
         compact
         showGoogleSearch={false}
-        description="Valitse mukaan tulevat rivit ja muokkaa hintoja viitearvosta poikkeavaksi. Voit lisätä omia kuluja. Telineet ja nostotyö ovat oletuksena pois — lisää vain tarvittaessa."
+        showReferenceComparison
+        description="Valitse mukaan tulevat rivit ja syötä omat hintasi. Jokaisella rivillä näet viitehinnan ja vertailun (edullisempi / lähes sama / kalliimpi). Telineet ja nostotyö ovat oletuksena pois."
       />
 
       <div className="rounded-xl border border-stone-200 bg-white p-4">

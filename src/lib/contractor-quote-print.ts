@@ -4,9 +4,15 @@ import type { ContractorQuoteRow } from "@/lib/contractor-quote-types";
 export const CONTRACTOR_QUOTE_VALIDITY_NOTE =
   "Tarjous on voimassa 30 päivää ellei toisin mainita. Lopullinen hinta voi muuttua, jos työn laajuus tai olosuhteet poikkeavat tarjouksen perusteista.";
 
+export const CONTRACTOR_QUOTE_THANK_YOU =
+  "Kiitos tarjouspyynnöstänne. Toivomme, että tarjouksemme vastaa tarpeitanne ja johtaa hyvään yhteistyöhön.";
+
+export const CONTRACTOR_QUOTE_VALIDITY_DAYS = 30;
+
 export type ContractorQuoteDocumentView = {
   quote: Pick<
     ContractorQuoteRow,
+    | "id"
     | "title"
     | "client_name"
     | "client_email"
@@ -25,6 +31,19 @@ export type ContractorQuoteDocumentView = {
   logoUrl?: string | null;
 };
 
+/** Tarjouksen voimassaolopäivä (luontipäivä + 30 pv). */
+export function quoteValidUntilDate(createdAt: string): Date {
+  const d = new Date(createdAt);
+  d.setDate(d.getDate() + CONTRACTOR_QUOTE_VALIDITY_DAYS);
+  return d;
+}
+
+/** Lyhyt tarjouksen numero tulosteeseen (UUID:n alku). */
+export function quoteDisplayNumber(quoteId: string | null | undefined): string {
+  if (!quoteId?.trim()) return "—";
+  return quoteId.replace(/-/g, "").slice(0, 8).toUpperCase();
+}
+
 /** Admin-esikatselu: realistinen esimerkkitarjous. */
 export function buildAdminSampleQuoteDocument(): ContractorQuoteDocumentView {
   const lineItems: CalculatedLine[] = [
@@ -37,6 +56,7 @@ export function buildAdminSampleQuoteDocument(): ContractorQuoteDocumentView {
 
   return {
     quote: {
+      id: "sample-quote-preview",
       title: "Kattoremontti – omakotitalo",
       client_name: "Matti Meikäläinen",
       client_email: "matti.meikalainen@esimerkki.fi",
