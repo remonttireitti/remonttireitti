@@ -11,10 +11,13 @@ export function ContractorProjectInterestButtons({
   projectId,
   currentInterest,
   compact = false,
+  tone = "default",
 }: {
   projectId: string;
   currentInterest: ProjectInterest | null;
   compact?: boolean;
+  /** Use on colorful AdminGridCard backgrounds. */
+  tone?: "default" | "onColor";
 }) {
   const [state, action, pending] = useActionState<
     ContractorInterestActionState,
@@ -25,6 +28,17 @@ export function ContractorProjectInterestButtons({
     const base = compact
       ? "rounded-lg px-2.5 py-1 text-xs font-medium disabled:opacity-60"
       : "rounded-lg px-3 py-1.5 text-sm font-medium disabled:opacity-60";
+
+    if (tone === "onColor") {
+      if (active && variant === "green") {
+        return `${base} bg-white text-emerald-800`;
+      }
+      if (active && variant === "gray") {
+        return `${base} bg-white text-stone-800`;
+      }
+      return `${base} border border-white/45 bg-white/15 text-white hover:bg-white/25`;
+    }
+
     if (active && variant === "green") {
       return `${base} bg-emerald-700 text-white`;
     }
@@ -80,12 +94,18 @@ export function ContractorProjectInterestButtons({
         )}
       </div>
       {state.ok && (
-        <p className="text-xs text-emerald-800" role="status">
+        <p
+          className={`text-xs ${tone === "onColor" ? "text-white/90" : "text-emerald-800"}`}
+          role="status"
+        >
           {state.ok}
         </p>
       )}
       {state.error && (
-        <p className="text-xs text-red-600" role="alert">
+        <p
+          className={`text-xs ${tone === "onColor" ? "text-amber-100" : "text-red-600"}`}
+          role="alert"
+        >
           {state.error}
         </p>
       )}

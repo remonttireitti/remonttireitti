@@ -2,6 +2,10 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ContractorProjectFilterBar } from "@/components/contractor/contractor-service-area-form";
 import { ContractorProjectsTable } from "@/components/contractor/contractor-projects-table";
+import {
+  AdminGridCard,
+  adminGridClassName,
+} from "@/components/admin/admin-grid-card";
 import { ValuePromoBanner } from "@/components/promo/value-promo-banner";
 import { SiteHeader } from "@/components/site-header";
 import {
@@ -129,28 +133,30 @@ export default async function ContractorProjectsPage({
             <h2 className="text-lg font-semibold text-orange-900">
               Hyväksytyt tarjoukset
             </h2>
-            <ul className="mt-3 space-y-2">
+            <div className={`mt-3 ${adminGridClassName}`}>
               {wonInvoices.map((inv) => {
                 const p = Array.isArray(inv.projects) ? inv.projects[0] : inv.projects;
                 if (!p) return null;
                 return (
-                  <li key={inv.id}>
-                    <Link
-                      href={`/tarjoukset/urakka/${p.id}`}
-                      className="block rounded-xl border border-orange-200 bg-orange-50/60 p-4 hover:border-orange-300"
-                    >
-                      <span className="font-medium">{p.title}</span>
-                      <p className="mt-1 text-sm text-stone-600">
-                        {p.municipality} ·{" "}
+                  <AdminGridCard
+                    key={inv.id}
+                    id={inv.id}
+                    href={`/tarjoukset/urakka/${p.id}`}
+                    title={p.title}
+                    footer={
+                      <>
+                        <span className="font-medium">Tila:</span>{" "}
                         {inv.status === "paid"
                           ? "Yhteystiedot avattu"
-                          : "Maksa välitysmaksu →"}
-                      </p>
-                    </Link>
-                  </li>
+                          : "Maksa välitysmaksu"}
+                      </>
+                    }
+                  >
+                    <p>{p.municipality}</p>
+                  </AdminGridCard>
                 );
               })}
-            </ul>
+            </div>
           </section>
         )}
 

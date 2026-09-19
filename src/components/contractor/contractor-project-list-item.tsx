@@ -3,8 +3,8 @@ import type { ProjectInterest } from "@/lib/contractor-work-filter";
 import type { ProjectMatchResult } from "@/lib/contractor-project-match";
 
 /**
- * @deprecated Prefer ContractorProjectsTable for list UIs.
- * Kept as a thin single-row wrapper for any remaining call sites.
+ * @deprecated Prefer ContractorProjectsTable (dense colorful grid) for list UIs.
+ * Kept as a thin single-item wrapper for any remaining call sites.
  */
 export function ContractorProjectListItem({
   project,
