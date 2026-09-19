@@ -4,7 +4,6 @@ import {
   StyleSheet,
   Text,
   View,
-  renderToBuffer,
 } from "@react-pdf/renderer";
 import {
   formatContractDateTimeFi,
@@ -90,7 +89,7 @@ function PdfRow({ label, value }: { label: string; value?: string | null }) {
   );
 }
 
-function AcceptedBidPdfDocument({ data }: { data: AcceptedBidDocumentData }) {
+export function AcceptedBidPdfDocument({ data }: { data: AcceptedBidDocumentData }) {
   const offerScope = parseBidOfferScope(data.bid.offer_scope);
   const amountSummary = formatAcceptedBidSummary(data.bid as BidAmountParts);
   const splitEquipment = bidHasSplitEquipmentOffer(data.bid as BidAmountParts);
@@ -245,11 +244,4 @@ function AcceptedBidPdfDocument({ data }: { data: AcceptedBidDocumentData }) {
       </Page>
     </Document>
   );
-}
-
-export async function renderAcceptedBidPdf(
-  data: AcceptedBidDocumentData,
-): Promise<Buffer> {
-  const buffer = await renderToBuffer(<AcceptedBidPdfDocument data={data} />);
-  return Buffer.from(buffer);
 }

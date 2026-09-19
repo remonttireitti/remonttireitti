@@ -416,7 +416,8 @@ export async function notifyContractSummaryAvailable(params: {
   customerSopimusPath: string;
   contractorSopimusPath: string;
 }) {
-  const pdfPath = `/api/projects/${params.projectId}/contract-pdf`;
+  // PDF generated in the browser (/sopimus-pdf) — Worker cannot run react-pdf (Error 1102).
+  const pdfPath = `/sopimus-pdf/${params.projectId}`;
   const body = `<p>Urakkasopimuksen yhteenveto (<strong>${escapeHtml(params.contractReference)}</strong>) on valmis urakalle <em>${escapeHtml(params.projectTitle)}</em>.</p>
     <p>Voit ladata sen PDF-muodossa tai tulostaa selaimella.</p>`;
 
@@ -425,7 +426,7 @@ export async function notifyContractSummaryAvailable(params: {
       params.customerId,
       `Urakkasopimus: ${params.projectTitle}`,
       "Sopimusyhteenveto saatavilla",
-      body,
+      `${body}<p><a href="${siteUrl(pdfPath)}" style="color:#0369a1">Lataa PDF</a></p>`,
       params.customerSopimusPath,
       "Avaa sopimus",
     ),
@@ -433,7 +434,7 @@ export async function notifyContractSummaryAvailable(params: {
       params.contractorId,
       `Urakkasopimus: ${params.projectTitle}`,
       "Sopimusyhteenveto saatavilla",
-      `${body}<p><a href="${siteUrl(pdfPath)}" style="color:#0369a1">Lataa PDF suoraan</a></p>`,
+      `${body}<p><a href="${siteUrl(pdfPath)}" style="color:#0369a1">Lataa PDF</a></p>`,
       params.contractorSopimusPath,
       "Avaa sopimus",
     ),

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { AcceptedBidPdfDownloadButton } from "@/components/bid/accepted-bid-pdf-download";
 
 export function PrintDocumentToolbar({
   backHref,
@@ -11,16 +12,9 @@ export function PrintDocumentToolbar({
   backLabel?: string;
   projectId: string;
 }) {
-  const pdfHref = `/api/projects/${projectId}/contract-pdf`;
-
   return (
     <div className="print:hidden mb-8 flex flex-wrap items-center gap-3">
-      <a
-        href={pdfHref}
-        className="rounded-2xl bg-orange-700 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-orange-800"
-      >
-        Lataa PDF
-      </a>
+      <AcceptedBidPdfDownloadButton projectId={projectId} />
       <button
         type="button"
         onClick={() => window.print()}
