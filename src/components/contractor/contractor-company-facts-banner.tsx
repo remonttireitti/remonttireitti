@@ -40,7 +40,7 @@ export function ContractorCompanyFactsBanner({
         )}
       </p>
       <Link
-        href="/oma-tili#yritystiedot"
+        href="/oma-tili/yritys#yritystiedot"
         className="mt-2 inline-block font-medium text-sky-800 underline hover:text-sky-950"
       >
         Siirry Oma tili → Yritystiedot

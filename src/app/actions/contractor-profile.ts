@@ -105,6 +105,7 @@ export async function updateContractorQualifications(
   }
 
   revalidatePath("/oma-tili");
+  revalidatePath("/oma-tili/yritys");
   revalidatePath("/tarjoukset");
   revalidatePath("/remontti");
   return { ok: "Profiili ja yritystiedot tallennettu." };
@@ -146,6 +147,7 @@ export async function updateContractorBidDefaults(
   }
 
   revalidatePath("/oma-tili");
+  revalidatePath("/oma-tili/yritys");
   revalidatePath("/tarjoukset");
   return { ok: "Tarjouksen oletusehdot tallennettu." };
 }
@@ -198,6 +200,7 @@ export async function updateContractorPricingRates(
   }
 
   revalidatePath("/oma-tili");
+  revalidatePath("/oma-tili/yritys");
   revalidatePath("/tarjoukset");
   return { ok: "Laskentaparametrit tallennettu." };
 }
@@ -271,6 +274,7 @@ export async function updateContractorServiceArea(
   }
 
   revalidatePath("/oma-tili");
+  revalidatePath("/oma-tili/yritys");
   revalidatePath("/tarjoukset");
   return { ok: "Toimipaikka tallennettu." };
 }
@@ -310,6 +314,7 @@ export async function updateContractorWorkPreferences(
   }
 
   revalidatePath("/oma-tili");
+  revalidatePath("/oma-tili/yritys");
   revalidatePath("/tarjoukset");
   return { ok: "Työfiltteri tallennettu." };
 }

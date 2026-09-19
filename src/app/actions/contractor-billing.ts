@@ -45,6 +45,7 @@ export async function updateContractorBilling(
   if (error) return { error: "Tallennus epäonnistui." };
 
   revalidatePath("/oma-tili");
+  revalidatePath("/oma-tili/yritys");
   revalidatePath("/admin/laskutus");
   return { ok: "Laskutustiedot tallennettu." };
 }

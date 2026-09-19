@@ -85,14 +85,14 @@ export default async function ContractorQuoteHubPage({
             <p className="mt-1 text-sm text-stone-700">
               Työtunti {rates.hourlyRate} €/h · kate {rates.marginPercent} % ·{" "}
               <Link
-                href="/oma-tili#laskentaparametrit"
+                href="/oma-tili/yritys#laskentaparametrit"
                 className="font-medium text-sky-800 hover:underline"
               >
                 muokkaa laskentaparametreja
               </Link>
               {" · "}
               <Link
-                href="/oma-tili#branding"
+                href="/oma-tili/yritys#branding"
                 className="font-medium text-sky-800 hover:underline"
               >
                 logo ja esittely

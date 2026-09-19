@@ -111,10 +111,12 @@ export function SiteHeaderNav({
             {isContractor && (
               <>
                 <NavItem href="/tarjouslaskuri">Tarjouslaskuri</NavItem>
-                <NavItem href="/oma-tili#yritystiedot">Yritystiedot</NavItem>
+                <NavItem href="/oma-tili/yritys">Yrityksen asetukset</NavItem>
               </>
             )}
-            <NavItem href="/oma-tili">Oma tili</NavItem>
+            <NavItem href="/oma-tili">
+              {isContractor ? "Työpöytä" : "Oma tili"}
+            </NavItem>
             {isEvaluator && <NavItem href="/arvioija">Arvioija</NavItem>}
             {isAdmin && <NavItem href="/admin">Admin</NavItem>}
           </>

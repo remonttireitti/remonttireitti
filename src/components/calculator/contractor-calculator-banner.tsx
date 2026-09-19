@@ -35,7 +35,7 @@ export function ContractorCalculatorBanner({
           Tarjouspyynnöt
         </Link>
         <Link
-          href="/oma-tili#laskentaparametrit"
+          href="/oma-tili/yritys#laskentaparametrit"
           className="text-sm font-medium text-sky-800 hover:underline"
         >
           Laskentaparametrit
