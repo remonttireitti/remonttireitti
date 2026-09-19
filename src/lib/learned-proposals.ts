@@ -45,7 +45,16 @@ function tierFromCounts(
   return null;
 }
 
+function isVisibleToCustomer(row: Record<string, unknown>): boolean {
+  const adminStatus = (row.admin_status as string) ?? "pending";
+  if (adminStatus === "dismissed") return false;
+  if (adminStatus === "approved") return true;
+  return ((row.request_count as number) ?? 0) >= LEARNED_ADDON_HINT_MIN;
+}
+
 function mapRow(row: Record<string, unknown>): LearnedProposal | null {
+  if (!isVisibleToCustomer(row)) return null;
+
   const requestCount = row.request_count as number;
   const suggestionCount = (row.suggestion_count as number) ?? 0;
   const tier = tierFromCounts(requestCount, suggestionCount);
@@ -72,8 +81,11 @@ export async function fetchLearnedProposalsForJob(
 
   let query = supabase
     .from("learned_proposals")
-    .select("job_slug, proposal_slug, kind, label, request_count, suggestion_count")
+    .select(
+      "job_slug, proposal_slug, kind, label, request_count, suggestion_count, admin_status",
+    )
     .eq("job_slug", slug)
+    .neq("admin_status", "dismissed")
     .gte("request_count", minCount)
     .order("request_count", { ascending: false })
     .limit(40);
@@ -98,7 +110,10 @@ export async function fetchAllLearnedProposals(
 ): Promise<LearnedProposal[]> {
   const { data } = await supabase
     .from("learned_proposals")
-    .select("job_slug, proposal_slug, kind, label, request_count, suggestion_count")
+    .select(
+      "job_slug, proposal_slug, kind, label, request_count, suggestion_count, admin_status",
+    )
+    .neq("admin_status", "dismissed")
     .gte("request_count", minCount)
     .order("request_count", { ascending: false })
     .limit(120);

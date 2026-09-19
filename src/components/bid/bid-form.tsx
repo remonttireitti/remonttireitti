@@ -15,6 +15,7 @@ import {
   type BidFormFields,
   validateBidFormClient,
 } from "@/lib/bid-form";
+import { BidCalculatorDeviationNotice } from "@/components/bid/bid-calculator-deviation-notice";
 import { BidCommitmentNotice } from "@/components/bid/bid-commitment-notice";
 import { BidScopeLinesEditor } from "@/components/bid/bid-scope-lines-editor";
 import {
@@ -88,6 +89,10 @@ export function BidForm({
   serviceEngagement,
   calculatorPrefill,
   calculatorPrefillVersion = 0,
+  calculatorEstimateEuros,
+  calculatorSlug,
+  contractorAvgDeviationPercent,
+  contractorDeviationSampleCount,
 }: {
   projectId: string;
   /** Urakoitsija toimittaa laitteet (pakollinen laitetakuu). */
@@ -109,6 +114,11 @@ export function BidForm({
   /** Tarjouslaskurista siirretty summa ja rivit. */
   calculatorPrefill?: CalculatorPrefill | null;
   calculatorPrefillVersion?: number;
+  /** Laskurin arvio vertailua varten (€). */
+  calculatorEstimateEuros?: number | null;
+  calculatorSlug?: string | null;
+  contractorAvgDeviationPercent?: number | null;
+  contractorDeviationSampleCount?: number;
 }) {
   const isServiceProject = Boolean(serviceEngagement);
   const initialFormFields = (() => {
@@ -128,6 +138,9 @@ export function BidForm({
   const [scopeLines, setScopeLines] = useState<BidScopeLine[]>(() =>
     buildSeededScopeLines(jobTypeSlug ?? null, initialFormFields.scope_terms),
   );
+  const [activeCalculatorEstimate, setActiveCalculatorEstimate] = useState<
+    number | null
+  >(calculatorEstimateEuros ?? null);
   const saveAction = mode === "edit" ? updateBid : submitBid;
 
   const { state, submit, pending } = useServerActionSubmit<BidActionState>(
@@ -181,6 +194,19 @@ export function BidForm({
     });
     setClientError(null);
   }, [calculatorPrefill, calculatorPrefillVersion]);
+
+  useEffect(() => {
+    if (calculatorEstimateEuros != null && calculatorEstimateEuros > 0) {
+      setActiveCalculatorEstimate(calculatorEstimateEuros);
+    }
+  }, [calculatorEstimateEuros]);
+
+  useEffect(() => {
+    if (calculatorPrefill?.amountEuros) {
+      const est = Number(calculatorPrefill.amountEuros);
+      if (est > 0) setActiveCalculatorEstimate(est);
+    }
+  }, [calculatorPrefill]);
 
   function syncScopeLines(lines: BidScopeLine[]) {
     setScopeLines(lines);
@@ -375,6 +401,19 @@ export function BidForm({
         }
       />
       {bidId && <input type="hidden" name="bid_id" value={bidId} />}
+      {activeCalculatorEstimate != null && activeCalculatorEstimate > 0 && (
+        <input
+          type="hidden"
+          name="calculator_estimate_euros"
+          value={String(Math.round(activeCalculatorEstimate))}
+        />
+      )}
+      {calculatorSlug && (
+        <input type="hidden" name="calculator_slug" value={calculatorSlug} />
+      )}
+      {jobTypeSlug && (
+        <input type="hidden" name="job_slug_for_calc" value={jobTypeSlug} />
+      )}
 
       {isMultiTrade && tradeContext && (
         <fieldset className="space-y-3 rounded-xl border border-sky-200 bg-sky-50/50 p-4">
@@ -598,6 +637,14 @@ export function BidForm({
             kysytään vahvistus.
           </p>
         )}
+        <div className="mt-3">
+          <BidCalculatorDeviationNotice
+            estimateEuros={activeCalculatorEstimate}
+            bidEuros={amountEuros}
+            contractorAvgDeviationPercent={contractorAvgDeviationPercent}
+            contractorSampleCount={contractorDeviationSampleCount}
+          />
+        </div>
       </div>
 
       <div>

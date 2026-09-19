@@ -30,12 +30,16 @@ export function ContractorBidWorkspace({
   pricingRates,
   initialPrimaryQty,
   jobTypeSlug,
+  contractorAvgDeviationPercent,
+  contractorDeviationSampleCount,
   ...bidFormProps
 }: {
   calculatorConfig: CalculatorConfig;
   pricingRates: ContractorPricingRates;
   initialPrimaryQty?: number;
   jobTypeSlug?: string | null;
+  contractorAvgDeviationPercent?: number | null;
+  contractorDeviationSampleCount?: number;
   projectId: string;
   requiresDeviceAndInstallation: boolean;
   allowOptionalEquipmentOffer: boolean;
@@ -123,6 +127,12 @@ export function ContractorBidWorkspace({
             jobTypeSlug={jobTypeSlug}
             calculatorPrefill={prefill}
             calculatorPrefillVersion={prefillVersion}
+            calculatorEstimateEuros={
+              prefill ? Number(prefill.amountEuros) || null : null
+            }
+            calculatorSlug={calculatorConfig.slug}
+            contractorAvgDeviationPercent={contractorAvgDeviationPercent}
+            contractorDeviationSampleCount={contractorDeviationSampleCount}
           />
         </div>
       </div>
