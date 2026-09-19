@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { SiteHeader } from "@/components/site-header";
@@ -5,7 +6,15 @@ import { brand } from "@/lib/brand-theme";
 import { BID_EVALUATION_STATUS_LABELS } from "@/lib/bid-evaluation";
 import { fetchCustomerEvaluationRequests } from "@/lib/bid-evaluation-server";
 import { getSessionUser } from "@/lib/auth";
+import { pageMetadata } from "@/lib/seo";
 import { createClient } from "@/lib/supabase/server";
+
+export const metadata: Metadata = pageMetadata({
+  title: "Omat arviopyynnöt",
+  description: "Hallinnoi tarjousarvion pyyntöjäsi.",
+  path: "/tarjousarvio/omat",
+  noIndex: true,
+});
 
 export default async function MyEvaluationsPage() {
   const user = await getSessionUser();

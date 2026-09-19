@@ -1,13 +1,22 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { PlatformFeedbackPanel } from "@/components/feedback/platform-feedback-panel";
 import { SiteHeader } from "@/components/site-header";
 import { getProfile, getSessionUser, isContractor } from "@/lib/auth";
 import { brand } from "@/lib/brand-theme";
+import { pageMetadata } from "@/lib/seo";
 import {
   fetchGeneralPlatformFeedbackForUser,
   fetchPublicFeedbackStats,
 } from "@/lib/platform-feedback-server";
 import { createClient } from "@/lib/supabase/server";
+
+export const metadata: Metadata = pageMetadata({
+  title: "Palaute — kerro kokemuksestasi",
+  description:
+    "Anna palautetta Remonttireitistä. Autat meitä parantamaan kilpailutusta, laskureita ja lämpöpumpun vian selvitystä.",
+  path: "/palaute",
+});
 
 export default async function PublicFeedbackPage({
   searchParams,

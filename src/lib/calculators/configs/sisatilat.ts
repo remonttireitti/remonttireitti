@@ -20,9 +20,9 @@ export const SISATILAT_CALCULATORS: CalculatorConfig[] = [
   buildCalculator({
     slug: "kylpyhuone",
     title: "Kylpyhuoneremontin hintalaskuri",
-    pageTitle: "Kylpyhuoneremontti laskuri — arvioi remontin hinta",
+    pageTitle: "Kylpyhuoneremontti hinta — ilmainen laskuri",
     metaDescription:
-      "Laske kylpyhuoneremontin hinta-arvio: purku, vesieristys, laatoitus, LVI ja kalusteet.",
+      "Laske kylpyhuoneremontin hinta: purku, vesieristys, laatoitus, LVI ja kalusteet. Suuntaa-antava arvio — kilpailuta sitten ilmaiseksi.",
     intro:
       "Arvioi kylpyhuoneremontin kustannukset. Hinnat perustuvat suomalaisiin keskiarvoihin — muokkaa rivejä tarpeen mukaan.",
     areaSlug: "sisatilat",
@@ -102,9 +102,9 @@ export const SISATILAT_CALCULATORS: CalculatorConfig[] = [
   buildCalculator({
     slug: "keittio",
     title: "Keittiöremontin hintalaskuri",
-    pageTitle: "Keittiöremontti laskuri — arvioi remontin hinta",
+    pageTitle: "Keittiöremontti hinta — ilmainen laskuri",
     metaDescription:
-      "Laske keittiöremontin hinta-arvio: purku, kalusteet, työt ja kodinkoneet.",
+      "Laske keittiöremontin hinta: purku, kalusteet, työt ja kodinkoneet. Suuntaa-antava arvio ennen ilmaista kilpailutusta.",
     intro: "Keittiöremontin hinta riippuu kalusteista, kodinkoneista ja sähkö-/putkityöstä.",
     areaSlug: "sisatilat",
     primaryInput: sqmInput("Keittiön pinta-ala", 12, { min: 4, max: 40 }),

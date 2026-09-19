@@ -99,8 +99,8 @@ export const ULKOKUORI_CALCULATORS: CalculatorConfig[] = [
   buildCalculator({
     slug: "katto-pelti",
     title: "Kattoremontin hintalaskuri",
-    pageTitle: "Katto laskuri — arvioi kattoremontin hinta",
-    metaDescription: "Arvioi kattoremontin hinta: purku, kate, rännit ja työt.",
+    pageTitle: "Kattoremontti hinta — ilmainen laskuri",
+    metaDescription: "Laske kattoremontin hinta: purku, kate, rännit ja työt. Suuntaa-antava arvio — kilpailuta urakoitsijat ilmaiseksi.",
     intro: "Kattoremontin hinta riippuu katon pinta-alasta, materiaalista ja alustan kunnosta.",
     areaSlug: "ulkokuori",
     primaryInput: sqmInput("Katon pinta-ala", 120, { min: 40, max: 400, step: 10 }),

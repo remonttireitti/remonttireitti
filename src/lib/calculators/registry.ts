@@ -83,6 +83,26 @@ export function getCalculatorSlugs(): string[] {
   return [...bySlug.keys()];
 }
 
+/** SEO-alias, jos olemassa — muuten kanoninen slug (yksi julkinen URL per laskuri). */
+export function getPreferredPublicSlug(slugOrAlias: string): string {
+  const config = getCalculatorBySlug(slugOrAlias);
+  if (!config) return slugOrAlias;
+  for (const [alias, target] of Object.entries(SLUG_ALIASES)) {
+    if (target === config.slug) return alias;
+  }
+  return config.slug;
+}
+
+/** Sitemap / sisälinkit: yksi URL per laskuri (suosii SEO-aliasta). */
+export function getSitemapCalculatorSlugs(): string[] {
+  return ALL_CALCULATORS.map((c) => getPreferredPublicSlug(c.slug));
+}
+
+/** Julkinen polku — aina preferred SEO-slugiin. */
+export function publicCalculatorPath(slugOrAlias: string): string {
+  return calculatorPath(getPreferredPublicSlug(slugOrAlias));
+}
+
 export function getCalculatorsForArea(
   areaSlug: ProjectAreaSlug,
 ): CalculatorConfig[] {
@@ -121,6 +141,7 @@ export function getCalculatorsGroupedByArea(): {
     }));
 }
 
+/** Raaka polku annetulla slugilla (alias tai kanoninen). Preferoi publicCalculatorPath. */
 export function calculatorPath(slug: string): string {
   return `/laskurit/${slug}`;
 }

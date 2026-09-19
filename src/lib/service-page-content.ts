@@ -12,8 +12,8 @@ const HEAT_PUMP_SLUGS = new Set([
   "ilmavesilampopumppu",
   "maalampopumppu",
   "lammitys-vaihto",
-  "lammopumppu-huolto",
-  "lammopumppu-korjaus",
+  "lampopumppu-huolto",
+  "lampopumppu-korjaus",
 ]);
 
 const RENOVATION_SLUGS = new Set([
@@ -52,7 +52,7 @@ const MAINTENANCE_SLUGS = new Set([
 
 function heatPumpContent(name: string, slug: string): ServiceContentBlock {
   const pumpSlug =
-    slug === "lammopumppu-huolto" || slug === "lammopumppu-korjaus"
+    slug === "lampopumppu-huolto" || slug === "lampopumppu-korjaus"
       ? "ilmalampopumppu"
       : slug;
 
@@ -84,14 +84,22 @@ function heatPumpContent(name: string, slug: string): ServiceContentBlock {
     ],
     relatedLinks: [
       { href: "/hinta-arkisto", label: "Hinta-arkisto — toteutuneet hinnat" },
-      { href: "/laskurit", label: "Remonttilaskurit" },
+      { href: `/laskurit/${pumpSlug}`, label: "Lämpöpumpun hintalaskuri" },
       { href: `/vian-selvitys/${pumpSlug}`, label: "Lämpöpumpun vian selvitys" },
       { href: "/huolto/uusi", label: "Huolto- tai korjauspyyntö" },
     ],
   };
 }
 
-function renovationContent(name: string): ServiceContentBlock {
+function renovationContent(name: string, slug: string): ServiceContentBlock {
+  const calcByJob: Record<string, { href: string; label: string }> = {
+    kylpyhuone: { href: "/laskurit/kylpyhuoneremontti", label: "Kylpyhuoneremontin laskuri" },
+    keittio: { href: "/laskurit/keittioremontti", label: "Keittiöremontin laskuri" },
+    "katto-pelti": { href: "/laskurit/kattoremontti", label: "Kattoremontin laskuri" },
+    seinamaalaus: { href: "/laskurit/maalaus", label: "Maalauslaskuri" },
+    terassi: { href: "/laskurit/terassi", label: "Terassilaskuri" },
+  };
+  const calcLink = calcByJob[slug];
   return {
     scopeTitle: "Mitä remonttipyyntöön kannattaa kertoa",
     scopeItems: [
@@ -119,9 +127,11 @@ function renovationContent(name: string): ServiceContentBlock {
       },
     ],
     relatedLinks: [
+      ...(calcLink ? [calcLink] : []),
       { href: "/tarjouspyynnot", label: "Avoimet tarjouspyynnöt" },
       { href: "/asiakkaalle", label: "Ohje asiakkaalle" },
       { href: "/tarjousarvio", label: "Tarjousvahti — puolueeton arvio" },
+      { href: "/laskurit", label: "Kaikki remonttilaskurit" },
     ],
   };
 }
@@ -199,7 +209,7 @@ export function getServicePageContent(
   name: string,
 ): ServiceContentBlock {
   if (HEAT_PUMP_SLUGS.has(slug)) return heatPumpContent(name, slug);
-  if (RENOVATION_SLUGS.has(slug)) return renovationContent(name);
+  if (RENOVATION_SLUGS.has(slug)) return renovationContent(name, slug);
   if (MAINTENANCE_SLUGS.has(slug)) return maintenanceContent(name);
   return defaultContent(name);
 }
