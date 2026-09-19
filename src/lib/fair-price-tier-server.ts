@@ -5,8 +5,10 @@ import {
   buildJobPriceBenchmark,
   formatPriceTierSymbols,
   PRICE_TIER_LABELS,
+  PRICE_TIER_PROFILE_MIN_SAMPLES,
   type ContractorTierProfile,
   type FairPriceAssessment,
+  type FairPriceTierDisplay,
   type JobPriceBenchmark,
 } from "@/lib/fair-price-tier";
 
@@ -116,13 +118,28 @@ export async function fetchContractorProfileFairPrice(
   };
 }
 
-/** Yhdistetty hintataso vertailuun: ensin projektikohtainen, sitten profiili. */
+async function fetchContractorDeviationSampleCount(
+  supabase: SupabaseClient,
+  contractorId: string,
+  jobSlug: string | null,
+): Promise<number> {
+  const slug = jobSlug?.trim() || "generic";
+  const { count } = await supabase
+    .from("calculator_bid_deviations")
+    .select("id", { count: "exact", head: true })
+    .eq("contractor_id", contractorId)
+    .eq("job_slug", slug);
+
+  return count ?? 0;
+}
+
+/** Yhdistetty hintataso vertailuun: projektikohtainen, profiili tai muodostumassa. */
 export async function fetchFairPriceTiersForProjectBids(
   supabase: SupabaseClient,
   projectId: string,
   jobSlug: string | null,
   contractorIds: string[],
-): Promise<Record<string, FairPriceAssessment>> {
+): Promise<Record<string, FairPriceTierDisplay>> {
   const jobBenchmark = await fetchJobPriceBenchmark(supabase, jobSlug);
   const projectMap = await fetchProjectBidFairPrices(
     supabase,
@@ -130,21 +147,50 @@ export async function fetchFairPriceTiersForProjectBids(
     jobBenchmark,
   );
 
-  const result: Record<string, FairPriceAssessment> = {};
+  const result: Record<string, FairPriceTierDisplay> = {};
 
   for (const [contractorId, assessment] of projectMap) {
-    result[contractorId] = assessment;
+    result[contractorId] = {
+      kind: "shown",
+      assessment,
+      source: "project",
+    };
   }
 
   for (const contractorId of contractorIds) {
     if (result[contractorId]) continue;
+
     const profile = await fetchContractorProfileFairPrice(
       supabase,
       contractorId,
       jobSlug,
       jobBenchmark,
     );
-    if (profile) result[contractorId] = profile;
+
+    if (profile) {
+      result[contractorId] = {
+        kind: "shown",
+        assessment: profile,
+        source: "profile",
+      };
+      continue;
+    }
+
+    const sampleCount = await fetchContractorDeviationSampleCount(
+      supabase,
+      contractorId,
+      jobSlug,
+    );
+
+    if (sampleCount > 0 && sampleCount < PRICE_TIER_PROFILE_MIN_SAMPLES) {
+      result[contractorId] = {
+        kind: "building",
+        sampleCount,
+        required: PRICE_TIER_PROFILE_MIN_SAMPLES,
+      };
+    } else {
+      result[contractorId] = { kind: "none" };
+    }
   }
 
   return result;

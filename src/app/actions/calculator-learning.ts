@@ -67,6 +67,7 @@ export async function recordCalculatorLearningSignals(
     addons: addons.filter((s) => typeof s === "string"),
     infoNeeds: infoNeeds.filter((s) => typeof s === "string"),
     asSuggestion,
+    contractorId: user.id,
   });
 
   return { ok: true };

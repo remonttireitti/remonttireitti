@@ -44,11 +44,10 @@ import {
   analyzeBidComparison,
   bidInsightInputFromRow,
 } from "@/lib/bid-comparison-insights";
-import { FairPriceTierBadge } from "@/components/bid/fair-price-tier-badge";
+import { FairPriceTierDisplayCell } from "@/components/bid/fair-price-tier-display";
 import {
   FAIR_PRICE_DISCLAIMER,
-  PRICE_TIER_PROFILE_MIN_SAMPLES,
-  type FairPriceAssessment,
+  type FairPriceTierDisplay,
 } from "@/lib/fair-price-tier";
 import type { BidStatus, ProjectStatus } from "@/types/database";
 
@@ -259,7 +258,7 @@ function MobileBidCard({
   contentRevision: number;
   customerReferralDiscountCents: number;
   customerReferralApplies: boolean;
-  fairPriceTier?: FairPriceAssessment | null;
+  fairPriceTier?: FairPriceTierDisplay | null;
 }) {
   const company = getBidContractorName(bid.contractor_profiles);
   const cardClass = `rounded-xl border p-4 ${columnClass(bid.status, pendingWinner)}`;
@@ -330,14 +329,9 @@ function MobileBidCard({
           </>
         ) : (
           <>
-            {fairPriceTier && (
+            {fairPriceTier && fairPriceTier.kind !== "none" && (
               <Row label="Hintataso">
-                <FairPriceTierBadge
-                  tier={fairPriceTier.tier}
-                  symbols={fairPriceTier.symbols}
-                  tierLabel={fairPriceTier.tierLabel}
-                  showLabel
-                />
+                <FairPriceTierDisplayCell display={fairPriceTier} compact />
               </Row>
             )}
             <Row label="Hinta">
@@ -492,7 +486,7 @@ export function CustomerBids({
   projectTradeNamesById?: Record<string, string>;
   customerReferralDiscountCents?: number;
   customerReferralEligibleContractorIds?: string[];
-  fairPriceTiers?: Record<string, FairPriceAssessment>;
+  fairPriceTiers?: Record<string, FairPriceTierDisplay>;
 }) {
   const customerReferralEligibleSet = new Set(customerReferralEligibleContractorIds);
   const tradeNameMap = new Map(Object.entries(projectTradeNamesById));
@@ -540,9 +534,10 @@ export function CustomerBids({
     const facts = contractorCompanyFactsFromBid(b);
     return facts?.founded_year != null || facts?.company_size_band != null;
   });
-  const showFairPriceRow = sorted.some(
-    (b) => fairPriceTiers[b.contractor_id] != null,
-  );
+  const showFairPriceRow = sorted.some((b) => {
+    const d = fairPriceTiers[b.contractor_id];
+    return d != null && d.kind !== "none";
+  });
 
   if (visibleBids.length === 0) {
     return (
@@ -733,31 +728,16 @@ export function CustomerBids({
                   <th className={labelCell} scope="row">
                     Hintataso
                   </th>
-                  {sorted.map((bid) => {
-                    const tier = fairPriceTiers[bid.contractor_id];
-                    return (
-                      <td
-                        key={bid.id}
-                        className={`${dataCell} border-l ${columnClass(bid.status, isPendingWinner(bid))}`}
-                      >
-                        {tier ? (
-                          <FairPriceTierBadge
-                            tier={tier.tier}
-                            symbols={tier.symbols}
-                            tierLabel={tier.tierLabel}
-                            showLabel
-                            unreliable={
-                              !tier.isProfileReliable &&
-                              tier.profileSampleCount <
-                                PRICE_TIER_PROFILE_MIN_SAMPLES
-                            }
-                          />
-                        ) : (
-                          <span className="text-stone-400">—</span>
-                        )}
-                      </td>
-                    );
-                  })}
+                  {sorted.map((bid) => (
+                    <td
+                      key={bid.id}
+                      className={`${dataCell} border-l ${columnClass(bid.status, isPendingWinner(bid))}`}
+                    >
+                      <FairPriceTierDisplayCell
+                        display={fairPriceTiers[bid.contractor_id]}
+                      />
+                    </td>
+                  ))}
                 </tr>
               )}
               <tr className="border-b border-stone-100">
