@@ -23,6 +23,7 @@ import {
   hintsFromProject,
 } from "@/lib/bid-calculator-bridge";
 import { getCalculatorBySlug } from "@/lib/calculators/registry";
+import { enrichCalculatorConfig } from "@/lib/calculators/resolve-with-learning";
 import { fetchContractorFairPriceContext } from "@/lib/fair-price-tier-server";
 import { fetchContractorPricingRates } from "@/lib/contractor-pricing-server";
 import { resolveProjectJobTypeSlug } from "@/lib/project-job-type";
@@ -158,9 +159,12 @@ export default async function ContractorProjectPage({
   ]);
 
   const calculatorSlug = calculatorSlugForJob(jobTypeSlug);
-  const calculatorConfig = calculatorSlug
+  const baseCalculatorConfig = calculatorSlug
     ? getCalculatorBySlug(calculatorSlug)
     : null;
+  const { config: calculatorConfig } = baseCalculatorConfig
+    ? await enrichCalculatorConfig(supabase, baseCalculatorConfig)
+    : { config: null };
   const calculatorHints = hintsFromProject({
     title: project.title as string,
     description: project.description as string,

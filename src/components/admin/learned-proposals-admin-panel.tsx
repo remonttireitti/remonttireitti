@@ -6,7 +6,11 @@ import {
   type AdminLearningState,
 } from "@/app/actions/admin-learning";
 import type { AdminLearnedProposalRow } from "@/lib/learned-proposals-admin";
-import { LEARNED_ADDON_HINT_MIN, LEARNED_ADDON_STRONG_MIN } from "@/lib/learned-proposals";
+import {
+  LEARNED_ADDON_HINT_MIN,
+  LEARNED_ADDON_STRONG_MIN,
+  LEARNED_AUTO_APPROVE_PERCENT,
+} from "@/lib/learned-proposals";
 import { brand } from "@/lib/brand-theme";
 
 const kindLabels = {
@@ -118,8 +122,9 @@ export function LearnedProposalsAdminPanel({
             <div className="border-b border-stone-100 bg-stone-50/80 px-4 py-3 sm:px-5">
               <h2 className="font-semibold text-stone-900">{jobSlug}</h2>
               <p className="text-xs text-stone-500">
-                {rows.length} ehdotusta · automaattinen vihje ≥{LEARNED_ADDON_HINT_MIN}{" "}
-                · vahva ≥{LEARNED_ADDON_STRONG_MIN}
+                {rows.length} ehdotusta · vihje ≥{LEARNED_ADDON_HINT_MIN} · vahva ≥
+                {LEARNED_ADDON_STRONG_MIN} · auto-hyväksyntä ≥
+                {LEARNED_AUTO_APPROVE_PERCENT} % urakoitsijoista
               </p>
             </div>
             <div className="overflow-x-auto">
@@ -163,8 +168,14 @@ export function LearnedProposalsAdminPanel({
                         </td>
                         <td className="px-4 py-3">
                           <StatusBadge status={row.adminStatus} />
+                          {row.autoApproved && (
+                            <p className="mt-1 text-xs text-emerald-800">
+                              Automaattinen (≥{LEARNED_AUTO_APPROVE_PERCENT} %)
+                            </p>
+                          )}
                           {row.requestCount >= LEARNED_ADDON_STRONG_MIN &&
-                            row.adminStatus === "pending" && (
+                            row.adminStatus === "pending" &&
+                            !row.autoApproved && (
                               <p className="mt-1 text-xs text-amber-800">
                                 Suositeltu hyväksyttäväksi
                               </p>

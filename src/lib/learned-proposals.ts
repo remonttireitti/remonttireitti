@@ -4,6 +4,10 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 export const LEARNED_ADDON_HINT_MIN = 2;
 /** Vahva suositus — korostettu UI. */
 export const LEARNED_ADDON_STRONG_MIN = 10;
+/** Automaattinen admin-hyväksyntä kun ≥ tämä osuus urakoitsijoista ehdottaa. */
+export const LEARNED_AUTO_APPROVE_PERCENT = 30;
+export const LEARNED_AUTO_APPROVE_MIN_SUGGESTERS = 3;
+export const LEARNED_AUTO_APPROVE_MIN_POOL = 5;
 
 export type LearnedProposalKind = "addon" | "info_need";
 
@@ -104,6 +108,41 @@ export async function fetchLearnedProposalsForJob(
   return results;
 }
 
+export async function fetchApprovedProposalsForJob(
+  supabase: SupabaseClient,
+  jobSlug: string | null,
+): Promise<LearnedProposal[]> {
+  const slug = jobSlug?.trim() || "generic";
+
+  const { data } = await supabase
+    .from("learned_proposals")
+    .select(
+      "job_slug, proposal_slug, kind, label, request_count, suggestion_count, admin_status",
+    )
+    .eq("admin_status", "approved")
+    .in("job_slug", [slug, "generic"])
+    .order("request_count", { ascending: false })
+    .limit(40);
+
+  const results: LearnedProposal[] = [];
+  for (const row of data ?? []) {
+    const requestCount = row.request_count as number;
+    const suggestionCount = (row.suggestion_count as number) ?? 0;
+    const tier = tierFromCounts(requestCount, suggestionCount) ?? "hint";
+
+    results.push({
+      jobSlug: (row.job_slug as string) || "generic",
+      slug: row.proposal_slug as string,
+      kind: row.kind as LearnedProposalKind,
+      label: row.label as string,
+      requestCount,
+      suggestionCount,
+      tier,
+    });
+  }
+  return results;
+}
+
 export async function fetchAllLearnedProposals(
   supabase: SupabaseClient,
   minCount = LEARNED_ADDON_HINT_MIN,
@@ -133,10 +172,12 @@ export async function recordLearnedProposals(
     addons: string[];
     infoNeeds: string[];
     asSuggestion?: boolean;
+    contractorId?: string | null;
   },
 ): Promise<void> {
   const jobSlug = params.jobSlug?.trim() || "generic";
   const asSuggestion = params.asSuggestion ?? false;
+  const contractorId = params.contractorId ?? null;
 
   try {
     for (const label of params.addons) {
@@ -146,6 +187,7 @@ export async function recordLearnedProposals(
         p_kind: "addon",
         p_label: label.trim(),
         p_as_suggestion: asSuggestion,
+        p_contractor_id: contractorId,
       });
     }
     for (const label of params.infoNeeds) {
@@ -155,6 +197,7 @@ export async function recordLearnedProposals(
         p_kind: "info_need",
         p_label: label.trim(),
         p_as_suggestion: asSuggestion,
+        p_contractor_id: contractorId,
       });
     }
   } catch (err) {

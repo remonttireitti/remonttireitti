@@ -67,6 +67,13 @@ export async function recordCalculatorBidDeviationFromForm(
       p_estimate_cents: estimateCents,
       p_bid_cents: params.bidCents,
     });
+
+    if (params.calculatorSlug) {
+      await supabase.rpc("recompute_calculator_learned_range", {
+        p_calculator_slug: params.calculatorSlug,
+        p_job_slug: params.jobSlug ?? "generic",
+      });
+    }
   } catch (err) {
     console.warn("[recordCalculatorBidDeviationFromForm]", err);
   }

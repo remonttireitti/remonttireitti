@@ -21,6 +21,22 @@ export const PRICE_TIER_LABELS: Record<PriceTier, string> = {
 export const FAIR_PRICE_DISCLAIMER =
   "Hintaluokka perustuu urakoitsijan tarjoushintoihin suhteessa vastaavan työn laskennalliseen vertailutasoon. Se ei tarkoita, että halvin tarjous olisi paras tai kallein huonoin.";
 
+export const FAIR_PRICE_PROFILE_BUILDING_NOTE = (current: number, required: number) =>
+  `Hintataso muodostuu luotettavasti ${required} vertailukelpoisen tarjouksen jälkeen (${current}/${required}).`;
+
+export type FairPriceTierDisplay =
+  | {
+      kind: "shown";
+      assessment: FairPriceAssessment;
+      source: "project" | "profile";
+    }
+  | {
+      kind: "building";
+      sampleCount: number;
+      required: number;
+    }
+  | { kind: "none" };
+
 export function formatPriceTierSymbols(tier: PriceTier): string {
   return "€".repeat(tier);
 }
