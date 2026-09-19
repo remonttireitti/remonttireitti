@@ -7,6 +7,7 @@ import {
   type RequestGuideQuestion,
 } from "@/constants/project-request-templates";
 import type { EmphasizedCriterion } from "@/lib/template-criterion-stats";
+import { StickyProgressBadge } from "@/components/ui/sticky-progress-badge";
 
 const DESCRIPTION_FIELD_ID = "description";
 
@@ -179,8 +180,18 @@ export function ProjectRequestGuide({
     focusDescriptionField();
   }
 
+  const progressPercent =
+    progress.total > 0 ? Math.round((progress.done / progress.total) * 100) : 0;
+
   return (
     <aside className="rounded-2xl border border-violet-100 bg-violet-50/40 p-4">
+      <StickyProgressBadge
+        done={progress.done}
+        total={progress.total}
+        variant="violet"
+        className="-mx-1 -mt-1"
+      />
+
       <button
         type="button"
         onClick={() => setExpanded((v) => !v)}
@@ -191,7 +202,7 @@ export function ProjectRequestGuide({
           <p className="mt-1 text-xs leading-relaxed text-violet-900">{template.intro}</p>
         </div>
         <span className="shrink-0 text-xs font-medium text-violet-700">
-          {progress.done}/{progress.total} valmis
+          {progressPercent} %
           {progress.added > 0 ? ` · ${progress.added} lisätty` : ""}
         </span>
       </button>
