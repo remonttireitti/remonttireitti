@@ -88,7 +88,7 @@ export default async function ContractorQuoteHubPage({
                 href="/oma-tili#laskentaparametrit"
                 className="font-medium text-sky-800 hover:underline"
               >
-                laskentaparametrit
+                muokkaa laskentaparametreja
               </Link>
               {" · "}
               <Link
