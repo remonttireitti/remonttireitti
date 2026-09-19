@@ -30,15 +30,23 @@ export function StandaloneQuoteWorkspace({
   rates,
   pdfUsage,
   jobSlug,
+  defaultValidityDays = 30,
+  defaultTerms = "",
 }: {
   config: CalculatorConfig;
   rates: ContractorPricingRates;
   pdfUsage: ContractorQuotePdfUsage;
   jobSlug?: string | null;
+  defaultValidityDays?: number;
+  defaultTerms?: string;
 }) {
   const [fields, setFields] = useState<ContractorQuoteFormFields>(() =>
-    defaultQuoteFormForConfig(config.title),
+    defaultQuoteFormForConfig(config.title, {
+      terms: defaultTerms,
+      validityDays: defaultValidityDays,
+    }),
   );
+  const [editTerms, setEditTerms] = useState(false);
   const [calculatorResult, setCalculatorResult] =
     useState<BidCalculatorResult | null>(null);
   const [savedQuoteId, setSavedQuoteId] = useState<string | null>(null);
@@ -85,6 +93,8 @@ export function StandaloneQuoteWorkspace({
   }, [saveState.quoteId]);
 
   const effectiveQuoteId = saveState.quoteId ?? savedQuoteId;
+  const hasDefaultTerms = Boolean(defaultTerms.trim());
+  const termsForSave = editTerms ? fields.terms : defaultTerms;
 
   return (
     <div className="space-y-8">
@@ -140,6 +150,25 @@ export function StandaloneQuoteWorkspace({
               placeholder="Esimerkkikatu 1"
             />
           </label>
+          <label className="block text-sm">
+            <span className="font-medium">Voimassaolo (päivää)</span>
+            <input
+              type="number"
+              min={1}
+              max={365}
+              value={fields.validityDays}
+              onChange={(e) =>
+                updateField(
+                  "validityDays",
+                  Number.parseInt(e.target.value, 10) || defaultValidityDays,
+                )
+              }
+              className={`${inputClass} max-w-[8rem]`}
+            />
+            <span className="mt-1 block text-xs text-stone-500">
+              Oletus yrityksen asetuksista: {defaultValidityDays} pv
+            </span>
+          </label>
           <label className="block text-sm sm:col-span-2">
             <span className="font-medium">Huomiot tarjouksessa</span>
             <textarea
@@ -147,9 +176,70 @@ export function StandaloneQuoteWorkspace({
               onChange={(e) => updateField("notes", e.target.value)}
               rows={2}
               className={inputClass}
-              placeholder="Esim. voimassa 30 pv, ei sisällä sähkötyötä"
+              placeholder="Esim. ei sisällä sähkötyötä"
             />
           </label>
+
+          <div className="sm:col-span-2 space-y-2 rounded-xl border border-stone-200 bg-stone-50/80 p-4">
+            <p className="text-sm font-medium text-stone-900">Tarjouksen ehdot</p>
+            <p className="text-xs text-stone-600">
+              Esitäytetty yrityksen oletusehdoista (Oma tili → Tarjouksen
+              oletusehdot). Voit pitää oletukset tai muokata vain tätä tarjousta.
+            </p>
+            {hasDefaultTerms ? (
+              <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                <label className="flex items-center gap-2 text-sm text-stone-800">
+                  <input
+                    type="radio"
+                    name="terms_mode"
+                    checked={!editTerms}
+                    onChange={() => {
+                      setEditTerms(false);
+                      updateField("terms", defaultTerms);
+                    }}
+                  />
+                  Käytä yrityksen oletusehtoja
+                </label>
+                <label className="flex items-center gap-2 text-sm text-stone-800">
+                  <input
+                    type="radio"
+                    name="terms_mode"
+                    checked={editTerms}
+                    onChange={() => {
+                      setEditTerms(true);
+                      if (!fields.terms.trim()) {
+                        updateField("terms", defaultTerms);
+                      }
+                    }}
+                  />
+                  Muokkaa ehtoja tähän tarjoukseen
+                </label>
+              </div>
+            ) : (
+              <p className="text-xs text-amber-800">
+                Yrityksellä ei ole vielä oletusehtoja. Voit kirjoittaa ehdot tähän
+                tai tallentaa ne ensin Oma tili -asetuksiin.
+              </p>
+            )}
+            {(editTerms || !hasDefaultTerms) && (
+              <textarea
+                value={fields.terms}
+                onChange={(e) => {
+                  setEditTerms(true);
+                  updateField("terms", e.target.value);
+                }}
+                rows={5}
+                className={inputClass}
+                placeholder="Maksuehdot, takuut, peruutusehdot…"
+              />
+            )}
+            {!editTerms && hasDefaultTerms && (
+              <pre className="mt-1 max-h-40 overflow-auto whitespace-pre-wrap rounded-lg border border-stone-200 bg-white px-3 py-2 text-xs text-stone-700">
+                {defaultTerms}
+              </pre>
+            )}
+          </div>
+
           <label className="flex items-start gap-2 text-sm sm:col-span-2">
             <input
               type="checkbox"
@@ -202,6 +292,12 @@ export function StandaloneQuoteWorkspace({
             />
             <input type="hidden" name="site_address" value={fields.siteAddress} />
             <input type="hidden" name="notes" value={fields.notes} />
+            <input type="hidden" name="terms" value={termsForSave} />
+            <input
+              type="hidden"
+              name="validity_days"
+              value={String(fields.validityDays)}
+            />
             {fields.vatIncluded && (
               <input type="hidden" name="vat_included" value="on" />
             )}

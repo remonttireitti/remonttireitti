@@ -14,11 +14,13 @@ const inputClass = formInputClass;
 export function ContractorBrandingForm({
   description,
   logoUrl,
+  defaultQuoteValidityDays = 30,
   className = "",
   id,
 }: {
   description: string;
   logoUrl: string | null;
+  defaultQuoteValidityDays?: number;
   className?: string;
   id?: string;
 }) {
@@ -34,10 +36,11 @@ export function ContractorBrandingForm({
       encType="multipart/form-data"
       className={`${brand.section} space-y-4 p-5 sm:p-6 ${className}`}
     >
-      <h2 className={brand.sectionTitle}>Logo ja esittely</h2>
+      <h2 className={brand.sectionTitle}>Logo, esittely ja voimassaolo</h2>
       <p className={brand.sectionDesc}>
-        Näkyvät PDF-tarjouksessa ja julkisessa yritysprofiilissa. Hyvä esittely
-        auttaa asiakasta tunnistamaan tarjouksen lähettäjän.
+        Logo ja esittely näkyvät PDF-tarjouksessa ja julkisessa
+        yritysprofiilissa. Voimassaoloaika täytetään oletuksena uusiin
+        tarjouksiin.
       </p>
 
       <div>
@@ -90,6 +93,28 @@ export function ContractorBrandingForm({
         </p>
       </div>
 
+      <div>
+        <label
+          htmlFor="default_quote_validity_days"
+          className="block text-sm font-medium"
+        >
+          Tarjouksen oletusvoimassaolo (päivää)
+        </label>
+        <input
+          id="default_quote_validity_days"
+          name="default_quote_validity_days"
+          type="number"
+          min={1}
+          max={365}
+          defaultValue={defaultQuoteValidityDays}
+          className={`${inputClass} max-w-[8rem]`}
+        />
+        <p className="mt-1 text-xs text-stone-500">
+          Käytetään uusissa tarjouslaskurin tarjouksissa. Voit muuttaa arvoa
+          yksittäiselle tarjoukselle ennen tallennusta.
+        </p>
+      </div>
+
       {state.error && (
         <p className="text-sm text-red-600" role="alert">
           {state.error}
@@ -109,7 +134,7 @@ export function ContractorBrandingForm({
         disabled={pending}
         className={`${brand.btnPrimary} disabled:opacity-60`}
       >
-        {pending ? "Tallennetaan…" : "Tallenna logo ja esittely"}
+        {pending ? "Tallennetaan…" : "Tallenna logo, esittely ja voimassaolo"}
       </button>
     </form>
   );

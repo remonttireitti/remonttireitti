@@ -25,7 +25,7 @@ export function compareLineTotal(
 
 export const LINE_PRICE_COMPARISON_LABELS: Record<LinePriceComparison, string> = {
   cheaper: "Edullisempi",
-  similar: "Lähes sama",
+  similar: "Keskitaso",
   more_expensive: "Kalliimpi",
 };
 

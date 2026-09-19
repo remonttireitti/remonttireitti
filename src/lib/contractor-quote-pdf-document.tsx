@@ -9,11 +9,12 @@ import {
 import { formatEuro } from "@/lib/calculators/math";
 import {
   CONTRACTOR_QUOTE_THANK_YOU,
-  CONTRACTOR_QUOTE_VALIDITY_NOTE,
+  contractorQuoteValidityNote,
   quoteDisplayNumber,
   quoteValidUntilDate,
 } from "@/lib/contractor-quote-print";
 import type { ContractorQuotePdfData } from "@/lib/contractor-quote-pdf";
+import { isPdfSafeImageDataUri } from "@/lib/contractor-quote-logo-pdf";
 import { quoteVatBreakdown } from "@/lib/contractor-quote-types";
 import { RemonttireittiLogoPdf } from "@/lib/remonttireitti-logo-pdf";
 import { vatLabel } from "@/lib/vat-label";
@@ -265,11 +266,6 @@ const styles = StyleSheet.create({
   brandUrl: { fontSize: 8, color: colors.soft, marginTop: 1 },
 });
 
-function pdfSafeImageDataUri(dataUri: string | null | undefined): string | null {
-  if (!dataUri?.trim()) return null;
-  return /^data:image\/(png|jpe?g);/i.test(dataUri) ? dataUri : null;
-}
-
 export function ContractorQuotePdfDocument({
   data,
 }: {
@@ -282,15 +278,20 @@ export function ContractorQuotePdfDocument({
     billingAddress,
     companyDescription,
     logoDataUri,
+    logoUrl,
   } = data;
-  const headerLogoSrc = pdfSafeImageDataUri(logoDataUri);
+  const headerLogoSrc = [logoDataUri, logoUrl].find((c) =>
+    isPdfSafeImageDataUri(c),
+  ) ?? null;
+  const validityDays = quote.validity_days ?? 30;
   const totalEuros = quote.total_cents / 100;
   const vat = quoteVatBreakdown(totalEuros, quote.vat_included);
   const lines = quote.line_items.filter((l) => l.enabled && l.amount > 0);
   const dateStr = new Date(quote.created_at).toLocaleDateString("fi-FI");
-  const validUntilStr = quoteValidUntilDate(quote.created_at).toLocaleDateString(
-    "fi-FI",
-  );
+  const validUntilStr = quoteValidUntilDate(
+    quote.created_at,
+    validityDays,
+  ).toLocaleDateString("fi-FI");
   const quoteNumber = quoteDisplayNumber(quote.id);
 
   const companyMeta = [
@@ -313,9 +314,16 @@ export function ContractorQuotePdfDocument({
         <View style={styles.centered}>
           {headerLogoSrc ? (
             <Image src={headerLogoSrc} style={styles.logo} />
-          ) : (
-            <Text style={styles.companyFallback}>{companyName}</Text>
-          )}
+          ) : null}
+          <Text
+            style={
+              headerLogoSrc
+                ? { ...styles.companyFallback, marginTop: 8, fontSize: 12 }
+                : styles.companyFallback
+            }
+          >
+            {companyName}
+          </Text>
         </View>
 
         {(companyDescription || companyMeta) && (
@@ -413,12 +421,19 @@ export function ContractorQuotePdfDocument({
           </View>
         )}
 
+        {quote.terms?.trim() && (
+          <View style={styles.notesBox}>
+            <Text style={styles.notesTitle}>Ehdot</Text>
+            <Text>{quote.terms.trim()}</Text>
+          </View>
+        )}
+
         <Text style={styles.thankYou}>{CONTRACTOR_QUOTE_THANK_YOU}</Text>
         <Text style={styles.signOff}>Ystävällisin terveisin</Text>
         <Text style={styles.signCompany}>{companyName}</Text>
 
         <View style={styles.footer}>
-          <Text>{CONTRACTOR_QUOTE_VALIDITY_NOTE}</Text>
+          <Text>{contractorQuoteValidityNote(validityDays)}</Text>
           <View style={styles.brandRow}>
             <RemonttireittiLogoPdf size={28} />
             <View>

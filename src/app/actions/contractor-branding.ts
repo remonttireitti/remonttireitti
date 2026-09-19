@@ -8,6 +8,7 @@ import {
   uploadContractorLogo,
   validateContractorLogoFile,
 } from "@/lib/contractor-branding";
+import { clampQuoteValidityDays } from "@/lib/contractor-quote-defaults";
 import { createClient } from "@/lib/supabase/server";
 
 export type ContractorBrandingState = { error?: string; ok?: string };
@@ -24,6 +25,9 @@ export async function updateContractorBranding(
 
   const description = normalizeContractorDescription(
     String(formData.get("description") ?? ""),
+  );
+  const defaultQuoteValidityDays = clampQuoteValidityDays(
+    formData.get("default_quote_validity_days"),
   );
   const removeLogo = formData.get("remove_logo") === "on";
   const logoFile = formData.get("logo");
@@ -63,12 +67,19 @@ export async function updateContractorBranding(
     .update({
       description: description || null,
       logo_storage_path: logoStoragePath,
+      default_quote_validity_days: defaultQuoteValidityDays,
     })
     .eq("id", user.id);
 
   if (error) {
     const msg = error.message ?? "";
-    if (msg.includes("logo_storage_path") || error.code === "42703") {
+    if (msg.includes("default_quote_validity_days") || error.code === "42703") {
+      return {
+        error:
+          "Voimassaolo-sarake puuttuu tietokannasta. Aja migraatio 20260919210000_quote_validity_and_terms.sql.",
+      };
+    }
+    if (msg.includes("logo_storage_path")) {
       return {
         error:
           "Logo-sarake puuttuu tietokannasta. Aja migraatio 20260919170000_contractor_branding.sql.",
@@ -81,5 +92,5 @@ export async function updateContractorBranding(
   revalidatePath("/oma-tili/yritys");
   revalidatePath("/tarjouslaskuri");
   revalidatePath(`/urakoitsija/${user.id}`);
-  return { ok: "Logo ja esittelyteksti tallennettu." };
+  return { ok: "Logo, esittelyteksti ja voimassaolo tallennettu." };
 }

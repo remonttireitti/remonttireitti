@@ -3,7 +3,7 @@ import { ContractorQuoteBrandMark } from "@/components/contractor/contractor-quo
 import { formatEuro } from "@/lib/calculators/math";
 import {
   CONTRACTOR_QUOTE_THANK_YOU,
-  CONTRACTOR_QUOTE_VALIDITY_NOTE,
+  contractorQuoteValidityNote,
   quoteDisplayNumber,
   quoteValidUntilDate,
   type ContractorQuoteDocumentView,
@@ -41,10 +41,12 @@ export function ContractorQuoteDocument({
   const totalEuros = quote.total_cents / 100;
   const vat = quoteVatBreakdown(totalEuros, quote.vat_included);
   const lines = quote.line_items.filter((l) => l.enabled && l.amount > 0);
+  const validityDays = quote.validity_days ?? 30;
   const dateStr = new Date(quote.created_at).toLocaleDateString("fi-FI");
-  const validUntilStr = quoteValidUntilDate(quote.created_at).toLocaleDateString(
-    "fi-FI",
-  );
+  const validUntilStr = quoteValidUntilDate(
+    quote.created_at,
+    validityDays,
+  ).toLocaleDateString("fi-FI");
   const quoteNumber = quoteDisplayNumber(quote.id);
 
   const customerLines = [
@@ -63,20 +65,25 @@ export function ContractorQuoteDocument({
 
   return (
     <article className="text-stone-900">
-      {/* Yrityksen logo + esittely (profiilista, ei kovakoodattu) */}
+      {/* Yrityksen logo + nimi + esittely (profiilista) */}
       <header className="flex flex-col items-center text-center">
         {data.logoUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={data.logoUrl}
-            alt={companyName}
+            alt=""
             className="h-16 max-w-[220px] object-contain"
           />
-        ) : (
-          <p className="text-xl font-bold tracking-tight text-sky-950">
-            {companyName}
-          </p>
-        )}
+        ) : null}
+        <p
+          className={
+            data.logoUrl
+              ? "mt-2 text-base font-bold tracking-tight text-sky-950"
+              : "text-xl font-bold tracking-tight text-sky-950"
+          }
+        >
+          {companyName}
+        </p>
         {(companyDescription || companyMeta) && (
           <div className="mt-4 w-full rounded-xl border border-sky-200 border-t-4 border-t-sky-700 bg-sky-50/80 px-4 py-3 text-left">
             {companyDescription ? (
@@ -215,6 +222,17 @@ export function ContractorQuoteDocument({
         </section>
       )}
 
+      {quote.terms?.trim() && (
+        <section className="mt-5 rounded-xl border border-stone-200 bg-stone-50 px-4 py-3">
+          <h2 className="text-xs font-bold uppercase tracking-wide text-stone-500">
+            Ehdot
+          </h2>
+          <p className="mt-1.5 whitespace-pre-wrap text-sm text-stone-700">
+            {quote.terms.trim()}
+          </p>
+        </section>
+      )}
+
       {/* Kiitos + allekirjoitus */}
       <section className="mt-8 text-center">
         <p className="mx-auto max-w-xl text-sm italic leading-relaxed text-stone-600">
@@ -225,7 +243,7 @@ export function ContractorQuoteDocument({
       </section>
 
       <footer className="mt-8 border-t border-stone-200 pt-4 text-xs leading-relaxed text-stone-500">
-        <p>{CONTRACTOR_QUOTE_VALIDITY_NOTE}</p>
+        <p>{contractorQuoteValidityNote(validityDays)}</p>
         <ContractorQuoteBrandMark />
       </footer>
     </article>

@@ -421,7 +421,7 @@ export function ContractorBidCalculator({
         compact
         showGoogleSearch={false}
         showReferenceComparison
-        description="Valitse mukaan tulevat rivit ja syötä omat hintasi. Jokaisella rivillä näet viitehinnan ja vertailun (edullisempi / lähes sama / kalliimpi). Telineet ja nostotyö ovat oletuksena pois."
+        description="Valitse mukaan tulevat rivit ja syötä omat hintasi. Jokaisella rivillä näet viitehinnan ja vertailun (edullisempi / keskitaso / kalliimpi). Telineet ja nostotyö ovat oletuksena pois."
       />
 
       <div className="rounded-xl border border-stone-200 bg-white p-4">

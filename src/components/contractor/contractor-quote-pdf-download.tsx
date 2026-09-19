@@ -4,6 +4,10 @@ import { pdf } from "@react-pdf/renderer";
 import { useCallback, useEffect, useState } from "react";
 import { ContractorQuotePdfDocument } from "@/lib/contractor-quote-pdf-document";
 import type { ContractorQuotePdfData } from "@/lib/contractor-quote-pdf";
+import {
+  ensurePdfSafeLogoDataUri,
+  pickPdfLogoDataUri,
+} from "@/lib/contractor-quote-logo-pdf";
 
 function downloadBlob(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob);
@@ -15,7 +19,14 @@ function downloadBlob(blob: Blob, filename: string) {
 }
 
 async function renderQuotePdfBlob(data: ContractorQuotePdfData): Promise<Blob> {
-  return pdf(<ContractorQuotePdfDocument data={data} />).toBlob();
+  const rawLogo = pickPdfLogoDataUri(data.logoDataUri, data.logoUrl);
+  const safeLogo = await ensurePdfSafeLogoDataUri(rawLogo);
+  const pdfData: ContractorQuotePdfData = {
+    ...data,
+    logoDataUri: safeLogo,
+    logoUrl: safeLogo,
+  };
+  return pdf(<ContractorQuotePdfDocument data={pdfData} />).toBlob();
 }
 
 type DownloadPayload = {

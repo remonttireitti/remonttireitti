@@ -1,5 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { contractorLogoBytesForPdf } from "@/lib/contractor-branding";
+import {
+  contractorLogoBytesForPdf,
+  contractorLogoSignedUrl,
+} from "@/lib/contractor-branding";
 import type { ContractorQuoteRow } from "@/lib/contractor-quote-types";
 import type { CalculatedLine } from "@/lib/calculators/math";
 import type { BidCostBreakdown, BidProfitabilitySummary } from "@/lib/bid-profitability";
@@ -29,6 +32,11 @@ function parseQuoteRow(raw: Record<string, unknown>): ContractorQuoteRow {
       (raw.profitability_summary as BidProfitabilitySummary | null) ?? null,
     vat_included: Boolean(raw.vat_included),
     notes: raw.notes != null ? String(raw.notes) : null,
+    terms: raw.terms != null ? String(raw.terms) : null,
+    validity_days:
+      raw.validity_days != null && Number.isFinite(Number(raw.validity_days))
+        ? Math.max(1, Math.round(Number(raw.validity_days)))
+        : 30,
     status: raw.status === "finalized" ? "finalized" : "draft",
     pdf_generated_at:
       raw.pdf_generated_at != null ? String(raw.pdf_generated_at) : null,
@@ -102,7 +110,14 @@ export async function loadContractorQuotePdfData(
       .join(" "),
   ].filter(Boolean);
 
-  const logo = await contractorLogoBytesForPdf(profile?.logo_storage_path);
+  const [logo, signedLogoUrl] = await Promise.all([
+    contractorLogoBytesForPdf(profile?.logo_storage_path),
+    contractorLogoSignedUrl(supabase, profile?.logo_storage_path),
+  ]);
+
+  // PDF tarvitsee data-URI:n; HTML-tuloste hyväksyy myös allekirjoitetun URL:n.
+  const logoDataUri = logo?.dataUri ?? null;
+  const logoUrl = logoDataUri ?? signedLogoUrl;
 
   return {
     quote,
@@ -110,7 +125,7 @@ export async function loadContractorQuotePdfData(
     businessId: profile?.business_id?.trim() || null,
     billingAddress: billingParts.length > 0 ? billingParts.join(", ") : null,
     companyDescription: profile?.description?.trim() || null,
-    logoUrl: logo?.dataUri ?? null,
-    logoDataUri: logo?.dataUri ?? null,
+    logoUrl,
+    logoDataUri,
   };
 }

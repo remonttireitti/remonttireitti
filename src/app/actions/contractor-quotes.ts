@@ -8,6 +8,7 @@ import {
   canExportContractorQuotePdf,
   fetchContractorQuotePdfUsage,
 } from "@/lib/contractor-quote-limits";
+import { clampQuoteValidityDays } from "@/lib/contractor-quote-defaults";
 import type { ContractorQuoteFormFields } from "@/lib/contractor-quote-types";
 import { revalidatePath } from "next/cache";
 
@@ -25,6 +26,8 @@ function parseQuoteForm(formData: FormData): ContractorQuoteFormFields {
     siteMunicipality: String(formData.get("site_municipality") ?? "").trim(),
     siteAddress: String(formData.get("site_address") ?? "").trim(),
     notes: String(formData.get("notes") ?? "").trim(),
+    terms: String(formData.get("terms") ?? "").trim(),
+    validityDays: clampQuoteValidityDays(formData.get("validity_days")),
     vatIncluded: formData.get("vat_included") === "on",
   };
 }
@@ -85,6 +88,8 @@ export async function saveContractorQuote(
     profitability_summary: result.profitability?.summary ?? null,
     vat_included: fields.vatIncluded,
     notes: fields.notes || null,
+    terms: fields.terms || null,
+    validity_days: fields.validityDays,
     status: "finalized" as const,
     updated_at: new Date().toISOString(),
   };

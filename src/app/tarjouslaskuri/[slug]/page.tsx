@@ -5,6 +5,11 @@ import { SiteHeader } from "@/components/site-header";
 import { brand } from "@/lib/brand-theme";
 import { canBrowseAsContractor } from "@/lib/admin-preview";
 import { getSessionUser } from "@/lib/auth";
+import { fetchContractorBidDefaults } from "@/lib/contractor-bid-defaults-server";
+import {
+  clampQuoteValidityDays,
+  formatQuoteTermsFromBidDefaults,
+} from "@/lib/contractor-quote-defaults";
 import {
   contractorQuoteCalculatorPath,
   contractorQuoteHubPath,
@@ -38,12 +43,24 @@ export default async function ContractorQuoteCalculatorPage({
   if (!baseConfig) notFound();
 
   const supabase = await createClient();
-  const [enriched, rates, pdfUsage] = await Promise.all([
+  const jobSlug = baseConfig.jobSlug ?? null;
+  const [enriched, rates, pdfUsage, bidDefaults, profileRow] = await Promise.all([
     enrichCalculatorConfig(supabase, baseConfig),
     fetchContractorPricingRates(user.id),
     fetchContractorQuotePdfUsage(supabase, user.id),
+    fetchContractorBidDefaults(user.id, jobSlug),
+    supabase
+      .from("contractor_profiles")
+      .select("default_quote_validity_days")
+      .eq("id", user.id)
+      .maybeSingle()
+      .then((r) => r.data),
   ]);
   const config = enriched.config;
+  const defaultTerms = formatQuoteTermsFromBidDefaults(bidDefaults);
+  const defaultValidityDays = clampQuoteValidityDays(
+    profileRow?.default_quote_validity_days,
+  );
 
   return (
     <div className={brand.page}>
@@ -66,7 +83,9 @@ export default async function ContractorQuoteCalculatorPage({
             config={config}
             rates={rates}
             pdfUsage={pdfUsage}
-            jobSlug={config.jobSlug ?? null}
+            jobSlug={jobSlug}
+            defaultValidityDays={defaultValidityDays}
+            defaultTerms={defaultTerms}
           />
         </div>
       </main>

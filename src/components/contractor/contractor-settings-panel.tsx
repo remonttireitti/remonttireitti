@@ -49,6 +49,7 @@ export function ContractorSettingsPanel({
         className="mt-0 scroll-mt-24"
         description={brandingFields.description}
         logoUrl={brandingFields.logoUrl}
+        defaultQuoteValidityDays={brandingFields.defaultQuoteValidityDays}
       />
 
       <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
