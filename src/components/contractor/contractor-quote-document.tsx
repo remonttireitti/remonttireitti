@@ -1,6 +1,6 @@
+import { ContractorQuoteBrandMark } from "@/components/contractor/contractor-quote-brand-mark";
 import { formatEuro } from "@/lib/calculators/math";
 import {
-  CONTRACTOR_QUOTE_APP_ATTRIBUTION,
   CONTRACTOR_QUOTE_VALIDITY_NOTE,
   type ContractorQuoteDocumentView,
 } from "@/lib/contractor-quote-print";
@@ -11,10 +11,8 @@ import { vatLabel } from "@/lib/vat-label";
 
 export function ContractorQuoteDocument({
   data,
-  sampleBadge = false,
 }: {
   data: ContractorQuoteDocumentView;
-  sampleBadge?: boolean;
 }) {
   const { quote, companyName, businessId, billingAddress, companyDescription } =
     data;
@@ -25,12 +23,6 @@ export function ContractorQuoteDocument({
 
   return (
     <article className="text-stone-900">
-      {sampleBadge && (
-        <p className="mb-4 inline-block rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-amber-900 print:border print:border-amber-300">
-          Esimerkkituloste — admin
-        </p>
-      )}
-
       <header className="flex flex-wrap items-start justify-between gap-4 border-b border-stone-200 pb-4">
         <div className="min-w-0 flex-1">
           <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">
@@ -146,9 +138,7 @@ export function ContractorQuoteDocument({
 
       <footer className="mt-8 border-t border-stone-200 pt-4 text-xs leading-relaxed text-stone-500">
         <p>{CONTRACTOR_QUOTE_VALIDITY_NOTE}</p>
-        <p className="mt-3 font-medium text-stone-700">
-          {CONTRACTOR_QUOTE_APP_ATTRIBUTION}
-        </p>
+        <ContractorQuoteBrandMark />
       </footer>
     </article>
   );

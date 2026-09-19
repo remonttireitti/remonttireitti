@@ -8,8 +8,8 @@ import {
   renderToBuffer,
 } from "@react-pdf/renderer";
 import { formatEuro } from "@/lib/calculators/math";
+import { remonttireittiLogoSvgDataUri } from "@/lib/brand-logo";
 import {
-  CONTRACTOR_QUOTE_APP_ATTRIBUTION,
   CONTRACTOR_QUOTE_VALIDITY_NOTE,
   type ContractorQuoteDocumentView,
 } from "@/lib/contractor-quote-print";
@@ -101,6 +101,14 @@ const styles = StyleSheet.create({
   headerMain: { flex: 1 },
   logo: { width: 120, height: 48, objectFit: "contain" as const },
   intro: { marginTop: 8, fontSize: 9, color: "#44403c", lineHeight: 1.5 },
+  brandRow: {
+    marginTop: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  brandLogo: { width: 28, height: 28 },
+  brandName: { fontSize: 10, fontWeight: 700, color: "#44403c" },
 });
 
 function PdfRow({ label, value }: { label: string; value?: string | null }) {
@@ -191,9 +199,10 @@ function ContractorQuotePdfDocument({ data }: { data: ContractorQuotePdfData }) 
 
         <View style={styles.footer}>
           <Text>{CONTRACTOR_QUOTE_VALIDITY_NOTE}</Text>
-          <Text style={{ marginTop: 8, fontWeight: 700, color: "#44403c" }}>
-            {CONTRACTOR_QUOTE_APP_ATTRIBUTION}
-          </Text>
+          <View style={styles.brandRow}>
+            <Image src={remonttireittiLogoSvgDataUri()} style={styles.brandLogo} />
+            <Text style={styles.brandName}>Remonttireitti</Text>
+          </View>
         </View>
       </Page>
     </Document>

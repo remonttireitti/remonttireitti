@@ -1,9 +1,5 @@
 import type { CalculatedLine } from "@/lib/calculators/math";
 import type { ContractorQuoteRow } from "@/lib/contractor-quote-types";
-import { siteConfig } from "@/lib/site-config";
-
-/** Pakollinen alatunniste kaikissa tarjous-PDF:issä ja tulosteissa. */
-export const CONTRACTOR_QUOTE_APP_ATTRIBUTION = `Tulostukseen on käytetty ${siteConfig.siteUrl.replace(/^https?:\/\//, "")}-sovellusta.`;
 
 export const CONTRACTOR_QUOTE_VALIDITY_NOTE =
   "Tarjous on voimassa 30 päivää ellei toisin mainita. Lopullinen hinta voi muuttua, jos työn laajuus tai olosuhteet poikkeavat tarjouksen perusteista.";
