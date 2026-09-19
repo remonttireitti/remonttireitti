@@ -10,7 +10,7 @@ import {
   filterContractorProjects,
 } from "@/lib/contractor-work-filter";
 import {
-  contractorQuoteCalculatorPath,
+  contractorQuoteEditPath,
   contractorQuotePdfDownloadPath,
 } from "@/lib/contractor-quote-paths";
 import {
@@ -192,7 +192,7 @@ function offerFromQuote(quote: QuoteRow): ContractorDashboardOffer {
     date: quote.updated_at || quote.created_at,
     statusLabel: CONTRACTOR_QUOTE_STATUS_LABELS[status],
     statusTone: contractorQuoteStatusTone(status),
-    href: contractorQuoteCalculatorPath(quote.calculator_slug),
+    href: contractorQuoteEditPath(quote.calculator_slug, quote.id),
     pdfHref: contractorQuotePdfDownloadPath(quote.id),
     pdfLabel:
       status === "sent" ||

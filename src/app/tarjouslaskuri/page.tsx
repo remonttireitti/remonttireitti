@@ -6,6 +6,7 @@ import { canBrowseAsContractor } from "@/lib/admin-preview";
 import { getSessionUser } from "@/lib/auth";
 import {
   contractorQuoteCalculatorPath,
+  contractorQuoteEditPath,
   contractorQuoteHubPath,
   contractorQuotePdfDownloadPath,
 } from "@/lib/contractor-quote-paths";
@@ -135,12 +136,23 @@ export default async function ContractorQuoteHubPage({
                         </>
                       )}
                     </p>
-                    <Link
-                      href={contractorQuotePdfDownloadPath(quote.id)}
-                      className="mt-1 inline-block text-sm font-medium text-emerald-800 hover:underline"
-                    >
-                      Lataa PDF uudelleen
-                    </Link>
+                    <div className="mt-1 flex flex-wrap gap-3">
+                      <Link
+                        href={contractorQuoteEditPath(
+                          quote.calculator_slug,
+                          quote.id,
+                        )}
+                        className="text-sm font-medium text-sky-800 hover:underline"
+                      >
+                        Muokkaa
+                      </Link>
+                      <Link
+                        href={contractorQuotePdfDownloadPath(quote.id)}
+                        className="text-sm font-medium text-emerald-800 hover:underline"
+                      >
+                        Lataa PDF uudelleen
+                      </Link>
+                    </div>
                   </div>
                   <ContractorQuoteOutcomeControl quote={quote} />
                 </li>
@@ -194,10 +206,13 @@ export default async function ContractorQuoteHubPage({
                   </div>
                   <div className="flex gap-3">
                     <Link
-                      href={contractorQuoteCalculatorPath(quote.calculator_slug)}
+                      href={contractorQuoteEditPath(
+                        quote.calculator_slug,
+                        quote.id,
+                      )}
                       className="text-sky-800 hover:underline"
                     >
-                      Avaa laskuri
+                      Muokkaa
                     </Link>
                     <Link
                       href={contractorQuotePdfDownloadPath(quote.id)}
