@@ -145,3 +145,10 @@ export function getCalculatorsGroupedByArea(): {
 export function calculatorPath(slug: string): string {
   return `/laskurit/${slug}`;
 }
+
+/** Alias-slugit, jotka ohjaavat kanoniseen laskuriin (hakua varten). */
+export function getSlugAliasesForCalculator(canonicalSlug: string): string[] {
+  return Object.entries(SLUG_ALIASES)
+    .filter(([, target]) => target === canonicalSlug)
+    .map(([alias]) => alias);
+}
