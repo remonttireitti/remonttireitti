@@ -285,6 +285,7 @@ export default async function ContractorProjectPage({
     calculatorConfig,
     pricingRates,
     initialPrimaryQty: calculatorHints.primaryQty,
+    projectCalculatorHints: calculatorHints,
     jobPriceBenchmark: fairPriceContext.jobBenchmark,
     contractorTierProfile: fairPriceContext.contractorProfile,
   };

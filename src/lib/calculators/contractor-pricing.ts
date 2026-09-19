@@ -87,17 +87,28 @@ export function contractorOverheadLines(
   ];
 }
 
-/** Sovella urakoitsijan hinnat laskurin riveihin. */
+/** Tallenna laskurin viitehinnat ennen urakoitsijan hintojen soveltamista. */
+export function attachReferenceAmounts(
+  items: CalculatorLineItem[],
+): CalculatorLineItem[] {
+  return items.map((item) => ({
+    ...item,
+    referenceAmount: item.referenceAmount ?? item.amount,
+  }));
+}
+
+/** Sovella urakoitsijan hinnat laskurin riveihin. Viitehinta säilyy. */
 export function applyContractorRatesToLines(
   items: CalculatorLineItem[],
   rates: ContractorPricingRates,
 ): CalculatorLineItem[] {
   return items.map((item) => {
+    const referenceAmount = item.referenceAmount ?? item.amount;
     const override = rates.lineRates[item.id];
     if (override != null && override > 0) {
-      return { ...item, amount: override };
+      return { ...item, amount: override, referenceAmount };
     }
-    return item;
+    return { ...item, referenceAmount };
   });
 }
 
