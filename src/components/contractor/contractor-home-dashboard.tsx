@@ -147,7 +147,7 @@ export function ContractorHomeDashboard({
           </Link>
         </div>
 
-        {recentBids.length === 0 ? (
+        {stats.submittedCount === 0 ? (
           <div className={`${brand.section} mt-4 px-5 py-8 text-center`}>
             <p className="text-sm text-stone-600">
               Et ole vielä lähettänyt tarjouksia Remonttireitin kautta.
