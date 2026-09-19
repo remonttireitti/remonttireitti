@@ -385,7 +385,8 @@ export async function consumeCustomerReferralCredit(
   return {};
 }
 
-export async function grantCustomerReferralCreditForAcceptedDeal(
+/** Bonus kun suositeltu asiakas on julkaissut tarjouspyynnön ja se on saanut tarjouksia. */
+export async function grantCustomerReferralCreditForProjectWithBids(
   admin: AdminClient,
   params: {
     referredCustomerId: string;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useServerActionSubmit } from "@/hooks/use-server-action-submit";
 import {
   submitBid,
@@ -15,6 +15,10 @@ import {
   type BidFormFields,
   validateBidFormClient,
 } from "@/lib/bid-form";
+import { FairPriceTierNotice } from "@/components/bid/fair-price-tier-notice";
+import { VatLabel } from "@/components/price/price-with-vat";
+import { bidAmountFieldLabel, vatLabelInParens } from "@/lib/vat-label";
+import type { ContractorTierProfile, JobPriceBenchmark } from "@/lib/fair-price-tier";
 import { BidCommitmentNotice } from "@/components/bid/bid-commitment-notice";
 import { BidScopeLinesEditor } from "@/components/bid/bid-scope-lines-editor";
 import {
@@ -49,6 +53,11 @@ import {
 } from "@/lib/service-engagement";
 import type { ProjectTradeContext } from "@/lib/project-trades-server";
 import { TURNKEY_COORDINATION_LABELS } from "@/lib/bid-trade-offer";
+import {
+  computeProfitability,
+  profitabilityToFormHidden,
+  type BidCostBreakdown,
+} from "@/lib/bid-profitability";
 
 const inputClass =
   "mt-1 w-full rounded-lg border border-stone-300 px-3 py-2 focus:border-sky-600 focus:outline-none focus:ring-1 focus:ring-sky-600";
@@ -68,6 +77,19 @@ function fieldClass(hasError: boolean): string {
   return hasError ? inputErrorClass : inputClass;
 }
 
+type CalculatorPrefill = {
+  amountEuros: string;
+  scopeLines: BidScopeLine[];
+  messageNote: string;
+  calculatorSubtotalEuros?: number;
+  profitability?: {
+    costs: BidCostBreakdown;
+    hourlyRate: number;
+  };
+};
+
+type CalculatorPrefillProfitability = CalculatorPrefill["profitability"];
+
 export function BidForm({
   projectId,
   requiresDeviceAndInstallation,
@@ -80,6 +102,13 @@ export function BidForm({
   jobTypeSlug,
   tradeContext,
   serviceEngagement,
+  calculatorPrefill,
+  calculatorPrefillVersion = 0,
+  calculatorEstimateEuros,
+  calculatorPrefillProfitability = null,
+  calculatorSlug,
+  jobPriceBenchmark,
+  contractorTierProfile,
 }: {
   projectId: string;
   /** Urakoitsija toimittaa laitteet (pakollinen laitetakuu). */
@@ -98,6 +127,16 @@ export function BidForm({
   tradeContext?: ProjectTradeContext;
   /** Jatkuva palvelu — hinnoittelu per käynti / kk / kausi. */
   serviceEngagement?: ServiceEngagement | null;
+  /** Tarjouslaskurista siirretty summa ja rivit. */
+  calculatorPrefill?: CalculatorPrefill | null;
+  calculatorPrefillVersion?: number;
+  /** Laskurin arvio vertailua varten (€). */
+  calculatorEstimateEuros?: number | null;
+  /** Laskurista siirretty kustannusjako kannattavuusnäkymää varten. */
+  calculatorPrefillProfitability?: CalculatorPrefillProfitability | null;
+  calculatorSlug?: string | null;
+  jobPriceBenchmark?: JobPriceBenchmark | null;
+  contractorTierProfile?: ContractorTierProfile | null;
 }) {
   const isServiceProject = Boolean(serviceEngagement);
   const initialFormFields = (() => {
@@ -117,6 +156,13 @@ export function BidForm({
   const [scopeLines, setScopeLines] = useState<BidScopeLine[]>(() =>
     buildSeededScopeLines(jobTypeSlug ?? null, initialFormFields.scope_terms),
   );
+  const [activeCalculatorEstimate, setActiveCalculatorEstimate] = useState<
+    number | null
+  >(calculatorEstimateEuros ?? null);
+  const [profitabilityInput, setProfitabilityInput] =
+    useState<CalculatorPrefillProfitability | null>(
+      calculatorPrefillProfitability ?? null,
+    );
   const saveAction = mode === "edit" ? updateBid : submitBid;
 
   const { state, submit, pending } = useServerActionSubmit<BidActionState>(
@@ -143,6 +189,51 @@ export function BidForm({
       setFieldErrors(state.fieldErrors);
     }
   }, [state.fields, state.fieldErrors]);
+
+  useEffect(() => {
+    if (!calculatorPrefill || calculatorPrefillVersion === 0) return;
+
+    setFields((prev) => {
+      const message = calculatorPrefill.messageNote.trim();
+      const hasNote = prev.message.includes(message);
+      return {
+        ...prev,
+        amount_euros: calculatorPrefill.amountEuros,
+        message: hasNote
+          ? prev.message
+          : prev.message.trim()
+            ? `${prev.message.trim()}\n\n${message}`
+            : message,
+      };
+    });
+    setScopeLines(calculatorPrefill.scopeLines);
+    setFieldErrors((prev) => {
+      if (!prev.amount_euros && !prev.scope_terms) return prev;
+      const next = { ...prev };
+      delete next.amount_euros;
+      delete next.scope_terms;
+      return next;
+    });
+    if (calculatorPrefill.profitability) {
+      setProfitabilityInput(calculatorPrefill.profitability);
+    }
+    if (calculatorPrefill.calculatorSubtotalEuros != null) {
+      setActiveCalculatorEstimate(calculatorPrefill.calculatorSubtotalEuros);
+    }
+    setClientError(null);
+  }, [calculatorPrefill, calculatorPrefillVersion]);
+
+  useEffect(() => {
+    if (calculatorEstimateEuros != null && calculatorEstimateEuros > 0) {
+      setActiveCalculatorEstimate(calculatorEstimateEuros);
+    }
+  }, [calculatorEstimateEuros]);
+
+  useEffect(() => {
+    if (calculatorPrefillProfitability) {
+      setProfitabilityInput(calculatorPrefillProfitability);
+    }
+  }, [calculatorPrefillProfitability]);
 
   function syncScopeLines(lines: BidScopeLine[]) {
     setScopeLines(lines);
@@ -246,6 +337,23 @@ export function BidForm({
       ? Number(fields.equipment_amount_euros) || 0
       : 0;
   const amountEuros = bidFormTotalEuros(fields);
+  const profitabilitySummary = useMemo(() => {
+    if (!profitabilityInput) return null;
+    const sellingPrice = workEuros > 0 ? workEuros : amountEuros;
+    if (sellingPrice <= 0) return null;
+    return computeProfitability(
+      sellingPrice,
+      profitabilityInput.costs,
+      profitabilityInput.hourlyRate,
+    );
+  }, [profitabilityInput, workEuros, amountEuros]);
+  const profitabilityHiddenFields = useMemo(() => {
+    if (!profitabilitySummary || !profitabilityInput) return null;
+    return profitabilityToFormHidden(
+      profitabilitySummary,
+      profitabilityInput.costs,
+    );
+  }, [profitabilitySummary, profitabilityInput]);
   const overBudget =
     budgetInfo.budgetMaxEur != null &&
     bidAmountExceedsBudget(amountEuros, budgetInfo);
@@ -297,12 +405,16 @@ export function BidForm({
   }
 
   const amountLabel = isServiceProject && fields.service_pricing_model
-    ? `${SERVICE_PRICING_MODEL_LABELS[fields.service_pricing_model]} (€) *`
+    ? bidAmountFieldLabel(
+        SERVICE_PRICING_MODEL_LABELS[fields.service_pricing_model],
+        fields.vat_included,
+      )
     : bidOfferScopeAmountLabel(
         fields.offer_scope || null,
         isMultiTrade,
         allowOptionalEquipmentOffer,
         requiresDeviceAndInstallation,
+        fields.vat_included,
       );
 
   const servicePricingOptions = serviceEngagement
@@ -337,6 +449,26 @@ export function BidForm({
         }
       />
       {bidId && <input type="hidden" name="bid_id" value={bidId} />}
+      {activeCalculatorEstimate != null && activeCalculatorEstimate > 0 && (
+        <input
+          type="hidden"
+          name="calculator_estimate_euros"
+          value={String(Math.round(activeCalculatorEstimate))}
+        />
+      )}
+      {calculatorSlug && (
+        <input type="hidden" name="calculator_slug" value={calculatorSlug} />
+      )}
+      {jobTypeSlug && (
+        <input type="hidden" name="job_slug_for_calc" value={jobTypeSlug} />
+      )}
+      {profitabilityHiddenFields && (
+        <input
+          type="hidden"
+          name="bid_profitability_json"
+          value={profitabilityHiddenFields.bid_profitability_json}
+        />
+      )}
 
       {isMultiTrade && tradeContext && (
         <fieldset className="space-y-3 rounded-xl border border-sky-200 bg-sky-50/50 p-4">
@@ -548,17 +680,28 @@ export function BidForm({
         {blockedOverBudget && (
           <p className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">
             Hinta ylittää asiakkaan budjetin (
-            {budgetInfo.budgetMaxEur!.toLocaleString("fi-FI")} €). Asiakas ei
-            hyväksy tarjouksia tämän yli — tarjousta ei voi lähettää tällä
-            hinnalla.
+            {budgetInfo.budgetMaxEur!.toLocaleString("fi-FI")} €{" "}
+            {vatLabelInParens(true)}). Asiakas ei hyväksy tarjouksia tämän yli
+            — tarjousta ei voi lähettää tällä hinnalla.
           </p>
         )}
         {overBudget && !blockedOverBudget && (
           <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-950">
             Hinta ylittää asiakkaan budjetin (
-            {budgetInfo.budgetMaxEur!.toLocaleString("fi-FI")} €). Lähetyksessä
-            kysytään vahvistus.
+            {budgetInfo.budgetMaxEur!.toLocaleString("fi-FI")} €{" "}
+            {vatLabelInParens(true)}). Lähetyksessä kysytään vahvistus.
           </p>
+        )}
+        {activeCalculatorEstimate != null && activeCalculatorEstimate > 0 && (
+          <div className="mt-3">
+            <FairPriceTierNotice
+              estimateEuros={activeCalculatorEstimate}
+              bidEuros={amountEuros}
+              jobBenchmark={jobPriceBenchmark ?? null}
+              contractorProfile={contractorTierProfile ?? null}
+              profitability={profitabilitySummary}
+            />
+          </div>
         )}
       </div>
 
@@ -711,7 +854,8 @@ export function BidForm({
             <>
               <p className="rounded-lg bg-white px-3 py-2 text-sm text-stone-700">
                 <span className="font-medium">Yhteensä tarjouksessa:</span>{" "}
-                {(workEuros + equipEuros).toLocaleString("fi-FI")} € (asennus{" "}
+                {(workEuros + equipEuros).toLocaleString("fi-FI")} €{" "}
+                {vatLabelInParens(fields.vat_included)} (asennus{" "}
                 {workEuros.toLocaleString("fi-FI")} € + laite{" "}
                 {equipEuros.toLocaleString("fi-FI")} €)
               </p>
@@ -720,7 +864,7 @@ export function BidForm({
                   htmlFor="equipment_amount_euros"
                   className="block text-sm font-medium"
                 >
-                  Laitteen hinta (€, sis. ALV) *
+                  {bidAmountFieldLabel("Laitteen hinta", fields.vat_included)}
                 </label>
                 <input
                   id="equipment_amount_euros"
@@ -887,15 +1031,24 @@ export function BidForm({
         )}
       </fieldset>
 
-      <label className="flex items-center gap-2 text-sm">
-        <input
-          type="checkbox"
-          name="vat_included"
-          checked={fields.vat_included}
-          onChange={(e) => update("vat_included", e.target.checked)}
-        />
-        Hinta sisältää ALV:n
-      </label>
+      <fieldset className="rounded-xl border border-stone-200 bg-stone-50/80 px-4 py-3">
+        <legend className="px-1 text-sm font-semibold text-stone-800">
+          ALV-merkintä
+        </legend>
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            name="vat_included"
+            checked={fields.vat_included}
+            onChange={(e) => update("vat_included", e.target.checked)}
+          />
+          Hinta sisältää ALV:n
+        </label>
+        <p className="mt-2 text-xs text-stone-600">
+          Nykyinen merkintä: <VatLabel included={fields.vat_included} inline /> —
+          asiakas näkee saman merkinnän tarjousvertailussa.
+        </p>
+      </fieldset>
 
       <BidCommitmentNotice mode={mode} />
 

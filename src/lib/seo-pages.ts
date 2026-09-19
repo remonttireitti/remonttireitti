@@ -2,7 +2,9 @@ import type { MetadataRoute } from "next";
 import { HEAT_PUMP_JOB_SLUGS } from "@/constants/heat-pumps";
 import { LISTING_PRODUCT_CATEGORIES } from "@/lib/marketplace-categories";
 import {
+  CALCULATOR_KEYWORDS,
   CONTRACTOR_KEYWORDS,
+  HELP_KEYWORDS,
   HEAT_PUMP_KEYWORDS,
   MARKETPLACE_KEYWORDS,
   mergeKeywords,
@@ -27,12 +29,13 @@ export const STATIC_SEO_PAGES: SeoPageDef[] = [
     path: "/",
     title: "Kilpailuta remontti ilmaiseksi — ohjattu tarjouspyyntö",
     description:
-      "Ohjattu tarjouspyyntö, laatupiste ja oppiva pohja. Julkaise ilmaiseksi, saa tarkkoja tarjouksia urakoitsijoilta ja vertaa samassa muodossa. Asiakkaalle 0 €.",
+      "Ohjattu tarjouspyyntö ilman tiliä, laatupiste ja oppiva pohja. Julkaise ilmaiseksi, vertaa tarjouksia. Pieni apu — vapaaehtoista naapuriapua pieniin hommiin. Asiakkaalle 0 €.",
     keywords: mergeKeywords(
       SITE_KEYWORDS,
       HEAT_PUMP_KEYWORDS.slice(0, 3),
       SERVICE_KEYWORDS.slice(0, 4),
       MARKETPLACE_KEYWORDS.slice(0, 2),
+      HELP_KEYWORDS.slice(0, 4),
     ),
     changeFrequency: "weekly",
     priority: 1,
@@ -96,6 +99,24 @@ export const STATIC_SEO_PAGES: SeoPageDef[] = [
     keywords: mergeKeywords(SITE_KEYWORDS, TARJOUSARVIO_KEYWORDS, HEAT_PUMP_KEYWORDS.slice(0, 3)),
     changeFrequency: "monthly",
     priority: 0.88,
+  },
+  {
+    path: "/laskurit",
+    title: "Remontin hintalaskurit — arvioi kustannukset ennen tarjouspyyntöä",
+    description:
+      "Ilmaiset remonttilaskurit: kattoremontti, ilmalämpöpumppu, kylpyhuone, keittiö, maalaus, terassi ja 40+ muuta. Viitehinnat ja kustannusjako — pyydä sitten tarjoukset ilmaiseksi.",
+    keywords: mergeKeywords(SITE_KEYWORDS, CALCULATOR_KEYWORDS),
+    changeFrequency: "monthly",
+    priority: 0.82,
+  },
+  {
+    path: "/apu",
+    title: "Pieni apu — vapaaehtoista naapuriapua",
+    description:
+      "Pyydä pientä apua lähialueelta tai tarjoa vapaaehtoista apua. Kantaminen, siirtäminen ja muut pienet hommat — ei hintaa, hyvä teko synnyttää hyvää.",
+    keywords: mergeKeywords(SITE_KEYWORDS, HELP_KEYWORDS),
+    changeFrequency: "daily",
+    priority: 0.72,
   },
   {
     path: "/tarjouspyynnot",
@@ -270,6 +291,31 @@ export function contractorProfileSitemapEntries(
     url: `${base}/urakoitsija/${row.id}`,
     lastModified: new Date(row.updated_at),
     changeFrequency: "weekly" as const,
+    priority: 0.55,
+  }));
+}
+
+export function calculatorSitemapEntries(
+  base: string,
+  now: Date,
+  slugs: string[],
+): MetadataRoute.Sitemap {
+  return slugs.map((slug) => ({
+    url: `${base}/laskurit/${slug}`,
+    lastModified: now,
+    changeFrequency: "monthly" as const,
+    priority: slug === "kylpyhuone" || slug === "ilmalampopumppu" ? 0.88 : 0.8,
+  }));
+}
+
+export function helpRequestSitemapEntries(
+  base: string,
+  requests: { id: string; created_at: string }[],
+): MetadataRoute.Sitemap {
+  return requests.map((row) => ({
+    url: `${base}/apu/${row.id}`,
+    lastModified: new Date(row.created_at),
+    changeFrequency: "daily" as const,
     priority: 0.55,
   }));
 }

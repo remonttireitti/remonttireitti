@@ -1,4 +1,4 @@
-import { formatEurosFromCents } from "@/lib/bids";
+import { formatCentsWithVatLabel } from "@/lib/vat-label";
 
 export type CounterOfferStatus = "pending" | "accepted" | "declined";
 
@@ -13,9 +13,14 @@ export function hasPendingCounterOffer(bid: BidCounterFields): boolean {
   return bid.counter_status === "pending" && bid.counter_amount_cents != null;
 }
 
-export function formatCounterOfferStatus(bid: BidCounterFields): string | null {
+export function formatCounterOfferStatus(
+  bid: BidCounterFields & { vat_included?: boolean },
+): string | null {
   if (!bid.counter_amount_cents || !bid.counter_status) return null;
-  const amount = formatEurosFromCents(bid.counter_amount_cents);
+  const amount = formatCentsWithVatLabel(
+    bid.counter_amount_cents,
+    bid.vat_included ?? true,
+  );
   switch (bid.counter_status) {
     case "pending":
       return `${amount} — odottaa urakoitsijan vastausta`;

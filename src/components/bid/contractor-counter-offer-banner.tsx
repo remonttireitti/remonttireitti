@@ -6,7 +6,8 @@ import {
   acceptCounterOffer,
   declineCounterOffer,
 } from "@/app/actions/bids";
-import { formatEurosFromCents } from "@/lib/bids";
+import { PriceWithVat } from "@/components/price/price-with-vat";
+import { formatCentsWithVatLabel } from "@/lib/vat-label";
 import type { BidCounterFields } from "@/lib/bid-counter-offer";
 
 export function ContractorCounterOfferBanner({
@@ -16,7 +17,7 @@ export function ContractorCounterOfferBanner({
 }: {
   bidId: string;
   projectId: string;
-  bid: BidCounterFields & { amount_cents: number };
+  bid: BidCounterFields & { amount_cents: number; vat_included: boolean };
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState<"accept" | "decline" | null>(null);
@@ -29,7 +30,7 @@ export function ContractorCounterOfferBanner({
   async function handleAccept() {
     if (
       !window.confirm(
-        `Hyväksytkö asiakkaan vastatarjouksen ${formatEurosFromCents(bid.counter_amount_cents!)}? Tarjouksesi hinta päivitetään.`,
+        `Hyväksytkö asiakkaan vastatarjouksen ${formatCentsWithVatLabel(bid.counter_amount_cents!, bid.vat_included)}? Tarjouksesi hinta päivitetään.`,
       )
     ) {
       return;
@@ -51,7 +52,7 @@ export function ContractorCounterOfferBanner({
   async function handleDecline() {
     if (
       !window.confirm(
-        `Hylkää asiakkaan vastatarjous ${formatEurosFromCents(bid.counter_amount_cents!)}? Alkuperäinen tarjouksesi ${formatEurosFromCents(bid.amount_cents)} säilyy voimassa.`,
+        `Hylkää asiakkaan vastatarjous ${formatCentsWithVatLabel(bid.counter_amount_cents!, bid.vat_included)}? Alkuperäinen tarjouksesi ${formatCentsWithVatLabel(bid.amount_cents, bid.vat_included)} säilyy voimassa.`,
       )
     ) {
       return;
@@ -74,7 +75,10 @@ export function ContractorCounterOfferBanner({
     <div className="mt-6 rounded-xl border border-amber-300 bg-amber-50 p-5">
       <h3 className="font-semibold text-amber-950">Asiakkaan vastatarjous</h3>
       <p className="mt-1 text-2xl font-bold text-amber-900">
-        {formatEurosFromCents(bid.counter_amount_cents)}
+        <PriceWithVat
+          cents={bid.counter_amount_cents}
+          vatIncluded={bid.vat_included}
+        />
       </p>
       {bid.counter_message?.trim() && (
         <p className="mt-2 text-sm whitespace-pre-wrap text-amber-950">
@@ -82,8 +86,13 @@ export function ContractorCounterOfferBanner({
         </p>
       )}
       <p className="mt-2 text-sm text-amber-800">
-        Nykyinen tarjouksesi: {formatEurosFromCents(bid.amount_cents)}. Hyväksymällä
-        vastatarjouksen hinta päivittyy asiakkaan ehdotukseen.
+        Nykyinen tarjouksesi:{" "}
+        <PriceWithVat
+          cents={bid.amount_cents}
+          vatIncluded={bid.vat_included}
+          inline
+        />
+        . Hyväksymällä vastatarjouksen hinta päivittyy asiakkaan ehdotukseen.
       </p>
       {error && (
         <p className="mt-2 text-sm text-red-700" role="alert">

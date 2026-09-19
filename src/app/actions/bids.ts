@@ -6,8 +6,8 @@ import { notifyAdminsNewPlatformInvoice } from "@/lib/billing-admin";
 import { platformFeeDueAt } from "@/lib/platform-fee";
 import {
   consumeCustomerReferralCredit,
-  grantCustomerReferralCreditForAcceptedDeal,
   grantCustomerReferralCreditForContractorDeal,
+  grantCustomerReferralCreditForProjectWithBids,
   resolvePlatformFeeForBidAcceptance,
 } from "@/lib/customer-referral";
 import { payPerDealFeeCents } from "@/lib/platform-fee";
@@ -67,6 +67,9 @@ import {
   companyFactsMissingMessage,
   isCompanyFactsComplete,
 } from "@/lib/contractor-company-facts";
+import { recordCalculatorBidDeviationFromForm } from "@/lib/calculator-deviation-server";
+import { saveBidProfitabilityPlan } from "@/app/actions/bid-profitability";
+import { parseStoredProfitability } from "@/lib/bid-profitability";
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -118,6 +121,61 @@ type ParsedBidPayload = {
     content_revision: number;
   };
 };
+
+async function recordBidProfitabilityFromForm(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  formData: FormData,
+  contractorId: string,
+  projectId: string,
+): Promise<void> {
+  const raw = String(formData.get("bid_profitability_json") ?? "").trim();
+  if (!raw) return;
+
+  let stored;
+  try {
+    stored = parseStoredProfitability(JSON.parse(raw));
+  } catch {
+    return;
+  }
+  if (!stored) return;
+
+  const { data: bid } = await supabase
+    .from("bids")
+    .select("id")
+    .eq("project_id", projectId)
+    .eq("contractor_id", contractorId)
+    .maybeSingle();
+
+  await saveBidProfitabilityPlan({
+    projectId,
+    bidId: bid?.id,
+    costs: stored.costs,
+    summary: stored.summary,
+  });
+}
+
+async function recordBidCalculatorDeviation(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  formData: FormData,
+  contractorId: string,
+  projectId: string,
+  amountCents: number,
+): Promise<void> {
+  const estimateRaw = String(formData.get("calculator_estimate_euros") ?? "").trim();
+  const estimateEuros = estimateRaw ? Number(estimateRaw) : null;
+  if (!estimateEuros || !Number.isFinite(estimateEuros) || estimateEuros <= 0) {
+    return;
+  }
+
+  await recordCalculatorBidDeviationFromForm(supabase, {
+    contractorId,
+    projectId,
+    jobSlug: String(formData.get("job_slug_for_calc") ?? "").trim() || null,
+    calculatorSlug: String(formData.get("calculator_slug") ?? "").trim() || null,
+    estimateEuros,
+    bidCents: amountCents,
+  });
+}
 
 async function parseBidSubmission(
   supabase: Awaited<ReturnType<typeof createClient>>,
@@ -429,6 +487,20 @@ export async function submitBid(
     }
   }
 
+  await recordBidCalculatorDeviation(
+    supabase,
+    formData,
+    user.id,
+    payload.projectId,
+    payload.amountCents,
+  );
+  await recordBidProfitabilityFromForm(
+    supabase,
+    formData,
+    user.id,
+    payload.projectId,
+  );
+
   const { data: contractor } = await supabase
     .from("contractor_profiles")
     .select("company_name")
@@ -449,6 +521,30 @@ export async function submitBid(
 
   if (!adminPreview) {
     scheduleNotification(() => notifyCustomerAboutBid(notifyPayload));
+
+    if (payload.project.customer_id) {
+      const admin = createAdminClient();
+      const customerGrant = await grantCustomerReferralCreditForProjectWithBids(
+        admin,
+        {
+          referredCustomerId: payload.project.customer_id,
+          sourceProjectId: payload.projectId,
+        },
+      );
+
+      if (customerGrant.granted && customerGrant.referrerCustomerId) {
+        scheduleNotification(async () => {
+          const { userNotifyCustomerReferralCreditEarned } = await import(
+            "@/lib/user-notify"
+          );
+          await userNotifyCustomerReferralCreditEarned({
+            customerId: customerGrant.referrerCustomerId!,
+            amountCents: customerGrant.amountCents ?? payPerDealFeeCents(),
+            source: "customer",
+          });
+        });
+      }
+    }
   }
 
   if (payload.project.status === "published") {
@@ -516,6 +612,20 @@ export async function updateBid(
     console.error("[updateBid]", error.code, error.message);
     return bidError(formData, formatBidSaveError(error));
   }
+
+  await recordBidCalculatorDeviation(
+    supabase,
+    formData,
+    user.id,
+    payload.projectId,
+    payload.amountCents,
+  );
+  await recordBidProfitabilityFromForm(
+    supabase,
+    formData,
+    user.id,
+    payload.projectId,
+  );
 
   await recordProjectActivityEvent({
     projectId: payload.projectId,
@@ -1057,36 +1167,26 @@ export async function acceptBid(formData: FormData): Promise<void> {
     }
   }
 
-  const [customerGrant, contractorGrant] = await Promise.all([
-    grantCustomerReferralCreditForAcceptedDeal(admin, {
-      referredCustomerId: user.id,
-      sourceProjectId: projectId,
-    }),
-    grantCustomerReferralCreditForContractorDeal(admin, {
+  const contractorGrant = await grantCustomerReferralCreditForContractorDeal(
+    admin,
+    {
       referredContractorId: bid.contractor_id,
       sourceProjectId: projectId,
-    }),
-  ]);
+    },
+  );
 
-  scheduleNotification(async () => {
-    const { userNotifyCustomerReferralCreditEarned } = await import(
-      "@/lib/user-notify"
-    );
-    if (customerGrant.granted && customerGrant.referrerCustomerId) {
+  if (contractorGrant.granted && contractorGrant.referrerCustomerId) {
+    scheduleNotification(async () => {
+      const { userNotifyCustomerReferralCreditEarned } = await import(
+        "@/lib/user-notify"
+      );
       await userNotifyCustomerReferralCreditEarned({
-        customerId: customerGrant.referrerCustomerId,
-        amountCents: customerGrant.amountCents ?? payPerDealFeeCents(),
-        source: "customer",
-      });
-    }
-    if (contractorGrant.granted && contractorGrant.referrerCustomerId) {
-      await userNotifyCustomerReferralCreditEarned({
-        customerId: contractorGrant.referrerCustomerId,
+        customerId: contractorGrant.referrerCustomerId!,
         amountCents: contractorGrant.amountCents ?? payPerDealFeeCents(),
         source: "contractor",
       });
-    }
-  });
+    });
+  }
 
   if (
     invoiceRes.invoiceId &&

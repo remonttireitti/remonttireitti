@@ -52,6 +52,46 @@ export async function fetchSitemapProjects(): Promise<
   }
 }
 
+/** Avoimet apupyynnöt sitemapiin — UGC long-tail (esim. kantamisapu Espoo). */
+export async function fetchSitemapHelpRequests(): Promise<
+  { id: string; created_at: string }[]
+> {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (!url || !anonKey) {
+    console.error("[sitemap help] Supabase URL tai anon key puuttuu");
+    return [];
+  }
+
+  try {
+    const supabase = process.env.SUPABASE_SERVICE_ROLE_KEY
+      ? createAdminClient()
+      : createSupabaseClient(url, anonKey, {
+          auth: { autoRefreshToken: false, persistSession: false },
+        });
+
+    const now = new Date().toISOString();
+    const { data, error } = await supabase
+      .from("help_requests")
+      .select("id, created_at")
+      .eq("status", "open")
+      .gt("expires_at", now)
+      .order("created_at", { ascending: false })
+      .limit(50);
+
+    if (error) {
+      console.error("[sitemap help]", error.message);
+      return [];
+    }
+
+    return (data ?? []) as { id: string; created_at: string }[];
+  } catch (err) {
+    console.error("[sitemap help]", err);
+    return [];
+  }
+}
+
 /** Julkiset urakoitsijaprofiilit sitemapiin — E-E-A-T ja brändihaut. */
 export async function fetchSitemapContractors(): Promise<
   { id: string; updated_at: string }[]

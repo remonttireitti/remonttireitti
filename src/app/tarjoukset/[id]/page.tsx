@@ -18,6 +18,14 @@ import { ensureProjectConversation } from "@/app/actions/messages";
 import { fetchContractorProjectConversation } from "@/lib/messages-server";
 import { fetchProjectPhotos } from "@/lib/project-photos";
 import { fetchContractorBidDefaults } from "@/lib/contractor-bid-defaults-server";
+import {
+  calculatorSlugForJob,
+  hintsFromProject,
+} from "@/lib/bid-calculator-bridge";
+import { getCalculatorBySlug } from "@/lib/calculators/registry";
+import { enrichCalculatorConfig } from "@/lib/calculators/resolve-with-learning";
+import { fetchContractorFairPriceContext } from "@/lib/fair-price-tier-server";
+import { fetchContractorPricingRates } from "@/lib/contractor-pricing-server";
 import { resolveProjectJobTypeSlug } from "@/lib/project-job-type";
 import { ContractorProjectInterestButtons } from "@/components/contractor/contractor-project-interest-buttons";
 import { ProjectMatchBadges } from "@/components/contractor/contractor-service-area-form";
@@ -144,10 +152,25 @@ export default async function ContractorProjectPage({
     if (jt?.slug) jobTypeSlug = jt.slug;
   }
 
-  const defaultBidTerms = await fetchContractorBidDefaults(
-    user.id,
-    jobTypeSlug,
-  );
+  const [defaultBidTerms, pricingRates, fairPriceContext] = await Promise.all([
+    fetchContractorBidDefaults(user.id, jobTypeSlug),
+    fetchContractorPricingRates(user.id),
+    fetchContractorFairPriceContext(supabase, user.id, jobTypeSlug),
+  ]);
+
+  const calculatorSlug = calculatorSlugForJob(jobTypeSlug);
+  const baseCalculatorConfig = calculatorSlug
+    ? getCalculatorBySlug(calculatorSlug)
+    : null;
+  const { config: calculatorConfig } = baseCalculatorConfig
+    ? await enrichCalculatorConfig(supabase, baseCalculatorConfig)
+    : { config: null };
+  const calculatorHints = hintsFromProject({
+    title: project.title as string,
+    description: project.description as string,
+    details: project.details,
+    municipality: project.municipality as string | null,
+  });
 
   const tradeContext = await fetchProjectTradeContextForContractor(
     supabase,
@@ -259,7 +282,11 @@ export default async function ContractorProjectPage({
     jobTypeSlug,
     tradeContext,
     serviceEngagement,
-    projectQuality,
+    calculatorConfig,
+    pricingRates,
+    initialPrimaryQty: calculatorHints.primaryQty,
+    jobPriceBenchmark: fairPriceContext.jobBenchmark,
+    contractorTierProfile: fairPriceContext.contractorProfile,
   };
 
   return (

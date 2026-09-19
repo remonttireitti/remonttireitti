@@ -13,6 +13,8 @@ type Props = {
   loggedIn: boolean;
   isCustomer: boolean;
   isContractor: boolean;
+  contractorWorkspace?: boolean;
+  contractorCompanySettings?: boolean;
   isAdmin: boolean;
   isEvaluator: boolean;
   unreadNotifications?: number;
@@ -56,6 +58,8 @@ export function SiteHeaderMobileNav({
   loggedIn,
   isCustomer,
   isContractor,
+  contractorWorkspace = isContractor,
+  contractorCompanySettings = isContractor,
   isAdmin,
   isEvaluator,
   unreadNotifications = 0,
@@ -118,7 +122,8 @@ export function SiteHeaderMobileNav({
           className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto scroll-smooth [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [mask-image:linear-gradient(to_right,black_85%,transparent)]"
           aria-label="Pikavalikko"
         >
-          <NavChip href="/apu">Apu</NavChip>
+          <NavChip href="/laskurit">Laskurit</NavChip>
+          <NavChip href="/apu">Pieni apu</NavChip>
           {SHOW_MARKETPLACE_IN_MARKETING && (
             <NavChip href="/markkinapaikka">{marketplaceBrand.nameShort}</NavChip>
           )}
@@ -138,10 +143,15 @@ export function SiteHeaderMobileNav({
               {isCustomer && (
                 <NavChip href="/oma-tili/huoltokirja">Huoltokirja</NavChip>
               )}
-              {isContractor && (
-                <NavChip href="/oma-tili#yritystiedot">Yritystiedot</NavChip>
+              {contractorCompanySettings && (
+                <>
+                  <NavChip href="/tarjouslaskuri">Tarjouslaskuri</NavChip>
+                  <NavChip href="/oma-tili/yritys">Yrityksen asetukset</NavChip>
+                </>
               )}
-              <NavChip href="/oma-tili">Oma tili</NavChip>
+              <NavChip href="/oma-tili">
+                {contractorWorkspace ? "Työpöytä" : "Oma tili"}
+              </NavChip>
             </>
           ) : (
             <>

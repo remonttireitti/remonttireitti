@@ -8,32 +8,16 @@ import {
 } from "@/lib/contractor-activation";
 import { BootstrapProfileForm } from "@/components/account/bootstrap-profile-form";
 import { NotificationPreferencesForm } from "@/components/account/notification-preferences-form";
+import { ContractorHomeDashboard } from "@/components/contractor/contractor-home-dashboard";
+import { ContractorMarketProfilePanel } from "@/components/contractor/contractor-market-profile-panel";
 import { SiteHeader } from "@/components/site-header";
 import { isAdmin } from "@/lib/admin";
 import { getProfile, getSessionUser, isContractor } from "@/lib/auth";
-import { ContractorBillingForm } from "@/components/contractor/contractor-billing-form";
-import { ContractorBidDefaultsForm } from "@/components/contractor/contractor-bid-defaults-form";
-import { ContractorProfileForm } from "@/components/contractor/contractor-profile-form";
-import { ContractorServiceAreaForm } from "@/components/contractor/contractor-service-area-form";
-import { ContractorWorkPreferencesForm } from "@/components/contractor/contractor-work-preferences-form";
-import { fetchContractorBidDefaultsBundle } from "@/lib/contractor-bid-defaults-server";
-import { getContractorSelectableTrades } from "@/lib/contractor-trade-options";
-import { fetchHeatPumpCatalog, fetchJobCatalog } from "@/lib/job-catalog-server";
-import { getContractorQualifications } from "@/lib/save-contractor-qualifications";
-import {
-  formatElectricalQualification,
-  formatLviQualifications,
-  formatPumpTypes,
-  formatRefrigerant,
-  formatTrades,
-} from "@/lib/format-qualifications";
-import {
-  companyFactsEnforcementActive,
-  companyFactsFromRow,
-  parseCompanySizeBand,
-  type CompanySizeBand,
-} from "@/lib/contractor-company-facts";
+import { canBrowseAsContractor } from "@/lib/admin-preview";
+import { fetchContractorDashboard } from "@/lib/contractor-dashboard-server";
+import { fetchContractorMarketSignalsForOne } from "@/lib/contractor-market-profile-server";
 import { getContractorCompanyBypass } from "@/lib/profile-read";
+import { getContractorQualifications } from "@/lib/save-contractor-qualifications";
 import { getNotificationPrefs } from "@/lib/notification-prefs";
 import { syncContractorAccount } from "@/lib/sync-contractor";
 import { projectStatusLabels } from "@/lib/projects";
@@ -59,74 +43,31 @@ export default async function AccountPage({
   const params = await searchParams;
   const profile = await getProfile();
   const needsContractorFix = shouldOfferContractorActivation(user, profile);
-  const contractor =
-    (profile?.role === "contractor" || (await isContractor())) &&
-    !needsContractorFix;
+  const contractor = (await canBrowseAsContractor()) && !needsContractorFix;
   const admin = await isAdmin();
   const supabase = await createClient();
   const notificationPrefs = await getNotificationPrefs(user.id);
 
   let contractorCompany: string | null = null;
-  let contractorQuals: Awaited<ReturnType<typeof getContractorQualifications>> | null =
-    null;
-  let contractorTrades: { id: string; slug: string; name_fi: string }[] = [];
-  let heatPumpJobTypes: { id: string; slug: string }[] = [];
-  let serviceAreaFields = {
-    servicePostalCode: "",
-    serviceMunicipality: "",
-    maxTravelKm: 100,
-  };
-  let minBudgetEur: number | null = null;
-  let foundedYear: number | null = null;
-  let companySizeBand: CompanySizeBand | null = null;
-  let billingFields = {
-    businessId: "",
-    billingEmail: "",
-    billingAddressLine: "",
-    billingPostalCode: "",
-    billingCity: "",
-  };
+  let contractorDashboard: Awaited<
+    ReturnType<typeof fetchContractorDashboard>
+  > | null = null;
+  let contractorMarketSignals: Awaited<
+    ReturnType<typeof fetchContractorMarketSignalsForOne>
+  > | null = null;
 
   if (contractor) {
-    contractorQuals = await getContractorQualifications(user.id);
-    contractorCompany = contractorQuals.companyName || null;
+    const [quals, dashboard, marketSignals] = await Promise.all([
+      getContractorQualifications(user.id),
+      fetchContractorDashboard(supabase, user.id),
+      fetchContractorMarketSignalsForOne(supabase, user.id),
+    ]);
+    contractorCompany = quals.companyName || null;
     if (!contractorCompany) {
       contractorCompany = await getContractorCompanyBypass(user.id);
     }
-    const [jobCatalog, pumpCatalog] = await Promise.all([
-      fetchJobCatalog(),
-      fetchHeatPumpCatalog(),
-    ]);
-    contractorTrades = getContractorSelectableTrades(jobCatalog.trades);
-    heatPumpJobTypes = pumpCatalog.jobTypes.map((j) => ({
-      id: j.id,
-      slug: j.slug,
-    }));
-
-    const { data: billingRow } = await supabase
-      .from("contractor_profiles")
-      .select(
-        "business_id, billing_email, billing_address_line, billing_postal_code, billing_city, service_postal_code, service_municipality, max_travel_km, min_budget_eur, founded_year, company_size_band",
-      )
-      .eq("id", user.id)
-      .maybeSingle();
-    if (billingRow) {
-      billingFields = {
-        businessId: billingRow.business_id ?? "",
-        billingEmail: billingRow.billing_email ?? "",
-        billingAddressLine: billingRow.billing_address_line ?? "",
-        billingPostalCode: billingRow.billing_postal_code ?? "",
-        billingCity: billingRow.billing_city ?? "",
-      };
-      serviceAreaFields = {
-        servicePostalCode: billingRow.service_postal_code ?? "",
-        serviceMunicipality: billingRow.service_municipality ?? "",
-        maxTravelKm: billingRow.max_travel_km ?? 100,
-      };
-      minBudgetEur = (billingRow.min_budget_eur as number | null) ?? null;
-      foundedYear = (billingRow.founded_year as number | null) ?? null;
-      companySizeBand = parseCompanySizeBand(billingRow.company_size_band);
-    }
+    contractorDashboard = dashboard;
+    contractorMarketSignals = marketSignals;
   }
 
   type ProjectRow = {
@@ -144,7 +85,7 @@ export default async function AccountPage({
 
   if (params.viesti === "vain-urakoitsijalle") {
     await syncContractorAccount(user);
-    if (await isContractor()) redirect("/tarjoukset");
+    if (await isContractor()) redirect("/oma-tili");
 
     const meta = user.user_metadata ?? {};
     const companyFromMeta =
@@ -184,11 +125,14 @@ export default async function AccountPage({
     projects = (data ?? []) as ProjectRow[];
     propertyStats = stats;
 
-    const admin = tryCreateAdminClient();
-    if (admin) {
-      const count = await countAvailableCustomerReferralCredits(admin, user.id);
+    const adminClient = tryCreateAdminClient();
+    if (adminClient) {
+      const count = await countAvailableCustomerReferralCredits(
+        adminClient,
+        user.id,
+      );
       if (count > 0) {
-        const { data: credits } = await admin
+        const { data: credits } = await adminClient
           .from("customer_referral_credits")
           .select("amount_cents")
           .eq("customer_id", user.id)
@@ -216,39 +160,31 @@ export default async function AccountPage({
     <div className={brand.page}>
       <SiteHeader />
       <main className={`${brand.mainStandard} ${contractor ? "lg:max-w-6xl" : ""}`}>
-        <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-4">
-            <div
-              className="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-600 to-sky-700 text-lg font-bold text-white shadow-md shadow-sky-900/20"
-              aria-hidden
-            >
-              {initials(profile?.full_name, user.email)}
-            </div>
-            <div className="min-w-0">
-              <h1 className="text-2xl font-bold tracking-tight text-stone-900 sm:text-3xl">
-                Oma tili
-              </h1>
-              <p className="mt-0.5 truncate text-sm text-stone-500 sm:text-base">
-                {user.email}
-              </p>
-              {contractor && contractorCompany && (
-                <p className="mt-0.5 text-sm font-medium text-stone-700">
-                  {contractorCompany}
+        {!contractor && (
+          <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-4">
+              <div
+                className="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-600 to-sky-700 text-lg font-bold text-white shadow-md shadow-sky-900/20"
+                aria-hidden
+              >
+                {initials(profile?.full_name, user.email)}
+              </div>
+              <div className="min-w-0">
+                <h1 className="text-2xl font-bold tracking-tight text-stone-900 sm:text-3xl">
+                  Oma tili
+                </h1>
+                <p className="mt-0.5 truncate text-sm text-stone-500 sm:text-base">
+                  {user.email}
                 </p>
-              )}
+              </div>
             </div>
-          </div>
-          {!contractor && !admin && (
-            <Link href="/remontti/uusi" className={brand.btnPrimary}>
-              + Uusi tarjouspyyntö
-            </Link>
-          )}
-          {contractor && (
-            <Link href="/tarjoukset" className={brand.btnPrimary}>
-              Selaa tarjouspyyntöjä
-            </Link>
-          )}
-        </header>
+            {!admin && (
+              <Link href="/remontti/uusi" className={brand.btnPrimary}>
+                + Uusi tarjouspyyntö
+              </Link>
+            )}
+          </header>
+        )}
 
         {needsContractorFix && (
           <div className="mt-6">
@@ -299,71 +235,50 @@ export default async function AccountPage({
           </div>
         )}
 
-        <div className="mt-8 grid gap-6 lg:grid-cols-2">
-          <section className={`${brand.section} p-5 sm:p-6`}>
-            <h2 className={brand.sectionTitle}>Tilin tiedot</h2>
-            <dl className="mt-4 divide-y divide-stone-100">
-              <AccountRow label="Nimi" value={profile?.full_name ?? "—"} />
-              <AccountRow
-                label="Rooli"
-                value={
-                  profile
-                    ? getProfileRoleLabel(profile.role)
-                    : contractor
-                      ? getProfileRoleLabel("contractor")
-                      : "—"
-                }
-              />
-              {contractorCompany && (
-                <AccountRow label="Yritys" value={contractorCompany} />
-              )}
-              {contractor && contractorQuals && (
-                <>
-                  <AccountRow
-                    label="Ammatit"
-                    value={formatTrades(contractorQuals.tradeNames)}
-                  />
-                  {contractorQuals.jobTypeSlugs.length > 0 && (
-                    <>
-                      <AccountRow
-                        label="Lämpöpumput"
-                        value={formatPumpTypes(contractorQuals.jobTypeSlugs)}
-                      />
-                      <AccountRow
-                        label="Kylmäainelupa"
-                        value={formatRefrigerant(contractorQuals.refrigerantLicense)}
-                      />
-                      <AccountRow
-                        label="Sähköpätevyys"
-                        value={formatElectricalQualification(
-                          contractorQuals.electricalQualification,
-                        )}
-                      />
-                      <AccountRow
-                        label="LVI-pätevyydet"
-                        value={formatLviQualifications(
-                          contractorQuals.lviQualifications,
-                        )}
-                      />
-                    </>
-                  )}
-                </>
-              )}
-            </dl>
-          </section>
-
-          {profile && (
-            <NotificationPreferencesForm
-              role={profile.role}
-              prefs={notificationPrefs}
-              emailConfigured={isEmailConfigured()}
+        {contractor && contractorDashboard && (
+          <div className="mt-2 space-y-8">
+            <ContractorHomeDashboard
+              companyName={contractorCompany}
+              contractorId={user.id}
+              dashboard={contractorDashboard}
             />
-          )}
-        </div>
+            {contractorMarketSignals && (
+              <ContractorMarketProfilePanel
+                signals={contractorMarketSignals}
+                publicProfileHref={`/urakoitsija/${user.id}`}
+              />
+            )}
+          </div>
+        )}
+
+        {!contractor && (
+          <div className="mt-8 grid gap-6 lg:grid-cols-2">
+            <section className={`${brand.section} p-5 sm:p-6`}>
+              <h2 className={brand.sectionTitle}>Tilin tiedot</h2>
+              <dl className="mt-4 divide-y divide-stone-100">
+                <AccountRow label="Nimi" value={profile?.full_name ?? "—"} />
+                <AccountRow
+                  label="Rooli"
+                  value={
+                    profile ? getProfileRoleLabel(profile.role) : "—"
+                  }
+                />
+              </dl>
+            </section>
+
+            {profile && (
+              <NotificationPreferencesForm
+                role={profile.role}
+                prefs={notificationPrefs}
+                emailConfigured={isEmailConfigured()}
+              />
+            )}
+          </div>
+        )}
 
         {profile &&
           (profile.role === "customer" || profile.role === "contractor") && (
-            <section className={`${brand.section} mt-6 p-5 sm:p-6`}>
+            <section className={`${brand.section} ${contractor ? "mt-8" : "mt-6"} p-5 sm:p-6`}>
               <h2 className={brand.sectionTitle}>Palaute palvelusta</h2>
               <p className="mt-2 text-sm leading-relaxed text-stone-600">
                 Kerro, oliko palvelun käyttö selkeää ja miellyttävää — valitse
@@ -378,6 +293,28 @@ export default async function AccountPage({
               </Link>
             </section>
           )}
+
+        {contractor && profile && (
+          <div className="mt-8 grid gap-6 lg:grid-cols-2">
+            <section className={`${brand.section} p-5 sm:p-6`}>
+              <h2 className={brand.sectionTitle}>Kirjautuminen</h2>
+              <dl className="mt-4 divide-y divide-stone-100">
+                <AccountRow label="Sähköposti" value={user.email ?? "—"} />
+                <AccountRow label="Nimi" value={profile.full_name ?? "—"} />
+                <AccountRow
+                  label="Rooli"
+                  value={getProfileRoleLabel(profile.role)}
+                />
+              </dl>
+            </section>
+
+            <NotificationPreferencesForm
+              role={profile.role}
+              prefs={notificationPrefs}
+              emailConfigured={isEmailConfigured()}
+            />
+          </div>
+        )}
 
         {!contractor && !admin && (
           <section className="mt-8">
@@ -449,66 +386,6 @@ export default async function AccountPage({
               <Link href="/admin" className={brand.btnSecondary}>
                 Käyttäjät
               </Link>
-            </div>
-          </section>
-        )}
-
-        {contractor && (
-          <section className="mt-8 space-y-8">
-            <div>
-              <h2 className="text-lg font-semibold text-stone-900">
-                Urakoitsijan asetukset
-              </h2>
-              <p className="mt-1 text-sm text-stone-500">
-                Profiili, laskutus ja tarjousten oletusehdot. Muutokset vaikuttavat
-                uusiin tarjouksiin ja ilmoituksiin.
-              </p>
-            </div>
-
-            <ContractorBidDefaultsForm
-              className="mt-0"
-              {...(await fetchContractorBidDefaultsBundle(user.id))}
-            />
-
-            <ContractorServiceAreaForm
-              className="mt-0"
-              servicePostalCode={serviceAreaFields.servicePostalCode}
-              serviceMunicipality={serviceAreaFields.serviceMunicipality}
-              maxTravelKm={serviceAreaFields.maxTravelKm}
-            />
-
-            <ContractorWorkPreferencesForm
-              className="mt-0"
-              minBudgetEur={minBudgetEur}
-            />
-
-            <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
-              {contractorTrades.length > 0 && contractorQuals && (
-                <ContractorProfileForm
-                  id="yritystiedot"
-                  className="mt-0 scroll-mt-24"
-                  trades={contractorTrades}
-                  jobTypes={heatPumpJobTypes}
-                  companyName={contractorQuals.companyName}
-                  tradeIds={contractorQuals.tradeIds}
-                  jobTypeIds={contractorQuals.jobTypeIds}
-                  refrigerantLicense={contractorQuals.refrigerantLicense}
-                  electricalQualification={contractorQuals.electricalQualification}
-                  lviQualifications={contractorQuals.lviQualifications}
-                  foundedYear={foundedYear}
-                  companySizeBand={companySizeBand}
-                  requireCompanyFacts={companyFactsEnforcementActive()}
-                />
-              )}
-
-              <ContractorBillingForm
-                className="mt-0"
-                businessId={billingFields.businessId}
-                billingEmail={billingFields.billingEmail}
-                billingAddressLine={billingFields.billingAddressLine}
-                billingPostalCode={billingFields.billingPostalCode}
-                billingCity={billingFields.billingCity}
-              />
             </div>
           </section>
         )}

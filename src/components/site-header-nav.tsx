@@ -12,6 +12,8 @@ type NavProps = {
   loggedIn: boolean;
   isCustomer: boolean;
   isContractor: boolean;
+  contractorWorkspace?: boolean;
+  contractorCompanySettings?: boolean;
   isAdmin: boolean;
   isEvaluator: boolean;
   unreadNotifications?: number;
@@ -54,6 +56,8 @@ export function SiteHeaderNav({
   loggedIn,
   isCustomer,
   isContractor,
+  contractorWorkspace = isContractor,
+  contractorCompanySettings = isContractor,
   isAdmin,
   isEvaluator,
   unreadNotifications = 0,
@@ -90,7 +94,8 @@ export function SiteHeaderNav({
   return (
     <div className="hidden items-center gap-1 md:flex">
       <nav className="flex items-center gap-0.5">
-        <NavItem href="/apu">Apu</NavItem>
+        <NavItem href="/laskurit">Laskurit</NavItem>
+        <NavItem href="/apu">Pieni apu</NavItem>
         {SHOW_MARKETPLACE_IN_MARKETING && (
           <NavItem href="/markkinapaikka">{marketplaceBrand.nameShort}</NavItem>
         )}
@@ -107,10 +112,15 @@ export function SiteHeaderNav({
               </span>
             </NavItem>
             {isCustomer && <NavItem href="/oma-tili/huoltokirja">Huoltokirja</NavItem>}
-            {isContractor && (
-              <NavItem href="/oma-tili#yritystiedot">Yritystiedot</NavItem>
+            {contractorCompanySettings && (
+              <>
+                <NavItem href="/tarjouslaskuri">Tarjouslaskuri</NavItem>
+                <NavItem href="/oma-tili/yritys">Yrityksen asetukset</NavItem>
+              </>
             )}
-            <NavItem href="/oma-tili">Oma tili</NavItem>
+            <NavItem href="/oma-tili">
+              {contractorWorkspace ? "Työpöytä" : "Oma tili"}
+            </NavItem>
             {isEvaluator && <NavItem href="/arvioija">Arvioija</NavItem>}
             {isAdmin && <NavItem href="/admin">Admin</NavItem>}
           </>

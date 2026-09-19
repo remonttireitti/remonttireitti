@@ -35,7 +35,6 @@ import {
 import { bidTotalAmountCents } from "@/lib/bid-amounts";
 import {
   bidStatusLabels,
-  formatEurosFromCents,
   getBidContractorName,
   sortBidsForComparison,
 } from "@/lib/bids";
@@ -44,6 +43,15 @@ import {
   analyzeBidComparison,
   bidInsightInputFromRow,
 } from "@/lib/bid-comparison-insights";
+import { ContractorMarketSignals } from "@/components/bid/contractor-market-signals";
+import { FairPriceTierDisplayCell } from "@/components/bid/fair-price-tier-display";
+import type { ContractorMarketSignals as ContractorMarketSignalsData } from "@/lib/contractor-market-profile";
+import { BID_CONVERSION_DISCLAIMER } from "@/lib/contractor-market-profile";
+import { PriceWithVat } from "@/components/price/price-with-vat";
+import {
+  FAIR_PRICE_DISCLAIMER,
+  type FairPriceTierDisplay,
+} from "@/lib/fair-price-tier";
 import type { BidStatus, ProjectStatus } from "@/types/database";
 
 export type BidWithContractor = {
@@ -131,43 +139,41 @@ function contractorQualificationsFromBid(
 function PriceCell({
   bid,
   showEquipmentBreakdown,
+  cents,
 }: {
   bid: BidWithContractor;
   showEquipmentBreakdown: boolean;
+  cents?: number;
 }) {
   const pending = hasPendingCounterOffer(bid);
-  const total = formatEurosFromCents(bidTotalAmountCents(bid));
-
-  if (showEquipmentBreakdown) {
-    return (
-      <>
-        {formatEurosFromCents(bid.amount_cents)}
-        {pending && bid.counter_amount_cents != null && (
-          <p className="mt-1 text-xs font-normal text-amber-800">
-            Vastatarjous: {formatEurosFromCents(bid.counter_amount_cents)} (odottaa)
-          </p>
-        )}
-      </>
-    );
-  }
+  const amountCents = cents ?? bidTotalAmountCents(bid);
 
   return (
     <>
-      {total}
-      {bid.vat_included && (
-        <span className="mt-0.5 block text-xs font-normal text-stone-500">
-          sis. ALV
-        </span>
-      )}
+      <PriceWithVat cents={amountCents} vatIncluded={bid.vat_included} />
       {pending && bid.counter_amount_cents != null && (
         <p className="mt-1 text-xs font-normal text-amber-800">
-          Vastatarjouksesi:{" "}
-          <strong>{formatEurosFromCents(bid.counter_amount_cents)}</strong>
-          <span className="block text-stone-500">
-            Alkuperäinen: {formatEurosFromCents(bidTotalAmountCents(bid))}
-          </span>
+          Vastatarjous:{" "}
+          <PriceWithVat
+            cents={bid.counter_amount_cents}
+            vatIncluded={bid.vat_included}
+            inline
+          />{" "}
+          (odottaa)
         </p>
       )}
+      {!showEquipmentBreakdown &&
+        pending &&
+        bid.counter_amount_cents != null && (
+          <p className="mt-1 text-xs font-normal text-stone-500">
+            Alkuperäinen:{" "}
+            <PriceWithVat
+              cents={bidTotalAmountCents(bid)}
+              vatIncluded={bid.vat_included}
+              inline
+            />
+          </p>
+        )}
     </>
   );
 }
@@ -235,6 +241,9 @@ function MobileBidCard({
   contentRevision,
   customerReferralDiscountCents,
   customerReferralApplies,
+  fairPriceTier,
+  marketSignals,
+  contractorRating,
 }: {
   bid: BidWithContractor;
   pendingWinner: boolean;
@@ -252,6 +261,9 @@ function MobileBidCard({
   contentRevision: number;
   customerReferralDiscountCents: number;
   customerReferralApplies: boolean;
+  fairPriceTier?: FairPriceTierDisplay | null;
+  marketSignals?: ContractorMarketSignalsData | null;
+  contractorRating?: ContractorRatingSummary | null;
 }) {
   const company = getBidContractorName(bid.contractor_profiles);
   const cardClass = `rounded-xl border p-4 ${columnClass(bid.status, pendingWinner)}`;
@@ -291,18 +303,40 @@ function MobileBidCard({
             <CounterOfferBadge status={bid.counter_status} />
           )}
         </div>
+        {contractorRating && contractorRating.count > 0 && (
+          <div className="mt-2">
+            <StarRatingDisplay
+              rating={contractorRating.average}
+              count={contractorRating.count}
+            />
+          </div>
+        )}
+        <ContractorMarketSignals
+          conversion={marketSignals?.conversion}
+          responseTime={marketSignals?.responseTime}
+          fairPriceTier={fairPriceTier}
+          compact
+        />
       </header>
 
       <dl className="mt-3">
         {showEquipmentBreakdown ? (
           <>
             <Row label="Asennus ja työ">
-              {formatEurosFromCents(bid.amount_cents)}
+              <PriceWithVat
+                cents={bid.amount_cents}
+                vatIncluded={bid.vat_included}
+              />
             </Row>
             <Row label="Laite">
               {bid.offers_equipment && bid.equipment_amount_cents ? (
                 <div>
-                  <p className="font-medium">{formatEurosFromCents(bid.equipment_amount_cents)}</p>
+                  <p className="font-medium">
+                    <PriceWithVat
+                      cents={bid.equipment_amount_cents}
+                      vatIncluded={bid.vat_included}
+                    />
+                  </p>
                   {bid.equipment_description && (
                     <p className="mt-1 text-xs text-stone-600">{bid.equipment_description}</p>
                   )}
@@ -312,18 +346,24 @@ function MobileBidCard({
               )}
             </Row>
             <Row label="Yhteensä">
-              <span className="font-bold text-sky-800">
-                {formatEurosFromCents(bidTotalAmountCents(bid))}
-              </span>
-              {bid.vat_included && (
-                <span className="mt-0.5 block text-xs font-normal text-stone-500">sis. ALV</span>
-              )}
+              <PriceWithVat
+                cents={bidTotalAmountCents(bid)}
+                vatIncluded={bid.vat_included}
+                amountClassName="font-bold text-sky-800"
+              />
             </Row>
           </>
         ) : (
-          <Row label="Hinta">
-            <PriceCell bid={bid} showEquipmentBreakdown={false} />
-          </Row>
+          <>
+            {fairPriceTier && fairPriceTier.kind !== "none" && (
+              <Row label="Hintataso">
+                <FairPriceTierDisplayCell display={fairPriceTier} compact />
+              </Row>
+            )}
+            <Row label="Hinta">
+              <PriceCell bid={bid} showEquipmentBreakdown={false} />
+            </Row>
+          </>
         )}
 
         <Row label="Aloituspäivä">
@@ -460,6 +500,8 @@ export function CustomerBids({
   projectTradeNamesById = {},
   customerReferralDiscountCents = 0,
   customerReferralEligibleContractorIds = [],
+  fairPriceTiers = {},
+  marketSignals = {},
 }: {
   projectId: string;
   projectStatus: ProjectStatus;
@@ -471,6 +513,8 @@ export function CustomerBids({
   projectTradeNamesById?: Record<string, string>;
   customerReferralDiscountCents?: number;
   customerReferralEligibleContractorIds?: string[];
+  fairPriceTiers?: Record<string, FairPriceTierDisplay>;
+  marketSignals?: Record<string, ContractorMarketSignalsData>;
 }) {
   const customerReferralEligibleSet = new Set(customerReferralEligibleContractorIds);
   const tradeNameMap = new Map(Object.entries(projectTradeNamesById));
@@ -517,6 +561,17 @@ export function CustomerBids({
   const showCompanyFactsRow = sorted.some((b) => {
     const facts = contractorCompanyFactsFromBid(b);
     return facts?.founded_year != null || facts?.company_size_band != null;
+  });
+  const showFairPriceRow = sorted.some((b) => {
+    const d = fairPriceTiers[b.contractor_id];
+    return d != null && d.kind !== "none";
+  });
+  const showMarketSignalsDisclaimer = sorted.some((b) => {
+    const signals = marketSignals[b.contractor_id];
+    return (
+      signals?.conversion.kind === "shown" ||
+      signals?.responseTime.kind === "shown"
+    );
   });
 
   if (visibleBids.length === 0) {
@@ -585,9 +640,21 @@ export function CustomerBids({
             customerReferralApplies={customerReferralEligibleSet.has(
               bid.contractor_id,
             )}
+            fairPriceTier={fairPriceTiers[bid.contractor_id] ?? null}
+            marketSignals={marketSignals[bid.contractor_id] ?? null}
+            contractorRating={contractorRatings[bid.contractor_id] ?? null}
           />
         ))}
       </div>
+
+      {(showFairPriceRow || showMarketSignalsDisclaimer) && (
+        <p className="mt-3 space-y-2 text-xs leading-relaxed text-stone-500 md:hidden">
+          {showFairPriceRow && <span className="block">{FAIR_PRICE_DISCLAIMER}</span>}
+          {showMarketSignalsDisclaimer && (
+            <span className="block">{BID_CONVERSION_DISCLAIMER}</span>
+          )}
+        </p>
+      )}
 
       <div className="-mx-1 hidden overflow-x-auto px-1 md:block">
         <table className="w-full min-w-[720px] border-collapse text-sm">
@@ -620,6 +687,12 @@ export function CustomerBids({
                         />
                       </div>
                     )}
+                    <ContractorMarketSignals
+                      conversion={marketSignals[bid.contractor_id]?.conversion}
+                      responseTime={marketSignals[bid.contractor_id]?.responseTime}
+                      fairPriceTier={fairPriceTiers[bid.contractor_id]}
+                      compact
+                    />
                     <span className="mt-2 inline-block rounded-full bg-stone-100 px-2 py-0.5 text-xs font-medium text-stone-700">
                       {pendingWinner
                         ? "Valittu — odottaa maksua"
@@ -645,7 +718,10 @@ export function CustomerBids({
                       key={bid.id}
                       className={`${dataCell} border-l ${columnClass(bid.status, isPendingWinner(bid))}`}
                     >
-                      {formatEurosFromCents(bid.amount_cents)}
+                      <PriceWithVat
+                        cents={bid.amount_cents}
+                        vatIncluded={bid.vat_included}
+                      />
                     </td>
                   ))}
                 </tr>
@@ -661,7 +737,10 @@ export function CustomerBids({
                       {bid.offers_equipment && bid.equipment_amount_cents ? (
                         <div>
                           <p className="font-medium text-stone-900">
-                            {formatEurosFromCents(bid.equipment_amount_cents)}
+                            <PriceWithVat
+                              cents={bid.equipment_amount_cents}
+                              vatIncluded={bid.vat_included}
+                            />
                           </p>
                           {bid.equipment_description && (
                             <p className="mt-1 text-xs text-stone-600">
@@ -684,17 +763,34 @@ export function CustomerBids({
                       key={bid.id}
                       className={`${dataCell} border-l font-bold text-sky-800 ${columnClass(bid.status, isPendingWinner(bid))}`}
                     >
-                      {formatEurosFromCents(bidTotalAmountCents(bid))}
-                      {bid.vat_included && (
-                        <span className="mt-0.5 block text-xs font-normal text-stone-500">
-                          sis. ALV
-                        </span>
-                      )}
+                      <PriceWithVat
+                        cents={bidTotalAmountCents(bid)}
+                        vatIncluded={bid.vat_included}
+                        amountClassName="font-bold text-sky-800"
+                      />
                     </td>
                   ))}
                 </tr>
               </>
             ) : (
+              <>
+              {showFairPriceRow && (
+                <tr className="border-b border-stone-100 bg-amber-50/30">
+                  <th className={labelCell} scope="row">
+                    Hintataso
+                  </th>
+                  {sorted.map((bid) => (
+                    <td
+                      key={bid.id}
+                      className={`${dataCell} border-l ${columnClass(bid.status, isPendingWinner(bid))}`}
+                    >
+                      <FairPriceTierDisplayCell
+                        display={fairPriceTiers[bid.contractor_id]}
+                      />
+                    </td>
+                  ))}
+                </tr>
+              )}
               <tr className="border-b border-stone-100">
                 <th className={labelCell} scope="row">
                   Hinta
@@ -707,6 +803,25 @@ export function CustomerBids({
                     <PriceCell bid={bid} showEquipmentBreakdown={false} />
                   </td>
                 ))}
+              </tr>
+              </>
+            )}
+
+            {(showFairPriceRow || showMarketSignalsDisclaimer) && (
+              <tr>
+                <td
+                  colSpan={sorted.length + 1}
+                  className="border-b border-stone-100 px-3 py-2 text-xs leading-relaxed text-stone-500"
+                >
+                  {showFairPriceRow && (
+                    <p className={showMarketSignalsDisclaimer ? "mb-2" : ""}>
+                      {FAIR_PRICE_DISCLAIMER}
+                    </p>
+                  )}
+                  {showMarketSignalsDisclaimer && (
+                    <p>{BID_CONVERSION_DISCLAIMER}</p>
+                  )}
+                </td>
               </tr>
             )}
 
@@ -958,9 +1073,12 @@ export function CustomerBids({
                               ({formatBidAcceptScopeShort(
                                 bid.accepted_includes_equipment,
                               )}
-                              , {formatEurosFromCents(
-                                bidResolvedAmountCents(bid),
-                              )}
+                              ,{" "}
+                              <PriceWithVat
+                                cents={bidResolvedAmountCents(bid)}
+                                vatIncluded={bid.vat_included}
+                                inline
+                              />
                               )
                             </>
                           )}

@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { recordCompletedProjectCalculatorOutcome } from "@/lib/calculator-range-learning";
 import { syncPropertyLogFromCompletedProject } from "@/lib/property-log";
 import { userNotifyHuoltokirjaSync } from "@/lib/user-notify";
 import { revalidatePath } from "next/cache";
@@ -52,6 +53,8 @@ export async function completeProject(
     .eq("id", projectId);
 
   if (error) return { error: "Tallennus epäonnistui." };
+
+  await recordCompletedProjectCalculatorOutcome(supabase, projectId);
 
   const syncResult = await syncPropertyLogFromCompletedProject(
     supabase,

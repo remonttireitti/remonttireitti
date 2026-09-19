@@ -13,6 +13,9 @@ export function manualInvoiceCustomerNote(
 
 export const CONSUMER_FREE_MAX_ACTIVE_LISTINGS = 2;
 
+/** Lahjoitusilmoitukset torilla — ilmaiseksi myös yrityksille. */
+export const DONATION_MAX_ACTIVE_LISTINGS = 2;
+
 /** Julkaistun ilmoituksen näkyvyys (automaattinen vanhentuminen). */
 export const LISTING_DURATION_WEEKS = 4;
 

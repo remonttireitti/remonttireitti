@@ -6,11 +6,19 @@ import { withdrawBid } from "@/app/actions/bids";
 import { ContractorCounterOfferBanner } from "@/components/bid/contractor-counter-offer-banner";
 import { BidDetailsDisplay } from "@/components/bid/bid-details-display";
 import { BidForm } from "@/components/bid/bid-form";
+import { ContractorBidWorkspace } from "@/components/bid/contractor-bid-workspace";
 import type { BidCounterFields } from "@/lib/bid-counter-offer";
 import { bidToFormFields, type BidRecordForForm } from "@/lib/bid-form";
 import { STALE_BID_CONTRACTOR_MESSAGE } from "@/lib/bid-staleness";
 import { bidTotalAmountCents } from "@/lib/bid-amounts";
-import { bidStatusLabels, formatEurosFromCents } from "@/lib/bids";
+import { bidStatusLabels } from "@/lib/bids";
+import { PriceWithVat } from "@/components/price/price-with-vat";
+import type { CalculatorConfig } from "@/lib/calculators/types";
+import type { ContractorPricingRates } from "@/lib/calculators/contractor-pricing";
+import type {
+  ContractorTierProfile,
+  JobPriceBenchmark,
+} from "@/lib/fair-price-tier";
 import type { ContractorBidDefaults } from "@/lib/contractor-bid-defaults-shared";
 import type { ProjectBudgetInfo } from "@/lib/project-budget";
 import type { ProjectTradeContext } from "@/lib/project-trades-server";
@@ -24,6 +32,62 @@ type BidView = BidRecordForForm &
     rejected_at?: string | null;
   };
 
+function BidEntry({
+  bidFormProps,
+  calculatorConfig,
+  pricingRates,
+  initialPrimaryQty,
+  jobPriceBenchmark,
+  contractorTierProfile,
+  mode,
+  bidId,
+  initialFields,
+}: {
+  bidFormProps: {
+    projectId: string;
+    requiresDeviceAndInstallation: boolean;
+    allowOptionalEquipmentOffer: boolean;
+    budgetInfo: ProjectBudgetInfo;
+    defaultBidTerms?: ContractorBidDefaults;
+    jobTypeSlug?: string | null;
+    tradeContext?: ProjectTradeContext;
+    serviceEngagement?: import("@/lib/service-engagement").ServiceEngagement | null;
+  };
+  calculatorConfig: CalculatorConfig | null;
+  pricingRates?: ContractorPricingRates;
+  initialPrimaryQty?: number;
+  jobPriceBenchmark?: JobPriceBenchmark | null;
+  contractorTierProfile?: ContractorTierProfile | null;
+  mode: "create" | "edit";
+  bidId?: string;
+  initialFields?: ReturnType<typeof bidToFormFields>;
+}) {
+  if (calculatorConfig && pricingRates && !bidFormProps.serviceEngagement) {
+    return (
+      <ContractorBidWorkspace
+        {...bidFormProps}
+        calculatorConfig={calculatorConfig}
+        pricingRates={pricingRates}
+        initialPrimaryQty={initialPrimaryQty}
+        jobPriceBenchmark={jobPriceBenchmark}
+        contractorTierProfile={contractorTierProfile}
+        mode={mode}
+        bidId={bidId}
+        initialFields={initialFields}
+      />
+    );
+  }
+
+  return (
+    <BidForm
+      {...bidFormProps}
+      mode={mode}
+      bidId={bidId}
+      initialFields={initialFields}
+    />
+  );
+}
+
 export function ContractorBidPanel({
   projectId,
   bid,
@@ -35,6 +99,11 @@ export function ContractorBidPanel({
   jobTypeSlug,
   tradeContext,
   serviceEngagement,
+  calculatorConfig,
+  pricingRates,
+  initialPrimaryQty,
+  jobPriceBenchmark,
+  contractorTierProfile,
 }: {
   projectId: string;
   bid: BidView | null;
@@ -46,6 +115,11 @@ export function ContractorBidPanel({
   jobTypeSlug?: string | null;
   tradeContext?: ProjectTradeContext;
   serviceEngagement?: import("@/lib/service-engagement").ServiceEngagement | null;
+  calculatorConfig?: CalculatorConfig | null;
+  pricingRates?: ContractorPricingRates;
+  initialPrimaryQty?: number;
+  jobPriceBenchmark?: JobPriceBenchmark | null;
+  contractorTierProfile?: ContractorTierProfile | null;
 }) {
   const bidFormProps = {
     projectId,
@@ -64,12 +138,33 @@ export function ContractorBidPanel({
   if (!bid) {
     return (
       <>
-        <h2 className="text-lg font-semibold">Jätä tarjous</h2>
-        <p className="mt-1 text-sm text-stone-600">
-          Täytä hinta ja ehdot — asiakas vertailee tarjouksia samassa muodossa.
-        </p>
+        {calculatorConfig ? (
+          <>
+            <h2 className="text-lg font-semibold">Laske tarjous</h2>
+            <p className="mt-1 text-sm text-stone-600">
+              Tarjouspyyntö → laskuri → tarjous → lähetä. Asiakas vertailee
+              tarjouksia samassa muodossa.
+            </p>
+          </>
+        ) : (
+          <>
+            <h2 className="text-lg font-semibold">Jätä tarjous</h2>
+            <p className="mt-1 text-sm text-stone-600">
+              Täytä hinta ja ehdot — asiakas vertailee tarjouksia samassa
+              muodossa.
+            </p>
+          </>
+        )}
         <div className="mt-4">
-          <BidForm {...bidFormProps} mode="create" />
+          <BidEntry
+            bidFormProps={bidFormProps}
+            calculatorConfig={calculatorConfig ?? null}
+            pricingRates={pricingRates}
+            initialPrimaryQty={initialPrimaryQty}
+            jobPriceBenchmark={jobPriceBenchmark}
+            contractorTierProfile={contractorTierProfile}
+            mode="create"
+          />
         </div>
       </>
     );
@@ -89,8 +184,13 @@ export function ContractorBidPanel({
             Voit päivittää tarjouksen alla ja lähettää sen uudelleen.
           </p>
         </div>
-        <BidForm
-          {...bidFormProps}
+        <BidEntry
+          bidFormProps={bidFormProps}
+          calculatorConfig={calculatorConfig ?? null}
+          pricingRates={pricingRates}
+          initialPrimaryQty={initialPrimaryQty}
+          jobPriceBenchmark={jobPriceBenchmark}
+          contractorTierProfile={contractorTierProfile}
           mode="edit"
           bidId={bid.id}
           initialFields={bidToFormFields(bid)}
@@ -111,7 +211,15 @@ export function ContractorBidPanel({
         <div>
           <h2 className="text-lg font-semibold">Uusi tarjous</h2>
           <div className="mt-4">
-            <BidForm {...bidFormProps} mode="create" />
+            <BidEntry
+              bidFormProps={bidFormProps}
+              calculatorConfig={calculatorConfig ?? null}
+              pricingRates={pricingRates}
+              initialPrimaryQty={initialPrimaryQty}
+              jobPriceBenchmark={jobPriceBenchmark}
+              contractorTierProfile={contractorTierProfile}
+              mode="create"
+            />
           </div>
         </div>
       </div>
@@ -126,12 +234,25 @@ export function ContractorBidPanel({
           Tila: {bidStatusLabels[bid.status]}
         </p>
         <p className="mt-2 text-2xl font-bold text-sky-800">
-          {formatEurosFromCents(bidTotalAmountCents(bid))}
+          <PriceWithVat
+            cents={bidTotalAmountCents(bid)}
+            vatIncluded={bid.vat_included}
+          />
         </p>
         {bid.offers_equipment && bid.equipment_amount_cents != null && (
           <p className="mt-1 text-sm text-stone-600">
-            Asennus {formatEurosFromCents(bid.amount_cents)} + laite{" "}
-            {formatEurosFromCents(bid.equipment_amount_cents)}
+            Asennus{" "}
+            <PriceWithVat
+              cents={bid.amount_cents}
+              vatIncluded={bid.vat_included}
+              inline
+            />{" "}
+            + laite{" "}
+            <PriceWithVat
+              cents={bid.equipment_amount_cents}
+              vatIncluded={bid.vat_included}
+              inline
+            />
           </p>
         )}
         <BidDetailsDisplay bid={bid} />
@@ -210,8 +331,13 @@ export function ContractorBidPanel({
         Tallenna muutokset lomakkeen alareunasta.
       </p>
 
-      <BidForm
-        {...bidFormProps}
+      <BidEntry
+        bidFormProps={bidFormProps}
+        calculatorConfig={calculatorConfig ?? null}
+        pricingRates={pricingRates}
+        initialPrimaryQty={initialPrimaryQty}
+        jobPriceBenchmark={jobPriceBenchmark}
+        contractorTierProfile={contractorTierProfile}
         mode="edit"
         bidId={bid.id}
         initialFields={bidToFormFields(bid)}

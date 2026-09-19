@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { HelpCommunityBanner } from "@/components/help/help-community-banner";
 import { HelpPreferencesForm } from "@/components/help/help-preferences-form";
 import { HelpRequestCard } from "@/components/help/help-request-card";
 import { SiteHeader } from "@/components/site-header";
@@ -11,13 +12,16 @@ import {
   fetchOpenHelpRequests,
 } from "@/lib/help-requests-server";
 import { pageMetadata } from "@/lib/seo";
+import { seoDefByPath } from "@/lib/seo-pages";
 import { createClient } from "@/lib/supabase/server";
 
+const seo = seoDefByPath("/apu")!;
+
 export const metadata: Metadata = pageMetadata({
-  title: "Pieni apu — vapaaehtoista naapuriapua",
-  description:
-    "Pyydä pientä apua lähialueelta tai tarjoa vapaaehtoista apua. Ei hintaa — hyvä teko synnyttää hyvää.",
+  title: seo.title,
+  description: seo.description,
   path: "/apu",
+  keywords: seo.keywords,
 });
 
 export default async function HelpHubPage() {
@@ -47,9 +51,23 @@ export default async function HelpHubPage() {
           yritykset voivat auttaa kantamisessa, siirtämisessä ja muissa pienissä hommissa.
         </p>
 
+        <HelpCommunityBanner />
+
         {prefs && prefs.freeHelpsGiven > 0 && (
           <p className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-900">
             ❤️ {freeHelpTitle(prefs.freeHelpsGiven)}. Kiitos kun autoit muita.
+          </p>
+        )}
+
+        {!user && (
+          <p className="mt-6 rounded-xl border border-stone-200 bg-stone-50 px-4 py-3 text-sm text-stone-700">
+            <span className="font-medium text-stone-900">Apu vaatii kirjautumisen</span> —
+            luottamus ja kuittaukset vaativat tunnistetun käyttäjän. Tarjouspyynnön
+            voit jättää ilman tiliä{" "}
+            <Link href="/remontti/uusi" className="font-medium text-sky-700 hover:underline">
+              täällä
+            </Link>
+            .
           </p>
         )}
 

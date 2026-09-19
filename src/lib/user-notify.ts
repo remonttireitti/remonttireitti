@@ -176,7 +176,7 @@ export async function userNotifyCustomerReferralCreditEarned(params: {
   const reason =
     params.source === "contractor"
       ? "Suosittelemasi urakoitsijan diili hyväksyttiin."
-      : "Suosittelemasi asiakkaan diili hyväksyttiin.";
+      : "Suosittelemasi asiakkaan tarjouspyyntö on saanut tarjouksia.";
 
   await inApp(
     params.customerId,

@@ -9,6 +9,7 @@ import { getProfile, getSessionUser, isContractor } from "@/lib/auth";
 import { fetchProjectCatalog } from "@/lib/job-catalog-server";
 import { parseRemonttiPrefillFromSearchParams } from "@/lib/remontti-prefill";
 import { brand } from "@/lib/brand-theme";
+import { fetchAllLearnedProposals } from "@/lib/learned-proposals";
 import {
   fetchAllEmphasizedCriteria,
   fetchAllLearnedCriteria,
@@ -33,11 +34,13 @@ export default async function NewProjectPage({
   }
 
   const supabase = await createClient();
-  const [catalog, emphasizedCriteria, learnedCriteria] = await Promise.all([
-    fetchProjectCatalog(),
-    fetchAllEmphasizedCriteria(supabase),
-    fetchAllLearnedCriteria(supabase),
-  ]);
+  const [catalog, emphasizedCriteria, learnedCriteria, learnedProposals] =
+    await Promise.all([
+      fetchProjectCatalog(),
+      fetchAllEmphasizedCriteria(supabase),
+      fetchAllLearnedCriteria(supabase),
+      fetchAllLearnedProposals(supabase),
+    ]);
 
   if (catalog.jobTypes.length === 0) {
     return (
@@ -76,7 +79,11 @@ export default async function NewProjectPage({
         <p className="mt-2 max-w-2xl text-stone-600">
           {isGuest
             ? "Täytä pyyntö ilman tiliä. Lähetämme vahvistuslinkin sähköpostiisi — julkaisu ja urakoitsijailmoitukset tapahtuvat vasta vahvistuksen jälkeen. Linkki on voimassa 24 tuntia."
-            : "Valitse remontin tyyppi ja täytä pyyntö. Julkaise tarjouspyyntö ilmaiseksi."}
+            : "Valitse remontin tyyppi ja täytä pyyntö. Julkaise tarjouspyyntö ilmaiseksi."}{" "}
+          <Link href="/laskurit" className="font-medium text-violet-800 hover:underline">
+            Arvioi kustannukset laskurilla
+          </Link>{" "}
+          ennen lähettämistä.
         </p>
         {isGuest && (
           <p className="mt-3 max-w-2xl rounded-xl border border-amber-200 bg-amber-50/80 px-4 py-3 text-sm text-amber-950">
@@ -107,6 +114,7 @@ export default async function NewProjectPage({
             prefill={prefill}
             emphasizedCriteria={emphasizedCriteria}
             learnedCriteria={learnedCriteria}
+            learnedProposals={learnedProposals}
             isGuest={isGuest}
           />
         </div>

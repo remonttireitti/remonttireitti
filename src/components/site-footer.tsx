@@ -57,7 +57,7 @@ export async function SiteFooter() {
               {contractor && (
                 <li>
                   <Link
-                    href="/oma-tili#yritystiedot"
+                    href="/oma-tili/yritys"
                     className="text-stone-600 hover:text-sky-700"
                   >
                     Yritystiedot
@@ -84,6 +84,11 @@ export async function SiteFooter() {
               <li>
                 <Link href="/hinta-arkisto" className="text-stone-600 hover:text-sky-700">
                   Hinta-arkisto
+                </Link>
+              </li>
+              <li>
+                <Link href="/laskurit" className="text-stone-600 hover:text-sky-700">
+                  Remonttilaskurit
                 </Link>
               </li>
               <li>

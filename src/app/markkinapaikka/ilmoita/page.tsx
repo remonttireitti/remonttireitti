@@ -14,7 +14,9 @@ import { ContractorActivationBanner } from "@/components/account/contractor-acti
 import { ContractorListingForm } from "@/components/marketplace/contractor-listing-form";
 import { ContractorListingPaywall } from "@/components/marketplace/contractor-listing-paywall";
 import { ConsumerListingForm } from "@/components/marketplace/consumer-listing-form";
+import { ConsumerDonationListingForm } from "@/components/marketplace/consumer-donation-listing-form";
 import { ConsumerWantedListingForm } from "@/components/marketplace/consumer-wanted-listing-form";
+import { ContractorDonationListingForm } from "@/components/marketplace/contractor-donation-listing-form";
 import { SiteHeader } from "@/components/site-header";
 import {
   defaultCompanyFromUser,
@@ -22,6 +24,7 @@ import {
 } from "@/lib/contractor-activation";
 import { getProfile, getSessionUser, isContractor } from "@/lib/auth";
 import { countConsumerListingSlotsLeft } from "@/app/actions/marketplace-listings";
+import { countDonationListingSlotsLeft } from "@/app/actions/listing-donations";
 import { normalizeListingContactEmail } from "@/lib/listing-contact-email";
 import {
   getActiveContractorSubscription,
@@ -50,6 +53,14 @@ export default async function MarketplaceCreateListingPage({
       redirect("/markkinapaikka/ilmoita");
     }
     return <ConsumerWantedListingInfo />;
+  }
+
+  if (tyyppi === "lahjoitus") {
+    const user = await getSessionUser();
+    if (user && (await isContractor())) {
+      return <ContractorDonationListingInfo />;
+    }
+    return <ConsumerDonationListingInfo />;
   }
 
   if (tyyppi === "kuluttaja") {
@@ -212,6 +223,105 @@ async function ConsumerWantedListingInfo() {
             className="text-sky-700 hover:underline"
           >
             Julkaise myynti-ilmoitus
+          </Link>
+        </p>
+      </main>
+    </div>
+  );
+}
+
+async function ConsumerDonationListingInfo() {
+  const user = await getSessionUser();
+  const profile = user ? await getProfile() : null;
+  const isGuest = !user;
+  const contactEmail = user
+    ? normalizeListingContactEmail(user.email ?? "")
+    : "";
+  const slotsLeft = user
+    ? await countDonationListingSlotsLeft(user.id, contactEmail)
+    : await countDonationListingSlotsLeft(null, "");
+
+  return (
+    <div className={brand.page}>
+      <SiteHeader />
+      <main className={brand.mainForm}>
+        <Link
+          href="/markkinapaikka"
+          className="text-sm text-sky-700 hover:underline"
+        >
+          ← {marketplaceBrand.nameShort}
+        </Link>
+        <h1 className="mt-4 text-2xl font-bold">Annetaan ilmaiseksi</h1>
+        <p className="mt-2 text-sm text-stone-600">
+          {isGuest
+            ? "Julkaise lahjoitusilmoitus ilman tiliä. Lähetämme vahvistuslinkin sähköpostiisi."
+            : "Lahjoita ylijäämätavara remonttiyhteisölle — ilmainen yksityishenkilölle."}{" "}
+          Enintään 2 aktiivista lahjoitusilmoitusta.
+        </p>
+        {isGuest && (
+          <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50/80 px-4 py-3 text-sm text-amber-950">
+            <span className="font-medium">Ilman tiliä:</span> hallitse ilmoitusta
+            sähköpostiin tulevalla linkillä.
+          </p>
+        )}
+
+        <ConsumerDonationListingForm
+          slotsLeft={isGuest ? 2 : slotsLeft}
+          isGuest={isGuest}
+          defaults={{
+            contact_email: user?.email ?? "",
+            contact_phone: profile?.phone ?? "",
+          }}
+        />
+
+        <p className="mt-8 text-center text-sm text-stone-500">
+          Tarvitset apua työhön, ei tavaraa?{" "}
+          <Link href="/apu" className="text-sky-700 hover:underline">
+            Pieni apu
+          </Link>{" "}
+          on erillinen palvelu naapuriavulle.
+        </p>
+      </main>
+    </div>
+  );
+}
+
+async function ContractorDonationListingInfo() {
+  const user = await getSessionUser();
+  if (!user) redirect("/kirjaudu?redirect=/markkinapaikka/ilmoita?tyyppi=lahjoitus");
+
+  const profile = await getProfile();
+  const contactEmail = normalizeListingContactEmail(user.email ?? "");
+  const slotsLeft = await countDonationListingSlotsLeft(user.id, contactEmail);
+
+  return (
+    <div className={brand.page}>
+      <SiteHeader />
+      <main className={brand.mainForm}>
+        <Link
+          href="/markkinapaikka"
+          className="text-sm text-sky-700 hover:underline"
+        >
+          ← {marketplaceBrand.nameShort}
+        </Link>
+        <h1 className="mt-4 text-2xl font-bold">Yrityksen lahjoitus</h1>
+        <p className="mt-2 text-sm text-stone-600">
+          Lahjoita ylijäämävarastoa ilmaiseksi — ei tilaus- eikä ilmoitusmaksua.
+          Julkaistaan heti. Enintään 2 aktiivista lahjoitusilmoitusta.
+        </p>
+
+        <ContractorDonationListingForm
+          slotsLeft={slotsLeft}
+          defaults={{
+            contact_email: user.email ?? "",
+            contact_phone: profile?.phone ?? "",
+          }}
+        />
+
+        <p className="mt-8 text-center text-sm text-stone-500">
+          Myyt tavaraa?{" "}
+          <Link href="/markkinapaikka/ilmoita" className="text-sky-700 hover:underline">
+            Yrityksen myynti-ilmoitus
           </Link>
         </p>
       </main>

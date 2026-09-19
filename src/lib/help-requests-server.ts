@@ -5,6 +5,13 @@ import type {
   HelpRequestRow,
   HelpRequestWithDistance,
 } from "@/lib/help-requests-shared";
+import { tryCreateAdminClient } from "@/lib/supabase/admin";
+
+export type HelpRequesterContact = {
+  fullName: string | null;
+  phone: string | null;
+  email: string | null;
+};
 
 export type HelpPrefs = {
   helpPostalCode: string | null;
@@ -109,6 +116,50 @@ export async function fetchOpenHelpRequests(
   }
 
   return withDistance;
+}
+
+export async function countOpenHelpRequests(
+  supabase: SupabaseClient,
+): Promise<number> {
+  const now = new Date().toISOString();
+  const { count, error } = await supabase
+    .from("help_requests")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "open")
+    .gt("expires_at", now);
+
+  if (error) {
+    console.error("[countOpenHelpRequests]", error.message);
+    return 0;
+  }
+
+  return count ?? 0;
+}
+
+/** Pyytäjän yhteystiedot — vain kirjautuneelle katsojalle (ei pyytäjälle). */
+export async function fetchHelpRequesterContactForViewer(
+  requesterId: string,
+  viewerId: string | null,
+): Promise<HelpRequesterContact | null> {
+  if (!viewerId || viewerId === requesterId) return null;
+
+  const admin = tryCreateAdminClient();
+  if (!admin) return null;
+
+  const [{ data: profile }, { data: authUser }] = await Promise.all([
+    admin
+      .from("profiles")
+      .select("full_name, phone")
+      .eq("id", requesterId)
+      .maybeSingle(),
+    admin.auth.admin.getUserById(requesterId),
+  ]);
+
+  return {
+    fullName: profile?.full_name ?? null,
+    phone: profile?.phone?.trim() || null,
+    email: authUser?.user?.email ?? null,
+  };
 }
 
 export async function fetchHelpRequestById(

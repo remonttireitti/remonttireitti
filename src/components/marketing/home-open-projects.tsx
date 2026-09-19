@@ -1,12 +1,11 @@
 import Link from "next/link";
 import { brand } from "@/lib/brand-theme";
 import type { PublicOpenProject } from "@/lib/public-projects-server";
+import { formatBudgetWithVat } from "@/lib/vat-label";
 
 function formatBudget(min: number | null, max: number | null): string | null {
   if (min == null && max == null) return null;
-  if (min != null && max != null) return `${min.toLocaleString("fi-FI")}–${max.toLocaleString("fi-FI")} €`;
-  if (min != null) return `alk. ${min.toLocaleString("fi-FI")} €`;
-  return `enint. ${max!.toLocaleString("fi-FI")} €`;
+  return formatBudgetWithVat(min, max);
 }
 
 export function HomeOpenProjects({

@@ -14,7 +14,12 @@ Miksi Google-tulokset ovat heikot juuri nyt, ja mitä tehdä.
 1. [Google Search Console](https://search.google.com/search-console) → lisää `remonttireitti.fi`
 2. Vahvista domain (DNS TXT tai HTML-tag → `NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION` GitHub Secrets / Cloudflare build)
 3. Lähetä sitemap: `https://remonttireitti.fi/sitemap.xml`
-4. Pyydä indeksointia tärkeimmille sivuille (Etusivu, `/vian-selvitys`, `/palvelut/ilmalampopumppu`)
+4. Pyydä indeksointia tärkeimmille sivuille (Etusivu, `/apu`, `/vian-selvitys`, `/palvelut/ilmalampopumppu`)
+
+**Kun sivustoa päivitetään (esim. uusi osio):**
+- Search Console → **Sitemaps** → lähetä uudelleen `https://remonttireitti.fi/sitemap.xml`
+- **URL-tarkistus** → *Pyydä indeksointia* vain muuttuneille tai uusille URL:ille (ei koko sivustoa)
+- Prioriteetti deployn jälkeen: `/`, `/apu`, `/vian-selvitys`, 2–3 palvelusivua
 
 ### 2. Urakkamaailma voittaa verkostolla — ei tekniikalla
 
@@ -41,9 +46,11 @@ Sinulla on:
 | Prioriteetti | Sisältö | Esimerkkihaku |
 |---|---|---|
 | 1 | `/vian-selvitys/*` | lämpöpumppu ei lämmitä, virhekoodi |
-| 2 | Lämpöpumpun palvelusivut | ilmalämpöpumpun asennus, huolto |
-| 3 | Avoimet tarjouspyynnöt | kattoremontti Espoo (kun niitä on) |
-| 4 | FB + paikalliset ryhmät | ei SEO, mutta tuo ensimmäiset pyynnöt |
+| 2 | `/laskurit/kylpyhuoneremontti` | kylpyhuoneremontti hinta, vesieristys hinta |
+| 3 | Lämpöpumpun palvelusivut | ilmalämpöpumpun asennus, huolto |
+| 4 | Avoimet tarjouspyynnöt | kattoremontti Espoo (kun niitä on) |
+| 5 | `/apu` | naapuriapu, pieni apu (kapea, matala volyymi) |
+| 6 | FB + paikalliset ryhmät | ei SEO, mutta tuo ensimmäiset pyynnöt |
 
 **Myöhemmin (kun liikennettä):** kaupunki-sivut (`/palvelut/kattoremontti/helsinki`).
 
@@ -52,7 +59,9 @@ Sinulla on:
 ## Mitä koodissa on jo tehty
 
 - Keskitetty metadata (`src/lib/seo.ts`, `seo-pages.ts`)
-- `sitemap.xml` (~90+ URL + avoimet tarjouspyynnöt)
+- `sitemap.xml` (~90+ URL + avoimet tarjouspyynnöt + `/apu` + avoimet apupyynnöt)
+- `HELP_KEYWORDS` + `/apu` metadata (`src/lib/seo-keywords.ts`, `seo-pages.ts`)
+- `public/llms.txt` — Apu mukana LLM-hakemistossa
 - `robots.txt` — yksityiset alueet estetty
 - JSON-LD: Organization, WebSite, HowTo + FAQ vian selvityksessä
 - Breadcrumb-rakenne vian selvityksessä

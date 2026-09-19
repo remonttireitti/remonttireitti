@@ -13,7 +13,7 @@ import {
   formatBidAcceptScopeShort,
 } from "@/lib/bid-accept-scope";
 import { bidTotalAmountCents, bidWorkAmountCents } from "@/lib/bid-amounts";
-import { formatEurosFromCents } from "@/lib/bids";
+import { PriceWithVat } from "@/components/price/price-with-vat";
 import { getSessionUser, isContractor } from "@/lib/auth";
 import { fetchContractorProjectConversation } from "@/lib/messages-server";
 import { fetchPlatformFeedbackForProject } from "@/lib/platform-feedback-server";
@@ -21,6 +21,7 @@ import { brand } from "@/lib/brand-theme";
 import { fetchContractorProjectActivity } from "@/lib/project-activity-server";
 import { ProjectActivityTimeline } from "@/components/project/project-activity-timeline";
 import { createClient } from "@/lib/supabase/server";
+import { BidProfitabilityOutcomeForm } from "@/components/bid/bid-profitability-outcome-form";
 
 export default async function ContractorWonProjectPage({
   params,
@@ -58,7 +59,7 @@ export default async function ContractorWonProjectPage({
   const { data: bid } = await supabase
     .from("bids")
     .select(
-      "id, amount_cents, offers_equipment, equipment_amount_cents, equipment_description, accepted_includes_equipment, message, status, estimated_days, submitted_at",
+      "id, amount_cents, offers_equipment, equipment_amount_cents, equipment_description, accepted_includes_equipment, message, status, estimated_days, submitted_at, vat_included",
     )
     .eq("project_id", id)
     .eq("contractor_id", user.id)
@@ -128,6 +129,31 @@ export default async function ContractorWonProjectPage({
 
   const activityEvents = await fetchContractorProjectActivity(id, user.id, supabase);
 
+  const { data: profitPlan } = await supabase
+    .from("bid_profitability_plans")
+    .select(
+      "material_cents, labor_cents, subcontract_cents, travel_cents, other_cents, estimated_profit_cents",
+    )
+    .eq("project_id", id)
+    .eq("contractor_id", user.id)
+    .maybeSingle();
+
+  const { data: profitOutcome } = await supabase
+    .from("bid_profitability_outcomes")
+    .select("id, actual_cost_cents, actual_profit_cents, reported_at")
+    .eq("project_id", id)
+    .maybeSingle();
+
+  const bidEuros = bidResolvedAmountCents(bid) / 100;
+  const estimatedCostEuros = profitPlan
+    ? (profitPlan.material_cents +
+        profitPlan.labor_cents +
+        profitPlan.subcontract_cents +
+        profitPlan.travel_cents +
+        profitPlan.other_cents) /
+      100
+    : 0;
+
   return (
     <div className={brand.page}>
       <SiteHeader />
@@ -165,15 +191,28 @@ export default async function ContractorWonProjectPage({
                 {formatBidAcceptScopeShort(bid.accepted_includes_equipment)}
               </p>
               <p className="mt-1 text-2xl font-bold text-sky-800">
-                {formatEurosFromCents(bidResolvedAmountCents(bid))}
+                <PriceWithVat
+                  cents={bidResolvedAmountCents(bid)}
+                  vatIncluded={bid.vat_included}
+                />
               </p>
               <p className="mt-1 text-sm text-stone-600">
-                Asennus {formatEurosFromCents(bidWorkAmountCents(bid))}
+                Asennus{" "}
+                <PriceWithVat
+                  cents={bidWorkAmountCents(bid)}
+                  vatIncluded={bid.vat_included}
+                  inline
+                />
                 {bid.accepted_includes_equipment &&
                   bid.equipment_amount_cents != null && (
                     <>
                       {" "}
-                      + laite {formatEurosFromCents(bid.equipment_amount_cents)}
+                      + laite{" "}
+                      <PriceWithVat
+                        cents={bid.equipment_amount_cents}
+                        vatIncluded={bid.vat_included}
+                        inline
+                      />
                     </>
                   )}
               </p>
@@ -185,14 +224,27 @@ export default async function ContractorWonProjectPage({
             </>
           ) : (
             <p className="text-2xl font-bold text-sky-800">
-              {formatEurosFromCents(bidResolvedAmountCents(bid))}
+              <PriceWithVat
+                cents={bidResolvedAmountCents(bid)}
+                vatIncluded={bid.vat_included}
+              />
             </p>
           )}
           {bidHasSplitEquipmentOffer(bid) &&
             bid.accepted_includes_equipment == null && (
               <p className="mt-1 text-sm text-stone-500">
-                Tarjous: asennus {formatEurosFromCents(bidWorkAmountCents(bid))}{" "}
-                tai yhteensä {formatEurosFromCents(bidTotalAmountCents(bid))}{" "}
+                Tarjous: asennus{" "}
+                <PriceWithVat
+                  cents={bidWorkAmountCents(bid)}
+                  vatIncluded={bid.vat_included}
+                  inline
+                />{" "}
+                tai yhteensä{" "}
+                <PriceWithVat
+                  cents={bidTotalAmountCents(bid)}
+                  vatIncluded={bid.vat_included}
+                  inline
+                />{" "}
                 laitteen kanssa
               </p>
             )}
@@ -272,6 +324,32 @@ export default async function ContractorWonProjectPage({
             revalidatePaths={[`/tarjoukset/urakka/${id}`]}
             readOnly={project.status === "completed"}
             perspective="contractor"
+          />
+        )}
+
+        {project.status === "completed" && profitOutcome && (
+          <section className="mt-8 rounded-xl border border-emerald-200 bg-emerald-50/50 p-5">
+            <h2 className="text-lg font-semibold text-emerald-950">
+              Toteutuneet kulut tallennettu
+            </h2>
+            <p className="mt-1 text-sm text-stone-600">
+              Kiitos! Toteutunut kate{" "}
+              <strong>
+                {(profitOutcome.actual_profit_cents / 100).toLocaleString(
+                  "fi-FI",
+                )}{" "}
+                €
+              </strong>{" "}
+              auttaa parantamaan laskureita ajan myötä.
+            </p>
+          </section>
+        )}
+
+        {project.status === "completed" && !profitOutcome && (
+          <BidProfitabilityOutcomeForm
+            projectId={id}
+            bidEuros={bidEuros}
+            estimatedCostEuros={estimatedCostEuros}
           />
         )}
 

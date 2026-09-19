@@ -10,6 +10,8 @@ const links = [
   { href: "/admin/tilastot", label: "Tilastot" },
   { href: "/admin/kysynta", label: "Kysyntä" },
   { href: "/admin/palaute", label: "Palaute" },
+  { href: "/admin/oppiminen", label: "Oppiminen" },
+  { href: "/admin/tarjous-esikatselu", label: "Tarjous-PDF" },
   { href: "/admin/laskutus", label: "Laskutus" },
 ] as const;
 

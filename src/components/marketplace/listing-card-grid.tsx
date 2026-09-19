@@ -14,7 +14,7 @@ export type ListingCardItem = {
   condition: "used" | "new";
   seller_type: "contractor" | "customer";
   product_category: ListingProductCategory;
-  listing_kind?: "sell" | "wanted";
+  listing_kind?: "sell" | "wanted" | "donate";
   highlighted_in_search?: boolean;
   thumbnail_url?: string | null;
 };
@@ -61,7 +61,11 @@ function ListingThumbnail({
 function ListingMetaLine({ listing }: { listing: ListingCardItem }) {
   return (
     <span className="text-xs font-medium uppercase text-stone-500">
-      {listing.listing_kind === "wanted" ? "Ostopyyntö · " : null}
+      {listing.listing_kind === "wanted"
+        ? "Ostopyyntö · "
+        : listing.listing_kind === "donate"
+          ? "Lahjoitus · "
+          : null}
       {listingCategoryLabel(listing.product_category ?? "device")} ·{" "}
       {listing.condition === "new" ? "Uusi" : "Käytetty"} ·{" "}
       {listing.seller_type === "customer" ? "Yksityinen" : "Yritys"}
@@ -72,13 +76,15 @@ function ListingMetaLine({ listing }: { listing: ListingCardItem }) {
 function ListingPrice({ listing }: { listing: ListingCardItem }) {
   return (
     <p className="font-bold text-sky-800 sm:text-lg">
-      {listing.listing_kind === "wanted"
-        ? listing.price_eur != null
-          ? `Budjetti max ${listing.price_eur.toLocaleString("fi-FI")} €`
-          : "Budjetti neuvoteltavissa"
-        : listing.price_eur != null
-          ? `${listing.price_eur.toLocaleString("fi-FI")} €`
-          : "Hinta neuvoteltavissa"}
+      {listing.listing_kind === "donate"
+        ? "Ilmaiseksi"
+        : listing.listing_kind === "wanted"
+          ? listing.price_eur != null
+            ? `Budjetti max ${listing.price_eur.toLocaleString("fi-FI")} €`
+            : "Budjetti neuvoteltavissa"
+          : listing.price_eur != null
+            ? `${listing.price_eur.toLocaleString("fi-FI")} €`
+            : "Hinta neuvoteltavissa"}
     </p>
   );
 }

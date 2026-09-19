@@ -5,6 +5,7 @@ import { brand } from "@/lib/brand-theme";
 import { getSessionUser, isContractor } from "@/lib/auth";
 import { LISTING_PRODUCT_CATEGORIES } from "@/lib/marketplace-categories";
 import { marketplaceCreateListingPath } from "@/lib/marketplace-listing-links";
+import { GuestListingsManagementCard } from "@/components/marketplace/guest-listings-management";
 import { marketplaceBrand } from "@/lib/marketplace-brand";
 import { pageMetadata } from "@/lib/seo";
 import { seoDefByPath } from "@/lib/seo-pages";
@@ -54,7 +55,19 @@ export default async function MarketplacePage() {
           >
             Selaa ilmoituksia
           </Link>
+          <Link
+            href="/markkinapaikka/omat-ilmoitukset"
+            className={`${brand.btnSecondary} ${brand.btnSecondaryBlock}`}
+          >
+            {user ? "Omat ilmoitukset" : "Omat ilmoitukset (ilman tiliä)"}
+          </Link>
         </div>
+
+        {!user && (
+          <div className="mt-10 max-w-2xl">
+            <GuestListingsManagementCard />
+          </div>
+        )}
 
         <div className="mt-16">
           <h2 className="text-lg font-semibold text-stone-900">Selaa tuoteryhmittäin</h2>
@@ -73,6 +86,29 @@ export default async function MarketplacePage() {
               </li>
             ))}
           </ul>
+        </div>
+
+        <div className="mt-16">
+          <Link
+            href="/markkinapaikka/ilmoitukset?tyyppi=lahjoitus"
+            className="flex flex-col rounded-xl border border-emerald-200 bg-emerald-50/50 p-5 shadow-sm transition hover:border-emerald-300 hover:shadow-md sm:flex-row sm:items-center sm:justify-between"
+          >
+            <div>
+              <h2 className="font-semibold text-emerald-950">Annetaan ilmaiseksi</h2>
+              <p className="mt-1 text-sm text-emerald-900/90">
+                Ylijäämätavara remonttiyhteisölle — ilmainen myös yrityksille.
+                Nouto vahvistetaan molempien osapuolten kuittauksella. Tarvitset
+                apua työhön, ei tavaraa?{" "}
+                <Link href="/apu" className="font-medium text-rose-800 hover:underline">
+                  Pieni apu
+                </Link>{" "}
+                on erillinen vapaaehtoinen palvelu.
+              </p>
+            </div>
+            <span className="mt-3 inline-block text-sm font-medium text-emerald-800 sm:mt-0">
+              Selaa lahjoituksia →
+            </span>
+          </Link>
         </div>
 
         <div

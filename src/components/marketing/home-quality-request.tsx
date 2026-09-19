@@ -43,7 +43,10 @@ export function HomeQualityRequest({ hideContractorLink = false }: Props) {
           <p className="mt-4 text-sm leading-relaxed text-stone-600 sm:text-base">
             Suppea WhatsApp-viesti tuottaa epätarkkoja tarjouksia. Remonttireitin
             ohjattu lomake ja laatupiste auttavat kuvaamaan työn kerralla
-            oikein — ja pohja oppii työlajeittain.
+            oikein — ja pohja oppii työlajeittain.{" "}
+            <span className="font-medium text-stone-800">
+              Pyynnön voit jättää ilman tiliä — vahvistus sähköpostilinkistä.
+            </span>
           </p>
         </div>
 
@@ -64,7 +67,7 @@ export function HomeQualityRequest({ hideContractorLink = false }: Props) {
 
         <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
           <Link href="/remontti/uusi" className={`${brand.btnPrimary} ${brand.btnPrimaryBlock}`}>
-            Kokeile ohjattua pyyntöä
+            Jätä pyyntö ilman tiliä
           </Link>
           {!hideContractorLink && (
             <Link

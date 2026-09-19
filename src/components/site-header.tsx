@@ -4,7 +4,11 @@ import { SiteHeaderMobileNav } from "@/components/site-header-mobile-nav";
 import { SiteHeaderNav } from "@/components/site-header-nav";
 import { getProfile, getSessionUser, isContractor } from "@/lib/auth";
 import { isAdmin } from "@/lib/admin";
-import { getAdminPreviewMode } from "@/lib/admin-preview";
+import {
+  canBrowseAsContractor,
+  canManageContractorCompanySettings,
+  getAdminPreviewMode,
+} from "@/lib/admin-preview";
 import { isEvaluator } from "@/lib/evaluator";
 import { countUnreadNotifications } from "@/lib/notifications-server";
 import { hasAnyActiveEvaluator } from "@/lib/bid-evaluation-availability-server";
@@ -16,6 +20,10 @@ export async function SiteHeader() {
   const admin = user ? await isAdmin() : false;
   const previewMode = admin ? await getAdminPreviewMode() : null;
   const contractorReal = user ? await isContractor() : false;
+  const contractorWorkspace = user ? await canBrowseAsContractor() : false;
+  const contractorCompanySettings = user
+    ? await canManageContractorCompanySettings()
+    : false;
   const contractor =
     previewMode === "contractor" ? true : previewMode === "customer" ? false : contractorReal;
   const isCustomer =
@@ -38,6 +46,8 @@ export async function SiteHeader() {
     loggedIn: !!user,
     isCustomer,
     isContractor: contractor,
+    contractorWorkspace,
+    contractorCompanySettings,
     isAdmin: admin,
     isEvaluator: evaluator,
     unreadNotifications,

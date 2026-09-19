@@ -18,6 +18,7 @@ import {
   fetchHelpOffersForRequest,
   fetchHelpPrefs,
   fetchHelpRequestById,
+  fetchHelpRequesterContactForViewer,
 } from "@/lib/help-requests-server";
 import { postalCodeDistanceKm } from "@/lib/geo-distance";
 import { pageMetadata } from "@/lib/seo";
@@ -68,7 +69,10 @@ export default async function HelpRequestDetailPage({
     );
   }
 
-  const offers = await fetchHelpOffersForRequest(supabase, id);
+  const [offers, requesterContact] = await Promise.all([
+    fetchHelpOffersForRequest(supabase, id),
+    fetchHelpRequesterContactForViewer(request.requester_id, user?.id ?? null),
+  ]);
   const isRequester = user?.id === request.requester_id;
   const myOffer = user ? offers.find((o) => o.helper_id === user.id) : null;
   const acceptedOffer = request.accepted_offer_id
@@ -157,6 +161,66 @@ export default async function HelpRequestDetailPage({
           <p className="mt-4 rounded-xl border border-rose-100 bg-rose-50/80 px-4 py-3 text-sm text-rose-950">
             ❤️ Vapaaehtoinen apu — ei palkkiota eikä tarjousta.
           </p>
+
+          {requesterContact &&
+            ["open", "matched"].includes(request.status) && (
+              <section className="mt-6 rounded-xl border border-stone-200 bg-stone-50 p-4">
+                <h2 className="text-sm font-semibold text-stone-900">
+                  Pyytäjän yhteystiedot
+                </h2>
+                <p className="mt-1 text-xs text-stone-500">
+                  Näkyvissä kirjautuneille auttajille. Ota yhteyttä ennen kuin
+                  menet paikalle.
+                </p>
+                <dl className="mt-3 space-y-2 text-sm">
+                  {requesterContact.fullName && (
+                    <div>
+                      <dt className="text-xs font-semibold uppercase text-stone-500">
+                        Nimi
+                      </dt>
+                      <dd className="text-stone-900">{requesterContact.fullName}</dd>
+                    </div>
+                  )}
+                  {requesterContact.phone && (
+                    <div>
+                      <dt className="text-xs font-semibold uppercase text-stone-500">
+                        Puhelin
+                      </dt>
+                      <dd>
+                        <a
+                          href={`tel:${requesterContact.phone.replace(/\s/g, "")}`}
+                          className="font-medium text-sky-700 hover:underline"
+                        >
+                          {requesterContact.phone}
+                        </a>
+                      </dd>
+                    </div>
+                  )}
+                  {requesterContact.email && (
+                    <div>
+                      <dt className="text-xs font-semibold uppercase text-stone-500">
+                        Sähköposti
+                      </dt>
+                      <dd>
+                        <a
+                          href={`mailto:${requesterContact.email}`}
+                          className="font-medium text-sky-700 hover:underline"
+                        >
+                          {requesterContact.email}
+                        </a>
+                      </dd>
+                    </div>
+                  )}
+                  {!requesterContact.fullName &&
+                    !requesterContact.phone &&
+                    !requesterContact.email && (
+                      <p className="text-stone-600">
+                        Pyytäjä ei ole vielä täyttänyt yhteystietojaan profiiliin.
+                      </p>
+                    )}
+                </dl>
+              </section>
+            )}
         </article>
 
         {canOffer && <div className="mt-6"><HelpOfferForm requestId={id} /></div>}

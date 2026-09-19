@@ -26,24 +26,27 @@ export function formatBidOfferScopeLabel(
   return BID_OFFER_SCOPE_LABELS.own_trade;
 }
 
+import { bidAmountFieldLabel } from "@/lib/vat-label";
+
 export function bidOfferScopeAmountLabel(
   scope: BidOfferScope | null,
   isMultiTrade: boolean,
   allowOptionalEquipmentOffer: boolean,
   requiresDeviceAndInstallation: boolean,
+  vatIncluded = true,
 ): string {
   if (allowOptionalEquipmentOffer && !requiresDeviceAndInstallation) {
     return scope === "own_trade" && isMultiTrade
-      ? "Oman ammattisi osuuden hinta (€, sis. ALV) *"
+      ? bidAmountFieldLabel("Oman ammattisi osuuden hinta", vatIncluded)
       : scope === "turnkey" && isMultiTrade
-        ? "Kokonaisurakan hinta (€, sis. ALV) *"
-        : "Asennus ja työ (€, sis. ALV) *";
+        ? bidAmountFieldLabel("Kokonaisurakan hinta", vatIncluded)
+        : bidAmountFieldLabel("Asennus ja työ", vatIncluded);
   }
   if (scope === "own_trade" && isMultiTrade) {
-    return "Oman ammattisi osuuden hinta (€, sis. ALV) *";
+    return bidAmountFieldLabel("Oman ammattisi osuuden hinta", vatIncluded);
   }
   if (scope === "turnkey" && isMultiTrade) {
-    return "Kokonaisurakan hinta (€, sis. ALV) *";
+    return bidAmountFieldLabel("Kokonaisurakan hinta", vatIncluded);
   }
-  return "Hintasi (€, sis. ALV) *";
+  return bidAmountFieldLabel("Hintasi", vatIncluded);
 }

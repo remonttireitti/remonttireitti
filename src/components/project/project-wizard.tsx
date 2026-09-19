@@ -2,10 +2,13 @@
 
 import { useMemo, useState } from "react";
 import { useServerActionSubmit } from "@/hooks/use-server-action-submit";
+import { ProjectCalculatorBanner } from "@/components/calculator/project-calculator-banner";
 import { LearnedCriteriaWarnings } from "@/components/project/learned-criteria-warnings";
 import type { LearnedCriterionWithJob } from "@/components/project/learned-criteria-warnings";
 import { ProjectQualityScorePanel } from "@/components/project/project-quality-score-panel";
+import { LearnedAddonsPicker } from "@/components/project/learned-addons-picker";
 import { ProjectRequestGuide } from "@/components/project/project-request-guide";
+import type { LearnedProposal } from "@/lib/learned-proposals";
 import { scoreProjectRequest } from "@/lib/project-request-quality";
 import type { EmphasizedCriterion } from "@/lib/template-criterion-stats";
 import {
@@ -129,6 +132,7 @@ type ProjectWizardProps = {
   prefill?: RemonttiPrefill;
   emphasizedCriteria?: EmphasizedCriterion[];
   learnedCriteria?: LearnedCriterionWithJob[];
+  learnedProposals?: LearnedProposal[];
   isGuest?: boolean;
 };
 
@@ -141,6 +145,7 @@ export function ProjectWizard({
   prefill,
   emphasizedCriteria = [],
   learnedCriteria = [],
+  learnedProposals = [],
   isGuest = false,
 }: ProjectWizardProps) {
   const isEdit = Boolean(editSnapshot);
@@ -487,6 +492,14 @@ export function ProjectWizard({
             />
           </>
         )}
+
+        {selectedJobType?.slug && (
+          <ProjectCalculatorBanner
+            jobSlug={selectedJobType.slug}
+            className="mb-6"
+          />
+        )}
+
         {step === 0 && (
           <ProjectAreaJobStep
             catalog={catalog}
@@ -612,6 +625,13 @@ export function ProjectWizard({
               description={form.description}
               onDescriptionChange={(value) => update("description", value)}
               emphasizedCriteria={emphasizedCriteria}
+              learnedInfoNeeds={learnedProposals}
+            />
+            <LearnedAddonsPicker
+              jobSlug={selectedJobType?.slug ?? null}
+              description={form.description}
+              onDescriptionChange={(value) => update("description", value)}
+              learnedProposals={learnedProposals}
             />
             {isFreeForm && (
               <ProjectAllTradesPicker

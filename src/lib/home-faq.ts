@@ -7,6 +7,12 @@ export type HomeFaqItem = {
 /** Etusivun FAQ — tiivis, FAQPage-schema. */
 export const HOME_FAQ_ITEMS: HomeFaqItem[] = [
   {
+    id: "tili-tarpeen",
+    question: "Pitääkö luoda tili tarjouspyyntöä varten?",
+    answer:
+      "Ei. Voit täyttää ja lähettää tarjouspyynnön ilman rekisteröitymistä — vahvistat julkaisun sähköpostiin tulevalla linkillä. Tili on valinnainen: se helpottaa viestittelyä urakoitsijoiden kanssa ennen valintaa. Pieni apu -palvelu vaatii kirjautumisen luottamuksen vuoksi.",
+  },
+  {
     id: "maksaa-ko",
     question: "Maksaako palvelu minulle?",
     answer:

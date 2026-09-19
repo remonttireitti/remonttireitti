@@ -36,7 +36,15 @@ import {
 import { HomeFeedbackStats } from "@/components/marketing/home-feedback-stats";
 import { HomePlatformStats } from "@/components/marketing/home-platform-stats";
 import { HomeHeroVisual } from "@/components/marketing/home-hero-visual";
+import { HomeCommunitySection } from "@/components/marketing/home-community-section";
+import { HomeCalculatorsSection } from "@/components/marketing/home-calculators-section";
+import { HomeHeroCallouts } from "@/components/marketing/home-hero-callouts";
+import { HomeOpenHelpRequests } from "@/components/marketing/home-open-help-requests";
 import { HomeQualityRequest } from "@/components/marketing/home-quality-request";
+import {
+  countOpenHelpRequests,
+  fetchOpenHelpRequests,
+} from "@/lib/help-requests-server";
 import {
   countPublicOpenProjects,
   fetchPublicOpenProjects,
@@ -65,6 +73,8 @@ export default async function Home() {
   const [
     openProjects,
     openProjectCount,
+    openHelpRequests,
+    openHelpRequestCount,
     platformStats,
     feedbackStats,
     existingFeedback,
@@ -73,6 +83,8 @@ export default async function Home() {
   ] = await Promise.all([
     isCustomer ? Promise.resolve([]) : fetchPublicOpenProjects(12),
     isCustomer ? Promise.resolve(0) : countPublicOpenProjects(),
+    fetchOpenHelpRequests(supabase, { limit: 12 }),
+    countOpenHelpRequests(supabase),
     fetchPublicPlatformStats(),
     fetchPublicFeedbackStats(),
     user ? fetchGeneralPlatformFeedbackForUser(supabase, user.id) : Promise.resolve(null),
@@ -103,11 +115,14 @@ export default async function Home() {
 
       <main className="pb-16">
         <section className={`${brand.containerWide} pt-6 sm:pt-10`}>
+          <HomeHeroCallouts isLoggedIn={!!user} />
           <div className={`${brand.hero} lg:grid lg:grid-cols-2 lg:items-center lg:gap-10 lg:text-left`}>
             <div className="text-center lg:text-left">
-              <div className="mb-6 flex justify-center lg:justify-start">
-                <Logo href="/" size="lg" />
-              </div>
+              {!user && (
+                <div className="mb-4 flex justify-center lg:justify-start">
+                  <Logo href="/" size="lg" />
+                </div>
+              )}
               <p className="mb-3 text-sm font-medium uppercase tracking-widest text-sky-800">
                 Ilmainen kilpailutus
               </p>
@@ -116,10 +131,12 @@ export default async function Home() {
                 <span className="text-sky-800">tekijän?</span>
               </h1>
               <p className="mx-auto mt-5 max-w-2xl text-base leading-relaxed text-stone-600 sm:text-lg lg:mx-0">
-                Julkaise tarjouspyyntö ilmaiseksi — ohjattu lomake, laatupiste ja
-                oppiva pohja auttavat kuvaamaan työn selkeästi. Urakoitsijat saavat
-                tarpeeksi tietoa tarkkaan tarjoukseen. Vertaa ja tingaa
-                vastatarjouksella ennen valintaa.
+                Julkaise tarjouspyyntö ilmaiseksi —{" "}
+                <span className="font-medium text-stone-800">
+                  et tarvitse tiliä eikä rekisteröitymistä.
+                </span>{" "}
+                Ohjattu lomake, laatupiste ja oppiva pohja auttavat kuvaamaan työn
+                selkeästi. Vertaa ja tingaa vastatarjouksella ennen valintaa.
               </p>
               <ul className="mx-auto mt-6 flex max-w-2xl flex-wrap justify-center gap-2 text-xs font-medium text-stone-700 sm:text-sm lg:mx-0 lg:justify-start">
                 <li className="rounded-full bg-violet-50 px-3 py-1.5 shadow-sm ring-1 ring-violet-200">
@@ -134,13 +151,16 @@ export default async function Home() {
                 <li className="rounded-full bg-white/90 px-3 py-1.5 shadow-sm ring-1 ring-sky-100">
                   Asiakkaalle ilmainen
                 </li>
+                <li className="rounded-full bg-sky-50 px-3 py-1.5 shadow-sm ring-1 ring-sky-300">
+                  Ei tiliä tarvita
+                </li>
               </ul>
               <div className="mx-auto mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row lg:mx-0 lg:justify-start">
                 <Link
                   href="/remontti/uusi"
                   className={`${brand.btnPrimary} ${brand.btnPrimaryBlock}`}
                 >
-                  Jätä tarjouspyyntö – maksutta
+                  {user ? "Jätä tarjouspyyntö – maksutta" : "Jätä tarjouspyyntö ilman tiliä"}
                 </Link>
                 <Link
                   href={isCustomer ? "/oma-tili" : "/asiakkaalle"}
@@ -171,6 +191,8 @@ export default async function Home() {
 
         <HomeQualityRequest hideContractorLink={isCustomer} />
 
+        <HomeCommunitySection />
+
         {!isCustomer && (
           <HomeOpenProjects
             projects={openProjects}
@@ -178,7 +200,15 @@ export default async function Home() {
           />
         )}
 
+        <HomeOpenHelpRequests
+          requests={openHelpRequests}
+          totalCount={openHelpRequestCount}
+          isLoggedIn={!!user}
+        />
+
         {platformStats && <HomePlatformStats stats={platformStats} />}
+
+        <HomeCalculatorsSection />
 
         <section className="border-t border-stone-200 bg-white py-14">
           <div className={brand.containerWide}>
