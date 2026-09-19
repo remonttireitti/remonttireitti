@@ -10,6 +10,10 @@ import {
   filterContractorProjects,
 } from "@/lib/contractor-work-filter";
 import {
+  fetchContractorQuotePdfUsage,
+  type ContractorQuotePdfUsage,
+} from "@/lib/contractor-quote-limits";
+import {
   contractorQuoteEditPath,
   contractorQuotePdfDownloadPath,
 } from "@/lib/contractor-quote-paths";
@@ -53,6 +57,15 @@ export type ContractorDashboardStats = {
   openTotalCount: number;
 };
 
+/** Ulkoisen tarjouslaskurin resurssikäyttö (tallennukset / PDF). */
+export type ContractorDashboardQuoteUsage = {
+  pdf: ContractorQuotePdfUsage;
+  /** Kaikki tallennetut laskuritarjoukset (myös luonnokset). */
+  savedTotal: number;
+  /** Tallennetut laskuritarjoukset tällä UTC-kuukaudella (created_at). */
+  savedThisMonth: number;
+};
+
 export type ContractorDashboardBid = {
   id: string;
   status: BidStatus;
@@ -89,6 +102,7 @@ export type ContractorDashboardData = {
   recentOffers: ContractorDashboardOffer[];
   bidProjectIds: Set<string>;
   stats: ContractorDashboardStats;
+  quoteUsage: ContractorDashboardQuoteUsage;
 };
 
 type BidRow = {
@@ -249,23 +263,38 @@ export async function fetchContractorDashboard(
     "oma-alue",
   ).slice(0, 5);
 
-  const [bidsResult, quotesResult] = await Promise.all([
-    supabase
-      .from("bids")
-      .select("id, status, amount_cents, submitted_at, project_id")
-      .eq("contractor_id", contractorId)
-      .not("submitted_at", "is", null)
-      .in("status", SUBMITTED_BID_STATUSES)
-      .order("submitted_at", { ascending: false }),
-    supabase
-      .from("contractor_quotes")
-      .select(
-        "id, title, total_cents, client_name, site_municipality, pdf_generated_at, outcome, status, calculator_slug, updated_at, created_at",
-      )
-      .eq("contractor_id", contractorId)
-      .in("status", [...QUOTE_LIST_STATUSES])
-      .order("updated_at", { ascending: false }),
-  ]);
+  const monthStartIso = new Date(
+    Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), 1),
+  ).toISOString();
+
+  const [bidsResult, quotesResult, pdfUsage, savedTotalRes, savedMonthRes] =
+    await Promise.all([
+      supabase
+        .from("bids")
+        .select("id, status, amount_cents, submitted_at, project_id")
+        .eq("contractor_id", contractorId)
+        .not("submitted_at", "is", null)
+        .in("status", SUBMITTED_BID_STATUSES)
+        .order("submitted_at", { ascending: false }),
+      supabase
+        .from("contractor_quotes")
+        .select(
+          "id, title, total_cents, client_name, site_municipality, pdf_generated_at, outcome, status, calculator_slug, updated_at, created_at",
+        )
+        .eq("contractor_id", contractorId)
+        .in("status", [...QUOTE_LIST_STATUSES])
+        .order("updated_at", { ascending: false }),
+      fetchContractorQuotePdfUsage(supabase, contractorId),
+      supabase
+        .from("contractor_quotes")
+        .select("id", { count: "exact", head: true })
+        .eq("contractor_id", contractorId),
+      supabase
+        .from("contractor_quotes")
+        .select("id", { count: "exact", head: true })
+        .eq("contractor_id", contractorId)
+        .gte("created_at", monthStartIso),
+    ]);
 
   if (bidsResult.error) {
     console.error("[fetchContractorDashboard/bids]", bidsResult.error.message);
@@ -274,6 +303,18 @@ export async function fetchContractorDashboard(
     console.error(
       "[fetchContractorDashboard/quotes]",
       quotesResult.error.message,
+    );
+  }
+  if (savedTotalRes.error) {
+    console.warn(
+      "[fetchContractorDashboard/savedTotal]",
+      savedTotalRes.error.message,
+    );
+  }
+  if (savedMonthRes.error) {
+    console.warn(
+      "[fetchContractorDashboard/savedMonth]",
+      savedMonthRes.error.message,
     );
   }
 
@@ -349,6 +390,11 @@ export async function fetchContractorDashboard(
       conversionPercent,
       openMatchCount: counts["oma-alue"],
       openTotalCount: counts.kaikki,
+    },
+    quoteUsage: {
+      pdf: pdfUsage,
+      savedTotal: savedTotalRes.count ?? 0,
+      savedThisMonth: savedMonthRes.count ?? 0,
     },
   };
 }

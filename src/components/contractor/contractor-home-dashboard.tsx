@@ -1,6 +1,14 @@
 import Link from "next/link";
 import { ContractorOffersTable } from "@/components/contractor/contractor-offers-table";
 import { ContractorProjectsTable } from "@/components/contractor/contractor-projects-table";
+import {
+  DataTable,
+  DataTableBody,
+  DataTableHeader,
+  DataTableRow,
+  DataTableTd,
+  DataTableTh,
+} from "@/components/ui/data-table";
 import { brand } from "@/lib/brand-theme";
 import type { ContractorDashboardData } from "@/lib/contractor-dashboard-server";
 import { contractorQuoteHubPath } from "@/lib/contractor-quote-paths";
@@ -56,8 +64,11 @@ export function ContractorHomeDashboard({
   contractorId: string;
   dashboard: ContractorDashboardData;
 }) {
-  const { recommendedProjects, recentOffers, bidProjectIds, stats } = dashboard;
+  const { recommendedProjects, recentOffers, bidProjectIds, stats, quoteUsage } =
+    dashboard;
   const hasOffers = recentOffers.length > 0;
+  const pdfNearLimit =
+    quoteUsage.pdf.remaining <= 2 && quoteUsage.pdf.limit > 0;
 
   return (
     <div className="space-y-8">
@@ -128,7 +139,7 @@ export function ContractorHomeDashboard({
         )}
       </section>
 
-      <section>
+      <section id="omat-tarjoukset">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
             <h3 className="text-lg font-semibold text-stone-900">
@@ -173,6 +184,81 @@ export function ContractorHomeDashboard({
         ) : (
           <ContractorOffersTable className="mt-4" offers={recentOffers} />
         )}
+      </section>
+
+      <section>
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h3 className="text-lg font-semibold text-stone-900">
+              Tarjouslaskuri-käyttö
+            </h3>
+            <p className="mt-1 text-sm text-stone-500">
+              Ulkoisten tarjousten tallennukset ja PDF-viennit
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <Link
+              href={contractorQuoteHubPath()}
+              className="text-sm font-medium text-sky-800 hover:underline"
+            >
+              Avaa tarjouslaskuri →
+            </Link>
+            <Link
+              href="#omat-tarjoukset"
+              className="text-sm font-medium text-sky-800 hover:underline"
+            >
+              Omat tarjoukset →
+            </Link>
+          </div>
+        </div>
+
+        <DataTable minWidthClassName="min-w-[420px]" className="mt-4">
+          <DataTableHeader>
+            <DataTableTh>Resurssi</DataTableTh>
+            <DataTableTh>Käyttö</DataTableTh>
+            <DataTableTh>Huom</DataTableTh>
+          </DataTableHeader>
+          <DataTableBody>
+            <DataTableRow>
+              <DataTableTd className="font-medium text-stone-900">
+                PDF-vienti tällä kuulla
+              </DataTableTd>
+              <DataTableTd
+                className={`whitespace-nowrap tabular-nums font-semibold ${
+                  pdfNearLimit ? "text-amber-900" : "text-stone-900"
+                }`}
+              >
+                {quoteUsage.pdf.used} / {quoteUsage.pdf.limit}
+              </DataTableTd>
+              <DataTableTd className="text-stone-500">
+                {quoteUsage.pdf.remaining} jäljellä · {quoteUsage.pdf.monthLabel}
+              </DataTableTd>
+            </DataTableRow>
+            <DataTableRow>
+              <DataTableTd className="font-medium text-stone-900">
+                Tallennetut laskuritarjoukset
+              </DataTableTd>
+              <DataTableTd className="whitespace-nowrap tabular-nums font-semibold text-stone-900">
+                {quoteUsage.savedTotal}
+              </DataTableTd>
+              <DataTableTd className="text-stone-500">
+                {quoteUsage.savedThisMonth} tällä kuulla
+              </DataTableTd>
+            </DataTableRow>
+            <DataTableRow>
+              <DataTableTd className="font-medium text-stone-900">
+                Laskuri vs. Remonttireitti
+              </DataTableTd>
+              <DataTableTd className="whitespace-nowrap tabular-nums text-stone-900">
+                {stats.calculatorCount} + {stats.marketplaceCount} ={" "}
+                {stats.submittedCount}
+              </DataTableTd>
+              <DataTableTd className="text-stone-500">
+                valmiit/lähetetyt (ei luonnoksia)
+              </DataTableTd>
+            </DataTableRow>
+          </DataTableBody>
+        </DataTable>
       </section>
 
       <section>
