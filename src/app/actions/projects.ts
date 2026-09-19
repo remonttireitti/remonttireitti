@@ -1,5 +1,6 @@
 "use server";
 
+import { mergeCalculatorSnapshotFromFormData } from "@/lib/calculator-project-snapshot";
 import {
   parseIlpDetailsJson,
   validateIlpDetails,
@@ -194,6 +195,8 @@ export async function createProject(
       parseAcceptOverBudgetFromForm(formData),
     );
   }
+
+  projectDetails = mergeCalculatorSnapshotFromFormData(projectDetails, formData);
 
   if (!jobTypeId || tradeIds.length === 0) {
     return { error: "Valitse työ ja vähintään yksi ammatti." };
@@ -790,6 +793,8 @@ export async function updateProject(
       parseAcceptOverBudgetFromForm(formData),
     );
   }
+
+  projectDetails = mergeCalculatorSnapshotFromFormData(projectDetails, formData);
 
   if (!jobTypeId || tradeIds.length === 0) {
     return { error: "Valitse työ ja vähintään yksi ammatti." };

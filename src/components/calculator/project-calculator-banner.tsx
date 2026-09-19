@@ -25,8 +25,8 @@ export function ProjectCalculatorBanner({
         Arvioi kustannukset ennen lähettämistä
       </p>
       <p className="mt-1 text-sm leading-relaxed text-stone-700">
-        {calc.title} auttaa budjetoinnissa: viitehinnat, työn sisältö ja muokattavat
-        rivit. Palaa tähän lomakkeeseen, kun olet valmis — tietosi säilyvät.
+        {calc.title} antaa hinta-arvion, joka näkyy tarjouspyynnössä urakoitsijoille.
+        Et määritä lopullista hintaa — palaa tähän lomakkeeseen laskurin jälkeen.
       </p>
       <div className="mt-3 flex flex-wrap items-center gap-3">
         <Link

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { brand } from "@/lib/brand-theme";
+import { saveCalculatorProjectSnapshot } from "@/lib/calculator-project-snapshot";
 import { formatEuro } from "@/lib/calculators/math";
 import { VatLabel } from "@/components/price/price-with-vat";
 import { CONSUMER_VAT } from "@/lib/vat-label";
@@ -53,6 +54,19 @@ export function CalculatorEstimateSummary({
 }: Props) {
   const cta = config.ctaLabel ?? "Pyydä tarjoukset ilmaiseksi";
   const unit = config.primaryInput.unit;
+
+  function persistSnapshotForRequest() {
+    saveCalculatorProjectSnapshot({
+      calculatorSlug: config.slug,
+      jobSlug: config.jobSlug,
+      calculatorTitle: config.title,
+      primaryQty,
+      primaryUnit: unit,
+      totalEuros: total,
+      lowEuros: low,
+      highEuros: high,
+    });
+  }
 
   const factors =
     config.priceFactors?.map((factor) => {
@@ -116,7 +130,11 @@ export function CalculatorEstimateSummary({
         Haluatko nähdä, mitä urakoitsijat oikeasti tarjoavat juuri sinun kohteellesi?
       </h2>
       <div className={`${brand.actionsStack} mt-4`}>
-        <Link href={ctaHref(config.jobSlug)} className={`${brand.btnPrimary} ${brand.btnPrimaryBlock}`}>
+        <Link
+          href={ctaHref(config.jobSlug)}
+          onClick={persistSnapshotForRequest}
+          className={`${brand.btnPrimary} ${brand.btnPrimaryBlock}`}
+        >
           {cta}
         </Link>
         <Link
