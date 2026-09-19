@@ -1,14 +1,15 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useServerActionSubmit } from "@/hooks/use-server-action-submit";
 import { ProjectCalculatorBanner } from "@/components/calculator/project-calculator-banner";
 import { ProjectCalculatorEstimatePanel } from "@/components/calculator/project-calculator-estimate-panel";
 import {
-  clearCalculatorProjectSnapshot,
-  loadCalculatorProjectSnapshot,
+  loadSnapshotForJobType,
+  suggestedBudgetMaxEuros,
   type CalculatorProjectSnapshot,
 } from "@/lib/calculator-project-snapshot";
+import { getCalculatorForJobType } from "@/lib/calculators/registry";
 import { LearnedCriteriaWarnings } from "@/components/project/learned-criteria-warnings";
 import type { LearnedCriterionWithJob } from "@/components/project/learned-criteria-warnings";
 import { ProjectQualityScorePanel } from "@/components/project/project-quality-score-panel";
@@ -198,6 +199,7 @@ export function ProjectWizard({
   const [photoFiles, setPhotoFiles] = useState<File[]>([]);
   const [calculatorSnapshot, setCalculatorSnapshot] =
     useState<CalculatorProjectSnapshot | null>(null);
+  const budgetSuggestedForJobRef = useRef<string | null>(null);
   const [submitIntent, setSubmitIntent] = useState<"draft" | "publish" | null>(
     null,
   );
@@ -210,14 +212,71 @@ export function ProjectWizard({
     [catalog.jobTypes, form.job_type_id],
   );
 
+  const jobCalculator = useMemo(
+    () => getCalculatorForJobType(selectedJobType?.slug),
+    [selectedJobType?.slug],
+  );
+
   useEffect(() => {
     const slug = selectedJobType?.slug;
-    if (!slug || isEdit) {
+    if (!slug || isEdit || !jobCalculator) {
       setCalculatorSnapshot(null);
+      budgetSuggestedForJobRef.current = null;
       return;
     }
-    setCalculatorSnapshot(loadCalculatorProjectSnapshot(slug));
-  }, [selectedJobType?.slug, isEdit]);
+    const snapshot = loadSnapshotForJobType(slug);
+    setCalculatorSnapshot(snapshot);
+    if (!snapshot || budgetSuggestedForJobRef.current === slug) return;
+
+    const suggested = suggestedBudgetMaxEuros(snapshot);
+    if (suggested <= 0) return;
+
+    budgetSuggestedForJobRef.current = slug;
+
+    if (slug === "ilmalampopumppu") {
+      setIlpDetails((prev) =>
+        prev.budget_max_eur == null
+          ? { ...prev, budget_max_eur: suggested }
+          : prev,
+      );
+    } else if (slug === "ilmavesilampopumppu") {
+      setIvlpDetails((prev) =>
+        prev.budget_max_eur == null
+          ? { ...prev, budget_max_eur: suggested }
+          : prev,
+      );
+    } else if (slug === "maalampopumppu") {
+      setMaalampDetails((prev) =>
+        prev.budget_max_eur == null
+          ? { ...prev, budget_max_eur: suggested }
+          : prev,
+      );
+    } else {
+      setForm((prev) =>
+        !prev.budget_max.trim()
+          ? { ...prev, budget_max: String(suggested) }
+          : prev,
+      );
+    }
+  }, [selectedJobType?.slug, isEdit, jobCalculator]);
+
+  const calculatorSuggestedBudget = calculatorSnapshot
+    ? suggestedBudgetMaxEuros(calculatorSnapshot)
+    : null;
+
+  function applyCalculatorSuggestedBudget() {
+    if (!calculatorSnapshot || calculatorSuggestedBudget == null) return;
+    const suggested = calculatorSuggestedBudget;
+    if (isIlp) {
+      setIlpDetails((prev) => ({ ...prev, budget_max_eur: suggested }));
+    } else if (isIvlp) {
+      setIvlpDetails((prev) => ({ ...prev, budget_max_eur: suggested }));
+    } else if (isMaalamp) {
+      setMaalampDetails((prev) => ({ ...prev, budget_max_eur: suggested }));
+    } else {
+      update("budget_max", String(suggested));
+    }
+  }
 
   const isIlp = selectedJobType?.slug === "ilmalampopumppu";
   const isIvlp = selectedJobType?.slug === "ilmavesilampopumppu";
@@ -249,6 +308,7 @@ export function ProjectWizard({
 
   function onJobTypeChange(jt: JobTypeWithTrades | null) {
     setStepValidationError(null);
+    budgetSuggestedForJobRef.current = null;
     if (!jt) {
       update("job_type_id", "");
       update("category_id", "");
@@ -510,11 +570,15 @@ export function ProjectWizard({
           </>
         )}
 
-        {selectedJobType?.slug && (
+        {jobCalculator && selectedJobType?.slug && (
           <div className="mb-6 space-y-4">
             <ProjectCalculatorBanner jobSlug={selectedJobType.slug} />
             {calculatorSnapshot && (
-              <ProjectCalculatorEstimatePanel snapshot={calculatorSnapshot} />
+              <ProjectCalculatorEstimatePanel
+                snapshot={calculatorSnapshot}
+                suggestedBudgetMax={calculatorSuggestedBudget}
+                onApplySuggestedBudget={applyCalculatorSuggestedBudget}
+              />
             )}
           </div>
         )}
@@ -714,6 +778,7 @@ export function ProjectWizard({
               onAcceptOffersOverBudgetChange={(v) =>
                 update("accept_offers_over_budget", v)
               }
+              calculatorSuggestedMax={calculatorSuggestedBudget}
             />
             <BudgetGuidancePanel
               jobSlug={selectedJobType?.slug ?? null}

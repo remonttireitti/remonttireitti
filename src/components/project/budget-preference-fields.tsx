@@ -9,6 +9,8 @@ type Props = {
   acceptOffersOverBudget: boolean;
   onAcceptOffersOverBudgetChange: (value: boolean) => void;
   inputId?: string;
+  /** Laskurin ehdotus budjetiksi (näytetään vain ohjeena). */
+  calculatorSuggestedMax?: number | null;
 };
 
 export function BudgetPreferenceFields({
@@ -17,6 +19,7 @@ export function BudgetPreferenceFields({
   acceptOffersOverBudget,
   onAcceptOffersOverBudgetChange,
   inputId = "budget_max",
+  calculatorSuggestedMax = null,
 }: Props) {
   const hasLimit = budgetMax.trim().length > 0 && Number(budgetMax) > 0;
 
@@ -27,9 +30,16 @@ export function BudgetPreferenceFields({
           Budjetti (€)
         </label>
         <p className="mt-1 text-xs leading-relaxed text-stone-500">
-          Valinnainen. Auttaa urakoitsijoita arvioimaan, sopivatko he tarjoukseensa.
+          Valinnainen. Voit käyttää laskurin viitearvoa budjetin tukena — lopullisen
+          hinnan määrittävät urakoitsijoiden tarjoukset.
           Voit myös kieltää tarjoukset, jotka ylittävät summan.
         </p>
+        {calculatorSuggestedMax != null && calculatorSuggestedMax > 0 && !hasLimit && (
+          <p className="mt-1 text-xs font-medium text-emerald-800">
+            Laskurin ehdotus: noin{" "}
+            {calculatorSuggestedMax.toLocaleString("fi-FI")} € (yläraja)
+          </p>
+        )}
         <input
           id={inputId}
           type="number"
