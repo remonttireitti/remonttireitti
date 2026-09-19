@@ -13,6 +13,8 @@ import {
   getCalculatorSlugs,
 } from "@/lib/calculators/registry";
 import { resolveCalculatorContent, resolvePriceRangeNote } from "@/lib/calculators/resolve";
+import { enrichCalculatorConfig } from "@/lib/calculators/resolve-with-learning";
+import { createClient } from "@/lib/supabase/server";
 import { pageMetadata } from "@/lib/seo";
 import { mergeKeywords, SITE_KEYWORDS, CALCULATOR_KEYWORDS } from "@/lib/seo-keywords";
 
@@ -43,8 +45,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function CalculatorPage({ params }: Props) {
   const { slug } = await params;
-  const config = getCalculatorBySlug(slug);
-  if (!config) notFound();
+  const baseConfig = getCalculatorBySlug(slug);
+  if (!baseConfig) notFound();
+
+  const supabase = await createClient();
+  const { config, learnedRange } = await enrichCalculatorConfig(
+    supabase,
+    baseConfig,
+  );
 
   const { faq } = resolveCalculatorContent(config);
   const priceRangeNote = resolvePriceRangeNote(config);
@@ -72,6 +80,14 @@ export default async function CalculatorPage({ params }: Props) {
           {config.intro}
         </p>
         <p className="mt-2 max-w-3xl text-sm text-stone-500">{priceRangeNote}</p>
+        {learnedRange && (
+          <p className="mt-2 max-w-3xl rounded-lg border border-sky-100 bg-sky-50/60 px-3 py-2 text-xs leading-relaxed text-sky-900">
+            Hintahaarukka on päivitetty {learnedRange.sampleCount} toteutuneen
+            urakan ja tarjouksen perusteella (mediaanipoikkeama{" "}
+            {learnedRange.medianDeviationPercent > 0 ? "+" : ""}
+            {learnedRange.medianDeviationPercent} %).
+          </p>
+        )}
 
         {config.typicalBreakdown && config.typicalBreakdown.length > 0 && (
           <section className="mt-10">

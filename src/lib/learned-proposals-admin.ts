@@ -13,6 +13,7 @@ export type AdminLearnedProposalRow = {
   adminStatus: LearnedProposalAdminStatus;
   adminNote: string | null;
   updatedAt: string;
+  autoApproved: boolean;
 };
 
 export async function fetchAllLearnedProposalsAdmin(
@@ -26,16 +27,20 @@ export async function fetchAllLearnedProposalsAdmin(
     .order("request_count", { ascending: false })
     .limit(200);
 
-  return (data ?? []).map((row) => ({
-    jobSlug: (row.job_slug as string) || "generic",
-    slug: row.proposal_slug as string,
-    kind: row.kind as LearnedProposalKind,
-    label: row.label as string,
-    requestCount: row.request_count as number,
-    suggestionCount: (row.suggestion_count as number) ?? 0,
-    adminStatus: ((row.admin_status as string) ??
-      "pending") as LearnedProposalAdminStatus,
-    adminNote: (row.admin_note as string | null) ?? null,
-    updatedAt: row.updated_at as string,
-  }));
+  return (data ?? []).map((row) => {
+    const adminNote = (row.admin_note as string | null) ?? null;
+    return {
+      jobSlug: (row.job_slug as string) || "generic",
+      slug: row.proposal_slug as string,
+      kind: row.kind as LearnedProposalKind,
+      label: row.label as string,
+      requestCount: row.request_count as number,
+      suggestionCount: (row.suggestion_count as number) ?? 0,
+      adminStatus: ((row.admin_status as string) ??
+        "pending") as LearnedProposalAdminStatus,
+      adminNote,
+      updatedAt: row.updated_at as string,
+      autoApproved: adminNote?.includes("Automaattinen hyväksyntä") ?? false,
+    };
+  });
 }

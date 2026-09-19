@@ -28,7 +28,12 @@ export function FairPriceTierBadge({
       >
         {displaySymbols}
         {unreliable && (
-          <span className="ml-1 text-xs font-normal text-stone-400">*</span>
+          <span
+            className="ml-1 text-xs font-normal text-stone-400"
+            title="Profiilin hintataso vahvistuu 10 tarjouksen jälkeen"
+          >
+            *
+          </span>
         )}
       </span>
       {showLabel && (

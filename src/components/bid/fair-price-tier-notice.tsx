@@ -6,6 +6,8 @@ import {
   assessBidFairPrice,
   buildFairPriceNotice,
   FAIR_PRICE_DISCLAIMER,
+  FAIR_PRICE_PROFILE_BUILDING_NOTE,
+  PRICE_TIER_PROFILE_MIN_SAMPLES,
   type ContractorTierProfile,
   type JobPriceBenchmark,
 } from "@/lib/fair-price-tier";
@@ -91,6 +93,19 @@ export function FairPriceTierNotice({
           {notice.profileWarning}
         </p>
       )}
+
+      {contractorProfile &&
+        !contractorProfile.isReliable &&
+        contractorProfile.sampleCount > 0 && (
+          <p className="mt-2 rounded-lg border border-stone-200 bg-white/70 px-3 py-2 text-xs leading-relaxed text-stone-700">
+            {FAIR_PRICE_PROFILE_BUILDING_NOTE(
+              contractorProfile.sampleCount,
+              PRICE_TIER_PROFILE_MIN_SAMPLES,
+            )}{" "}
+            Asiakkaat näkevät yrityksesi hintaluokan vasta riittävän datan
+            jälkeen — realistiset tarjoukset rakentavat luotettavan profiilin.
+          </p>
+        )}
 
       <p className="mt-2 text-xs text-violet-800/80">{FAIR_PRICE_DISCLAIMER}</p>
     </div>

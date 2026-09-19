@@ -5,6 +5,7 @@ import { LearnedProposalsAdminPanel } from "@/components/admin/learned-proposals
 import { SiteHeader } from "@/components/site-header";
 import { requireAdmin } from "@/lib/admin";
 import { fetchJobDeviationStatsAdmin } from "@/lib/calculator-deviation-server";
+import { LEARNED_RANGE_MIN_SAMPLES } from "@/lib/calculator-range-learning";
 import { fetchAllLearnedProposalsAdmin } from "@/lib/learned-proposals-admin";
 import { getSessionUser } from "@/lib/auth";
 import { brand } from "@/lib/brand-theme";
@@ -21,10 +22,19 @@ export default async function AdminLearningPage() {
   await requireAdmin();
 
   const supabase = await createClient();
-  const [proposals, deviationStats] = await Promise.all([
+  const [proposals, deviationStats, learnedRangesResult] = await Promise.all([
     fetchAllLearnedProposalsAdmin(supabase),
     fetchJobDeviationStatsAdmin(supabase),
+    supabase
+      .from("calculator_learned_ranges")
+      .select(
+        "calculator_slug, job_slug, low_multiplier, high_multiplier, median_deviation_percent, sample_count, updated_at",
+      )
+      .gte("sample_count", LEARNED_RANGE_MIN_SAMPLES)
+      .order("sample_count", { ascending: false })
+      .limit(50),
   ]);
+  const learnedRanges = learnedRangesResult.data ?? [];
 
   return (
     <div className={brand.page}>
@@ -59,8 +69,9 @@ export default async function AdminLearningPage() {
             Tarjous vs. laskuri -poikkeamat
           </h2>
           <p className="mt-1 text-sm text-stone-500">
-            Aggregoitu data urakoitsijoiden tarjouksista verrattuna laskurin
-            arvioon. Tulevaisuudessa tukee laskurin hintahaarukan säätöä.
+            Aggregoitu data tarjouksista ja valmiista urakoista. Kun näytteitä
+            on vähintään {LEARNED_RANGE_MIN_SAMPLES}, laskurin hintahaarukka
+            päivittyy automaattisesti.
           </p>
           {deviationStats.length === 0 ? (
             <p className="mt-4 rounded-xl border border-stone-200 bg-white p-6 text-sm text-stone-600">
@@ -100,6 +111,60 @@ export default async function AdminLearningPage() {
                         {row.p25DeviationPercent} % –{" "}
                         {row.p75DeviationPercent > 0 ? "+" : ""}
                         {row.p75DeviationPercent} %
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+
+        <section className="mt-10">
+          <h2 className="text-lg font-semibold text-stone-900">
+            Oppivat hintahaarukat
+          </h2>
+          <p className="mt-1 text-sm text-stone-500">
+            Laskureiden dynaamiset kerroinhaitat valmiiden urakoiden ja
+            tarjouspoikkeamien perusteella.
+          </p>
+          {learnedRanges.length === 0 ? (
+            <p className="mt-4 rounded-xl border border-stone-200 bg-white p-6 text-sm text-stone-600">
+              Ei vielä riittävästi dataa haarukoiden päivitykseen.
+            </p>
+          ) : (
+            <div className="mt-4 overflow-x-auto rounded-xl border border-stone-200 bg-white">
+              <table className="min-w-full text-sm">
+                <thead>
+                  <tr className="border-b border-stone-100 text-left text-xs uppercase tracking-wide text-stone-500">
+                    <th className="px-4 py-3 font-medium">Laskuri</th>
+                    <th className="px-4 py-3 font-medium">Näytteitä</th>
+                    <th className="px-4 py-3 font-medium">Ala</th>
+                    <th className="px-4 py-3 font-medium">Ylä</th>
+                    <th className="px-4 py-3 font-medium">Mediaani</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {learnedRanges.map((row) => (
+                    <tr
+                      key={row.calculator_slug as string}
+                      className="border-b border-stone-50"
+                    >
+                      <td className="px-4 py-3 font-medium">
+                        {row.calculator_slug as string}
+                      </td>
+                      <td className="px-4 py-3 tabular-nums">
+                        {row.sample_count as number}
+                      </td>
+                      <td className="px-4 py-3 tabular-nums">
+                        {Number(row.low_multiplier).toFixed(2)}×
+                      </td>
+                      <td className="px-4 py-3 tabular-nums">
+                        {Number(row.high_multiplier).toFixed(2)}×
+                      </td>
+                      <td className="px-4 py-3 tabular-nums">
+                        {Number(row.median_deviation_percent) > 0 ? "+" : ""}
+                        {Number(row.median_deviation_percent)} %
                       </td>
                     </tr>
                   ))}
