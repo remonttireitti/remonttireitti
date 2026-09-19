@@ -20,7 +20,8 @@ import {
 } from "@/lib/bid-accept-scope";
 import { bidTotalAmountCents, bidWorkAmountCents } from "@/lib/bid-amounts";
 import { STALE_BID_CUSTOMER_MESSAGE } from "@/lib/bid-staleness";
-import { formatEurosFromCents } from "@/lib/bids";
+import { PriceWithVat } from "@/components/price/price-with-vat";
+import { bidAmountFieldLabel } from "@/lib/vat-label";
 import { BID_ACCEPT_MEDIATION_NOTICE } from "@/lib/platform-liability";
 import {
   customerReferralBonusUnusedNotice,
@@ -42,6 +43,7 @@ export function CustomerBidActions({
   projectId: string;
   bid: BidCounterFields & {
     amount_cents: number;
+    vat_included: boolean;
     offers_equipment?: boolean | null;
     equipment_amount_cents?: number | null;
     equipment_description?: string | null;
@@ -97,9 +99,23 @@ export function CustomerBidActions({
       {counterPending && bid.counter_amount_cents != null && (
         <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-950">
           Odota urakoitsijan vastausta vastatarjoukseen{" "}
-          <strong>{formatEurosFromCents(bid.counter_amount_cents)}</strong>.
-          Urakoitsija voi hyväksyä sen tai hylätä ja säilyttää alkuperäisen hinnan{" "}
-          <strong>{formatEurosFromCents(bid.amount_cents)}</strong>. Et voi
+          <strong>
+            <PriceWithVat
+              cents={bid.counter_amount_cents}
+              vatIncluded={bid.vat_included}
+              inline
+            />
+          </strong>
+          . Urakoitsija voi hyväksyä sen tai hylätä ja säilyttää alkuperäisen
+          hinnan{" "}
+          <strong>
+            <PriceWithVat
+              cents={bid.amount_cents}
+              vatIncluded={bid.vat_included}
+              inline
+            />
+          </strong>
+          . Et voi
           hyväksyä tarjousta ennen vastausta.
           {bid.counter_message?.trim() && (
             <>
@@ -113,7 +129,14 @@ export function CustomerBidActions({
       {counterAccepted && (
         <p className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-xs text-sky-900">
           Urakoitsija hyväksyi vastatarjouksesi. Hinta on nyt{" "}
-          <strong>{formatEurosFromCents(bid.amount_cents)}</strong>. Voit hyväksyä
+          <strong>
+            <PriceWithVat
+              cents={bid.amount_cents}
+              vatIncluded={bid.vat_included}
+              inline
+            />
+          </strong>
+          . Voit hyväksyä
           tarjouksen lopullisesti alla.
         </p>
       )}
@@ -121,8 +144,18 @@ export function CustomerBidActions({
       {counterDeclined && bid.counter_amount_cents != null && (
         <p className="rounded-lg border border-stone-200 bg-stone-50 px-3 py-2 text-xs text-stone-700">
           Urakoitsija hylkäsi vastatarjouksesi (
-          {formatEurosFromCents(bid.counter_amount_cents)}). Alkuperäinen hinta{" "}
-          {formatEurosFromCents(bid.amount_cents)} on voimassa — voit hyväksyä sen
+          <PriceWithVat
+            cents={bid.counter_amount_cents}
+            vatIncluded={bid.vat_included}
+            inline
+          />
+          ). Alkuperäinen hinta{" "}
+          <PriceWithVat
+            cents={bid.amount_cents}
+            vatIncluded={bid.vat_included}
+            inline
+          />{" "}
+          on voimassa — voit hyväksyä sen
           tai jättää uuden vastatarjouksen.
         </p>
       )}
@@ -172,7 +205,11 @@ export function CustomerBidActions({
               className="w-full rounded-lg bg-orange-700 px-3 py-2 text-sm font-medium text-white hover:bg-orange-800"
             >
               Hyväksy vain asennus —{" "}
-              {formatEurosFromCents(bidWorkAmountCents(bid))}
+              <PriceWithVat
+                cents={bidWorkAmountCents(bid)}
+                vatIncluded={bid.vat_included}
+                inline
+              />
             </button>
           </form>
           <form action={acceptBid}>
@@ -184,10 +221,25 @@ export function CustomerBidActions({
               className="w-full rounded-lg border-2 border-orange-700 bg-white px-3 py-2 text-sm font-medium text-orange-800 hover:bg-orange-50"
             >
               Hyväksy {formatBidAcceptScopeShort(true)} —{" "}
-              {formatEurosFromCents(bidTotalAmountCents(bid))}
+              <PriceWithVat
+                cents={bidTotalAmountCents(bid)}
+                vatIncluded={bid.vat_included}
+                inline
+              />
               <span className="mt-0.5 block text-xs font-normal text-stone-600">
-                ({formatEurosFromCents(bidWorkAmountCents(bid))} + laite{" "}
-                {formatEurosFromCents(bid.equipment_amount_cents!)})
+                (
+                <PriceWithVat
+                  cents={bidWorkAmountCents(bid)}
+                  vatIncluded={bid.vat_included}
+                  inline
+                />{" "}
+                + laite{" "}
+                <PriceWithVat
+                  cents={bid.equipment_amount_cents!}
+                  vatIncluded={bid.vat_included}
+                  inline
+                />
+                )
               </span>
             </button>
           </form>
@@ -202,7 +254,12 @@ export function CustomerBidActions({
             type="submit"
             className="w-full rounded-lg bg-orange-700 px-3 py-2 text-sm font-medium text-white hover:bg-orange-800"
           >
-            Hyväksy {formatEurosFromCents(bid.amount_cents)}
+            Hyväksy{" "}
+            <PriceWithVat
+              cents={bid.amount_cents}
+              vatIncluded={bid.vat_included}
+              inline
+            />
           </button>
         </form>
       )}
@@ -227,7 +284,10 @@ export function CustomerBidActions({
           <input type="hidden" name="bid_id" value={bidId} />
           <input type="hidden" name="project_id" value={projectId} />
           <p className="text-xs font-medium text-stone-700">
-            Ehdota uutta hintaa (€, sis. ALV)
+            {bidAmountFieldLabel("Ehdota uutta hintaa", bid.vat_included).replace(
+              " *",
+              "",
+            )}
             {splitOffer && " — koskee asennusta"}
           </p>
           <input

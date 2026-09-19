@@ -322,7 +322,7 @@ export function AcceptedBidDocument({ data }: { data: AcceptedBidDocumentData })
         </h2>
         <p className="mt-2 text-2xl font-bold text-stone-900">{amountSummary}</p>
         <p className="mt-1 text-sm text-stone-600">
-          {data.bid.vat_included ? "Sis. ALV" : "ALV erikseen"}
+          {data.bid.vat_included ? "sis. ALV" : "ALV 0 %"}
           {splitEquipment && data.bid.accepted_includes_equipment != null && (
             <> · {formatBidAcceptScopeShort(data.bid.accepted_includes_equipment)}</>
           )}
@@ -462,7 +462,8 @@ export function AcceptedBidDocument({ data }: { data: AcceptedBidDocumentData })
         <p className="mt-2 leading-relaxed">{ACCEPTED_BID_PLATFORM_FOOTER}</p>
         <p className="mt-2">
           Kokonaishinta hyväksynnän mukaan:{" "}
-          {formatEurosFromCents(bidResolvedAmountCents(data.bid as BidAmountParts))}
+          {formatEurosFromCents(bidResolvedAmountCents(data.bid as BidAmountParts))}{" "}
+          ({data.bid.vat_included ? "sis. ALV" : "ALV 0 %"})
         </p>
       </footer>
     </article>

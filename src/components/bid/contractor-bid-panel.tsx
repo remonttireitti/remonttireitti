@@ -11,7 +11,8 @@ import type { BidCounterFields } from "@/lib/bid-counter-offer";
 import { bidToFormFields, type BidRecordForForm } from "@/lib/bid-form";
 import { STALE_BID_CONTRACTOR_MESSAGE } from "@/lib/bid-staleness";
 import { bidTotalAmountCents } from "@/lib/bid-amounts";
-import { bidStatusLabels, formatEurosFromCents } from "@/lib/bids";
+import { bidStatusLabels } from "@/lib/bids";
+import { PriceWithVat } from "@/components/price/price-with-vat";
 import type { CalculatorConfig } from "@/lib/calculators/types";
 import type { ContractorPricingRates } from "@/lib/calculators/contractor-pricing";
 import type {
@@ -233,12 +234,25 @@ export function ContractorBidPanel({
           Tila: {bidStatusLabels[bid.status]}
         </p>
         <p className="mt-2 text-2xl font-bold text-sky-800">
-          {formatEurosFromCents(bidTotalAmountCents(bid))}
+          <PriceWithVat
+            cents={bidTotalAmountCents(bid)}
+            vatIncluded={bid.vat_included}
+          />
         </p>
         {bid.offers_equipment && bid.equipment_amount_cents != null && (
           <p className="mt-1 text-sm text-stone-600">
-            Asennus {formatEurosFromCents(bid.amount_cents)} + laite{" "}
-            {formatEurosFromCents(bid.equipment_amount_cents)}
+            Asennus{" "}
+            <PriceWithVat
+              cents={bid.amount_cents}
+              vatIncluded={bid.vat_included}
+              inline
+            />{" "}
+            + laite{" "}
+            <PriceWithVat
+              cents={bid.equipment_amount_cents}
+              vatIncluded={bid.vat_included}
+              inline
+            />
           </p>
         )}
         <BidDetailsDisplay bid={bid} />

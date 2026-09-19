@@ -79,7 +79,9 @@ export default async function CalculatorPage({ params }: Props) {
         <p className="mt-3 max-w-3xl text-base leading-relaxed text-stone-600">
           {config.intro}
         </p>
-        <p className="mt-2 max-w-3xl text-sm text-stone-500">{priceRangeNote}</p>
+        <p className="mt-2 max-w-3xl text-sm text-stone-500">
+          {priceRangeNote} Hinnat sis. ALV — suuntaa-antava arvio.
+        </p>
         {learnedRange && (
           <p className="mt-2 max-w-3xl rounded-lg border border-sky-100 bg-sky-50/60 px-3 py-2 text-xs leading-relaxed text-sky-900">
             Hintahaarukka on päivitetty {learnedRange.sampleCount} toteutuneen

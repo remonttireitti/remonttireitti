@@ -4,7 +4,11 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { getBudgetGuidance } from "@/app/actions/budget-guidance";
 import type { BudgetGuidance } from "@/lib/price-archive-server";
-import { formatEurosFromCents } from "@/lib/bids";
+import { CONSUMER_VAT, formatCentsWithVatLabel } from "@/lib/vat-label";
+
+function fmt(cents: number): string {
+  return formatCentsWithVatLabel(cents, CONSUMER_VAT);
+}
 
 type Props = {
   jobSlug: string | null;
@@ -23,25 +27,25 @@ function budgetCompareMessage(
   if (budgetEuros < min * 0.85) {
     return {
       tone: "low",
-      text: `Budjetti on selvästi alle tyypillisen (${formatEurosFromCents(guidance.minCents)}–${formatEurosFromCents(guidance.maxCents)}). Saatat saada vähemmän tarjouksia.`,
+      text: `Budjetti on selvästi alle tyypillisen (${fmt(guidance.minCents)}–${fmt(guidance.maxCents)}). Saatat saada vähemmän tarjouksia.`,
     };
   }
   if (budgetEuros > max * 1.15) {
     return {
       tone: "high",
-      text: `Budjetti on korkeampi kuin useimmat hyväksytyt tarjoukset (mediaani ${formatEurosFromCents(guidance.medianCents)}).`,
+      text: `Budjetti on korkeampi kuin useimmat hyväksytyt tarjoukset (mediaani ${fmt(guidance.medianCents)}).`,
     };
   }
   if (budgetEuros >= min && budgetEuros <= max) {
     return {
       tone: "ok",
-      text: `Budjetti on tyypillisen vaihtelun sisällä (mediaani ${formatEurosFromCents(guidance.medianCents)}).`,
+      text: `Budjetti on tyypillisen vaihtelun sisällä (mediaani ${fmt(guidance.medianCents)}).`,
     };
   }
   if (Math.abs(budgetEuros - median) / median <= 0.2) {
     return {
       tone: "ok",
-      text: `Lähellä mediaania (${formatEurosFromCents(guidance.medianCents)}).`,
+      text: `Lähellä mediaania (${fmt(guidance.medianCents)}).`,
     };
   }
   return null;
@@ -102,19 +106,19 @@ export function BudgetGuidancePanel({ jobSlug, budgetMax, postalCode }: Props) {
         <div className="rounded-lg bg-white/80 px-2 py-2">
           <dt className="text-[10px] font-medium uppercase text-stone-500">Alin</dt>
           <dd className="text-sm font-semibold text-stone-900">
-            {formatEurosFromCents(guidance.minCents)}
+            {fmt(guidance.minCents)}
           </dd>
         </div>
         <div className="rounded-lg bg-white/80 px-2 py-2 ring-1 ring-emerald-300">
           <dt className="text-[10px] font-medium uppercase text-emerald-700">Mediaani</dt>
           <dd className="text-sm font-bold text-emerald-950">
-            {formatEurosFromCents(guidance.medianCents)}
+            {fmt(guidance.medianCents)}
           </dd>
         </div>
         <div className="rounded-lg bg-white/80 px-2 py-2">
           <dt className="text-[10px] font-medium uppercase text-stone-500">Ylin</dt>
           <dd className="text-sm font-semibold text-stone-900">
-            {formatEurosFromCents(guidance.maxCents)}
+            {fmt(guidance.maxCents)}
           </dd>
         </div>
       </dl>

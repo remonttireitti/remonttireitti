@@ -19,6 +19,8 @@ import {
   resolveEstimateRange,
 } from "@/lib/calculators/resolve";
 import type { CalculatorConfig, CalculatorLineItem } from "@/lib/calculators/types";
+import { VatLabel } from "@/components/price/price-with-vat";
+import { CONSUMER_VAT } from "@/lib/vat-label";
 import { MAINTENANCE_JOB_SLUGS } from "@/constants/maintenance";
 
 const CHART_COLORS = [
@@ -455,6 +457,7 @@ export function RenovationCalculator({ config }: { config: CalculatorConfig }) {
                     <p className="text-lg font-bold text-stone-900">
                       {formatEuro(lineTotal)}
                     </p>
+                    <VatLabel treatment={CONSUMER_VAT} />
                     {item.custom && (
                       <button
                         type="button"
@@ -473,7 +476,8 @@ export function RenovationCalculator({ config }: { config: CalculatorConfig }) {
         {fixedAdd > 0 && (
           <p className="text-sm text-stone-600">
             Lisäkulut (läpiviennit, piiput, eristeet ym.):{" "}
-            <strong>{formatEuro(fixedAdd)}</strong>
+            <strong>{formatEuro(fixedAdd)}</strong>{" "}
+            <VatLabel treatment={CONSUMER_VAT} inline />
           </p>
         )}
       </section>
@@ -483,6 +487,7 @@ export function RenovationCalculator({ config }: { config: CalculatorConfig }) {
           segments={chartSegments}
           title="Arviosi kustannusjako"
           subtitle={`${subtitleParts.join(" · ")} · arvio yhteensä ${formatEuro(estimate.total)}`}
+          vatTreatment={CONSUMER_VAT}
         />
 
         <div className={`${brand.estimateBox} flex flex-col justify-center p-6`}>
@@ -491,6 +496,9 @@ export function RenovationCalculator({ config }: { config: CalculatorConfig }) {
           </p>
           <p className="mt-2 text-3xl font-bold text-sky-950">
             {formatEuro(range.low)} – {formatEuro(range.high)}
+          </p>
+          <p className="mt-1">
+            <VatLabel treatment={CONSUMER_VAT} className="text-sm text-sky-900/80" />
           </p>
           <p className="mt-2 text-sm text-sky-900/90">
             Todennäköinen taso: <strong>noin {formatEuro(estimate.total)}</strong>

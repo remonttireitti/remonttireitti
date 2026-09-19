@@ -35,7 +35,6 @@ import {
 import { bidTotalAmountCents } from "@/lib/bid-amounts";
 import {
   bidStatusLabels,
-  formatEurosFromCents,
   getBidContractorName,
   sortBidsForComparison,
 } from "@/lib/bids";
@@ -45,6 +44,7 @@ import {
   bidInsightInputFromRow,
 } from "@/lib/bid-comparison-insights";
 import { FairPriceTierDisplayCell } from "@/components/bid/fair-price-tier-display";
+import { PriceWithVat } from "@/components/price/price-with-vat";
 import {
   FAIR_PRICE_DISCLAIMER,
   type FairPriceTierDisplay,
@@ -136,43 +136,41 @@ function contractorQualificationsFromBid(
 function PriceCell({
   bid,
   showEquipmentBreakdown,
+  cents,
 }: {
   bid: BidWithContractor;
   showEquipmentBreakdown: boolean;
+  cents?: number;
 }) {
   const pending = hasPendingCounterOffer(bid);
-  const total = formatEurosFromCents(bidTotalAmountCents(bid));
-
-  if (showEquipmentBreakdown) {
-    return (
-      <>
-        {formatEurosFromCents(bid.amount_cents)}
-        {pending && bid.counter_amount_cents != null && (
-          <p className="mt-1 text-xs font-normal text-amber-800">
-            Vastatarjous: {formatEurosFromCents(bid.counter_amount_cents)} (odottaa)
-          </p>
-        )}
-      </>
-    );
-  }
+  const amountCents = cents ?? bidTotalAmountCents(bid);
 
   return (
     <>
-      {total}
-      {bid.vat_included && (
-        <span className="mt-0.5 block text-xs font-normal text-stone-500">
-          sis. ALV
-        </span>
-      )}
+      <PriceWithVat cents={amountCents} vatIncluded={bid.vat_included} />
       {pending && bid.counter_amount_cents != null && (
         <p className="mt-1 text-xs font-normal text-amber-800">
-          Vastatarjouksesi:{" "}
-          <strong>{formatEurosFromCents(bid.counter_amount_cents)}</strong>
-          <span className="block text-stone-500">
-            Alkuperäinen: {formatEurosFromCents(bidTotalAmountCents(bid))}
-          </span>
+          Vastatarjous:{" "}
+          <PriceWithVat
+            cents={bid.counter_amount_cents}
+            vatIncluded={bid.vat_included}
+            inline
+          />{" "}
+          (odottaa)
         </p>
       )}
+      {!showEquipmentBreakdown &&
+        pending &&
+        bid.counter_amount_cents != null && (
+          <p className="mt-1 text-xs font-normal text-stone-500">
+            Alkuperäinen:{" "}
+            <PriceWithVat
+              cents={bidTotalAmountCents(bid)}
+              vatIncluded={bid.vat_included}
+              inline
+            />
+          </p>
+        )}
     </>
   );
 }
@@ -304,12 +302,20 @@ function MobileBidCard({
         {showEquipmentBreakdown ? (
           <>
             <Row label="Asennus ja työ">
-              {formatEurosFromCents(bid.amount_cents)}
+              <PriceWithVat
+                cents={bid.amount_cents}
+                vatIncluded={bid.vat_included}
+              />
             </Row>
             <Row label="Laite">
               {bid.offers_equipment && bid.equipment_amount_cents ? (
                 <div>
-                  <p className="font-medium">{formatEurosFromCents(bid.equipment_amount_cents)}</p>
+                  <p className="font-medium">
+                    <PriceWithVat
+                      cents={bid.equipment_amount_cents}
+                      vatIncluded={bid.vat_included}
+                    />
+                  </p>
                   {bid.equipment_description && (
                     <p className="mt-1 text-xs text-stone-600">{bid.equipment_description}</p>
                   )}
@@ -319,12 +325,11 @@ function MobileBidCard({
               )}
             </Row>
             <Row label="Yhteensä">
-              <span className="font-bold text-sky-800">
-                {formatEurosFromCents(bidTotalAmountCents(bid))}
-              </span>
-              {bid.vat_included && (
-                <span className="mt-0.5 block text-xs font-normal text-stone-500">sis. ALV</span>
-              )}
+              <PriceWithVat
+                cents={bidTotalAmountCents(bid)}
+                vatIncluded={bid.vat_included}
+                amountClassName="font-bold text-sky-800"
+              />
             </Row>
           </>
         ) : (
@@ -672,7 +677,10 @@ export function CustomerBids({
                       key={bid.id}
                       className={`${dataCell} border-l ${columnClass(bid.status, isPendingWinner(bid))}`}
                     >
-                      {formatEurosFromCents(bid.amount_cents)}
+                      <PriceWithVat
+                        cents={bid.amount_cents}
+                        vatIncluded={bid.vat_included}
+                      />
                     </td>
                   ))}
                 </tr>
@@ -688,7 +696,10 @@ export function CustomerBids({
                       {bid.offers_equipment && bid.equipment_amount_cents ? (
                         <div>
                           <p className="font-medium text-stone-900">
-                            {formatEurosFromCents(bid.equipment_amount_cents)}
+                            <PriceWithVat
+                              cents={bid.equipment_amount_cents}
+                              vatIncluded={bid.vat_included}
+                            />
                           </p>
                           {bid.equipment_description && (
                             <p className="mt-1 text-xs text-stone-600">
@@ -711,12 +722,11 @@ export function CustomerBids({
                       key={bid.id}
                       className={`${dataCell} border-l font-bold text-sky-800 ${columnClass(bid.status, isPendingWinner(bid))}`}
                     >
-                      {formatEurosFromCents(bidTotalAmountCents(bid))}
-                      {bid.vat_included && (
-                        <span className="mt-0.5 block text-xs font-normal text-stone-500">
-                          sis. ALV
-                        </span>
-                      )}
+                      <PriceWithVat
+                        cents={bidTotalAmountCents(bid)}
+                        vatIncluded={bid.vat_included}
+                        amountClassName="font-bold text-sky-800"
+                      />
                     </td>
                   ))}
                 </tr>
@@ -1015,9 +1025,12 @@ export function CustomerBids({
                               ({formatBidAcceptScopeShort(
                                 bid.accepted_includes_equipment,
                               )}
-                              , {formatEurosFromCents(
-                                bidResolvedAmountCents(bid),
-                              )}
+                              ,{" "}
+                              <PriceWithVat
+                                cents={bidResolvedAmountCents(bid)}
+                                vatIncluded={bid.vat_included}
+                                inline
+                              />
                               )
                             </>
                           )}
