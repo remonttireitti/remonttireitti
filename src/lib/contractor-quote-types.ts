@@ -25,6 +25,8 @@ export type ContractorQuoteRow = {
   profitability_summary: BidProfitabilitySummary | null;
   vat_included: boolean;
   notes: string | null;
+  terms: string | null;
+  validity_days: number;
   status: ContractorQuoteStatus;
   pdf_generated_at: string | null;
   outcome: ContractorQuoteOutcome;
@@ -50,6 +52,8 @@ export type ContractorQuoteFormFields = {
   siteMunicipality: string;
   siteAddress: string;
   notes: string;
+  terms: string;
+  validityDays: number;
   vatIncluded: boolean;
 };
 
@@ -60,13 +64,24 @@ export const EMPTY_QUOTE_FORM: ContractorQuoteFormFields = {
   siteMunicipality: "",
   siteAddress: "",
   notes: "",
+  terms: "",
+  validityDays: 30,
   vatIncluded: true,
 };
 
 export function defaultQuoteFormForConfig(
   title: string,
+  options?: { terms?: string; validityDays?: number },
 ): ContractorQuoteFormFields {
-  return { ...EMPTY_QUOTE_FORM, title };
+  return {
+    ...EMPTY_QUOTE_FORM,
+    title,
+    terms: options?.terms?.trim() ? options.terms.trim() : "",
+    validityDays:
+      options?.validityDays != null && Number.isFinite(options.validityDays)
+        ? Math.round(options.validityDays)
+        : EMPTY_QUOTE_FORM.validityDays,
+  };
 }
 
 /** Kuluttajalle näytettävä ALV-kanta tarjous-PDF:ssä. */

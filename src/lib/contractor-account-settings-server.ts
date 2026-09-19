@@ -35,6 +35,7 @@ export type ContractorAccountSettingsData = {
   brandingFields: {
     description: string;
     logoUrl: string | null;
+    defaultQuoteValidityDays: number;
   };
   bidDefaultsBundle: Awaited<ReturnType<typeof fetchContractorBidDefaultsBundle>>;
   pricingRates: Awaited<ReturnType<typeof fetchContractorPricingRates>>;
@@ -83,15 +84,29 @@ export async function fetchContractorAccountSettings(
   let brandingFields = {
     description: "",
     logoUrl: null as string | null,
+    defaultQuoteValidityDays: 30,
   };
 
-  const { data: profileRow } = await supabase
+  let { data: profileRow } = await supabase
     .from("contractor_profiles")
     .select(
-      "business_id, billing_email, billing_address_line, billing_postal_code, billing_city, service_postal_code, service_municipality, max_travel_km, min_budget_eur, founded_year, company_size_band, description, logo_storage_path",
+      "business_id, billing_email, billing_address_line, billing_postal_code, billing_city, service_postal_code, service_municipality, max_travel_km, min_budget_eur, founded_year, company_size_band, description, logo_storage_path, default_quote_validity_days",
     )
     .eq("id", userId)
     .maybeSingle();
+
+  if (!profileRow) {
+    const fallback = await supabase
+      .from("contractor_profiles")
+      .select(
+        "business_id, billing_email, billing_address_line, billing_postal_code, billing_city, service_postal_code, service_municipality, max_travel_km, min_budget_eur, founded_year, company_size_band, description, logo_storage_path",
+      )
+      .eq("id", userId)
+      .maybeSingle();
+    profileRow = fallback.data
+      ? { ...fallback.data, default_quote_validity_days: 30 }
+      : null;
+  }
 
   if (profileRow) {
     billingFields = {
@@ -115,6 +130,11 @@ export async function fetchContractorAccountSettings(
         supabase,
         profileRow.logo_storage_path,
       ),
+      defaultQuoteValidityDays:
+        profileRow.default_quote_validity_days != null &&
+        Number.isFinite(Number(profileRow.default_quote_validity_days))
+          ? Math.max(1, Math.round(Number(profileRow.default_quote_validity_days)))
+          : 30,
     };
   }
 

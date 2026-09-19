@@ -44,7 +44,7 @@ type Props = {
   showGoogleSearch?: boolean;
   allowCustomLines?: boolean;
   compact?: boolean;
-  /** Näytä viitehinta ja vertailu (edullisempi / lähes sama / kalliimpi). */
+  /** Näytä viitehinta ja vertailu (edullisempi / keskitaso / kalliimpi). */
   showReferenceComparison?: boolean;
 };
 
