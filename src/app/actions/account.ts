@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { setContractorBypass } from "@/lib/profile-read";
 import { notifyAdminsNewRegistration } from "@/lib/admin-user-notify";
 import { syncContractorAccount } from "@/lib/sync-contractor";
+import { contractorHomePath } from "@/lib/contractor-paths";
 import { redirect } from "next/navigation";
 
 /** Käyttäjä korjaa urakoitsijatilinsä ilman adminia (rekisteröitymisvirhe). */
@@ -52,5 +53,5 @@ export async function activateContractorAccount(formData: FormData) {
   revalidatePath("/oma-tili");
   revalidatePath("/tarjoukset");
   revalidatePath("/markkinapaikka");
-  redirect("/tarjoukset");
+  redirect(contractorHomePath());
 }

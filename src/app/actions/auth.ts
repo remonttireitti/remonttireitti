@@ -21,6 +21,7 @@ import {
   lookupCustomerIdByEmail,
   referrerExistsForContractorSignup,
 } from "@/lib/customer-referral";
+import { contractorHomePath } from "@/lib/contractor-paths";
 import { syncContractorAccount } from "@/lib/sync-contractor";
 import { syncUserReferrals } from "@/lib/sync-user-referrals";
 import { tryCreateAdminClient } from "@/lib/supabase/admin";
@@ -142,7 +143,7 @@ export async function signUp(
     email,
     password,
     options: {
-      emailRedirectTo: `${origin}/auth/callback?next=${role === "contractor" ? "/tarjoukset" : "/oma-tili"}`,
+      emailRedirectTo: `${origin}/auth/callback?next=${role === "contractor" ? contractorHomePath() : "/oma-tili"}`,
       data: {
         full_name: fullName || null,
         role: role === "contractor" ? "contractor" : "customer",
@@ -242,7 +243,7 @@ export async function signUp(
       referrerEmail: referrerEmailRaw,
     });
 
-    return { redirectPath: "/tarjoukset" };
+    return { redirectPath: contractorHomePath() };
   }
 
   if (data.user) {
@@ -302,12 +303,11 @@ export async function signIn(
     const isContractorUser =
       profile?.role === "contractor" || !!contractorProfile;
 
-    if (isContractorUser && redirectTo === "/oma-tili") {
-      return { redirectPath: "/tarjoukset" };
-    }
-
-    if (isContractorUser && redirectTo.startsWith("/tarjoukset")) {
-      return { redirectPath: redirectTo };
+    if (
+      isContractorUser &&
+      (redirectTo === "/oma-tili" || redirectTo === contractorHomePath())
+    ) {
+      return { redirectPath: contractorHomePath() };
     }
   }
 

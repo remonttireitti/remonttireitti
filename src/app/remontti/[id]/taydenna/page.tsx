@@ -10,6 +10,7 @@ import {
 } from "@/lib/project-completion-requests-server";
 import { resolveProjectJobTypeSlug } from "@/lib/project-job-type";
 import { brand } from "@/lib/brand-theme";
+import { contractorHomePath } from "@/lib/contractor-paths";
 import { createClient } from "@/lib/supabase/server";
 import { tryCreateAdminClient } from "@/lib/supabase/admin";
 import {
@@ -172,7 +173,7 @@ export default async function ProjectCompletionPage({
     }
 
     if (!isGuestAccess && (await isContractor())) {
-      redirect("/tarjoukset");
+      redirect(contractorHomePath());
     }
 
     if (!project) {

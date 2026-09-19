@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { CustomerLandingContent } from "@/components/marketing/customer-landing-content";
 import { SiteHeader } from "@/components/site-header";
 import { isContractor } from "@/lib/auth";
+import { contractorHomePath } from "@/lib/contractor-paths";
 import { brand } from "@/lib/brand-theme";
 import { pageMetadata } from "@/lib/seo";
 import { seoDefByPath } from "@/lib/seo-pages";
@@ -19,7 +20,7 @@ export const metadata: Metadata = pageMetadata({
 
 export default async function CustomerLandingPage() {
   if (await isContractor()) {
-    redirect("/tarjoukset");
+    redirect(contractorHomePath());
   }
 
   return (

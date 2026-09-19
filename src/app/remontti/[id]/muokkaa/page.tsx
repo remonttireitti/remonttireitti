@@ -7,6 +7,7 @@ import { buildProjectEditSnapshot } from "@/lib/project-edit";
 import { fetchHeatPumpCatalog } from "@/lib/job-catalog-server";
 import { createClient } from "@/lib/supabase/server";
 import { brand } from "@/lib/brand-theme";
+import { contractorHomePath } from "@/lib/contractor-paths";
 import { fetchAllLearnedProposals } from "@/lib/learned-proposals";
 import {
   fetchAllEmphasizedCriteria,
@@ -26,7 +27,7 @@ export default async function EditProjectPage({
 
   const profile = await getProfile();
   if (await isContractor()) {
-    redirect("/tarjoukset");
+    redirect(contractorHomePath());
   }
 
   const supabase = await createClient();

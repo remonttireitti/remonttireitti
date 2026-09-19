@@ -9,6 +9,7 @@ import {
   adminPreviewCookieOptions,
   type AdminPreviewMode,
 } from "@/lib/admin-preview";
+import { contractorHomePath } from "@/lib/contractor-paths";
 
 export type AdminPreviewActionState = {
   error?: string;
@@ -37,7 +38,13 @@ export async function setAdminPreviewMode(formData: FormData): Promise<void> {
     redirect(redirectTo);
   }
 
-  redirect(mode === "contractor" ? "/tarjoukset" : mode === "customer" ? "/" : "/admin");
+  redirect(
+    mode === "contractor"
+      ? contractorHomePath()
+      : mode === "customer"
+        ? "/"
+        : "/admin",
+  );
 }
 
 export async function clearAdminPreviewMode() {

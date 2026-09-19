@@ -12,6 +12,7 @@ import {
 import { pageMetadata } from "@/lib/seo";
 import { seoDefByPath } from "@/lib/seo-pages";
 import { brand } from "@/lib/brand-theme";
+import { contractorHomePath } from "@/lib/contractor-paths";
 
 const seo = seoDefByPath("/huolto/uusi")!;
 
@@ -44,7 +45,7 @@ export default async function NewMaintenanceRequestPage({
   if (!user) redirect(`/kirjaudu?redirect=${encodeURIComponent(selfPath)}`);
 
   if (await isContractor()) {
-    redirect("/tarjoukset");
+    redirect(contractorHomePath());
   }
 
   const profile = await getProfile();
