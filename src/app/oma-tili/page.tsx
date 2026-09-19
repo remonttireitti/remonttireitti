@@ -13,6 +13,7 @@ import { ContractorMarketProfilePanel } from "@/components/contractor/contractor
 import { SiteHeader } from "@/components/site-header";
 import { isAdmin } from "@/lib/admin";
 import { getProfile, getSessionUser, isContractor } from "@/lib/auth";
+import { canBrowseAsContractor } from "@/lib/admin-preview";
 import { fetchContractorDashboard } from "@/lib/contractor-dashboard-server";
 import { fetchContractorMarketSignalsForOne } from "@/lib/contractor-market-profile-server";
 import { getContractorCompanyBypass } from "@/lib/profile-read";
@@ -42,9 +43,7 @@ export default async function AccountPage({
   const params = await searchParams;
   const profile = await getProfile();
   const needsContractorFix = shouldOfferContractorActivation(user, profile);
-  const contractor =
-    (profile?.role === "contractor" || (await isContractor())) &&
-    !needsContractorFix;
+  const contractor = (await canBrowseAsContractor()) && !needsContractorFix;
   const admin = await isAdmin();
   const supabase = await createClient();
   const notificationPrefs = await getNotificationPrefs(user.id);

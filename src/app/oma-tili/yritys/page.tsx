@@ -2,7 +2,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ContractorSettingsPanel } from "@/components/contractor/contractor-settings-panel";
 import { SiteHeader } from "@/components/site-header";
-import { canBrowseAsContractor } from "@/lib/admin-preview";
+import { canManageContractorCompanySettings } from "@/lib/admin-preview";
+import { isAdmin } from "@/lib/admin";
 import { getSessionUser } from "@/lib/auth";
 import { fetchContractorAccountSettings } from "@/lib/contractor-account-settings-server";
 import { brand } from "@/lib/brand-theme";
@@ -14,7 +15,10 @@ export default async function ContractorCompanySettingsPage() {
   const user = await getSessionUser();
   if (!user) redirect("/kirjaudu?redirect=/oma-tili/yritys");
 
-  if (!(await canBrowseAsContractor())) {
+  if (!(await canManageContractorCompanySettings())) {
+    if (await isAdmin()) {
+      redirect("/admin?viesti=admin-ei-yritys");
+    }
     redirect("/oma-tili?viesti=vain-urakoitsijalle");
   }
 

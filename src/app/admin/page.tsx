@@ -1,30 +1,21 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { AdminGridCard } from "@/components/admin/admin-grid-card";
 import { AdminNav } from "@/components/admin/admin-nav";
-import { EvaluatorAvailabilityAdminForm } from "@/components/admin/evaluator-availability-admin-form";
-import { EvaluatorScopeForm } from "@/components/admin/evaluator-scope-form";
-import { UserRowActions } from "@/components/admin/user-row-actions";
 import { SiteHeader } from "@/components/site-header";
 import { requireAdmin } from "@/lib/admin";
-import {
-  formatElectricalQualification,
-  formatLviQualifications,
-  formatRefrigerant,
-} from "@/lib/format-qualifications";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getSessionUser } from "@/lib/auth";
-import {
-  getProfileRoleLabel,
-  profileRoleBadgeClass,
-} from "@/lib/profile-role-labels";
+import { getProfileRoleLabel } from "@/lib/profile-role-labels";
 import { brand } from "@/lib/brand-theme";
-import { ALL_EVALUATOR_SCOPE_SLUGS } from "@/lib/evaluator-scopes";
 
 const previewHints: Record<string, string> = {
   "valitse-asiakas-esikatselu":
     "Valitse yläreunan valikosta Selaa asiakkaana ennen tarjouspyynnön testausta.",
   "valitse-urakoitsija-esikatselu":
     "Valitse yläreunan valikosta Selaa urakoitsijana ennen tarjousten testausta.",
+  "admin-ei-yritys":
+    "Admin-tili ei käytä yrityksen hinnastoa tai pätevyyksien muokkausta. Käytä esikatselutilaa tai hallinnoi urakoitsijoita täältä.",
 };
 
 export default async function AdminPage({
@@ -47,28 +38,7 @@ export default async function AdminPage({
 
   const { data: contractors } = await admin
     .from("contractor_profiles")
-    .select(
-      "id, company_name, refrigerant_license, electrical_qualification, lvi_qualifications",
-    );
-
-  const { data: evaluatorScopeRows } = await admin
-    .from("evaluator_scopes")
-    .select("evaluator_id, scope");
-
-  const { data: evaluatorProfileRows } = await admin
-    .from("evaluator_profiles")
-    .select("evaluator_id, accepting_reviews, unavailable_note, unavailable_set_by");
-
-  const scopesByUser = new Map<string, string[]>();
-  for (const row of evaluatorScopeRows ?? []) {
-    const list = scopesByUser.get(row.evaluator_id as string) ?? [];
-    list.push(row.scope as string);
-    scopesByUser.set(row.evaluator_id as string, list);
-  }
-
-  const profileByUser = new Map(
-    (evaluatorProfileRows ?? []).map((p) => [p.evaluator_id as string, p]),
-  );
+    .select("id, company_name");
 
   const contractorByUser = new Map((contractors ?? []).map((c) => [c.id, c]));
 
@@ -83,7 +53,7 @@ export default async function AdminPage({
   const rows = (profiles ?? []).map((p) => ({
     ...p,
     email: emailById.get(p.id) ?? "—",
-    contractor: contractorByUser.get(p.id) ?? null,
+    companyName: contractorByUser.get(p.id)?.company_name ?? null,
   }));
 
   return (
@@ -100,97 +70,51 @@ export default async function AdminPage({
           </p>
         )}
         <p className="mt-3 max-w-2xl text-sm text-stone-600">
-          Kokeile palvelua oikealla käyttöliittymällä: valitse yläreunan violetista
-          palkista <strong>Selaa asiakkaana</strong> tai{" "}
-          <strong>Selaa urakoitsijana</strong>. Testidata ei näy muille eikä lähetä
-          ilmoituksia.
-        </p>
-        <p className="mt-2 text-sm text-stone-600">
-          Kehitystyökalu: korjaa roolit ja poista käyttäjiä. Käytä vain luotettavassa
-          ympäristössä.
+          Klikkaa käyttäjää avataksesi roolin, arvioijan laajuuden ja muut
+          asetukset. Admin ei käytä yrityksen hinnastoa tai pätevyyksien
+          muokkausta — testaa urakoitsijaa yläreunan esikatselutilalla.
         </p>
         <AdminNav current="/admin" />
 
-        <div className="mt-8 space-y-4">
-          {rows.length === 0 ? (
-            <p>Ei käyttäjiä.</p>
-          ) : (
-            rows.map((row) => (
-              <article
+        <p className="mt-6 text-sm text-stone-500">
+          {rows.length} käyttäjää
+        </p>
+
+        {rows.length === 0 ? (
+          <p className="mt-4 rounded-xl border border-stone-200 bg-white p-6 text-sm text-stone-600">
+            Ei käyttäjiä.
+          </p>
+        ) : (
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {rows.map((row) => (
+              <AdminGridCard
                 key={row.id}
-                className="rounded-xl border border-stone-200 bg-white p-4"
-              >
-                <div className="flex flex-wrap justify-between gap-2">
-                  <div>
-                    <p className="font-medium">{row.email}</p>
-                    <p className="text-xs text-stone-500">{row.id}</p>
-                  </div>
-                  <span
-                    className={`rounded-full px-2.5 py-1 text-xs font-medium ${profileRoleBadgeClass(row.role)}`}
-                  >
+                id={row.id}
+                href={`/admin/kayttajat/${row.id}`}
+                title={row.companyName ?? row.full_name ?? row.email}
+                footer={
+                  <>
+                    <span className="font-medium">Rooli:</span>{" "}
                     {getProfileRoleLabel(row.role)}
-                  </span>
-                </div>
-                {row.full_name && (
-                  <p className="mt-1 text-sm text-stone-600">{row.full_name}</p>
+                  </>
+                }
+              >
+                <p>{row.email}</p>
+                {row.companyName && row.full_name && (
+                  <p>{row.full_name}</p>
                 )}
-                {row.contractor?.company_name && (
-                  <p className="text-sm text-stone-500">
-                    Yritys: {row.contractor.company_name}
+                {row.companyName ? (
+                  <p>
+                    <span className="text-white/75">Yritys:</span>{" "}
+                    {row.companyName}
                   </p>
+                ) : (
+                  <p className="text-white/75">Ei yritysprofiilia</p>
                 )}
-                {row.contractor?.refrigerant_license && (
-                  <p className="text-xs text-stone-500">
-                    Kylmäaine: {formatRefrigerant(row.contractor.refrigerant_license)}
-                    {" · "}
-                    Sähkö:{" "}
-                    {formatElectricalQualification(
-                      row.contractor.electrical_qualification,
-                    )}
-                    {" · "}
-                    LVI:{" "}
-                    {formatLviQualifications(
-                      row.contractor.lvi_qualifications ?? [],
-                    )}
-                  </p>
-                )}
-                <UserRowActions
-                  userId={row.id}
-                  email={row.email}
-                  currentRole={row.role}
-                  companyName={row.contractor?.company_name ?? null}
-                />
-                <EvaluatorScopeForm
-                  userId={row.id}
-                  scopes={
-                    scopesByUser.get(row.id) ??
-                    (row.role === "admin" ? [...ALL_EVALUATOR_SCOPE_SLUGS] : [])
-                  }
-                />
-                <EvaluatorAvailabilityAdminForm
-                  userId={row.id}
-                  hasScopes={
-                    (scopesByUser.get(row.id)?.length ?? 0) > 0 ||
-                    row.role === "admin"
-                  }
-                  profile={
-                    profileByUser.has(row.id)
-                      ? {
-                          evaluator_id: row.id,
-                          accepting_reviews: profileByUser.get(row.id)!
-                            .accepting_reviews as boolean,
-                          unavailable_note: (profileByUser.get(row.id)!
-                            .unavailable_note as string | null) ?? null,
-                          unavailable_set_by: (profileByUser.get(row.id)!
-                            .unavailable_set_by as "self" | "admin" | null) ?? null,
-                        }
-                      : null
-                  }
-                />
-              </article>
-            ))
-          )}
-        </div>
+              </AdminGridCard>
+            ))}
+          </div>
+        )}
       </main>
     </div>
   );
