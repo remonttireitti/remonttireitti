@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { AdminGridCard } from "@/components/admin/admin-grid-card";
+import { AdminGridCard, adminGridClassName } from "@/components/admin/admin-grid-card";
 import { AdminNav } from "@/components/admin/admin-nav";
 import { SiteHeader } from "@/components/site-header";
 import { requireAdmin } from "@/lib/admin";
@@ -95,7 +95,7 @@ export default async function AdminProjectsPage({
                     : "Ei pyyntöjä tällä suodattimella. Kokeile suodatinta Kaikki."}
           </p>
         ) : (
-          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          <div className={`mt-4 ${adminGridClassName}`}>
             {rows.map((row) => (
               <AdminGridCard
                 key={row.id}
