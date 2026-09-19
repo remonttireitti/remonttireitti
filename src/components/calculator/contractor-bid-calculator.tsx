@@ -55,6 +55,8 @@ type Props = {
   initialPrimaryQty?: number;
   jobPriceBenchmark?: JobPriceBenchmark | null;
   onApply: (result: BidCalculatorResult) => void;
+  /** bid = tarjouspyyntöön, standalone = oma asiakas */
+  variant?: "bid" | "standalone";
 };
 
 export function ContractorBidCalculator({
@@ -63,7 +65,9 @@ export function ContractorBidCalculator({
   initialPrimaryQty,
   jobPriceBenchmark = null,
   onApply,
+  variant = "bid",
 }: Props) {
+  const isStandalone = variant === "standalone";
   const defaultTier = config.defaultTierId ?? config.tiers?.[0]?.id;
   const [estimateMode, setEstimateMode] = useState<"quick" | "detail">("quick");
   const [answers, setAnswers] = useState<Record<string, string>>(() =>
@@ -243,11 +247,12 @@ export function ContractorBidCalculator({
     <div className="space-y-6 rounded-2xl border-2 border-sky-200 bg-gradient-to-b from-sky-50/80 to-white p-5 sm:p-6">
       <div>
         <p className="text-sm font-semibold uppercase tracking-wide text-sky-800">
-          Urakoitsijan tarjouslaskuri
+          {isStandalone ? "Tarjouslaskuri" : "Urakoitsijan tarjouslaskuri"}
         </p>
         <p className="mt-1 text-sm text-stone-600">
-          Laske tarjous omilla hinnoillasi ja katteellasi. Sama rakenne kuin
-          asiakkaan vertailussa — eri tarkoitus, sama moottori.
+          {isStandalone
+            ? "Laske tarjous omille asiakkaillesi — sama moottori kuin Remonttireitin tarjouspyynnöissä."
+            : "Laske tarjous omilla hinnoillasi ja katteellasi. Sama rakenne kuin asiakkaan vertailussa — eri tarkoitus, sama moottori."}
         </p>
       </div>
 
@@ -388,6 +393,7 @@ export function ContractorBidCalculator({
         )}
       </ul>
 
+      {!isStandalone && (
       <div className="rounded-xl border border-stone-200 bg-white p-4">
         <p className="text-sm font-semibold text-stone-800">
           Puuttuuko laskurista jokin?
@@ -467,6 +473,7 @@ export function ContractorBidCalculator({
           </span>
         </label>
       </div>
+      )}
 
       <BidProfitabilityPanel
         sellingPrice={sellingPrice || estimate.totalWithMargin}
@@ -487,7 +494,9 @@ export function ContractorBidCalculator({
           vatTreatment={CONTRACTOR_COST_VAT}
         />
         <div className={`${brand.estimateBox} p-5`}>
-          <p className="text-sm font-medium text-sky-800">Siirrettävä tarjous</p>
+          <p className="text-sm font-medium text-sky-800">
+            {isStandalone ? "Tarjouksen summa" : "Siirrettävä tarjous"}
+          </p>
           <p className="mt-1 text-3xl font-bold text-sky-950">
             {formatEuro(sellingPrice || estimate.totalWithMargin)}
           </p>
@@ -508,15 +517,18 @@ export function ContractorBidCalculator({
             )}
           </p>
           <p className="mt-2 text-xs text-sky-900/70">
-            Siirrät summan tarjouslomakkeeseen — valitse siellä ALV-merkintä
-            (sis. ALV tai ALV 0 %).
+            {isStandalone
+              ? "Valitse ALV-merkintä tarjouslomakkeella — PDF näyttää loppusumman asiakkaalle."
+              : "Siirrät summan tarjouslomakkeeseen — valitse siellä ALV-merkintä (sis. ALV tai ALV 0 %)."}
           </p>
           <button
             type="button"
             onClick={handleApply}
             className={`${brand.btnPrimary} mt-4 w-full`}
           >
-            Jätä tämä tarjous tarjouspyyntöön
+            {isStandalone
+              ? "Tarjous valmis — tarkista tiedot"
+              : "Jätä tämä tarjous tarjouspyyntöön"}
           </button>
         </div>
       </div>

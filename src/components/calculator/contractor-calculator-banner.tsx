@@ -28,8 +28,11 @@ export function ContractorCalculatorBanner({
         <li>→ Omat hinnat tallennetaan Oma tili -sivulle</li>
       </ul>
       <div className="mt-4 flex flex-wrap gap-3">
-        <Link href="/tarjoukset" className={`${brand.btnPrimary} text-sm`}>
-          Avaa tarjouspyynnöt →
+        <Link href="/tarjouslaskuri" className={`${brand.btnPrimary} text-sm`}>
+          Laske tarjous →
+        </Link>
+        <Link href="/tarjoukset" className="text-sm font-medium text-sky-800 hover:underline">
+          Tarjouspyynnöt
         </Link>
         <Link
           href="/oma-tili#laskentaparametrit"
