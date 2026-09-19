@@ -3,6 +3,7 @@ import type { BidCostBreakdown, BidProfitabilitySummary } from "@/lib/bid-profit
 import type { BidScopeLine } from "@/lib/bid-scope-lines";
 
 export type ContractorQuoteStatus = "draft" | "finalized";
+export type ContractorQuoteOutcome = "pending" | "won" | "lost";
 
 export type ContractorQuoteRow = {
   id: string;
@@ -26,8 +27,20 @@ export type ContractorQuoteRow = {
   notes: string | null;
   status: ContractorQuoteStatus;
   pdf_generated_at: string | null;
+  outcome: ContractorQuoteOutcome;
+  outcome_updated_at: string | null;
+  remonttireitti_project_id: string | null;
   created_at: string;
   updated_at: string;
+};
+
+export const CONTRACTOR_QUOTE_OUTCOME_LABELS: Record<
+  ContractorQuoteOutcome,
+  string
+> = {
+  pending: "Odottaa",
+  won: "Tilattu",
+  lost: "Ei tullut",
 };
 
 export type ContractorQuoteFormFields = {
