@@ -10,6 +10,12 @@ import {
 } from "@/lib/contractor-work-filter";
 import type { BidStatus } from "@/types/database";
 
+const SUBMITTED_BID_STATUSES: BidStatus[] = [
+  "submitted",
+  "accepted",
+  "rejected",
+];
+
 export type ContractorDashboardStats = {
   submittedCount: number;
   acceptedCount: number;
@@ -37,23 +43,34 @@ export type ContractorDashboardData = {
   stats: ContractorDashboardStats;
 };
 
-function parseBidRow(raw: Record<string, unknown>): ContractorDashboardBid | null {
-  const projects = raw.projects as
-    | { title: string; municipality: string; status: string }
-    | { title: string; municipality: string; status: string }[]
-    | null;
-  const project = Array.isArray(projects) ? projects[0] : projects;
-  if (!project) return null;
+type BidRow = {
+  id: string;
+  status: BidStatus;
+  amount_cents: number;
+  submitted_at: string | null;
+  project_id: string;
+};
 
+type ProjectRow = {
+  id: string;
+  title: string;
+  municipality: string;
+  status: string;
+};
+
+function buildDashboardBid(
+  bid: BidRow,
+  project: ProjectRow | undefined,
+): ContractorDashboardBid {
   return {
-    id: String(raw.id),
-    status: raw.status as BidStatus,
-    amount_cents: Number(raw.amount_cents),
-    submitted_at: raw.submitted_at != null ? String(raw.submitted_at) : null,
-    project_id: String(raw.project_id),
-    project_title: project.title,
-    project_municipality: project.municipality,
-    project_status: project.status,
+    id: bid.id,
+    status: bid.status,
+    amount_cents: bid.amount_cents,
+    submitted_at: bid.submitted_at,
+    project_id: bid.project_id,
+    project_title: project?.title ?? "Tarjouspyyntö",
+    project_municipality: project?.municipality ?? "—",
+    project_status: project?.status ?? "unknown",
   };
 }
 
@@ -73,41 +90,53 @@ export async function fetchContractorDashboard(
     "oma-alue",
   ).slice(0, 5);
 
-  const { data: bidRows } = await supabase
+  const { data: bidRows, error: bidError } = await supabase
     .from("bids")
-    .select(
-      `
-      id,
-      status,
-      amount_cents,
-      submitted_at,
-      project_id,
-      projects ( title, municipality, status )
-    `,
-    )
-    .eq("contractor_id", contractorId)
-    .not("status", "eq", "draft")
-    .order("submitted_at", { ascending: false, nullsFirst: false })
-    .limit(8);
-
-  const recentBids = (bidRows ?? [])
-    .map((row) => parseBidRow(row as Record<string, unknown>))
-    .filter((row): row is ContractorDashboardBid => row != null);
-
-  const bidProjectIds = new Set(recentBids.map((b) => b.project_id));
-
-  const { data: allBidStatuses } = await supabase
-    .from("bids")
-    .select("status")
+    .select("id, status, amount_cents, submitted_at, project_id")
     .eq("contractor_id", contractorId)
     .not("submitted_at", "is", null)
-    .in("status", ["submitted", "accepted", "rejected"]);
+    .in("status", SUBMITTED_BID_STATUSES)
+    .order("submitted_at", { ascending: false });
 
-  const submittedCount = allBidStatuses?.length ?? 0;
-  const acceptedCount =
-    allBidStatuses?.filter((b) => b.status === "accepted").length ?? 0;
-  const activeBidCount =
-    allBidStatuses?.filter((b) => b.status === "submitted").length ?? 0;
+  if (bidError) {
+    console.error("[fetchContractorDashboard/bids]", bidError.message);
+  }
+
+  const submittedBids = (bidRows ?? []) as BidRow[];
+  const projectIds = [...new Set(submittedBids.map((b) => b.project_id))];
+
+  let projectMap = new Map<string, ProjectRow>();
+  if (projectIds.length > 0) {
+    const { data: projectRows, error: projectError } = await supabase
+      .from("projects")
+      .select("id, title, municipality, status")
+      .in("id", projectIds);
+
+    if (projectError) {
+      console.error(
+        "[fetchContractorDashboard/projects]",
+        projectError.message,
+      );
+    }
+
+    projectMap = new Map(
+      ((projectRows ?? []) as ProjectRow[]).map((p) => [p.id, p]),
+    );
+  }
+
+  const recentBids = submittedBids
+    .slice(0, 8)
+    .map((bid) => buildDashboardBid(bid, projectMap.get(bid.project_id)));
+
+  const bidProjectIds = new Set(submittedBids.map((b) => b.project_id));
+
+  const submittedCount = submittedBids.length;
+  const acceptedCount = submittedBids.filter(
+    (b) => b.status === "accepted",
+  ).length;
+  const activeBidCount = submittedBids.filter(
+    (b) => b.status === "submitted",
+  ).length;
   const conversionPercent =
     submittedCount > 0
       ? Math.round((acceptedCount / submittedCount) * 1000) / 10

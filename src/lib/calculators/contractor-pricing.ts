@@ -62,10 +62,11 @@ export function contractorOverheadLines(
     {
       id: "telineet",
       label: "Telineet / nostotyö",
-      description: "Työmaan telineet, nostimet tai muu pääsy.",
+      description:
+        "Telineet, nostin tai muu pääsy korkealle asennukselle — valitse vain tarvittaessa.",
       unit: "fixed",
       amount: rates.scaffoldingFee,
-      enabled: true,
+      enabled: false,
     },
     {
       id: "jate",

@@ -22,7 +22,11 @@ export const LAMMITYS_CUSTOM: Record<string, CustomCalculatorQuestions> = {
       q("ulkoyksikko", "Ulkoyksikön kiinnitys", "quick", "seinä", [
         { id: "seinä", label: "Seinäkiinnitys", effect: toggle("maateline", false) },
         { id: "maateline", label: "Maateline", effect: toggle("maateline", true) },
-        { id: "korkea", label: "Korkea asennus / nostin", effect: { lineEnabled: { maateline: true }, fixedAdd: 350 } },
+        {
+          id: "korkea",
+          label: "Korkea asennus / nostin",
+          effect: { lineEnabled: { maateline: true }, fixedAdd: 350 },
+        },
       ]),
       q("vanha-laite", "Vanha laite", "detail", "ei", [
         { id: "ei", label: "Ei vanhaa laitetta", effect: toggle("vanhan-poisto", false) },
