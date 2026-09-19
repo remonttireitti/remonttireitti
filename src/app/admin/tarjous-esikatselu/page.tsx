@@ -29,7 +29,7 @@ export default async function AdminQuotePrintPreviewPage() {
           </h1>
           <p className="mt-1 text-sm text-stone-600">
             Esimerkki siitä, miltä urakoitsijan PDF-tarjous ja selain-tuloste
-            näyttävät. Alatunnisteessa on aina sovellusmaininta.
+            näyttävät. Alatunnisteessa on Remonttireitti-logo.
           </p>
           <AdminNav current="/admin/tarjous-esikatselu" />
         </div>
@@ -43,7 +43,7 @@ export default async function AdminQuotePrintPreviewPage() {
         </div>
 
         <div className="rounded-2xl border border-stone-200 bg-white p-6 shadow-sm print:border-0 print:p-8 print:shadow-none sm:p-10">
-          <ContractorQuoteDocument data={sample} sampleBadge />
+          <ContractorQuoteDocument data={sample} />
         </div>
       </main>
     </div>

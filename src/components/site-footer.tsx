@@ -11,7 +11,7 @@ export async function SiteFooter() {
   const isCustomer = !!user && !contractor && profile?.role === "customer";
 
   return (
-    <footer className="mt-auto border-t border-stone-200 bg-white">
+    <footer className="mt-auto border-t border-stone-200 bg-white print:hidden">
       <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
         <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
           <div>
