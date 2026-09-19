@@ -8,6 +8,7 @@ import {
   type ContractorQuoteActionState,
 } from "@/app/actions/contractor-quotes";
 import { ContractorBidCalculator } from "@/components/calculator/contractor-bid-calculator";
+import { ContractorQuotePdfDownloadButton } from "@/components/contractor/contractor-quote-pdf-download";
 import { brand } from "@/lib/brand-theme";
 import type { BidCalculatorResult } from "@/lib/bid-calculator-bridge";
 import type { ContractorQuotePdfUsage } from "@/lib/contractor-quote-limits";
@@ -84,10 +85,6 @@ export function StandaloneQuoteWorkspace({
   }, [saveState.quoteId]);
 
   const effectiveQuoteId = saveState.quoteId ?? savedQuoteId;
-
-  const pdfUrl = effectiveQuoteId
-    ? `/api/contractor-quotes/${effectiveQuoteId}/pdf`
-    : null;
 
   return (
     <div className="space-y-8">
@@ -243,13 +240,11 @@ export function StandaloneQuoteWorkspace({
                 {savePending ? "Tallennetaan…" : "Tallenna tarjous"}
               </button>
 
-              {pdfUrl && (
-                <a
-                  href={pdfUrl}
-                  className="inline-flex items-center rounded-xl border border-emerald-300 bg-white px-4 py-2.5 text-sm font-semibold text-emerald-900 hover:bg-emerald-50"
-                >
-                  Lataa PDF
-                </a>
+              {effectiveQuoteId && (
+                <ContractorQuotePdfDownloadButton
+                  quoteId={effectiveQuoteId}
+                  className="inline-flex items-center rounded-xl border border-emerald-300 bg-white px-4 py-2.5 text-sm font-semibold text-emerald-900 hover:bg-emerald-50 disabled:opacity-60"
+                />
               )}
 
               {!effectiveQuoteId && pdfUsage.remaining === 0 && (

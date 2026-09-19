@@ -1,24 +1,32 @@
 "use client";
 
 import Link from "next/link";
+import { ContractorQuotePdfDownloadButton } from "@/components/contractor/contractor-quote-pdf-download";
+import type { ContractorQuotePdfData } from "@/lib/contractor-quote-pdf";
 
 export function ContractorQuotePrintToolbar({
   backHref,
   backLabel = "Takaisin",
-  pdfHref,
+  quoteId,
+  pdfData,
+  filename,
+  recordExport = false,
 }: {
   backHref: string;
   backLabel?: string;
-  pdfHref: string;
+  quoteId?: string;
+  pdfData?: ContractorQuotePdfData;
+  filename?: string;
+  recordExport?: boolean;
 }) {
   return (
     <div className="print:hidden mb-8 flex flex-wrap items-center gap-3">
-      <a
-        href={pdfHref}
-        className="rounded-2xl bg-orange-700 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-orange-800"
-      >
-        Lataa PDF
-      </a>
+      <ContractorQuotePdfDownloadButton
+        quoteId={quoteId}
+        pdfData={pdfData}
+        filename={filename}
+        recordExport={recordExport}
+      />
       <button
         type="button"
         onClick={() => window.print()}
