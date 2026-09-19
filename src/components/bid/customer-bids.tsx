@@ -43,7 +43,10 @@ import {
   analyzeBidComparison,
   bidInsightInputFromRow,
 } from "@/lib/bid-comparison-insights";
+import { ContractorMarketSignals } from "@/components/bid/contractor-market-signals";
 import { FairPriceTierDisplayCell } from "@/components/bid/fair-price-tier-display";
+import type { ContractorMarketSignals as ContractorMarketSignalsData } from "@/lib/contractor-market-profile";
+import { BID_CONVERSION_DISCLAIMER } from "@/lib/contractor-market-profile";
 import { PriceWithVat } from "@/components/price/price-with-vat";
 import {
   FAIR_PRICE_DISCLAIMER,
@@ -239,6 +242,8 @@ function MobileBidCard({
   customerReferralDiscountCents,
   customerReferralApplies,
   fairPriceTier,
+  marketSignals,
+  contractorRating,
 }: {
   bid: BidWithContractor;
   pendingWinner: boolean;
@@ -257,6 +262,8 @@ function MobileBidCard({
   customerReferralDiscountCents: number;
   customerReferralApplies: boolean;
   fairPriceTier?: FairPriceTierDisplay | null;
+  marketSignals?: ContractorMarketSignalsData | null;
+  contractorRating?: ContractorRatingSummary | null;
 }) {
   const company = getBidContractorName(bid.contractor_profiles);
   const cardClass = `rounded-xl border p-4 ${columnClass(bid.status, pendingWinner)}`;
@@ -296,6 +303,20 @@ function MobileBidCard({
             <CounterOfferBadge status={bid.counter_status} />
           )}
         </div>
+        {contractorRating && contractorRating.count > 0 && (
+          <div className="mt-2">
+            <StarRatingDisplay
+              rating={contractorRating.average}
+              count={contractorRating.count}
+            />
+          </div>
+        )}
+        <ContractorMarketSignals
+          conversion={marketSignals?.conversion}
+          responseTime={marketSignals?.responseTime}
+          fairPriceTier={fairPriceTier}
+          compact
+        />
       </header>
 
       <dl className="mt-3">
@@ -480,6 +501,7 @@ export function CustomerBids({
   customerReferralDiscountCents = 0,
   customerReferralEligibleContractorIds = [],
   fairPriceTiers = {},
+  marketSignals = {},
 }: {
   projectId: string;
   projectStatus: ProjectStatus;
@@ -492,6 +514,7 @@ export function CustomerBids({
   customerReferralDiscountCents?: number;
   customerReferralEligibleContractorIds?: string[];
   fairPriceTiers?: Record<string, FairPriceTierDisplay>;
+  marketSignals?: Record<string, ContractorMarketSignalsData>;
 }) {
   const customerReferralEligibleSet = new Set(customerReferralEligibleContractorIds);
   const tradeNameMap = new Map(Object.entries(projectTradeNamesById));
@@ -542,6 +565,13 @@ export function CustomerBids({
   const showFairPriceRow = sorted.some((b) => {
     const d = fairPriceTiers[b.contractor_id];
     return d != null && d.kind !== "none";
+  });
+  const showMarketSignalsDisclaimer = sorted.some((b) => {
+    const signals = marketSignals[b.contractor_id];
+    return (
+      signals?.conversion.kind === "shown" ||
+      signals?.responseTime.kind === "shown"
+    );
   });
 
   if (visibleBids.length === 0) {
@@ -611,13 +641,18 @@ export function CustomerBids({
               bid.contractor_id,
             )}
             fairPriceTier={fairPriceTiers[bid.contractor_id] ?? null}
+            marketSignals={marketSignals[bid.contractor_id] ?? null}
+            contractorRating={contractorRatings[bid.contractor_id] ?? null}
           />
         ))}
       </div>
 
-      {showFairPriceRow && (
-        <p className="mt-3 text-xs leading-relaxed text-stone-500 md:hidden">
-          {FAIR_PRICE_DISCLAIMER}
+      {(showFairPriceRow || showMarketSignalsDisclaimer) && (
+        <p className="mt-3 space-y-2 text-xs leading-relaxed text-stone-500 md:hidden">
+          {showFairPriceRow && <span className="block">{FAIR_PRICE_DISCLAIMER}</span>}
+          {showMarketSignalsDisclaimer && (
+            <span className="block">{BID_CONVERSION_DISCLAIMER}</span>
+          )}
         </p>
       )}
 
@@ -652,6 +687,12 @@ export function CustomerBids({
                         />
                       </div>
                     )}
+                    <ContractorMarketSignals
+                      conversion={marketSignals[bid.contractor_id]?.conversion}
+                      responseTime={marketSignals[bid.contractor_id]?.responseTime}
+                      fairPriceTier={fairPriceTiers[bid.contractor_id]}
+                      compact
+                    />
                     <span className="mt-2 inline-block rounded-full bg-stone-100 px-2 py-0.5 text-xs font-medium text-stone-700">
                       {pendingWinner
                         ? "Valittu — odottaa maksua"
@@ -766,13 +807,20 @@ export function CustomerBids({
               </>
             )}
 
-            {showFairPriceRow && (
+            {(showFairPriceRow || showMarketSignalsDisclaimer) && (
               <tr>
                 <td
                   colSpan={sorted.length + 1}
                   className="border-b border-stone-100 px-3 py-2 text-xs leading-relaxed text-stone-500"
                 >
-                  {FAIR_PRICE_DISCLAIMER}
+                  {showFairPriceRow && (
+                    <p className={showMarketSignalsDisclaimer ? "mb-2" : ""}>
+                      {FAIR_PRICE_DISCLAIMER}
+                    </p>
+                  )}
+                  {showMarketSignalsDisclaimer && (
+                    <p>{BID_CONVERSION_DISCLAIMER}</p>
+                  )}
                 </td>
               </tr>
             )}
