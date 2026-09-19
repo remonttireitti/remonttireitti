@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { ProjectCalculatorBanner } from "@/components/calculator/project-calculator-banner";
 import { ServicePageJsonLd } from "@/components/seo/service-page-json-ld";
 import { SiteHeader } from "@/components/site-header";
 import { MAINTENANCE_JOB_SLUGS } from "@/constants/maintenance";
@@ -72,6 +73,8 @@ export default async function PalveluPage({ params }: Props) {
         <p className="mt-3 text-base leading-relaxed text-stone-600">
           {job.description_fi ?? seo.description}
         </p>
+
+        <ProjectCalculatorBanner jobSlug={slug} className="mt-6" />
 
         <div className={`${brand.section} mt-8 space-y-4 p-4 sm:p-6`}>
           <h2 className="text-lg font-semibold text-stone-900">Näin se toimii</h2>
