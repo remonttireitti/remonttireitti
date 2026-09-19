@@ -1,14 +1,18 @@
 import { GuestQuoteRequestCallout } from "@/components/marketing/guest-quote-request-callout";
 import { HomeCalculatorCallout } from "@/components/marketing/home-calculator-callout";
+import { HomeContractorCalculatorCallout } from "@/components/marketing/home-contractor-calculator-callout";
 import { HomeHelpCallout } from "@/components/marketing/home-help-callout";
 
-/** Vierailijoille kaksipalstainen pänneri + laskurit; kirjautuneille kompakti Apu + laskurit. */
+/** Vierailijoille kaksipalstaiset pännerit; kirjautuneille kompakti Apu + laskurit. */
 export function HomeHeroCallouts({ isLoggedIn = false }: { isLoggedIn?: boolean }) {
   if (isLoggedIn) {
     return (
       <div className="mb-6 space-y-3">
         <HomeHelpCallout isLoggedIn variant="compact" />
-        <HomeCalculatorCallout variant="compact" />
+        <div className="grid gap-3 md:grid-cols-2">
+          <HomeCalculatorCallout variant="compact" className="h-full" />
+          <HomeContractorCalculatorCallout variant="compact" className="h-full" />
+        </div>
       </div>
     );
   }
@@ -22,7 +26,10 @@ export function HomeHeroCallouts({ isLoggedIn = false }: { isLoggedIn?: boolean 
         />
         <HomeHelpCallout className="h-full" />
       </div>
-      <HomeCalculatorCallout variant="strip" />
+      <div className="grid gap-3 md:grid-cols-2">
+        <HomeCalculatorCallout variant="strip" className="h-full" />
+        <HomeContractorCalculatorCallout className="h-full" />
+      </div>
     </div>
   );
 }
