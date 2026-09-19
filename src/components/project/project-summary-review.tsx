@@ -16,6 +16,10 @@ import { EQUIPMENT_SUPPLY_LABELS } from "@/lib/equipment-supply";
 import type { IlmalampopumppuDetails } from "@/types/ilmalampopumppu-details";
 import type { IlmavesilampopumppuDetails } from "@/types/ilmavesilampopumppu-details";
 import type { MaalampopumppuDetails } from "@/types/maalampopumppu-details";
+import type { CalculatorProjectSnapshot } from "@/lib/calculator-project-snapshot";
+import { formatEuro } from "@/lib/calculators/math";
+import { VatLabel } from "@/components/price/price-with-vat";
+import { CONSUMER_VAT } from "@/lib/vat-label";
 
 function linesToRows(body: string): DetailRow[] {
   return body
@@ -97,6 +101,7 @@ export function ProjectSummaryReview({
   municipality,
   budgetMaxLabel,
   photoCount = 0,
+  calculatorSnapshot = null,
 }: {
   jobTypeName: string;
   involvedTradesLabel?: string;
@@ -117,6 +122,7 @@ export function ProjectSummaryReview({
   municipality: string;
   budgetMaxLabel?: string | null;
   photoCount?: number;
+  calculatorSnapshot?: CalculatorProjectSnapshot | null;
 }) {
   const scopeLabel = hasStructuredForm
     ? EQUIPMENT_SUPPLY_LABELS[
@@ -148,6 +154,25 @@ export function ProjectSummaryReview({
           urakoitsijat näkevät saman sisällön tarjouspyynnössä.
         </p>
       </div>
+
+      {calculatorSnapshot && (
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 px-4 py-4">
+          <p className="text-sm font-semibold text-emerald-950">
+            Laskurin hinta-arvio (ei lopullinen hinta)
+          </p>
+          <p className="mt-1 text-lg font-bold text-stone-900">
+            {formatEuro(calculatorSnapshot.lowEuros)} –{" "}
+            {formatEuro(calculatorSnapshot.highEuros)}
+          </p>
+          <p className="mt-1 text-sm text-stone-700">
+            Todennäköinen taso noin {formatEuro(calculatorSnapshot.totalEuros)} ·{" "}
+            {calculatorSnapshot.primaryQty} {calculatorSnapshot.primaryUnit}
+          </p>
+          <p className="mt-1">
+            <VatLabel treatment={CONSUMER_VAT} className="text-xs text-stone-600" />
+          </p>
+        </div>
+      )}
 
       <SummaryAccordion title="Yleiskatsaus" defaultOpen>
         <dl className="grid gap-3 sm:grid-cols-2">

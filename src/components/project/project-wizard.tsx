@@ -1,8 +1,14 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useServerActionSubmit } from "@/hooks/use-server-action-submit";
 import { ProjectCalculatorBanner } from "@/components/calculator/project-calculator-banner";
+import { ProjectCalculatorEstimatePanel } from "@/components/calculator/project-calculator-estimate-panel";
+import {
+  clearCalculatorProjectSnapshot,
+  loadCalculatorProjectSnapshot,
+  type CalculatorProjectSnapshot,
+} from "@/lib/calculator-project-snapshot";
 import { LearnedCriteriaWarnings } from "@/components/project/learned-criteria-warnings";
 import type { LearnedCriterionWithJob } from "@/components/project/learned-criteria-warnings";
 import { ProjectQualityScorePanel } from "@/components/project/project-quality-score-panel";
@@ -190,6 +196,8 @@ export function ProjectWizard({
         : { ...INITIAL_SERVICE_ENGAGEMENT },
   );
   const [photoFiles, setPhotoFiles] = useState<File[]>([]);
+  const [calculatorSnapshot, setCalculatorSnapshot] =
+    useState<CalculatorProjectSnapshot | null>(null);
   const [submitIntent, setSubmitIntent] = useState<"draft" | "publish" | null>(
     null,
   );
@@ -201,6 +209,15 @@ export function ProjectWizard({
     () => catalog.jobTypes.find((j) => j.id === form.job_type_id) ?? null,
     [catalog.jobTypes, form.job_type_id],
   );
+
+  useEffect(() => {
+    const slug = selectedJobType?.slug;
+    if (!slug || isEdit) {
+      setCalculatorSnapshot(null);
+      return;
+    }
+    setCalculatorSnapshot(loadCalculatorProjectSnapshot(slug));
+  }, [selectedJobType?.slug, isEdit]);
 
   const isIlp = selectedJobType?.slug === "ilmalampopumppu";
   const isIvlp = selectedJobType?.slug === "ilmavesilampopumppu";
@@ -494,9 +511,18 @@ export function ProjectWizard({
         )}
 
         {selectedJobType?.slug && (
-          <ProjectCalculatorBanner
-            jobSlug={selectedJobType.slug}
-            className="mb-6"
+          <div className="mb-6 space-y-4">
+            <ProjectCalculatorBanner jobSlug={selectedJobType.slug} />
+            {calculatorSnapshot && (
+              <ProjectCalculatorEstimatePanel snapshot={calculatorSnapshot} />
+            )}
+          </div>
+        )}
+        {calculatorSnapshot && (
+          <input
+            type="hidden"
+            name="calculator_snapshot_json"
+            value={JSON.stringify(calculatorSnapshot)}
           />
         )}
 
@@ -903,6 +929,7 @@ export function ProjectWizard({
             municipality={form.municipality}
             budgetMaxLabel={summaryBudgetMax}
             photoCount={photoFiles.length}
+            calculatorSnapshot={calculatorSnapshot}
           />
           </div>
           </>

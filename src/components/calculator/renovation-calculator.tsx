@@ -9,6 +9,7 @@ import {
 } from "@/components/calculator/calculator-line-items-editor";
 import { CostBreakdownChart } from "@/components/calculator/cost-breakdown-chart";
 import { brand } from "@/lib/brand-theme";
+import { saveCalculatorProjectSnapshot } from "@/lib/calculator-project-snapshot";
 import {
   applyTierOverrides,
   calculateEstimate,
@@ -351,6 +352,18 @@ export function RenovationCalculator({ config }: { config: CalculatorConfig }) {
           <p className="mt-2 text-xs text-sky-900/80">{livePriceNote}</p>
           <Link
             href={ctaHref(config.jobSlug)}
+            onClick={() =>
+              saveCalculatorProjectSnapshot({
+                calculatorSlug: config.slug,
+                jobSlug: config.jobSlug,
+                calculatorTitle: config.title,
+                primaryQty: clampedPrimary,
+                primaryUnit: config.primaryInput.unit,
+                totalEuros: estimate.total,
+                lowEuros: range.low,
+                highEuros: range.high,
+              })
+            }
             className={`${brand.btnPrimary} mt-4 text-center text-sm`}
           >
             {config.ctaLabel ?? "Pyydä tarjoukset"}

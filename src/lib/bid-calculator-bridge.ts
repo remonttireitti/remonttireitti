@@ -87,6 +87,18 @@ export function hintsFromProject(input: ProjectCalculatorHints): {
     return { primaryQty: input.primaryQty };
   }
 
+  if (input.details && typeof input.details === "object") {
+    const estimate = (
+      input.details as Record<string, unknown>
+    ).calculator_estimate;
+    if (estimate && typeof estimate === "object") {
+      const qty = (estimate as { primary_qty?: number }).primary_qty;
+      if (typeof qty === "number" && qty > 0) {
+        return { primaryQty: qty };
+      }
+    }
+  }
+
   const detailsText =
     input.details && typeof input.details === "object"
       ? JSON.stringify(input.details)
