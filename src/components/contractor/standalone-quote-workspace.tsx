@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useEffect, useState, useTransition } from "react";
+import { recordCalculatorLearningSignals } from "@/app/actions/calculator-learning";
 import {
   saveContractorQuote,
   type ContractorQuoteActionState,
@@ -40,6 +41,7 @@ export function StandaloneQuoteWorkspace({
   const [calculatorResult, setCalculatorResult] =
     useState<BidCalculatorResult | null>(null);
   const [savedQuoteId, setSavedQuoteId] = useState<string | null>(null);
+  const [, startLearning] = useTransition();
   const [saveState, saveAction, savePending] = useActionState<
     ContractorQuoteActionState,
     FormData
@@ -54,6 +56,22 @@ export function StandaloneQuoteWorkspace({
 
   function handleCalculatorReady(result: BidCalculatorResult) {
     setCalculatorResult(result);
+
+    if (
+      result.suggestForFutureRequests &&
+      (result.suggestedAddons.length > 0 || result.suggestedInfoNeeds.length > 0)
+    ) {
+      const fd = new FormData();
+      fd.set("calculator_slug", result.calculatorSlug);
+      fd.set("job_slug", jobSlug ?? result.calculatorSlug);
+      fd.set("addons_json", JSON.stringify(result.suggestedAddons));
+      fd.set("info_needs_json", JSON.stringify(result.suggestedInfoNeeds));
+      fd.set("as_suggestion", "1");
+      startLearning(() => {
+        void recordCalculatorLearningSignals({}, fd);
+      });
+    }
+
     document
       .getElementById("quote-completion")
       ?.scrollIntoView({ behavior: "smooth", block: "start" });
