@@ -75,6 +75,13 @@ export default async function ContractorQuoteHubPage() {
               >
                 muokkaa laskentaparametreja
               </Link>
+              {" · "}
+              <Link
+                href="/oma-tili#branding"
+                className="font-medium text-sky-800 hover:underline"
+              >
+                logo ja esittely
+              </Link>
             </p>
           </div>
         </div>

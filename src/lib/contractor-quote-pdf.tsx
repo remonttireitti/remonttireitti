@@ -1,5 +1,6 @@
 import {
   Document,
+  Image,
   Page,
   StyleSheet,
   Text,
@@ -8,17 +9,34 @@ import {
 } from "@react-pdf/renderer";
 import { formatEuro } from "@/lib/calculators/math";
 import {
-  quoteVatBreakdown,
-  type ContractorQuoteRow,
-} from "@/lib/contractor-quote-types";
+  CONTRACTOR_QUOTE_APP_ATTRIBUTION,
+  CONTRACTOR_QUOTE_VALIDITY_NOTE,
+  type ContractorQuoteDocumentView,
+} from "@/lib/contractor-quote-print";
+import { quoteVatBreakdown } from "@/lib/contractor-quote-types";
 import { vatLabel } from "@/lib/vat-label";
+import type { ContractorQuoteRow } from "@/lib/contractor-quote-types";
 
-export type ContractorQuotePdfData = {
-  quote: ContractorQuoteRow;
-  companyName: string;
-  businessId: string | null;
-  billingAddress: string | null;
+export type ContractorQuotePdfData = ContractorQuoteDocumentView & {
+  logoDataUri?: string | null;
 };
+
+export function contractorQuotePdfDataFromRow(
+  row: ContractorQuoteRow,
+  company: Omit<ContractorQuoteDocumentView, "quote"> & {
+    logoDataUri?: string | null;
+  },
+): ContractorQuotePdfData {
+  return {
+    quote: row,
+    companyName: company.companyName,
+    businessId: company.businessId,
+    billingAddress: company.billingAddress,
+    companyDescription: company.companyDescription,
+    logoUrl: company.logoUrl,
+    logoDataUri: company.logoDataUri,
+  };
+}
 
 const styles = StyleSheet.create({
   page: {
@@ -74,6 +92,15 @@ const styles = StyleSheet.create({
     color: "#78716c",
   },
   muted: { color: "#57534e", fontSize: 9 },
+  headerRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    gap: 16,
+  },
+  headerMain: { flex: 1 },
+  logo: { width: 120, height: 48, objectFit: "contain" as const },
+  intro: { marginTop: 8, fontSize: 9, color: "#44403c", lineHeight: 1.5 },
 });
 
 function PdfRow({ label, value }: { label: string; value?: string | null }) {
@@ -87,7 +114,14 @@ function PdfRow({ label, value }: { label: string; value?: string | null }) {
 }
 
 function ContractorQuotePdfDocument({ data }: { data: ContractorQuotePdfData }) {
-  const { quote, companyName, businessId, billingAddress } = data;
+  const {
+    quote,
+    companyName,
+    businessId,
+    billingAddress,
+    companyDescription,
+    logoDataUri,
+  } = data;
   const totalEuros = quote.total_cents / 100;
   const vat = quoteVatBreakdown(totalEuros, quote.vat_included);
   const lines = quote.line_items.filter((l) => l.enabled && l.amount > 0);
@@ -96,15 +130,23 @@ function ContractorQuotePdfDocument({ data }: { data: ContractorQuotePdfData }) 
   return (
     <Document>
       <Page size="A4" style={styles.page}>
-        <Text style={styles.label}>Tarjous</Text>
-        <Text style={styles.h1}>{quote.title}</Text>
-        <Text style={styles.muted}>
-          {companyName}
-          {businessId ? ` · Y-tunnus ${businessId}` : ""}
-        </Text>
-        {billingAddress && (
-          <Text style={[styles.muted, { marginTop: 2 }]}>{billingAddress}</Text>
-        )}
+        <View style={styles.headerRow}>
+          <View style={styles.headerMain}>
+            <Text style={styles.label}>Tarjous</Text>
+            <Text style={styles.h1}>{quote.title}</Text>
+            <Text style={styles.muted}>
+              {companyName}
+              {businessId ? ` · Y-tunnus ${businessId}` : ""}
+            </Text>
+            {billingAddress && (
+              <Text style={[styles.muted, { marginTop: 2 }]}>{billingAddress}</Text>
+            )}
+            {companyDescription && (
+              <Text style={styles.intro}>{companyDescription}</Text>
+            )}
+          </View>
+          {logoDataUri && <Image src={logoDataUri} style={styles.logo} />}
+        </View>
 
         <View style={{ marginTop: 16 }}>
           <Text style={styles.h2}>Asiakas ja kohde</Text>
@@ -148,11 +190,9 @@ function ContractorQuotePdfDocument({ data }: { data: ContractorQuotePdfData }) 
         </View>
 
         <View style={styles.footer}>
-          <Text>
-            Tarjous on laadittu Remonttireitin tarjouslaskurilla. Tarjous on
-            voimassa 30 päivää ellei toisin mainita. Lopullinen hinta voi
-            muuttua, jos työn laajuus tai olosuhteet poikkeavat tarjouksen
-            perusteista.
+          <Text>{CONTRACTOR_QUOTE_VALIDITY_NOTE}</Text>
+          <Text style={{ marginTop: 8, fontWeight: 700, color: "#44403c" }}>
+            {CONTRACTOR_QUOTE_APP_ATTRIBUTION}
           </Text>
         </View>
       </Page>
