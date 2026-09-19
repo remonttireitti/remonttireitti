@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { contractorLogoSignedUrl } from "@/lib/contractor-branding";
 import { getContractorQualifications } from "@/lib/save-contractor-qualifications";
 import type { ContractorRatingSummary } from "@/lib/reviews";
 
@@ -15,6 +16,7 @@ export type PublicContractorProfile = {
   id: string;
   company_name: string;
   description: string | null;
+  logo_url: string | null;
   website_url: string | null;
   years_in_business: number | null;
   employee_count: number | null;
@@ -45,7 +47,7 @@ export async function fetchPublicContractorProfile(
   const { data: cp, error } = await admin
     .from("contractor_profiles")
     .select(
-      "id, company_name, description, website_url, years_in_business, employee_count, founded_year, company_size_band, verification_status, service_municipality, max_travel_km",
+      "id, company_name, description, logo_storage_path, website_url, years_in_business, employee_count, founded_year, company_size_band, verification_status, service_municipality, max_travel_km",
     )
     .eq("id", contractorId)
     .maybeSingle();
@@ -106,10 +108,17 @@ export async function fetchPublicContractorProfile(
     },
   );
 
+  const logoUrl = await contractorLogoSignedUrl(
+    admin,
+    cp.logo_storage_path as string | null,
+    60 * 60 * 24,
+  );
+
   return {
     id: cp.id,
     company_name: cp.company_name,
     description: cp.description,
+    logo_url: logoUrl,
     website_url: cp.website_url,
     years_in_business: cp.years_in_business,
     employee_count: cp.employee_count,

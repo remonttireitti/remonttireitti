@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ContractorJsonLd } from "@/components/seo/contractor-json-ld";
@@ -81,7 +82,19 @@ export default async function PublicContractorPage({
           ← Etusivu
         </Link>
 
-        <header className="mt-4">
+        <header className="mt-4 flex flex-wrap items-start gap-4">
+          {profile.logo_url && (
+            <div className="relative h-16 w-36 shrink-0 overflow-hidden rounded-xl border border-stone-200 bg-white p-2">
+              <Image
+                src={profile.logo_url}
+                alt={`${profile.company_name} logo`}
+                fill
+                className="object-contain object-left"
+                unoptimized
+              />
+            </div>
+          )}
+          <div className="min-w-0 flex-1">
           <h1 className="text-2xl font-bold text-stone-900 sm:text-3xl">
             {profile.company_name}
           </h1>
@@ -123,6 +136,7 @@ export default async function PublicContractorPage({
               </li>
             )}
           </ul>
+          </div>
         </header>
 
         {profile.description?.trim() && (

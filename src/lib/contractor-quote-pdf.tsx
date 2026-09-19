@@ -1,5 +1,6 @@
 import {
   Document,
+  Image,
   Page,
   StyleSheet,
   Text,
@@ -18,6 +19,8 @@ export type ContractorQuotePdfData = {
   companyName: string;
   businessId: string | null;
   billingAddress: string | null;
+  companyDescription: string | null;
+  logoDataUri: string | null;
 };
 
 const styles = StyleSheet.create({
@@ -74,6 +77,15 @@ const styles = StyleSheet.create({
     color: "#78716c",
   },
   muted: { color: "#57534e", fontSize: 9 },
+  headerRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    gap: 16,
+  },
+  headerMain: { flex: 1 },
+  logo: { width: 120, height: 48, objectFit: "contain" as const },
+  intro: { marginTop: 8, fontSize: 9, color: "#44403c", lineHeight: 1.5 },
 });
 
 function PdfRow({ label, value }: { label: string; value?: string | null }) {
@@ -87,7 +99,14 @@ function PdfRow({ label, value }: { label: string; value?: string | null }) {
 }
 
 function ContractorQuotePdfDocument({ data }: { data: ContractorQuotePdfData }) {
-  const { quote, companyName, businessId, billingAddress } = data;
+  const {
+    quote,
+    companyName,
+    businessId,
+    billingAddress,
+    companyDescription,
+    logoDataUri,
+  } = data;
   const totalEuros = quote.total_cents / 100;
   const vat = quoteVatBreakdown(totalEuros, quote.vat_included);
   const lines = quote.line_items.filter((l) => l.enabled && l.amount > 0);
@@ -96,15 +115,23 @@ function ContractorQuotePdfDocument({ data }: { data: ContractorQuotePdfData }) 
   return (
     <Document>
       <Page size="A4" style={styles.page}>
-        <Text style={styles.label}>Tarjous</Text>
-        <Text style={styles.h1}>{quote.title}</Text>
-        <Text style={styles.muted}>
-          {companyName}
-          {businessId ? ` · Y-tunnus ${businessId}` : ""}
-        </Text>
-        {billingAddress && (
-          <Text style={[styles.muted, { marginTop: 2 }]}>{billingAddress}</Text>
-        )}
+        <View style={styles.headerRow}>
+          <View style={styles.headerMain}>
+            <Text style={styles.label}>Tarjous</Text>
+            <Text style={styles.h1}>{quote.title}</Text>
+            <Text style={styles.muted}>
+              {companyName}
+              {businessId ? ` · Y-tunnus ${businessId}` : ""}
+            </Text>
+            {billingAddress && (
+              <Text style={[styles.muted, { marginTop: 2 }]}>{billingAddress}</Text>
+            )}
+            {companyDescription && (
+              <Text style={styles.intro}>{companyDescription}</Text>
+            )}
+          </View>
+          {logoDataUri && <Image src={logoDataUri} style={styles.logo} />}
+        </View>
 
         <View style={{ marginTop: 16 }}>
           <Text style={styles.h2}>Asiakas ja kohde</Text>

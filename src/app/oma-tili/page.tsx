@@ -15,7 +15,9 @@ import { ContractorBillingForm } from "@/components/contractor/contractor-billin
 import { ContractorBidDefaultsForm } from "@/components/contractor/contractor-bid-defaults-form";
 import { ContractorPricingRatesForm } from "@/components/contractor/contractor-pricing-rates-form";
 import { fetchContractorPricingRates } from "@/lib/contractor-pricing-server";
+import { ContractorBrandingForm } from "@/components/contractor/contractor-branding-form";
 import { ContractorProfileForm } from "@/components/contractor/contractor-profile-form";
+import { contractorLogoSignedUrl } from "@/lib/contractor-branding";
 import { ContractorServiceAreaForm } from "@/components/contractor/contractor-service-area-form";
 import { ContractorWorkPreferencesForm } from "@/components/contractor/contractor-work-preferences-form";
 import { fetchContractorBidDefaultsBundle } from "@/lib/contractor-bid-defaults-server";
@@ -88,6 +90,10 @@ export default async function AccountPage({
     billingPostalCode: "",
     billingCity: "",
   };
+  let brandingFields = {
+    description: "",
+    logoUrl: null as string | null,
+  };
 
   if (contractor) {
     contractorQuals = await getContractorQualifications(user.id);
@@ -108,7 +114,7 @@ export default async function AccountPage({
     const { data: billingRow } = await supabase
       .from("contractor_profiles")
       .select(
-        "business_id, billing_email, billing_address_line, billing_postal_code, billing_city, service_postal_code, service_municipality, max_travel_km, min_budget_eur, founded_year, company_size_band",
+        "business_id, billing_email, billing_address_line, billing_postal_code, billing_city, service_postal_code, service_municipality, max_travel_km, min_budget_eur, founded_year, company_size_band, description, logo_storage_path",
       )
       .eq("id", user.id)
       .maybeSingle();
@@ -128,6 +134,13 @@ export default async function AccountPage({
       minBudgetEur = (billingRow.min_budget_eur as number | null) ?? null;
       foundedYear = (billingRow.founded_year as number | null) ?? null;
       companySizeBand = parseCompanySizeBand(billingRow.company_size_band);
+      brandingFields = {
+        description: billingRow.description ?? "",
+        logoUrl: await contractorLogoSignedUrl(
+          supabase,
+          billingRow.logo_storage_path,
+        ),
+      };
     }
   }
 
@@ -489,6 +502,13 @@ export default async function AccountPage({
             <ContractorWorkPreferencesForm
               className="mt-0"
               minBudgetEur={minBudgetEur}
+            />
+
+            <ContractorBrandingForm
+              id="branding"
+              className="mt-0 scroll-mt-24"
+              description={brandingFields.description}
+              logoUrl={brandingFields.logoUrl}
             />
 
             <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
