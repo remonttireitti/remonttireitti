@@ -1,23 +1,9 @@
 import Link from "next/link";
-import { ContractorProjectListItem } from "@/components/contractor/contractor-project-list-item";
+import { ContractorOffersTable } from "@/components/contractor/contractor-offers-table";
+import { ContractorProjectsTable } from "@/components/contractor/contractor-projects-table";
 import { brand } from "@/lib/brand-theme";
-import { formatEurosFromCents } from "@/lib/bids";
-import type {
-  ContractorDashboardData,
-  ContractorDashboardOffer,
-} from "@/lib/contractor-dashboard-server";
-import type { ContractorOpenProject } from "@/lib/contractor-projects-server";
+import type { ContractorDashboardData } from "@/lib/contractor-dashboard-server";
 import { contractorQuoteHubPath } from "@/lib/contractor-quote-paths";
-
-const offerStatusBadgeStyles: Record<
-  ContractorDashboardOffer["statusTone"],
-  string
-> = {
-  sky: "bg-sky-100 text-sky-800",
-  emerald: "bg-emerald-100 text-emerald-800",
-  stone: "bg-stone-100 text-stone-600",
-  amber: "bg-amber-50 text-amber-900",
-};
 
 function StatCard({
   label,
@@ -128,16 +114,12 @@ export function ContractorHomeDashboard({
             </Link>
           </div>
         ) : (
-          <ul className="mt-4 space-y-3">
-            {recommendedProjects.map((project: ContractorOpenProject) => (
-              <ContractorProjectListItem
-                key={project.id}
-                project={project}
-                hasBid={bidProjectIds.has(project.id)}
-                showBudgetWarning={false}
-              />
-            ))}
-          </ul>
+          <ContractorProjectsTable
+            className="mt-4"
+            projects={recommendedProjects}
+            bidProjectIds={bidProjectIds}
+            showBudgetWarning={false}
+          />
         )}
       </section>
 
@@ -184,58 +166,7 @@ export function ContractorHomeDashboard({
             </div>
           </div>
         ) : (
-          <ul className="mt-4 space-y-3">
-            {recentOffers.map((offer) => (
-              <li key={offer.id}>
-                <div
-                  className={`${brand.section} p-4 transition hover:border-sky-200 hover:shadow-md sm:p-5`}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Link
-                          href={offer.href}
-                          className="font-semibold text-stone-900 hover:text-sky-900 hover:underline"
-                        >
-                          {offer.title}
-                        </Link>
-                        <span className="rounded-full bg-stone-100 px-2 py-0.5 text-[11px] font-medium text-stone-600">
-                          {offer.sourceLabel}
-                        </span>
-                      </div>
-                      <p className="mt-1 text-sm text-stone-500">
-                        {offer.locationLabel} ·{" "}
-                        {formatEurosFromCents(offer.amount_cents)}
-                        {offer.date && (
-                          <>
-                            {" · "}
-                            {new Date(offer.date).toLocaleDateString("fi-FI")}
-                          </>
-                        )}
-                      </p>
-                      {offer.pdfHref && offer.pdfLabel && (
-                        <p className="mt-2">
-                          <Link
-                            href={offer.pdfHref}
-                            className="text-sm font-medium text-emerald-800 hover:underline"
-                          >
-                            {offer.pdfLabel}
-                          </Link>
-                        </p>
-                      )}
-                    </div>
-                    <span
-                      className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${
-                        offerStatusBadgeStyles[offer.statusTone]
-                      }`}
-                    >
-                      {offer.statusLabel}
-                    </span>
-                  </div>
-                </div>
-              </li>
-            ))}
-          </ul>
+          <ContractorOffersTable className="mt-4" offers={recentOffers} />
         )}
       </section>
 
