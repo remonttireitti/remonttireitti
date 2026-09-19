@@ -14,8 +14,8 @@ export function CustomerReferralCreditsPanel({
       <h2 className="text-lg font-semibold text-emerald-950">Suosittelubonukset</h2>
       <p className="mt-1 text-sm text-emerald-900/90">
         Olet ansainnut {availableCount}{" "}
-        {availableCount === 1 ? "bonuksen" : "bonusta"} suosittelemiesi asiakkaiden tai
-        urakoitsijoiden diileistä. Seuraavassa hyväksytyssä urakassasi urakoitsija vähentää bonuksen
+        {availableCount === 1 ? "bonuksen" : "bonusta"} suosittelemiesi asiakkaiden
+        tarjouspyynnöistä tai urakoitsijoiden diileistä. Seuraavassa hyväksytyssä urakassasi urakoitsija vähentää bonuksen
         verran ({formatPlatformFee(totalAmountCents / availableCount)} veroton / bonus)
         urakkasi hinnasta — sinulle ei synny erillistä maksua, eikä urakoitsijalle
         välityslaskua.
