@@ -86,7 +86,7 @@ export const LAMMITYS_CALCULATORS: CalculatorConfig[] = [
     faq: [
       {
         q: "Paljonko ilmalämpöpumppu maksaa asennettuna?",
-        a: "Laite ja perusasennus yhdessä maksavat Suomessa tyypillisesti 1 700–3 500 €. Perusasennus alone on noin 690–950 € ja sisältää noin 4 m putkituksen.",
+        a: "Laite ja perusasennus yhdessä maksavat Suomessa tyypillisesti 1 700–3 500 €. Perusasennus yksin on noin 690–950 € ja sisältää noin 4 m putkituksen.",
       },
       {
         q: "Mitä perusasennukseen kuuluu?",
@@ -94,7 +94,7 @@ export const LAMMITYS_CALCULATORS: CalculatorConfig[] = [
       },
       {
         q: "Paljonko lisäputki maksaa?",
-        a: "Yli 4 metrin putkiosuus maksaa yleensä 40–59 € per metri suojakotelointeineen.",
+        a: "Yli 4 metrin putkiosuus: laskurin rivihinta {line:lisaputki:range}/m (noin {line:lisaputki:mid}/m) suojakotelointeineen.",
       },
     ],
     scopeTitle: "Miten ilmalämpöpumpun hinta muodostuu?",
