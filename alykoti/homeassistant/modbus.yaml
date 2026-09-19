@@ -1,0 +1,389 @@
+# modbus.yaml — AirFi IV
+# Sisällytä configuration.yaml: modbus: !include modbus.yaml
+#
+# Tämä on AINOA Modbus-hubi. Älä lisää toista hubia
+# (älä laita `modbus:`-avainta packages/iv.yaml:ään).
+# Hubin IP/portti pidä samana. Lisää numbers-lohko — sen kautta
+# HA kirjoittaa holding 8/10/11 (FC6), muuten nopeus ei muutu.
+
+- name: airfi
+  type: tcp
+  host: 192.168.50.26
+  port: 502
+  retry_on_empty: true
+  timeout: 3
+  close_comm_on_error: false
+  delay: 1
+  message_wait_milliseconds: 30
+
+  sensors:
+    # --- Lämpötilat (3x, arvo × 0.1 = °C) ---
+    - name: "Airfi T1 Ulkoilma"
+      address: 4
+      slave: 1
+      input_type: input
+      data_type: int16
+      unit_of_measurement: "°C"
+      scale: 0.1
+      precision: 1
+      scan_interval: 30
+
+    - name: "Airfi T2 LTO jälkeen"
+      address: 5
+      slave: 1
+      input_type: input
+      data_type: int16
+      unit_of_measurement: "°C"
+      scale: 0.1
+      precision: 1
+      scan_interval: 30
+
+    - name: "Airfi T3 Poistoilma"
+      address: 6
+      slave: 1
+      input_type: input
+      data_type: int16
+      unit_of_measurement: "°C"
+      scale: 0.1
+      precision: 1
+      scan_interval: 30
+
+    - name: "Airfi T4 Jäteilma"
+      address: 7
+      slave: 1
+      input_type: input
+      data_type: int16
+      unit_of_measurement: "°C"
+      scale: 0.1
+      precision: 1
+      scan_interval: 30
+
+    - name: "Airfi T5 Tuloilma"
+      address: 8
+      slave: 1
+      input_type: input
+      data_type: int16
+      unit_of_measurement: "°C"
+      scale: 0.1
+      precision: 1
+      scan_interval: 30
+
+    # --- Puhaltimet: INPUT 11/12 = mitattu nopeus, ei asetus ---
+    - name: "Airfi Poistoilmapuhallin Nopeus"
+      address: 11
+      slave: 1
+      input_type: input
+      data_type: uint16
+      unit_of_measurement: "%"
+      precision: 0
+      scan_interval: 5
+
+    - name: "Airfi Tuloilmapuhallin Nopeus"
+      address: 12
+      slave: 1
+      input_type: input
+      data_type: uint16
+      unit_of_measurement: "%"
+      precision: 0
+      scan_interval: 5
+
+    # --- Ilmamäärät ---
+    - name: "Airfi Tuloilmamaara"
+      address: 45
+      slave: 1
+      input_type: input
+      data_type: uint16
+      unit_of_measurement: "m³/h"
+      precision: 0
+      scan_interval: 60
+
+    - name: "Airfi Poistoilmamaara"
+      address: 46
+      slave: 1
+      input_type: input
+      data_type: uint16
+      unit_of_measurement: "m³/h"
+      precision: 0
+      scan_interval: 60
+
+    # --- Kosteus ---
+    - name: "Airfi Kosteus RH"
+      address: 23
+      slave: 1
+      input_type: input
+      data_type: uint16
+      unit_of_measurement: "%"
+      precision: 0
+      scan_interval: 60
+
+    # --- Tilat ---
+    - name: "Airfi Takkatila"
+      address: 15
+      slave: 1
+      input_type: input
+      data_type: uint16
+      precision: 0
+      scan_interval: 60
+
+    - name: "Airfi Hätäseis tila"
+      address: 17
+      slave: 1
+      input_type: input
+      data_type: uint16
+      precision: 0
+      scan_interval: 60
+
+    - name: "Airfi Vikatila"
+      address: 19
+      slave: 1
+      input_type: input
+      data_type: uint16
+      precision: 0
+      scan_interval: 60
+
+    - name: "Airfi Nopeustaso"
+      address: 24
+      slave: 1
+      input_type: input
+      data_type: uint16
+      precision: 0
+      scan_interval: 60
+
+    - name: "Airfi Lämpötila-asetus luku"
+      address: 28
+      slave: 1
+      input_type: input
+      data_type: int16
+      unit_of_measurement: "°C"
+      scale: 0.1
+      precision: 1
+      scan_interval: 60
+
+    - name: "Airfi AUX2"
+      address: 37
+      slave: 1
+      input_type: input
+      data_type: uint16
+      precision: 0
+      scan_interval: 30
+      # 0 = LTO ohitus päällä, 1 = LTO käytössä
+
+    - name: "Airfi Liesipellin tila"
+      address: 40
+      slave: 1
+      input_type: input
+      data_type: uint16
+      precision: 0
+      scan_interval: 60
+
+    # --- Holding (4x) ---
+    - name: "Airfi Lämpötila-asetus holding"
+      address: 4
+      slave: 1
+      input_type: holding
+      data_type: int16
+      unit_of_measurement: "°C"
+      scale: 0.1
+      precision: 1
+      scan_interval: 60
+
+    - name: "Airfi Kotona Poissa"
+      address: 12
+      slave: 1
+      input_type: holding
+      data_type: uint16
+      precision: 0
+      scan_interval: 120
+
+    - name: "Airfi Ohituksen asetuslämpötila"
+      address: 46
+      slave: 1
+      input_type: holding
+      data_type: uint16
+      unit_of_measurement: "°C"
+      scale: 0.1
+      precision: 1
+      scan_interval: 300
+
+    - name: "Airfi Ohituksen ulkoilmaraja"
+      address: 47
+      slave: 1
+      input_type: holding
+      data_type: uint16
+      unit_of_measurement: "°C"
+      precision: 0
+      scan_interval: 300
+
+    - name: "Airfi Ohituksen viive"
+      address: 48
+      slave: 1
+      input_type: holding
+      data_type: uint16
+      unit_of_measurement: min
+      precision: 0
+      scan_interval: 300
+
+    - name: "Airfi Poissa lämpötila"
+      address: 51
+      slave: 1
+      input_type: holding
+      data_type: int16
+      unit_of_measurement: "°C"
+      scale: 0.1
+      precision: 1
+      scan_interval: 300
+
+    - name: "Airfi Saunatila"
+      address: 56
+      slave: 1
+      input_type: holding
+      data_type: uint16
+      precision: 0
+      scan_interval: 120
+
+    - name: "Airfi Takkatila asetus"
+      address: 57
+      slave: 1
+      input_type: holding
+      data_type: uint16
+      precision: 0
+      scan_interval: 120
+
+    - name: "Airfi Vakiopaine luku"
+      address: 8
+      slave: 1
+      input_type: holding
+      data_type: uint16
+      precision: 0
+      scan_interval: 15
+
+    - name: "Airfi Tulo asetus luku"
+      address: 10
+      slave: 1
+      input_type: holding
+      data_type: uint16
+      unit_of_measurement: "%"
+      precision: 0
+      scan_interval: 15
+
+    - name: "Airfi Poisto asetus luku"
+      address: 11
+      slave: 1
+      input_type: holding
+      data_type: uint16
+      unit_of_measurement: "%"
+      precision: 0
+      scan_interval: 15
+
+  # Kirjoitus FC6 — sama polku kuin Yellow/web (h8, h10, h11).
+  numbers:
+    - name: "Airfi Vakiopaine"
+      unique_id: airfi_vakiopaine
+      address: 8
+      slave: 1
+      data_type: uint16
+      min_value: 0
+      max_value: 1
+      step: 1
+      scale: 1
+      precision: 0
+      write_type: holding
+      scan_interval: 15
+
+    - name: "Airfi Tuloilmapuhallin Asetus"
+      unique_id: airfi_tuloilmapuhallin_asetus
+      address: 10
+      slave: 1
+      data_type: uint16
+      unit_of_measurement: "%"
+      min_value: 25
+      max_value: 100
+      step: 5
+      scale: 1
+      precision: 0
+      write_type: holding
+      scan_interval: 15
+
+    - name: "Airfi Poistoilmapuhallin Asetus"
+      unique_id: airfi_poistoilmapuhallin_asetus
+      address: 11
+      slave: 1
+      data_type: uint16
+      unit_of_measurement: "%"
+      min_value: 25
+      max_value: 100
+      step: 5
+      scale: 1
+      precision: 0
+      write_type: holding
+      scan_interval: 15
+
+    - name: "Airfi Lämpötila-asetus"
+      unique_id: airfi_lampotila_asetus
+      address: 4
+      slave: 1
+      data_type: int16
+      unit_of_measurement: "°C"
+      min_value: 5
+      max_value: 26
+      step: 0.5
+      scale: 0.1
+      precision: 1
+      write_type: holding
+      scan_interval: 60
+
+    - name: "Airfi Ohituksen asetuslämpötila asetus"
+      unique_id: airfi_ohituksen_asetuslampotila_asetus
+      address: 46
+      slave: 1
+      data_type: uint16
+      unit_of_measurement: "°C"
+      min_value: 10
+      max_value: 30
+      step: 0.5
+      scale: 0.1
+      precision: 1
+      write_type: holding
+      scan_interval: 300
+
+    - name: "Airfi Ohituksen ulkoilmaraja asetus"
+      unique_id: airfi_ohituksen_ulkoilmaraja_asetus
+      address: 47
+      slave: 1
+      data_type: uint16
+      unit_of_measurement: "°C"
+      min_value: 0
+      max_value: 25
+      step: 1
+      scale: 1
+      precision: 0
+      write_type: holding
+      scan_interval: 300
+
+    - name: "Airfi Ohituksen viive asetus"
+      unique_id: airfi_ohituksen_viive_asetus
+      address: 48
+      slave: 1
+      data_type: uint16
+      unit_of_measurement: min
+      min_value: 0
+      max_value: 120
+      step: 1
+      scale: 1
+      precision: 0
+      write_type: holding
+      scan_interval: 300
+
+    - name: "Airfi Poissa lämpötila asetus"
+      unique_id: airfi_poissa_lampotila_asetus
+      address: 51
+      slave: 1
+      data_type: int16
+      unit_of_measurement: "°C"
+      min_value: 5
+      max_value: 26
+      step: 0.5
+      scale: 0.1
+      precision: 1
+      write_type: holding
+      scan_interval: 300

@@ -1,0 +1,19 @@
+# energia_kokonaisteho.yaml
+# → config/packages/energia_kokonaisteho.yaml
+# Tiedostonimi ILMAN yhdysviivaa (HA slug ei salli - merkkiä).
+#
+# UUSI entiteetti (ei törmää orpoon sensor.energia_kokonaisteho_w):
+#   sensor.energia_vaiheiden_summa = L1 + L2 + L3
+
+template:
+  - sensor:
+      - name: Energia vaiheiden summa
+        unique_id: energia_vaiheiden_summa
+        unit_of_measurement: "W"
+        device_class: power
+        state_class: measurement
+        icon: mdi:flash
+        state: >
+          {{ states('sensor.l1_vaihe_power') | float(0)
+           + states('sensor.l2_vaihe_power') | float(0)
+           + states('sensor.l3_vaihe_power') | float(0) }}
