@@ -21,12 +21,9 @@ export type ContractorProjectTableItem = {
   meetsMinBudget: boolean;
 };
 
-function statusBits(project: ContractorProjectTableItem, hasBid: boolean) {
-  const parts: string[] = [];
-  if (hasBid) parts.push("Tarjous jätetty");
-  if (project.interest === "interested") parts.push("Kiinnostaa");
-  if (project.interest === "not_interested") parts.push("Ei kiinnosta");
-  return parts.length > 0 ? parts.join(" · ") : "Avoin";
+function statusBits(hasBid: boolean) {
+  // Interest is shown by the thumbs controls; keep status to bid / open only.
+  return hasBid ? "Tarjous jätetty" : "Avoin";
 }
 
 export function ContractorProjectsTable({
@@ -55,7 +52,7 @@ export function ContractorProjectsTable({
             footer={
               <>
                 <span className="font-medium">Tila:</span>{" "}
-                {statusBits(project, hasBid)}
+                {statusBits(hasBid)}
               </>
             }
             actions={
